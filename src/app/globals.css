@@ -1,34 +1,48 @@
 @import "tailwindcss";
 
-/* ─── Design tokens ─────────────────────────────────────────────────── */
+/* ─── Lester Labs Design Tokens ────────────────────────────────────── */
 :root {
-  /* Core palette — dark by default */
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  /* Core palette — Lester Labs brand */
+  --background: #0D0A24;
+  --background-deep: #090720;
+  --foreground: #FFFFFF;
+  --foreground-dim: rgba(255, 255, 255, 0.55);
 
-  /* Accent — placeholder; swap out when brand assets arrive */
-  --accent: #6366f1;          /* indigo-500 → replace with LitVM brand colour */
-  --accent-hover: #4f46e5;    /* indigo-600 */
-  --accent-muted: #6366f120;  /* 12% opacity accent for backgrounds */
+  /* Accent — Lester Labs purple */
+  --accent: #492CE1;
+  --accent-hover: #3D22C9;
+  --accent-light: #6B4FFF;
+  --accent-muted: rgba(73, 44, 225, 0.12);
+  --accent-glow: rgba(73, 44, 225, 0.4);
 
   /* Surface layers */
-  --surface-1: #111111;
-  --surface-2: #1a1a1a;
-  --surface-3: #222222;
+  --primary: #201B43;
+  --surface-1: #150F35;
+  --surface-2: #1C1640;
+  --surface-3: #241D4D;
 
   /* Status colours */
   --success: #22c55e;
   --warning: #f59e0b;
   --error: #ef4444;
+
+  /* Typography */
+  --font-heading: var(--font-poppins), 'Poppins', sans-serif;
+  --font-body: var(--font-inter), 'Inter', sans-serif;
 }
 
 /* ─── Tailwind theme map ─────────────────────────────────────────────── */
 @theme inline {
   --color-background: var(--background);
+  --color-background-deep: var(--background-deep);
   --color-foreground: var(--foreground);
+  --color-foreground-dim: var(--foreground-dim);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-light: var(--accent-light);
   --color-accent-muted: var(--accent-muted);
+  --color-accent-glow: var(--accent-glow);
+  --color-primary: var(--primary);
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
@@ -36,7 +50,9 @@
   --color-warning: var(--warning);
   --color-error: var(--error);
 
-  --font-sans: var(--font-geist-sans);
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
+  --font-sans: var(--font-body);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -44,8 +60,12 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
 }
 
 /* Force dark mode scrollbar on webkit */
@@ -54,8 +74,8 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track { background: var(--surface-1); }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
+::-webkit-scrollbar-thumb { background: rgba(107, 79, 255, 0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(107, 79, 255, 0.5); }
 
 /* ─── RainbowKit dark theme override ────────────────────────────────── */
 [data-rk] {
