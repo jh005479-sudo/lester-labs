@@ -1,28 +1,37 @@
 'use client'
 
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { Wallet } from 'lucide-react'
 
 export function ConnectWalletPrompt() {
   return (
-    <div className="flex min-h-[40vh] items-center justify-center">
-      <div className="rounded-xl border border-white/10 bg-white/5 px-8 py-10 text-center max-w-sm w-full">
-        <div className="mb-3 text-4xl">🔐</div>
-        <h3 className="mb-2 text-lg font-semibold text-white">Connect your wallet</h3>
-        <p className="mb-6 text-sm text-white/50">Connect your wallet to continue using this utility.</p>
+    <div className="flex min-h-[40vh] items-center justify-center fade-up">
+      <div className="w-full max-w-sm text-center">
+        <div
+          className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl"
+          style={{ background: 'var(--accent-muted)', border: '1px solid rgba(107,79,255,0.08)' }}
+        >
+          <Wallet size={24} strokeWidth={1.5} style={{ color: 'var(--accent)' }} />
+        </div>
+        <h3 className="mb-2 text-xl font-semibold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+          Connect your wallet
+        </h3>
+        <p className="mb-8 text-sm" style={{ color: 'var(--foreground-dim)' }}>
+          Connect to continue using this utility.
+        </p>
         <div className="flex justify-center">
           <ConnectButton />
         </div>
-        <p className="mt-4 text-center" style={{ fontSize: '12px', color: 'rgba(107,107,138,0.7)' }}>
-          Need testnet ETH? →{' '}
+        <p className="mt-6 text-[12px]" style={{ color: 'var(--foreground-muted)' }}>
+          Need testnet ETH?{' '}
           <a
             href="https://www.alchemy.com/faucets/arbitrum-sepolia"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: '#4A9EFF' }}
+            style={{ color: 'var(--accent)', opacity: 0.7 }}
           >
-            Get Arbitrum Sepolia ETH
-          </a>{' '}
-          from the Alchemy faucet
+            Alchemy faucet →
+          </a>
         </p>
       </div>
     </div>
