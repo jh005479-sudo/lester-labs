@@ -285,9 +285,7 @@ export default function HomePage() {
               {/* Right links */}
               <div className="flex items-center gap-6">
                 <a
-                  href="https://docs.litvm.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="/docs"
                   className="text-xs transition-colors hover:opacity-80"
                   style={{ color: 'rgba(237,237,237,0.4)' }}
                 >
