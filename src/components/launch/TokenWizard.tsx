@@ -36,40 +36,22 @@ const DEFAULT_FEATURES: TokenFeatures = {
 
 function StepIndicator({ current }: { current: number }) {
   return (
-    <div className="mb-8 flex items-center justify-center gap-0">
+    <div className="tool-steps">
       {STEPS.map((step, idx) => {
         const done = current > step.id
         const active = current === step.id
-
         return (
-          <div key={step.id} className="flex items-center">
-            <div className="flex flex-col items-center">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
-                  done
-                    ? 'bg-green-500 text-white'
-                    : active
-                    ? 'bg-[var(--accent)] text-white'
-                    : 'bg-white/10 text-white/40'
-                }`}
-              >
-                {done ? <CheckCircle2 size={16} /> : step.id}
+          <div key={step.id} style={{ display:'flex', alignItems:'center' }}>
+            <div className="tool-step">
+              <div className={`tool-step-dot ${done ? 'done' : active ? 'active' : 'pending'}`}>
+                {done ? '✓' : step.id}
               </div>
-              <span
-                className={`mt-1.5 hidden sm:block text-xs font-medium transition-colors ${
-                  active ? 'text-white' : done ? 'text-green-400' : 'text-white/30'
-                }`}
-              >
-                {step.label}
-              </span>
+              <span className={`tool-step-text ${done ? 'done' : active ? 'active' : ''}`}>{step.label}</span>
             </div>
-
             {idx < STEPS.length - 1 && (
-              <div
-                className={`mx-2 mb-5 h-px w-12 sm:w-20 transition-colors ${
-                  current > step.id ? 'bg-green-500' : 'bg-white/10'
-                }`}
-              />
+              <div className="tool-step-line">
+                <div className={`tool-step-line-fill ${done ? 'done' : ''}`} />
+              </div>
             )}
           </div>
         )
@@ -182,10 +164,26 @@ function SuccessPanel({ result }: { result: SuccessState }) {
   )
 }
 
-export function TokenWizard() {
+interface TokenWizardProps {
+  onStateChange?: (state: { name: string; symbol: string; supply: string; decimals: number; mintable: boolean; burnable: boolean; pausable: boolean }) => void
+}
+
+export function TokenWizard({ onStateChange }: TokenWizardProps) {
   const [step, setStep] = useState(1)
   const [basics, setBasics] = useState<TokenBasics>(DEFAULT_BASICS)
   const [features, setFeatures] = useState<TokenFeatures>(DEFAULT_FEATURES)
+
+  useEffect(() => {
+    onStateChange?.({
+      name: basics.name,
+      symbol: basics.symbol,
+      supply: basics.totalSupply,
+      decimals: basics.decimals,
+      mintable: features.mintable,
+      burnable: features.burnable,
+      pausable: features.pausable,
+    })
+  }, [basics, features, onStateChange])
   const [modalOpen, setModalOpen] = useState(false)
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
@@ -278,7 +276,8 @@ export function TokenWizard() {
     <div>
       <StepIndicator current={step} />
 
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8">
+      <div className="tool-form-card">
+        <div className="tool-form-card-line" style={{ background: 'linear-gradient(90deg,transparent,rgba(107,79,255,.15),transparent)' }} />
         {step === 1 && <StepBasics values={basics} onChange={setBasics} />}
         {step === 2 && <StepFeatures values={features} onChange={setFeatures} />}
         {step === 3 && (
