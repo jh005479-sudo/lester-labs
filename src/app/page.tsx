@@ -55,7 +55,7 @@ const tools = [
     name: 'Lester Launch', label: 'Presale Platform',
     icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E6AD2" stroke-width="1.5"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 3 0 3 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-3 0-3"/></svg>`,
     tagline: 'Permissionless presales',
-    desc: 'Community presales with automatic LP creation on SparkDex.',
+    desc: 'Community presales with automatic LP creation on LitVM\'s native dex.',
     fee: '0.03 zkLTC + 2%', color: '#5E6AD2', href: '/launchpad',
     stats: [['LP','Auto-created'],['DEX','SparkDex'],['Access','Open']],
     imgPos: '50%', img: '/images/carousel/launchpad.png'
