@@ -305,7 +305,7 @@ export default function HomePage() {
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2DCE89" strokeWidth="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
               </div>
               <div className="tc-value">Battle-Tested</div>
-              <div className="tc-label">Forked 1:1 from industry-standard originals. No custom logic, no new attack surface. Proven security from day one.</div>
+              <div className="tc-label">Industry-standard tools, proven security from day one.</div>
               <div className="tc-data">
                 <div className="tc-data-item"><span>Source</span><span>OZ</span></div>
                 <div className="tc-data-item"><span>Locks</span><span>Unicrypt</span></div>
@@ -324,7 +324,7 @@ export default function HomePage() {
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B4FFF" strokeWidth="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
               </div>
               <div className="tc-value">LitVM Native</div>
-              <div className="tc-label">The first DeFi utility suite built natively for LitVM — live from day one of mainnet launch. No bridges, no workarounds.</div>
+              <div className="tc-label">The first DeFi utility suite built natively for LitVM, live from day one of mainnet launch. No bridges, no workarounds.</div>
               <div className="tc-data">
                 <div className="tc-data-item"><span>Network</span><span>LitVM</span></div>
                 <div className="tc-data-item"><span>Status</span><span>Testnet</span></div>
@@ -336,18 +336,18 @@ export default function HomePage() {
             <div className="trust-card reveal reveal-delay-3 tilt-card" style={{ '--tc-color-10': 'rgba(228,79,181,.1)', '--tc-color-15': 'rgba(228,79,181,.15)', '--tc-color-20': 'rgba(228,79,181,.2)', '--tc-color-30': 'rgba(228,79,181,.3)', '--tc-color-40': 'rgba(228,79,181,.4)', '--tc-glow': 'rgba(228,79,181,.06)' } as React.CSSProperties}>
               <div className="tc-status">
                 <div className="tc-dot" style={{ background: '#E44FB5' }} />
-                <span className="tc-status-text">Foundation Grant</span>
+                <span className="tc-status-text">Community Focused</span>
               </div>
               <div className="tc-icon-wrap" style={{ background: 'rgba(228,79,181,.08)', border: '1px solid rgba(228,79,181,.12)' }}>
                 <div className="tc-ring" />
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E44FB5" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </div>
               <div className="tc-value">Community</div>
-              <div className="tc-label">Built by the team behind QuickSwap & SparkDex. Grant-supported by the LitVM Foundation. Community-driven from the start.</div>
+              <div className="tc-label">Built by a team that cares deeply about the success of the LitVM and Litecoin ecosystem. Community-driven from the start.</div>
               <div className="tc-data">
-                <div className="tc-data-item"><span>Team</span><span>QuickSwap</span></div>
-                <div className="tc-data-item"><span>DEX</span><span>SparkDex</span></div>
-                <div className="tc-data-item"><span>Chain</span><span>Polygon</span></div>
+                <div className="tc-data-item"><span>Team</span><span>Trusted</span></div>
+                <div className="tc-data-item"><span>DEX</span><span>Pending</span></div>
+                <div className="tc-data-item"><span>Chain</span><span>LitVM</span></div>
               </div>
             </div>
           </div>
