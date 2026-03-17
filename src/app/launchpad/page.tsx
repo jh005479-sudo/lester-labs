@@ -603,7 +603,7 @@ export default function LaunchpadPage() {
               marginBottom: '16px',
             }}
           >
-            Launchpad
+            Lester Launch
           </h1>
           <p
             style={{

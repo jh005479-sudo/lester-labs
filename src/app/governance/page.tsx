@@ -28,7 +28,7 @@ export default function GovernancePage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
               <Vote size={20} className="text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-white">Governance</h1>
+            <h1 className="text-3xl font-bold text-white">Lester Gov</h1>
           </div>
           <p className="text-white/50">
             Off-chain voting and proposal management — Snapshot-style, no gas required.

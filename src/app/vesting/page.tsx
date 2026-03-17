@@ -24,7 +24,7 @@ export default function VestingPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
               <Clock size={20} className="text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-white">Token Vesting</h1>
+            <h1 className="text-3xl font-bold text-white">Lester Vester</h1>
           </div>
           <p className="text-white/50">
             Create token vesting plans for teams, investors, and advisors.

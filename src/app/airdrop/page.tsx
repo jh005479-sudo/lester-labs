@@ -15,7 +15,7 @@ export default function AirdropPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
               <Gift size={20} className="text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-white">Airdrop</h1>
+            <h1 className="text-3xl font-bold text-white">Lester Dropper</h1>
           </div>
           <p className="text-white/50">
             Bulk-send tokens or zkLTC to hundreds of addresses in one click.

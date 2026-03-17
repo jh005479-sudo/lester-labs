@@ -14,7 +14,7 @@ export default function LaunchPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent-muted)]">
               <Rocket size={20} className="text-[var(--accent)]" />
             </div>
-            <h1 className="text-3xl font-bold text-white">Token Factory</h1>
+            <h1 className="text-3xl font-bold text-white">Lester Minter</h1>
           </div>
           <p className="text-white/50">
             Deploy a custom ERC-20 token on LitVM in under a minute.
