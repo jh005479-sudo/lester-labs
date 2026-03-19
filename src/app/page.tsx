@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import ScrollHero from '@/components/home/ScrollHero'
+import { LTCBanner } from '@/components/LTCBanner'
 
 const tools = [
   {
@@ -232,6 +233,7 @@ export default function HomePage() {
       </div>
 
       <Navbar />
+      <LTCBanner />
 
       <main>
         {/* HERO */}
@@ -586,7 +588,7 @@ export default function HomePage() {
                   <Link key={l} href={`/${l.toLowerCase()}`}>{l}</Link>
                 ))}
               </div>
-              <div className="footer-col">
+<div className="footer-col">
                 <h4>Developers</h4>
                 <a href="https://docs.litvm.com" target="_blank" rel="noopener noreferrer">Docs</a>
                 <a href="#">GitHub</a>
