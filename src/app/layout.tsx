@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Inter, Poppins } from 'next/font/google'
 import { Geist_Mono } from 'next/font/google'
 import { Providers } from './providers'
+import { Navbar } from '@/components/layout/Navbar'
+import { LTCBanner } from '@/components/LTCBanner'
 import './globals.css'
 
 const inter = Inter({
@@ -40,6 +42,8 @@ export default function RootLayout({
         }}
       >
         <Providers>
+          <LTCBanner />
+          <Navbar />
           {children}
         </Providers>
       </body>
