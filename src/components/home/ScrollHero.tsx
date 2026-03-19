@@ -37,14 +37,12 @@ export default function ScrollHero() {
     const body = document.body
     html.style.overflow = 'hidden'
     body.style.overflow = 'hidden'
-    document.body.classList.add('video-playing')
     // Also block scroll position drift
     const onScroll = (e: Event) => { e.preventDefault(); window.scrollTo(0, 0) }
     window.addEventListener('scroll', onScroll, { passive: false })
     return () => {
       html.style.overflow = ''
       body.style.overflow = ''
-      document.body.classList.remove('video-playing')
       window.removeEventListener('scroll', onScroll)
     }
   }, [done])
@@ -63,7 +61,6 @@ export default function ScrollHero() {
     }
     clockRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(clockRef.current)
-    document.body.classList.remove('video-playing')
   }, [])
 
   // ─── Liquid animation ────────────────────────────────────

@@ -662,13 +662,7 @@ footer.lester-footer{border-top:1px solid var(--border);padding:48px clamp(16px,
 @keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
 @keyframes particleDrift{0%,100%{opacity:0;transform:translateY(0)}30%{opacity:1}70%{opacity:.5}100%{opacity:0;transform:translateY(-20px)}}
 
-/* Hide nav + banner during intro video */
-body.video-playing nav,
-body.video-playing #ltc-banner {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  transition: none !important;
-}
+
 
 /* Instant black cover on page load - prevents content flash before video */
 html::before {
