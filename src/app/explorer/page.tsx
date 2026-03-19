@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
+import { LTCBanner } from '@/components/LTCBanner'
 import { Search, Twitter } from 'lucide-react'
 
 // TODO: Replace with live RPC calls to LitVM node — endpoint: process.env.NEXT_PUBLIC_LITVM_RPC_URL
@@ -115,6 +116,7 @@ export default function ExplorerPage() {
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Navbar />
+      <LTCBanner />
 
       <main className="mx-auto max-w-7xl px-4 pt-28 pb-20 sm:px-6 lg:px-8">
         {/* Network Stats Bar */}

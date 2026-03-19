@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Coins, Lock, Clock, Send, Users, Rocket } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
+import { LTCBanner } from '@/components/LTCBanner'
 
 /* ─── Data ──────────────────────────────────────────────────────────── */
 
@@ -75,6 +76,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
       <Navbar />
+      <LTCBanner />
 
       <main>
         {/* ── Section 1: Hero ──────────────────────────────────────────── */}
