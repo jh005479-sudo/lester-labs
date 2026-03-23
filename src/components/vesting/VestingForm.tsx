@@ -407,6 +407,7 @@ export function VestingForm() {
           startTs,
           cliffDuration,
           vestingDuration,
+          false, // revocable param — required for ABI selector match; ignored on-chain
         ],
         value: VESTING_FEE,
       })

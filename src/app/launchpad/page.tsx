@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther } from 'viem'
-import { ILO_FACTORY_ADDRESS } from '@/config/contracts'
+import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI } from '@/config/abis'
 
 type Tab = 'browse' | 'create'
@@ -100,8 +100,11 @@ function CreatePresaleForm() {
     marginTop: '4px',
   }
 
+  const iloFactoryValid = isValidContractAddress(ILO_FACTORY_ADDRESS)
+
   const handleCreate = async () => {
     if (!isConnected) return
+    if (!iloFactoryValid) return
     if (!validate()) return
     const startTs = Math.floor(new Date(form.startDate).getTime() / 1000)
     const endTs = Math.floor(new Date(form.endDate).getTime() / 1000)
@@ -340,14 +343,28 @@ function CreatePresaleForm() {
             at finalization
           </div>
 
+          {/* Contract address guard warning */}
+          {!iloFactoryValid && (
+            <div style={{
+              padding: '10px 14px',
+              background: 'rgba(239,68,68,0.1)',
+              border: '1px solid rgba(239,68,68,0.3)',
+              borderRadius: '8px',
+              color: '#f87171',
+              fontSize: '13px',
+            }}>
+              ⚠️ ILO Factory contract not deployed on this network. Presale creation is disabled.
+            </div>
+          )}
+
           {/* Submit */}
           <button
             onClick={handleCreate}
-            disabled={!isConnected || isPending || isConfirming}
+            disabled={!isConnected || !iloFactoryValid || isPending || isConfirming}
             style={{
               padding: '14px',
               background:
-                !isConnected || isPending || isConfirming
+                !isConnected || !iloFactoryValid || isPending || isConfirming
                   ? 'rgba(99,102,241,0.3)'
                   : 'var(--accent)',
               border: 'none',

@@ -10,6 +10,7 @@ export const VESTING_FACTORY_ABI = [
       { name: 'startTime', type: 'uint256' },
       { name: 'cliffDuration', type: 'uint256' },
       { name: 'vestingDuration', type: 'uint256' },
+      { name: 'revocable', type: 'bool' }, // Contract param exists but is ignored on-chain (F-011)
     ],
     outputs: [{ name: 'vestingId', type: 'uint256' }],
   },
