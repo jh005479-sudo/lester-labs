@@ -12,6 +12,8 @@ interface StepReviewProps {
   features: TokenFeatures
   onDeploy: () => void
   isDeploying: boolean
+  feeDisplay?: string // RP-003: Live fee from contract
+  feeReady?: boolean  // RP-003: Whether fee is loaded
 }
 
 interface SummaryRowProps {
@@ -43,7 +45,7 @@ function FeatureBadge({ enabled, label }: { enabled: boolean; label: string }) {
   )
 }
 
-export function StepReview({ basics, features, onDeploy, isDeploying }: StepReviewProps) {
+export function StepReview({ basics, features, onDeploy, isDeploying, feeDisplay = '0.05', feeReady = true }: StepReviewProps) {
   const { isConnected } = useAccount()
 
   const supplyDisplay = Number(basics.totalSupply).toLocaleString()
@@ -75,27 +77,27 @@ export function StepReview({ basics, features, onDeploy, isDeploying }: StepRevi
         </div>
       </div>
 
-      {/* Fee display */}
+      {/* Fee display (RP-003: live fee from contract) */}
       <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-5 py-4">
         <span className="text-sm font-medium text-white">Deployment Fee</span>
-        <FeeDisplay feeLTC={0.05} feeLabel="Total" />
+        <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.05} feeLabel="Total" />
       </div>
 
-      {/* Deploy / connect */}
+      {/* Deploy / connect (RP-003: disable until fee loaded) */}
       {!isConnected ? (
         <ConnectWalletPrompt />
       ) : (
         <button
           onClick={onDeploy}
-          disabled={isDeploying}
+          disabled={isDeploying || !feeReady}
           className="w-full rounded-xl bg-[var(--accent)] px-6 py-3.5 text-base font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isDeploying ? 'Deploying…' : 'Deploy Token'}
+          {isDeploying ? 'Deploying…' : !feeReady ? 'Loading fee…' : 'Deploy Token'}
         </button>
       )}
 
       <p className="text-center text-xs text-white/30">
-        A non-refundable deployment fee of 0.05 zkLTC will be charged on confirmation.
+        A non-refundable deployment fee of {feeDisplay} zkLTC will be charged on confirmation.
       </p>
     </div>
   )

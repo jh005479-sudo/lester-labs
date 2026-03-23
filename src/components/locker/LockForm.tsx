@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract } from 'wagmi'
-import { parseUnits, isAddress, decodeEventLog } from 'viem'
+import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
 import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
 import { FeeDisplay } from '@/components/shared/FeeDisplay'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
@@ -11,7 +11,6 @@ import {
   LIQUIDITY_LOCKER_ABI,
   LIQUIDITY_LOCKER_ADDRESS,
   ERC20_APPROVE_ABI,
-  LOCK_FEE,
 } from '@/lib/contracts/liquidityLocker'
 import { isValidContractAddress } from '@/config/contracts'
 
@@ -195,6 +194,19 @@ export function LockForm() {
 
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
 
+  // RP-003: Read lock fee from contract
+  const { data: lockFee, isLoading: isFeeLoading } = useReadContract({
+    address: LIQUIDITY_LOCKER_ADDRESS,
+    abi: LIQUIDITY_LOCKER_ABI,
+    functionName: 'lockFee',
+    query: {
+      enabled: isContractConfigured,
+    },
+  })
+
+  const feeReady = lockFee !== undefined && !isFeeLoading
+  const feeDisplay = lockFee ? formatEther(lockFee) : '...'
+
   // Handle receipt landing
   useEffect(() => {
     if (!receipt || !currentTxHash) return
@@ -208,8 +220,12 @@ export function LockForm() {
       setCurrentTxHash(undefined)
     } else if (approveStep === 'lock') {
       // Lock confirmed — extract lockId from logs using ABI-based decoding (F-010)
-      let lockId = '1'
-      for (const log of receipt.logs || []) {
+      // RP-007: Filter logs by locker address before decode, use undefined instead of placeholder
+      let lockId: string | undefined = undefined
+      const lockerLogs = (receipt.logs || []).filter(
+        (log) => log.address.toLowerCase() === LIQUIDITY_LOCKER_ADDRESS.toLowerCase()
+      )
+      for (const log of lockerLogs) {
         try {
           const decoded = decodeEventLog({
             abi: LIQUIDITY_LOCKER_ABI,
@@ -223,6 +239,12 @@ export function LockForm() {
         } catch {
           // Not a matching event, continue
         }
+      }
+      // RP-007: If event not found, set error state
+      if (lockId === undefined) {
+        setTxStatus('error')
+        setTxMessage('Transaction mined but expected event was not decoded; verify on explorer')
+        return
       }
       const unlockDate = getUnlockDate(duration, customDate)
 
@@ -297,6 +319,7 @@ export function LockForm() {
   // ── Lock step ─────────────────────────────────────────────────────────────
 
   const handleLock = async () => {
+    if (!feeReady) return // RP-003: Block submit until fee loaded
     try {
       setApproveStep('lock')
       setModalOpen(true)
@@ -318,7 +341,7 @@ export function LockForm() {
           unlockTimestamp,
           withdrawer as `0x${string}`,
         ],
-        value: LOCK_FEE,
+        value: lockFee!, // RP-003: Use live fee from contract
       })
 
       setCurrentTxHash(hash)
@@ -447,9 +470,9 @@ export function LockForm() {
           />
         </Field>
 
-        {/* Fee display */}
+        {/* Fee display (RP-003: live fee from contract) */}
         <div className="rounded-lg border border-white/5 bg-white/5 px-4 py-3">
-          <FeeDisplay feeLTC={0.03} feeLabel="Lock fee" />
+          <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.03} feeLabel="Lock fee" />
         </div>
 
         {/* CTA */}
@@ -464,10 +487,11 @@ export function LockForm() {
         ) : (
           <button
             onClick={handleLock}
-            className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] transition-colors flex items-center justify-center gap-2"
+            disabled={!feeReady}
+            className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
             <Loader2 size={15} className="opacity-0 pointer-events-none" aria-hidden />
-            Step 2: Lock Tokens 🔒
+            {isFeeLoading ? 'Loading fee…' : 'Step 2: Lock Tokens 🔒'}
           </button>
         )}
       </div>

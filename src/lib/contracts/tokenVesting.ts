@@ -14,6 +14,14 @@ export const VESTING_FACTORY_ABI = [
     ],
     outputs: [{ name: 'vestingId', type: 'uint256' }],
   },
+  // RP-003: Fee getter view function
+  {
+    name: 'vestingFee',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
   {
     type: 'event',
     name: 'VestingCreated',

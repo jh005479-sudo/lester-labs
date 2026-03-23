@@ -34,7 +34,7 @@ contract LiquidityLocker is Ownable, ReentrancyGuard {
         uint256 unlockTime,
         address withdrawer
     ) external payable nonReentrant returns (uint256 lockId) {
-        require(msg.value >= lockFee, "Insufficient fee");
+        require(msg.value == lockFee, "Incorrect fee amount"); // RP-004: exact fee policy
         require(unlockTime > block.timestamp, "Unlock time must be future");
         require(amount > 0, "Amount must be > 0");
         require(withdrawer != address(0), "Invalid withdrawer"); // F-012

@@ -9,17 +9,23 @@ interface IERC20 {
 
 contract Disperse {
     function disperseEther(address[] calldata recipients, uint256[] calldata values) external payable {
-        for (uint256 i = 0; i < recipients.length; i++)
+        require(recipients.length == values.length, "Length mismatch"); // RP-005
+        for (uint256 i = 0; i < recipients.length; i++) {
+            require(recipients[i] != address(0), "Invalid recipient"); // RP-005
             payable(recipients[i]).transfer(values[i]);
+        }
         uint256 balance = address(this).balance;
         if (balance > 0) payable(msg.sender).transfer(balance);
     }
 
     function disperseToken(IERC20 token, address[] calldata recipients, uint256[] calldata values) external {
+        require(recipients.length == values.length, "Length mismatch"); // RP-005
         uint256 total = 0;
         for (uint256 i = 0; i < recipients.length; i++) total += values[i];
         require(token.transferFrom(msg.sender, address(this), total));
-        for (uint256 i = 0; i < recipients.length; i++)
+        for (uint256 i = 0; i < recipients.length; i++) {
+            require(recipients[i] != address(0), "Invalid recipient"); // RP-005
             require(token.transfer(recipients[i], values[i]));
+        }
     }
 }

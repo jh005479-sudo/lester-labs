@@ -14,6 +14,14 @@ export const TOKEN_FACTORY_ABI = [
     ],
     outputs: [{ name: 'tokenAddress', type: 'address' }],
   },
+  // RP-003: Fee getter view function
+  {
+    name: 'creationFee',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
   {
     type: 'event',
     name: 'TokenCreated',

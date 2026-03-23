@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
-import { parseUnits, isAddress, decodeEventLog } from 'viem'
+import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
 import { CheckCircle2, Copy, ExternalLink, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { FeeDisplay } from '@/components/shared/FeeDisplay'
@@ -12,7 +12,6 @@ import {
   VESTING_FACTORY_ABI,
   ERC20_APPROVE_ABI,
   VESTING_FACTORY_ADDRESS,
-  VESTING_FEE,
 } from '@/lib/contracts/tokenVesting'
 import { isValidContractAddress } from '@/config/contracts'
 
@@ -291,6 +290,19 @@ export function VestingForm() {
 
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
 
+  // RP-003: Read vesting fee from contract
+  const { data: vestingFee, isLoading: isFeeLoading } = useReadContract({
+    address: VESTING_FACTORY_ADDRESS,
+    abi: VESTING_FACTORY_ABI,
+    functionName: 'vestingFee',
+    query: {
+      enabled: isValidContractAddress(VESTING_FACTORY_ADDRESS),
+    },
+  })
+
+  const feeReady = vestingFee !== undefined && !isFeeLoading
+  const feeDisplay = vestingFee ? formatEther(vestingFee) : '...'
+
   // Fetch actual token decimals on-chain (F-009)
   const { data: fetchedDecimals } = useReadContract({
     address: isAddress(form.tokenAddress) ? (form.tokenAddress as `0x${string}`) : undefined,
@@ -322,8 +334,12 @@ export function VestingForm() {
       setTxPhase('create')
     } else {
       // Create confirmed — parse vesting ID from logs using ABI-based decoding (F-010)
-      let vestingId = '0'
-      for (const log of receipt.logs || []) {
+      // RP-007: Filter logs by factory address before decode, use undefined instead of placeholder
+      let vestingId: string | undefined = undefined
+      const factoryLogs = (receipt.logs || []).filter(
+        (log) => log.address.toLowerCase() === VESTING_FACTORY_ADDRESS.toLowerCase()
+      )
+      for (const log of factoryLogs) {
         try {
           const decoded = decodeEventLog({
             abi: VESTING_FACTORY_ABI,
@@ -337,6 +353,12 @@ export function VestingForm() {
         } catch {
           // Not a matching event, continue
         }
+      }
+      // RP-007: If event not found, set error state
+      if (vestingId === undefined) {
+        setTxStatus('error')
+        setTxMessage('Transaction mined but expected event was not decoded; verify on explorer')
+        return
       }
       setTxStatus('success')
       setSuccessResult({
@@ -382,6 +404,7 @@ export function VestingForm() {
   }
 
   const handleCreate = async () => {
+    if (!feeReady) return // RP-003: Block submit until fee loaded
     try {
       setModalOpen(true)
       setTxStatus('pending')
@@ -409,7 +432,7 @@ export function VestingForm() {
           vestingDuration,
           false, // revocable param — required for ABI selector match; ignored on-chain
         ],
-        value: VESTING_FEE,
+        value: vestingFee!, // RP-003: Use live fee from contract
       })
       setCurrentTxHash(hash)
     } catch (err: unknown) {
@@ -694,10 +717,10 @@ export function VestingForm() {
             )}
           </div>
 
-          {/* Fee */}
+          {/* Fee (RP-003: live fee from contract) */}
           <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-4 flex items-center justify-between">
             <span className="text-sm text-white/60">Platform fee</span>
-            <FeeDisplay feeLTC={0.03} feeLabel="Fee" />
+            <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.03} feeLabel="Fee" />
           </div>
 
           {/* Two-step deploy */}
@@ -723,13 +746,13 @@ export function VestingForm() {
                 {txPhase === 'approve' ? '1. Approve Token' : '1. Approved ✓'}
               </button>
 
-              {/* Step 2 — Create */}
+              {/* Step 2 — Create (RP-003: disable until fee loaded) */}
               <button
                 onClick={handleCreate}
-                disabled={txPhase !== 'create'}
+                disabled={txPhase !== 'create' || !feeReady}
                 className="flex-1 rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                2. Create Schedule
+                {isFeeLoading ? 'Loading fee…' : '2. Create Schedule'}
               </button>
             </div>
           </div>

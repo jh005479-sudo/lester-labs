@@ -50,8 +50,45 @@ function generateBlockTxs(count: number, rand: () => number): BlockTx[] {
 
 export default function BlockDetailPage({ params }: { params: Promise<{ number: string }> }) {
   const { number: blockNumberStr } = use(params)
-  const blockNumber = parseInt(blockNumberStr, 10)
 
+  // RP-006: Parse and validate block number
+  const parsed = Number(blockNumberStr)
+  const isValidBlockNumber = Number.isSafeInteger(parsed) && parsed >= 0
+  const blockNumber = isValidBlockNumber ? parsed : 0
+
+  // RP-006: Render error state if invalid
+  if (!isValidBlockNumber) {
+    return (
+      <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+        <Navbar />
+        <main className="mx-auto max-w-5xl px-4 pt-28 pb-20 sm:px-6 lg:px-8">
+          <Link
+            href="/explorer"
+            className="inline-flex items-center gap-1.5 text-sm text-white/50 hover:text-white transition-colors mb-6"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Explorer
+          </Link>
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-8 text-center">
+            <h1 className="text-2xl font-bold text-red-400 mb-4">Invalid block number</h1>
+            <p className="text-white/60 mb-6">
+              The block number &quot;{blockNumberStr}&quot; is not a valid block number.
+              Block numbers must be non-negative integers.
+            </p>
+            <Link
+              href="/explorer"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Return to Explorer
+            </Link>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  // RP-006: Memoized tx generation only runs for validated numeric input
   // Memoize mock data so it doesn't regenerate on re-renders
   // TODO: Fetch real block data from LitVM RPC
   const { blockHash, parentHash, validator, txCount, txs } = useMemo(() => {

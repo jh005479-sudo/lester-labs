@@ -27,7 +27,7 @@ contract VestingFactory is Ownable {
         uint256 vestingDuration,
         bool /*revocable*/ // stored for UI purposes; VestingWallet is not revocable by default
     ) external payable returns (uint256 vestingId) {
-        require(msg.value >= vestingFee, "Insufficient fee");
+        require(msg.value == vestingFee, "Incorrect fee amount"); // RP-004: exact fee policy
         // F-014: Input validation
         require(token != address(0), "Invalid token address");
         require(beneficiary != address(0), "Invalid beneficiary");

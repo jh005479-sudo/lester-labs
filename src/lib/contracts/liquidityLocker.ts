@@ -11,6 +11,14 @@ export const LIQUIDITY_LOCKER_ABI = [
     ],
     outputs: [{ name: 'lockId', type: 'uint256' }],
   },
+  // RP-003: Fee getter view function
+  {
+    name: 'lockFee',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
   {
     name: 'getLock',
     type: 'function',

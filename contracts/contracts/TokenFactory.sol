@@ -88,7 +88,7 @@ contract TokenFactory is Ownable {
         bool burnable,
         bool pausable
     ) external payable returns (address tokenAddress) {
-        require(msg.value >= creationFee, "Insufficient fee");
+        require(msg.value == creationFee, "Incorrect fee amount"); // RP-004: exact fee policy
 
         LesterToken token = new LesterToken(
             name, symbol, totalSupply, decimals,

@@ -163,6 +163,19 @@ export function AirdropForm() {
   const validRecipients = recipients.filter(
     (r) => isAddress(r.address) && !isNaN(parseFloat(r.amount)) && parseFloat(r.amount) > 0,
   )
+
+  // RP-002: Build parsedRecipients with precomputed wei values (bigint)
+  // This ensures approval amount is computed deterministically from bigint, never from float
+  const parsedRecipients = validRecipients.map((r) => ({
+    addr: r.address as `0x${string}`,
+    wei: parseUnits(r.amount, tokenDecimals),
+    displayAmount: r.amount,
+  }))
+
+  // RP-002: totalAmountWei computed from bigint reduce - never from parseFloat
+  const totalAmountWei = parsedRecipients.reduce((a, r) => a + r.wei, 0n)
+
+  // Float used ONLY for UI display (RP-002)
   const totalAmount = validRecipients.reduce((sum, r) => sum + parseFloat(r.amount), 0)
   const batchCount = Math.ceil(validRecipients.length / BATCH_SIZE)
 
@@ -193,14 +206,14 @@ export function AirdropForm() {
     try {
       if (mode === 'token') {
         // Step 1: Approve — must be CONFIRMED before dispersing
+        // RP-002: Use precomputed totalAmountWei (bigint) directly - never derive from float
         setTxMessage('Step 1 of 2: Approving token spend…')
-        const totalAmountWei = parseUnits(totalAmount.toString(), tokenDecimals)
 
         const approveHash = await writeContractAsync({
           address: tokenAddress as `0x${string}`,
           abi: ERC20_APPROVE_ABI,
           functionName: 'approve',
-          args: [DISPERSE_ADDRESS, totalAmountWei],
+          args: [DISPERSE_ADDRESS, totalAmountWei], // RP-002: bigint directly
         })
         setCurrentTxHash(approveHash)
 
@@ -210,14 +223,22 @@ export function AirdropForm() {
         setTxMessage('Step 2 of 2: Sending airdrop…')
 
         // Step 2: Disperse in batches — wait for each receipt before marking complete (F-007)
-        for (let b = 0; b < batches.length; b++) {
+        // RP-002: Use precomputed wei values per recipient in batch sends
+        const parsedBatches: typeof parsedRecipients[] = []
+        for (let i = 0; i < parsedRecipients.length; i += BATCH_SIZE) {
+          parsedBatches.push(parsedRecipients.slice(i, i + BATCH_SIZE))
+        }
+
+        for (let b = 0; b < parsedBatches.length; b++) {
+          const parsedBatch = parsedBatches[b]
           const batch = batches[b]
-          if (batches.length > 1) {
-            setTxMessage(`Sending batch ${b + 1} of ${batches.length}…`)
+          if (parsedBatches.length > 1) {
+            setTxMessage(`Sending batch ${b + 1} of ${parsedBatches.length}…`)
           }
 
-          const addrs = batch.map((r) => r.address as `0x${string}`)
-          const vals = batch.map((r) => parseUnits(r.amount, tokenDecimals))
+          // RP-002: Use precomputed wei values instead of recomputing parseUnits
+          const addrs = parsedBatch.map((r) => r.addr)
+          const vals = parsedBatch.map((r) => r.wei)
 
           const hash = await writeContractAsync({
             address: DISPERSE_ADDRESS,
@@ -228,7 +249,7 @@ export function AirdropForm() {
 
           setCurrentTxHash(hash)
           // Wait for batch receipt confirmation before proceeding
-          setTxMessage(`Confirming batch ${b + 1} of ${batches.length}…`)
+          setTxMessage(`Confirming batch ${b + 1} of ${parsedBatches.length}…`)
           const batchReceipt = await waitForTransactionReceipt(wagmiConfig, { hash })
           if (batchReceipt.status !== 'success') {
             throw new Error(`Batch ${b + 1} failed on-chain`)

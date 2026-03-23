@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { parseUnits, decodeEventLog } from 'viem'
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { parseUnits, decodeEventLog, formatEther } from 'viem'
 import { CheckCircle2, Copy, ExternalLink, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { StepBasics, type TokenBasics } from './StepBasics'
@@ -12,7 +12,6 @@ import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import {
   TOKEN_FACTORY_ABI,
   TOKEN_FACTORY_ADDRESS,
-  CREATION_FEE,
 } from '@/lib/contracts/tokenFactory'
 import { isValidContractAddress } from '@/config/contracts'
 
@@ -197,6 +196,19 @@ export function TokenWizard() {
   const { writeContractAsync } = useWriteContract()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
 
+  // RP-003: Read creation fee from contract
+  const { data: creationFee, isLoading: isFeeLoading } = useReadContract({
+    address: TOKEN_FACTORY_ADDRESS,
+    abi: TOKEN_FACTORY_ABI,
+    functionName: 'creationFee',
+    query: {
+      enabled: isContractConfigured,
+    },
+  })
+
+  const feeReady = creationFee !== undefined && !isFeeLoading
+  const feeDisplay = creationFee ? formatEther(creationFee) : '...'
+
   const { data: receipt } = useWaitForTransactionReceipt({
     hash: currentTxHash,
   })
@@ -216,10 +228,15 @@ export function TokenWizard() {
   )
 
   // Watch for receipt — parse logs for the deployed token address using ABI-based decoding (F-010)
+  // RP-007: Filter logs by factory address before decode, set error if event not found
   useEffect(() => {
     if (receipt && currentTxHash && txStatus === 'pending') {
-      let deployedAddress = '0x0000000000000000000000000000000000000000'
-      for (const log of receipt.logs || []) {
+      let deployedAddress: string | undefined = undefined
+      // RP-007: Filter logs by factory address before attempting decode
+      const factoryLogs = (receipt.logs || []).filter(
+        (log) => log.address.toLowerCase() === TOKEN_FACTORY_ADDRESS.toLowerCase()
+      )
+      for (const log of factoryLogs) {
         try {
           const decoded = decodeEventLog({
             abi: TOKEN_FACTORY_ABI,
@@ -234,12 +251,19 @@ export function TokenWizard() {
           // Not a matching event, continue
         }
       }
+      // RP-007: If event not found, set error state with verification message
+      if (deployedAddress === undefined) {
+        setTxStatus('error')
+        setTxMessage('Transaction mined but expected event was not decoded; verify on explorer')
+        return
+      }
       // eslint-disable-next-line react-hooks/set-state-in-effect
       handleReceipt(currentTxHash, deployedAddress)
     }
   }, [receipt, currentTxHash, txStatus, handleReceipt])
 
   const handleDeploy = async () => {
+    if (!feeReady) return // RP-003: Block submit until fee loaded
     try {
       setModalOpen(true)
       setTxStatus('pending')
@@ -260,7 +284,7 @@ export function TokenWizard() {
           features.burnable,
           features.pausable,
         ],
-        value: CREATION_FEE,
+        value: creationFee!, // RP-003: Use live fee from contract
       })
 
       setCurrentTxHash(hash)
@@ -301,6 +325,8 @@ export function TokenWizard() {
             features={features}
             onDeploy={handleDeploy}
             isDeploying={txStatus === 'pending' && modalOpen}
+            feeDisplay={feeDisplay}
+            feeReady={feeReady}
           />
         )}
 

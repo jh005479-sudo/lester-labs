@@ -1,12 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { parseEther } from 'viem'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { parseEther, parseUnits, isAddress, formatEther } from 'viem'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI } from '@/config/abis'
+
+// ABI for fetching token decimals (RP-001)
+const ERC20_DECIMALS_ABI = [
+  {
+    name: 'decimals',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+  },
+] as const
 
 type Tab = 'browse' | 'create'
 
@@ -50,6 +61,38 @@ function CreatePresaleForm() {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [tokenDecimals, setTokenDecimals] = useState<number | undefined>(undefined)
+
+  // Fetch token decimals on-chain (RP-001)
+  const { data: fetchedDecimals, isLoading: isDecimalsLoading, isError: isDecimalsError } = useReadContract({
+    address: isAddress(form.tokenAddress) ? (form.tokenAddress as `0x${string}`) : undefined,
+    abi: ERC20_DECIMALS_ABI,
+    functionName: 'decimals',
+    query: {
+      enabled: isAddress(form.tokenAddress),
+    },
+  })
+
+  // Update tokenDecimals when fetched
+  useEffect(() => {
+    if (fetchedDecimals !== undefined) {
+      setTokenDecimals(fetchedDecimals)
+    } else if (!isAddress(form.tokenAddress)) {
+      setTokenDecimals(undefined)
+    }
+  }, [fetchedDecimals, form.tokenAddress])
+
+  // Fetch creation fee from contract (RP-003)
+  const { data: creationFee, isLoading: isFeeLoading } = useReadContract({
+    address: ILO_FACTORY_ADDRESS,
+    abi: ILO_FACTORY_ABI,
+    functionName: 'creationFee',
+    query: {
+      enabled: isValidContractAddress(ILO_FACTORY_ADDRESS),
+    },
+  })
+
+  const feeDisplay = creationFee ? formatEther(creationFee) : '...'
 
   const set =
     (k: keyof typeof form) =>
@@ -102,10 +145,15 @@ function CreatePresaleForm() {
 
   const iloFactoryValid = isValidContractAddress(ILO_FACTORY_ADDRESS)
 
+  // Gate submit on successful decimals fetch (RP-001)
+  const decimalsReady = tokenDecimals !== undefined && !isDecimalsError
+  const feeReady = creationFee !== undefined && !isFeeLoading
+
   const handleCreate = async () => {
     if (!isConnected) return
     if (!iloFactoryValid) return
     if (!validate()) return
+    if (!decimalsReady || !feeReady) return // Block if decimals/fee not loaded (RP-001, RP-003)
     const startTs = Math.floor(new Date(form.startDate).getTime() / 1000)
     const endTs = Math.floor(new Date(form.endDate).getTime() / 1000)
     writeContract({
@@ -114,16 +162,16 @@ function CreatePresaleForm() {
       functionName: 'createILO',
       args: [
         form.tokenAddress as `0x${string}`,
-        parseEther(form.softCap || '0'),
-        parseEther(form.hardCap || '0'),
-        parseEther(form.tokensPerEth || '0'),
+        parseEther(form.softCap || '0'), // native asset units
+        parseEther(form.hardCap || '0'),  // native asset units
+        parseUnits(form.tokensPerEth || '0', tokenDecimals!), // Use token decimals (RP-001)
         BigInt(startTs),
         BigInt(endTs),
         BigInt(Math.floor(parseFloat(form.liquidityPct) * 100)),
         BigInt(parseInt(form.lpLockDays) * 86400),
         form.whitelist,
       ],
-      value: parseEther('0.03'), // creation fee
+      value: creationFee!, // Use live fee from contract (RP-003)
     })
   }
 
@@ -231,6 +279,16 @@ function CreatePresaleForm() {
             <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
               e.g. 1,000,000 means contributors get 1M tokens per 1 LTC raised
             </p>
+            {/* RP-001: Token decimals UI note */}
+            {isAddress(form.tokenAddress) && (
+              <p style={{ fontSize: '11px', color: isDecimalsError ? '#f87171' : 'rgba(99,102,241,0.8)', marginTop: '4px' }}>
+                {isDecimalsLoading
+                  ? 'Fetching token decimals...'
+                  : isDecimalsError
+                  ? 'Failed to fetch token decimals - check token address'
+                  : `Uses token decimals fetched from contract (${tokenDecimals})`}
+              </p>
+            )}
           </div>
 
           {/* Dates */}
@@ -325,7 +383,7 @@ function CreatePresaleForm() {
             </label>
           </div>
 
-          {/* Fee note */}
+          {/* Fee note (RP-003: live fee from contract) */}
           <div
             style={{
               padding: '14px',
@@ -337,7 +395,7 @@ function CreatePresaleForm() {
             }}
           >
             Creation fee:{' '}
-            <strong style={{ color: 'rgba(255,255,255,0.9)' }}>0.03 LTC</strong>{' '}
+            <strong style={{ color: 'rgba(255,255,255,0.9)' }}>{feeDisplay} LTC</strong>{' '}
             · Platform fee:{' '}
             <strong style={{ color: 'rgba(255,255,255,0.9)' }}>2% of raise</strong>{' '}
             at finalization
@@ -357,14 +415,28 @@ function CreatePresaleForm() {
             </div>
           )}
 
-          {/* Submit */}
+          {/* RP-001: Error if decimals fetch fails */}
+          {isDecimalsError && isAddress(form.tokenAddress) && (
+            <div style={{
+              padding: '10px 14px',
+              background: 'rgba(239,68,68,0.1)',
+              border: '1px solid rgba(239,68,68,0.3)',
+              borderRadius: '8px',
+              color: '#f87171',
+              fontSize: '13px',
+            }}>
+              Failed to fetch token decimals. Please verify the token address is a valid ERC20 contract.
+            </div>
+          )}
+
+          {/* Submit (RP-001, RP-003: gate on decimals and fee) */}
           <button
             onClick={handleCreate}
-            disabled={!isConnected || !iloFactoryValid || isPending || isConfirming}
+            disabled={!isConnected || !iloFactoryValid || isPending || isConfirming || !decimalsReady || !feeReady}
             style={{
               padding: '14px',
               background:
-                !isConnected || !iloFactoryValid || isPending || isConfirming
+                !isConnected || !iloFactoryValid || isPending || isConfirming || !decimalsReady || !feeReady
                   ? 'rgba(99,102,241,0.3)'
                   : 'var(--accent)',
               border: 'none',
@@ -373,7 +445,7 @@ function CreatePresaleForm() {
               fontSize: '15px',
               fontWeight: 600,
               cursor:
-                !isConnected || isPending || isConfirming
+                !isConnected || isPending || isConfirming || !decimalsReady || !feeReady
                   ? 'not-allowed'
                   : 'pointer',
               transition: 'opacity 0.2s',
@@ -385,7 +457,11 @@ function CreatePresaleForm() {
                 ? 'Confirm in wallet…'
                 : isConfirming
                   ? 'Creating presale…'
-                  : 'Create Presale — 0.03 LTC'}
+                  : isDecimalsLoading
+                    ? 'Loading token decimals…'
+                    : isFeeLoading
+                      ? 'Loading fee…'
+                      : `Create Presale — ${feeDisplay} LTC`}
           </button>
 
           {isSuccess && (
