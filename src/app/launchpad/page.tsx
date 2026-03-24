@@ -73,14 +73,17 @@ function CreatePresaleForm() {
     },
   })
 
+  // Reset decimals when token address changes to prevent stale values
+  useEffect(() => {
+    setTokenDecimals(undefined)
+  }, [form.tokenAddress])
+
   // Update tokenDecimals when fetched
   useEffect(() => {
     if (fetchedDecimals !== undefined) {
       setTokenDecimals(fetchedDecimals)
-    } else if (!isAddress(form.tokenAddress)) {
-      setTokenDecimals(undefined)
     }
-  }, [fetchedDecimals, form.tokenAddress])
+  }, [fetchedDecimals])
 
   // Fetch creation fee from contract (RP-003)
   const { data: creationFee, isLoading: isFeeLoading } = useReadContract({

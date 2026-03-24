@@ -153,7 +153,7 @@ export function LockForm() {
   const [duration, setDuration] = useState<DurationOption>('1y')
   const [customDate, setCustomDate] = useState('')
   const [withdrawer, setWithdrawer] = useState('')
-  const [lpDecimals, setLpDecimals] = useState(18)
+  const [lpDecimals, setLpDecimals] = useState<number | undefined>(undefined)
 
   // Populate withdrawer with wallet on connect
   useEffect(() => {
@@ -164,7 +164,7 @@ export function LockForm() {
   }, [connectedAddress, withdrawer])
 
   // Fetch actual LP token decimals on-chain (F-009)
-  const { data: fetchedDecimals } = useReadContract({
+  const { data: fetchedDecimals, isLoading: isDecimalsLoading } = useReadContract({
     address: isAddress(lpToken) ? (lpToken as `0x${string}`) : undefined,
     abi: ERC20_DECIMALS_ABI,
     functionName: 'decimals',
@@ -172,6 +172,11 @@ export function LockForm() {
       enabled: isAddress(lpToken),
     },
   })
+
+  // Reset decimals when LP token address changes to prevent stale values
+  useEffect(() => {
+    setLpDecimals(undefined)
+  }, [lpToken])
 
   // Update lpDecimals when fetched
   useEffect(() => {
@@ -279,6 +284,9 @@ export function LockForm() {
 
   const isContractConfigured = isValidContractAddress(LIQUIDITY_LOCKER_ADDRESS)
 
+  // Decimals must be loaded before submit
+  const decimalsReady = lpDecimals !== undefined
+
   const canSubmit =
     isContractConfigured &&
     isAddress(lpToken) &&
@@ -286,11 +294,13 @@ export function LockForm() {
     !amountError &&
     isAddress(withdrawer) &&
     withdrawer !== ZERO_ADDRESS &&
-    !withdrawerError
+    !withdrawerError &&
+    decimalsReady
 
   // ── Approve step ──────────────────────────────────────────────────────────
 
   const handleApprove = async () => {
+    if (lpDecimals === undefined) return // Guard against stale decimals
     try {
       setInTwoStep(true)
       setApproveStep('approve')
@@ -320,6 +330,7 @@ export function LockForm() {
 
   const handleLock = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
+    if (lpDecimals === undefined) return // Guard against stale decimals
     try {
       setApproveStep('lock')
       setModalOpen(true)
@@ -403,6 +414,15 @@ export function LockForm() {
             onChange={(e) => setLpToken(e.target.value)}
             className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 font-mono text-sm text-white placeholder-white/20 focus:border-[var(--accent)]/60 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/30 transition-colors"
           />
+          {isAddress(lpToken) && (
+            <p className={`text-xs mt-1 ${isDecimalsLoading ? 'text-blue-400' : lpDecimals !== undefined ? 'text-green-400' : 'text-white/40'}`}>
+              {isDecimalsLoading
+                ? 'Reading token decimals...'
+                : lpDecimals !== undefined
+                ? `Token decimals: ${lpDecimals}`
+                : ''}
+            </p>
+          )}
         </Field>
 
         {/* Amount */}

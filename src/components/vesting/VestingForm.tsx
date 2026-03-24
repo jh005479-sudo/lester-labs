@@ -281,7 +281,7 @@ export function VestingForm() {
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successResult, setSuccessResult] = useState<SuccessState | null>(null)
-  const [tokenDecimals, setTokenDecimals] = useState(18)
+  const [tokenDecimals, setTokenDecimals] = useState<number | undefined>(undefined)
 
   const set = <K extends keyof FormState>(key: K, val: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: val }))
@@ -304,7 +304,7 @@ export function VestingForm() {
   const feeDisplay = vestingFee ? formatEther(vestingFee) : '...'
 
   // Fetch actual token decimals on-chain (F-009)
-  const { data: fetchedDecimals } = useReadContract({
+  const { data: fetchedDecimals, isLoading: isDecimalsLoading } = useReadContract({
     address: isAddress(form.tokenAddress) ? (form.tokenAddress as `0x${string}`) : undefined,
     abi: ERC20_DECIMALS_ABI,
     functionName: 'decimals',
@@ -312,6 +312,11 @@ export function VestingForm() {
       enabled: isAddress(form.tokenAddress),
     },
   })
+
+  // Reset decimals when token address changes to prevent stale values
+  useEffect(() => {
+    setTokenDecimals(undefined)
+  }, [form.tokenAddress])
 
   // Update tokenDecimals when fetched
   useEffect(() => {
@@ -376,6 +381,7 @@ export function VestingForm() {
   }, [receipt, currentTxHash, txStatus, txPhase, form])
 
   const handleApprove = async () => {
+    if (tokenDecimals === undefined) return // Guard against stale decimals
     try {
       setModalOpen(true)
       setTxStatus('pending')
@@ -405,6 +411,7 @@ export function VestingForm() {
 
   const handleCreate = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
+    if (tokenDecimals === undefined) return // Guard against stale decimals
     try {
       setModalOpen(true)
       setTxStatus('pending')
@@ -469,7 +476,9 @@ export function VestingForm() {
   })()
 
   const isContractConfigured = isValidContractAddress(VESTING_FACTORY_ADDRESS)
-  const canReview = isContractConfigured && (form.vestingType === 'custom' ? isStep1Valid : isStep1Valid && isScheduleValid)
+  // Decimals must be loaded before proceeding
+  const decimalsReady = tokenDecimals !== undefined
+  const canReview = isContractConfigured && decimalsReady && (form.vestingType === 'custom' ? isStep1Valid : isStep1Valid && isScheduleValid)
 
   // Show success panel when done
   if (successResult && !modalOpen) {
@@ -491,6 +500,15 @@ export function VestingForm() {
                 onChange={(v) => set('tokenAddress', v)}
                 placeholder="0x… token contract"
               />
+              {isValidAddress(form.tokenAddress) && (
+                <p className={`text-xs mt-1 ${isDecimalsLoading ? 'text-blue-400' : tokenDecimals !== undefined ? 'text-green-400' : 'text-white/40'}`}>
+                  {isDecimalsLoading
+                    ? 'Reading token decimals...'
+                    : tokenDecimals !== undefined
+                    ? `Token decimals: ${tokenDecimals}`
+                    : ''}
+                </p>
+              )}
             </div>
 
             <div>

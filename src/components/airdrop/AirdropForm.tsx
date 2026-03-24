@@ -130,7 +130,7 @@ export function AirdropForm() {
 
   const [mode, setMode] = useState<Mode>('token')
   const [tokenAddress, setTokenAddress] = useState('')
-  const [tokenDecimals, setTokenDecimals] = useState(18)
+  const [tokenDecimals, setTokenDecimals] = useState<number | undefined>(undefined)
   const [recipients, setRecipients] = useState<Recipient[]>([])
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -144,7 +144,7 @@ export function AirdropForm() {
   void receipt // used as dependency for re-renders
 
   // Fetch actual token decimals on-chain (F-009 fix)
-  const { data: fetchedDecimals } = useReadContract({
+  const { data: fetchedDecimals, isLoading: isDecimalsLoading } = useReadContract({
     address: isAddress(tokenAddress) ? (tokenAddress as `0x${string}`) : undefined,
     abi: ERC20_DECIMALS_ABI,
     functionName: 'decimals',
@@ -152,6 +152,11 @@ export function AirdropForm() {
       enabled: mode === 'token' && isAddress(tokenAddress),
     },
   })
+
+  // Reset decimals when token address changes to prevent stale values
+  useEffect(() => {
+    setTokenDecimals(undefined)
+  }, [tokenAddress])
 
   // Update tokenDecimals when fetched
   useEffect(() => {
@@ -166,11 +171,14 @@ export function AirdropForm() {
 
   // RP-002: Build parsedRecipients with precomputed wei values (bigint)
   // This ensures approval amount is computed deterministically from bigint, never from float
-  const parsedRecipients = validRecipients.map((r) => ({
-    addr: r.address as `0x${string}`,
-    wei: parseUnits(r.amount, tokenDecimals),
-    displayAmount: r.amount,
-  }))
+  // Guard: only build if decimals are loaded for token mode
+  const parsedRecipients = (mode === 'token' && tokenDecimals === undefined)
+    ? []
+    : validRecipients.map((r) => ({
+        addr: r.address as `0x${string}`,
+        wei: parseUnits(r.amount, tokenDecimals ?? 18),
+        displayAmount: r.amount,
+      }))
 
   // RP-002: totalAmountWei computed from bigint reduce - never from parseFloat
   const totalAmountWei = parsedRecipients.reduce((a, r) => a + r.wei, 0n)
@@ -181,13 +189,16 @@ export function AirdropForm() {
 
   const tokenAddressValid = mode === 'native' || isAddress(tokenAddress)
   const isContractConfigured = isValidContractAddress(DISPERSE_ADDRESS)
+  // For token mode, decimals must be loaded before submit
+  const decimalsReady = mode === 'native' || tokenDecimals !== undefined
 
   const canSubmit =
     isConnected &&
     isContractConfigured &&
     validRecipients.length > 0 &&
     tokenAddressValid &&
-    totalAmount > 0
+    totalAmount > 0 &&
+    decimalsReady
 
   const handleSend = useCallback(async () => {
     if (!canSubmit) return
@@ -307,7 +318,7 @@ export function AirdropForm() {
           : 'An unexpected error occurred.'
       setTxMessage(msg)
     }
-  }, [canSubmit, mode, tokenAddress, tokenDecimals, validRecipients, totalAmount, writeContractAsync])
+  }, [canSubmit, mode, tokenAddress, tokenDecimals, validRecipients, totalAmount, totalAmountWei, parsedRecipients, writeContractAsync])
 
   const handleReset = () => {
     setSuccessState(null)
@@ -360,6 +371,20 @@ export function AirdropForm() {
         ))}
       </div>
 
+      {/* F-013: ETH Airdrop EOA-only warning */}
+      {mode === 'native' && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <p className="text-sm font-medium text-amber-400 mb-1">
+            ⚠️ ETH Airdrop — EOA Wallets Only
+          </p>
+          <p className="text-xs text-amber-300/80">
+            Native ETH dispersal uses a gas-limited transfer. Sending to smart contract addresses
+            (multisigs, contract wallets) will cause the transaction to fail. ERC-20 token airdrops
+            are not affected.
+          </p>
+        </div>
+      )}
+
       {/* Main card */}
       <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8 space-y-8">
         {/* Step 1 — Token (only for ERC-20 mode) */}
@@ -387,6 +412,15 @@ export function AirdropForm() {
               />
               {tokenAddress && !isAddress(tokenAddress) && (
                 <p className="text-xs text-red-400">Invalid address format</p>
+              )}
+              {isAddress(tokenAddress) && (
+                <p className={`text-xs ${isDecimalsLoading ? 'text-blue-400' : tokenDecimals !== undefined ? 'text-green-400' : 'text-white/40'}`}>
+                  {isDecimalsLoading
+                    ? 'Reading token decimals...'
+                    : tokenDecimals !== undefined
+                    ? `Token decimals: ${tokenDecimals}`
+                    : ''}
+                </p>
               )}
               {address && (
                 <p className="text-xs text-white/30">
