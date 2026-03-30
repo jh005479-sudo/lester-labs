@@ -1,0 +1,8 @@
+# Robots.txt for Lester Labs
+# https://lester-labs.vercel.app
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://lester-labs.vercel.app/sitemap.xml

@@ -199,6 +199,9 @@ export function LockForm() {
 
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
 
+  // Must check contract address validity before using in hooks
+  const isContractConfigured = isValidContractAddress(LIQUIDITY_LOCKER_ADDRESS)
+
   // RP-003: Read lock fee from contract
   const { data: lockFee, isLoading: isFeeLoading } = useReadContract({
     address: LIQUIDITY_LOCKER_ADDRESS,
@@ -281,8 +284,6 @@ export function LockForm() {
       : withdrawer === ZERO_ADDRESS
       ? 'Withdrawer cannot be zero address'
       : undefined
-
-  const isContractConfigured = isValidContractAddress(LIQUIDITY_LOCKER_ADDRESS)
 
   // Decimals must be loaded before submit
   const decimalsReady = lpDecimals !== undefined
