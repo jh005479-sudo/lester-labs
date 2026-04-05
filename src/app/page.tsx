@@ -242,7 +242,8 @@ export default function HomePage() {
           style={{
             position: 'relative',
             zIndex: 2,
-            background: 'var(--bg)',
+            background:
+              'linear-gradient(180deg, rgba(10,8,24,0) 0px, rgba(10,8,24,0.38) 140px, var(--bg) 360px)',
             opacity: introComplete ? 1 : 0,
             transition: 'opacity 500ms ease',
           }}
