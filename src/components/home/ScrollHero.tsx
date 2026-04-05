@@ -19,6 +19,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
 
   const [elapsed,   setElapsed]   = useState(0)
   const [done,      setDone]      = useState(false)   // scroll unlocked
+  const [videoReady,setVideoReady]= useState(false)
   const [videoOut,  setVideoOut]  = useState(false)
   const [skipGone,  setSkipGone]  = useState(false)
   const [bgOn,      setBgOn]      = useState(false)
@@ -271,13 +272,23 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
         <div className={glowOn ? 'hero-title-glow on' : 'hero-title-glow'} />
 
         {/* Video */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: 50, opacity: videoOut ? 0 : 1, transition: 'opacity 2s ease', pointerEvents: videoOut ? 'none' : 'auto' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 50, opacity: videoOut ? 0 : 1, transition: 'opacity 2s ease', pointerEvents: videoOut ? 'none' : 'auto', background: '#000' }}>
           <video
             ref={videoRef}
             src={VIDEO_URL}
-            muted loop playsInline autoPlay
+            muted loop playsInline autoPlay preload="auto"
             poster={POSTER_IMG}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+            onLoadedData={() => setVideoReady(true)}
+            onCanPlay={() => setVideoReady(true)}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              opacity: videoReady ? 1 : 0,
+              transition: 'opacity 300ms ease',
+            }}
           />
         </div>
 

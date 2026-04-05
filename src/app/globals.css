@@ -664,15 +664,3 @@ footer.lester-footer{border-top:1px solid var(--border);padding:48px clamp(16px,
 
 
 
-/* Instant black cover on page load - prevents content flash before video */
-html::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: #000;
-  z-index: 9999;
-  animation: coverFade 0s 0.8s forwards;
-}
-@keyframes coverFade {
-  to { opacity: 0; pointer-events: none; }
-}
