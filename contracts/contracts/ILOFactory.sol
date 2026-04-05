@@ -71,6 +71,12 @@ contract ILOFactory is Ownable {
             require(ok, "Fee transfer failed");
         }
 
+        // Refund any excess payment to prevent trapped funds
+        if (msg.value > creationFee) {
+            (bool refunded,) = msg.sender.call{value: msg.value - creationFee}("");
+            require(refunded, "Refund failed");
+        }
+
         emit ILOCreated(address(ilo), token, msg.sender, softCap, hardCap);
         return address(ilo);
     }

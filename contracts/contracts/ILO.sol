@@ -106,10 +106,14 @@ contract ILO is ReentrancyGuard {
         emit Contributed(msg.sender, msg.value);
     }
 
-    // ── Finalize (owner only, after endTime, if softCap met) ───────────
-    function finalize() external onlyOwner nonReentrant notFinalized {
+    // ── Finalize ────────────────────────────────────────────────────────
+    // Owner can finalize after endTime or hardCap reached.
+    // Permissionless: anyone can finalize after endTime if softCap met (prevents deadlock).
+    function finalize() external nonReentrant notFinalized {
         require(block.timestamp > endTime || totalRaised >= hardCap, "Raise not complete");
         require(totalRaised >= softCap, "Soft cap not met");
+        // Owner can always finalize; others can only finalize after endTime
+        require(msg.sender == owner || block.timestamp > endTime, "Only owner before endTime");
 
         finalized = true;
 
@@ -184,9 +188,12 @@ contract ILO is ReentrancyGuard {
         emit Claimed(msg.sender, tokens);
     }
 
-    // ── Refund (contributors, after cancel) ────────────────────────────
+    // ── Refund (contributors, after cancel or emergency) ────────────────
+    // Refundable if: cancelled, soft cap not met, OR emergency (7 days past endTime and not finalized)
     function refund() external nonReentrant {
-        require(cancelled || (block.timestamp > endTime && totalRaised < softCap), "Not refundable");
+        bool softCapFailed = block.timestamp > endTime && totalRaised < softCap;
+        bool emergencyRefund = block.timestamp > endTime + 7 days && !finalized;
+        require(cancelled || softCapFailed || emergencyRefund, "Not refundable");
         uint256 amount = contributions[msg.sender];
         require(amount > 0, "Nothing to refund");
 
@@ -235,8 +242,12 @@ contract ILO is ReentrancyGuard {
     }
 
     function tokensRequired() external view returns (uint256) {
+        // Tokens for sale (based on gross raised amount)
         uint256 forSale = (hardCap * tokensPerEth) / 1e18;
-        uint256 forLiquidity = ((hardCap * liquidityBps) / 10000 * tokensPerEth) / 1e18;
+        // Tokens for liquidity: calculated on NET amount after platform fee (matches finalize() logic)
+        uint256 netHardCap = hardCap - (hardCap * platformFeeBps) / 10000;
+        uint256 ethForLiquidity = (netHardCap * liquidityBps) / 10000;
+        uint256 forLiquidity = (ethForLiquidity * tokensPerEth) / 1e18;
         return forSale + forLiquidity;
     }
 

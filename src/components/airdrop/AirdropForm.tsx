@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useState, useCallback, useEffect } from 'react'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
-import { isAddress, parseUnits, formatUnits } from 'viem'
+import { isAddress, parseUnits } from 'viem'
 import { CheckCircle2, Download, ExternalLink, Loader2 } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
-import { FeeDisplay } from '@/components/shared/FeeDisplay'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { RecipientInput } from './RecipientInput'
 import { RecipientTable, type Recipient } from './RecipientTable'
@@ -14,9 +13,20 @@ import {
   DISPERSE_ABI,
   ERC20_APPROVE_ABI,
   DISPERSE_ADDRESS,
-  AIRDROP_FEE,
 } from '@/lib/contracts/airdrop'
+import { isValidContractAddress } from '@/config/contracts'
 import { wagmiConfig } from '@/config/wagmi'
+
+// ABI for fetching token decimals
+const ERC20_DECIMALS_ABI = [
+  {
+    name: 'decimals',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+  },
+] as const
 
 const BATCH_SIZE = 200
 const EXPLORER_BASE = 'https://sepolia.arbiscan.io'
@@ -120,7 +130,7 @@ export function AirdropForm() {
 
   const [mode, setMode] = useState<Mode>('token')
   const [tokenAddress, setTokenAddress] = useState('')
-  const [tokenDecimals] = useState(18) // Could be auto-fetched; hardcode for now
+  const [tokenDecimals, setTokenDecimals] = useState<number | undefined>(undefined)
   const [recipients, setRecipients] = useState<Recipient[]>([])
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -133,21 +143,62 @@ export function AirdropForm() {
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
   void receipt // used as dependency for re-renders
 
+  // Fetch actual token decimals on-chain (F-009 fix)
+  const { data: fetchedDecimals, isLoading: isDecimalsLoading } = useReadContract({
+    address: isAddress(tokenAddress) ? (tokenAddress as `0x${string}`) : undefined,
+    abi: ERC20_DECIMALS_ABI,
+    functionName: 'decimals',
+    query: {
+      enabled: mode === 'token' && isAddress(tokenAddress),
+    },
+  })
+
+  // Reset decimals when token address changes to prevent stale values
+  useEffect(() => {
+    setTokenDecimals(undefined)
+  }, [tokenAddress])
+
+  // Update tokenDecimals when fetched
+  useEffect(() => {
+    if (fetchedDecimals !== undefined) {
+      setTokenDecimals(fetchedDecimals)
+    }
+  }, [fetchedDecimals])
+
   const validRecipients = recipients.filter(
     (r) => isAddress(r.address) && !isNaN(parseFloat(r.amount)) && parseFloat(r.amount) > 0,
   )
+
+  // RP-002: Build parsedRecipients with precomputed wei values (bigint)
+  // This ensures approval amount is computed deterministically from bigint, never from float
+  // Guard: only build if decimals are loaded for token mode
+  const parsedRecipients = (mode === 'token' && tokenDecimals === undefined)
+    ? []
+    : validRecipients.map((r) => ({
+        addr: r.address as `0x${string}`,
+        wei: parseUnits(r.amount, tokenDecimals ?? 18),
+        displayAmount: r.amount,
+      }))
+
+  // RP-002: totalAmountWei computed from bigint reduce - never from parseFloat
+  const totalAmountWei = parsedRecipients.reduce((a, r) => a + r.wei, 0n)
+
+  // Float used ONLY for UI display (RP-002)
   const totalAmount = validRecipients.reduce((sum, r) => sum + parseFloat(r.amount), 0)
   const batchCount = Math.ceil(validRecipients.length / BATCH_SIZE)
-  const totalFeeWei = AIRDROP_FEE * BigInt(batchCount)
-  const totalFeeLTC = parseFloat(formatUnits(totalFeeWei, 18))
 
   const tokenAddressValid = mode === 'native' || isAddress(tokenAddress)
+  const isContractConfigured = isValidContractAddress(DISPERSE_ADDRESS)
+  // For token mode, decimals must be loaded before submit
+  const decimalsReady = mode === 'native' || tokenDecimals !== undefined
 
   const canSubmit =
     isConnected &&
+    isContractConfigured &&
     validRecipients.length > 0 &&
     tokenAddressValid &&
-    totalAmount > 0
+    totalAmount > 0 &&
+    decimalsReady
 
   const handleSend = useCallback(async () => {
     if (!canSubmit) return
@@ -166,14 +217,14 @@ export function AirdropForm() {
     try {
       if (mode === 'token') {
         // Step 1: Approve — must be CONFIRMED before dispersing
+        // RP-002: Use precomputed totalAmountWei (bigint) directly - never derive from float
         setTxMessage('Step 1 of 2: Approving token spend…')
-        const totalAmountWei = parseUnits(totalAmount.toString(), tokenDecimals)
 
         const approveHash = await writeContractAsync({
           address: tokenAddress as `0x${string}`,
           abi: ERC20_APPROVE_ABI,
           functionName: 'approve',
-          args: [DISPERSE_ADDRESS, totalAmountWei],
+          args: [DISPERSE_ADDRESS, totalAmountWei], // RP-002: bigint directly
         })
         setCurrentTxHash(approveHash)
 
@@ -182,15 +233,23 @@ export function AirdropForm() {
         await waitForTransactionReceipt(wagmiConfig, { hash: approveHash })
         setTxMessage('Step 2 of 2: Sending airdrop…')
 
-        // Step 2: Disperse in batches
-        for (let b = 0; b < batches.length; b++) {
+        // Step 2: Disperse in batches — wait for each receipt before marking complete (F-007)
+        // RP-002: Use precomputed wei values per recipient in batch sends
+        const parsedBatches: typeof parsedRecipients[] = []
+        for (let i = 0; i < parsedRecipients.length; i += BATCH_SIZE) {
+          parsedBatches.push(parsedRecipients.slice(i, i + BATCH_SIZE))
+        }
+
+        for (let b = 0; b < parsedBatches.length; b++) {
+          const parsedBatch = parsedBatches[b]
           const batch = batches[b]
-          if (batches.length > 1) {
-            setTxMessage(`Sending batch ${b + 1} of ${batches.length}…`)
+          if (parsedBatches.length > 1) {
+            setTxMessage(`Sending batch ${b + 1} of ${parsedBatches.length}…`)
           }
 
-          const addrs = batch.map((r) => r.address as `0x${string}`)
-          const vals = batch.map((r) => parseUnits(r.amount, tokenDecimals))
+          // RP-002: Use precomputed wei values instead of recomputing parseUnits
+          const addrs = parsedBatch.map((r) => r.addr)
+          const vals = parsedBatch.map((r) => r.wei)
 
           const hash = await writeContractAsync({
             address: DISPERSE_ADDRESS,
@@ -199,11 +258,18 @@ export function AirdropForm() {
             args: [tokenAddress as `0x${string}`, addrs, vals],
           })
 
-          batchResults.push({ txHash: hash, recipients: batch })
           setCurrentTxHash(hash)
+          // Wait for batch receipt confirmation before proceeding
+          setTxMessage(`Confirming batch ${b + 1} of ${parsedBatches.length}…`)
+          const batchReceipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+          if (batchReceipt.status !== 'success') {
+            throw new Error(`Batch ${b + 1} failed on-chain`)
+          }
+          batchResults.push({ txHash: hash, recipients: batch })
         }
       } else {
         // zkLTC native — single or batched disperseEther
+        // Note: Platform fee removed from UI (F-008) - fee not enforceable in Disperse contract
         for (let b = 0; b < batches.length; b++) {
           const batch = batches[b]
           if (batches.length > 1) {
@@ -219,14 +285,21 @@ export function AirdropForm() {
             abi: DISPERSE_ABI,
             functionName: 'disperseEther',
             args: [addrs, vals],
-            value: batchTotal + AIRDROP_FEE,
+            value: batchTotal, // Fee removed - not enforceable in contract (F-008)
           })
 
-          batchResults.push({ txHash: hash, recipients: batch })
           setCurrentTxHash(hash)
+          // Wait for batch receipt confirmation before proceeding
+          setTxMessage(`Confirming batch ${b + 1} of ${batches.length}…`)
+          const batchReceipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+          if (batchReceipt.status !== 'success') {
+            throw new Error(`Batch ${b + 1} failed on-chain`)
+          }
+          batchResults.push({ txHash: hash, recipients: batch })
         }
       }
 
+      // Only set success after ALL batch receipts confirm (F-007)
       setTxStatus('success')
       setTxMessage(undefined)
       setSuccessState({
@@ -245,7 +318,7 @@ export function AirdropForm() {
           : 'An unexpected error occurred.'
       setTxMessage(msg)
     }
-  }, [canSubmit, mode, tokenAddress, tokenDecimals, validRecipients, totalAmount, writeContractAsync])
+  }, [canSubmit, mode, tokenAddress, tokenDecimals, validRecipients, totalAmount, totalAmountWei, parsedRecipients, writeContractAsync])
 
   const handleReset = () => {
     setSuccessState(null)
@@ -298,6 +371,20 @@ export function AirdropForm() {
         ))}
       </div>
 
+      {/* F-013: ETH Airdrop EOA-only warning */}
+      {mode === 'native' && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <p className="text-sm font-medium text-amber-400 mb-1">
+            ⚠️ ETH Airdrop — EOA Wallets Only
+          </p>
+          <p className="text-xs text-amber-300/80">
+            Native ETH dispersal uses a gas-limited transfer. Sending to smart contract addresses
+            (multisigs, contract wallets) will cause the transaction to fail. ERC-20 token airdrops
+            are not affected.
+          </p>
+        </div>
+      )}
+
       {/* Main card */}
       <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8 space-y-8">
         {/* Step 1 — Token (only for ERC-20 mode) */}
@@ -325,6 +412,15 @@ export function AirdropForm() {
               />
               {tokenAddress && !isAddress(tokenAddress) && (
                 <p className="text-xs text-red-400">Invalid address format</p>
+              )}
+              {isAddress(tokenAddress) && (
+                <p className={`text-xs ${isDecimalsLoading ? 'text-blue-400' : tokenDecimals !== undefined ? 'text-green-400' : 'text-white/40'}`}>
+                  {isDecimalsLoading
+                    ? 'Reading token decimals...'
+                    : tokenDecimals !== undefined
+                    ? `Token decimals: ${tokenDecimals}`
+                    : ''}
+                </p>
               )}
               {address && (
                 <p className="text-xs text-white/30">
@@ -396,12 +492,8 @@ export function AirdropForm() {
                 )}
               </span>
             </div>
-            <div className="border-t border-white/10 pt-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/50">Platform fee</span>
-                <FeeDisplay feeLTC={totalFeeLTC} feeLabel="Fee" />
-              </div>
-            </div>
+            {/* Platform fee UI removed (F-008) - fee not enforceable in Disperse contract
+               TODO: Re-add when contract-level fee enforcement is implemented */}
             {mode === 'token' && (
               <div className="rounded-md bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-300">
                 Two-step flow: you&apos;ll first approve the token spend, then confirm the airdrop transaction.

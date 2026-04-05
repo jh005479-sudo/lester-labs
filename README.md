@@ -34,3 +34,19 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Known Limitations
+
+### Disperse.sol — ETH Recipients
+
+The `Disperse.sol` contract uses `.transfer()` for ETH sends, which enforces a 2300 gas stipend.
+This is intentional as it provides implicit reentrancy protection inherited from the original banteg deployment.
+
+**Limitation:** Contract wallet recipients (e.g. Gnosis Safe, smart contract addresses) that require
+>2300 gas in their fallback function will cause the entire ETH disperse transaction to revert.
+
+**Recommendation:** Only use the ETH airdrop feature to send to EOA (Externally Owned Account) wallets —
+standard MetaMask, WalletConnect, or hardware wallet addresses. Do not attempt to disperse ETH directly
+to multisig contracts or smart contract addresses.
+
+Token (ERC-20) dispersal is not affected by this limitation.

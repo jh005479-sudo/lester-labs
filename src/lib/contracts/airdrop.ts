@@ -37,8 +37,8 @@ export const ERC20_APPROVE_ABI = [
   },
 ] as const
 
-export const DISPERSE_ADDRESS =
-  '0x0000000000000000000000000000000000000000' as `0x${string}`
+// Re-export from centralized config
+export { DISPERSE_ADDRESS } from '@/config/contracts'
 
 // Fee: 0.01 zkLTC per batch
 export const AIRDROP_FEE = BigInt('10000000000000000')

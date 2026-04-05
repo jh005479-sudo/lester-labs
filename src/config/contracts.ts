@@ -1,1 +1,34 @@
-export const ILO_FACTORY_ADDRESS = '0x0000000000000000000000000000000000000000' as `0x${string}`
+// Contract addresses loaded from environment variables
+// All addresses default to zero address if not set - use isValidContractAddress() before interacting
+
+export const ILO_FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_ILO_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
+
+export const TOKEN_FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_TOKEN_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
+
+export const VESTING_FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_VESTING_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
+
+export const LIQUIDITY_LOCKER_ADDRESS = (process.env.NEXT_PUBLIC_LIQUIDITY_LOCKER_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
+
+export const DISPERSE_ADDRESS = (process.env.NEXT_PUBLIC_DISPERSE_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+/**
+ * Runtime guard: returns true if the address is valid (non-zero and properly formatted)
+ */
+export function isValidContractAddress(address: string | undefined): boolean {
+  if (!address) return false
+  if (address === ZERO_ADDRESS) return false
+  return /^0x[0-9a-fA-F]{40}$/.test(address)
+}
+
+/**
+ * Throws if any required contract address is not configured
+ */
+export function requireContractAddresses(addresses: Record<string, string>): void {
+  for (const [name, address] of Object.entries(addresses)) {
+    if (!isValidContractAddress(address)) {
+      throw new Error(`Contract address not configured: ${name}. Please set the corresponding NEXT_PUBLIC_* environment variable.`)
+    }
+  }
+}

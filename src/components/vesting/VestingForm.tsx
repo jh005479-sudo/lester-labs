@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
-import * as Switch from '@radix-ui/react-switch'
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { parseUnits } from 'viem'
+import { useState, useEffect, useCallback } from 'react'
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
 import { CheckCircle2, Copy, ExternalLink, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { FeeDisplay } from '@/components/shared/FeeDisplay'
@@ -13,8 +12,19 @@ import {
   VESTING_FACTORY_ABI,
   ERC20_APPROVE_ABI,
   VESTING_FACTORY_ADDRESS,
-  VESTING_FEE,
 } from '@/lib/contracts/tokenVesting'
+import { isValidContractAddress } from '@/config/contracts'
+
+// ABI for fetching token decimals (F-009)
+const ERC20_DECIMALS_ABI = [
+  {
+    name: 'decimals',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+  },
+] as const
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -271,6 +281,7 @@ export function VestingForm() {
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successResult, setSuccessResult] = useState<SuccessState | null>(null)
+  const [tokenDecimals, setTokenDecimals] = useState<number | undefined>(undefined)
 
   const set = <K extends keyof FormState>(key: K, val: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: val }))
@@ -278,6 +289,41 @@ export function VestingForm() {
   const { writeContractAsync } = useWriteContract()
 
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
+
+  // RP-003: Read vesting fee from contract
+  const { data: vestingFee, isLoading: isFeeLoading } = useReadContract({
+    address: VESTING_FACTORY_ADDRESS,
+    abi: VESTING_FACTORY_ABI,
+    functionName: 'vestingFee',
+    query: {
+      enabled: isValidContractAddress(VESTING_FACTORY_ADDRESS),
+    },
+  })
+
+  const feeReady = vestingFee !== undefined && !isFeeLoading
+  const feeDisplay = vestingFee ? formatEther(vestingFee) : '...'
+
+  // Fetch actual token decimals on-chain (F-009)
+  const { data: fetchedDecimals, isLoading: isDecimalsLoading } = useReadContract({
+    address: isAddress(form.tokenAddress) ? (form.tokenAddress as `0x${string}`) : undefined,
+    abi: ERC20_DECIMALS_ABI,
+    functionName: 'decimals',
+    query: {
+      enabled: isAddress(form.tokenAddress),
+    },
+  })
+
+  // Reset decimals when token address changes to prevent stale values
+  useEffect(() => {
+    setTokenDecimals(undefined)
+  }, [form.tokenAddress])
+
+  // Update tokenDecimals when fetched
+  useEffect(() => {
+    if (fetchedDecimals !== undefined) {
+      setTokenDecimals(fetchedDecimals)
+    }
+  }, [fetchedDecimals])
 
   // Handle receipt when it comes back
   useEffect(() => {
@@ -292,11 +338,33 @@ export function VestingForm() {
       setModalOpen(false)
       setTxPhase('create')
     } else {
-      // Create confirmed — parse vesting ID from logs
-      const vestingId =
-        receipt.logs?.[0]?.topics?.[1]
-          ? BigInt(receipt.logs[0].topics[1]).toString()
-          : '0'
+      // Create confirmed — parse vesting ID from logs using ABI-based decoding (F-010)
+      // RP-007: Filter logs by factory address before decode, use undefined instead of placeholder
+      let vestingId: string | undefined = undefined
+      const factoryLogs = (receipt.logs || []).filter(
+        (log) => log.address.toLowerCase() === VESTING_FACTORY_ADDRESS.toLowerCase()
+      )
+      for (const log of factoryLogs) {
+        try {
+          const decoded = decodeEventLog({
+            abi: VESTING_FACTORY_ABI,
+            data: log.data,
+            topics: log.topics,
+          })
+          if (decoded.eventName === 'VestingCreated' && 'vestingId' in decoded.args) {
+            vestingId = decoded.args.vestingId.toString()
+            break
+          }
+        } catch {
+          // Not a matching event, continue
+        }
+      }
+      // RP-007: If event not found, set error state
+      if (vestingId === undefined) {
+        setTxStatus('error')
+        setTxMessage('Transaction mined but expected event was not decoded; verify on explorer')
+        return
+      }
       setTxStatus('success')
       setSuccessResult({
         vestingId,
@@ -313,12 +381,14 @@ export function VestingForm() {
   }, [receipt, currentTxHash, txStatus, txPhase, form])
 
   const handleApprove = async () => {
+    if (tokenDecimals === undefined) return // Guard against stale decimals
     try {
       setModalOpen(true)
       setTxStatus('pending')
       setTxMessage('Approving token transfer…')
 
-      const amount = parseUnits(form.totalAmount, 18)
+      // Use fetched token decimals (F-009)
+      const amount = parseUnits(form.totalAmount, tokenDecimals)
 
       const hash = await writeContractAsync({
         address: form.tokenAddress as `0x${string}`,
@@ -340,18 +410,22 @@ export function VestingForm() {
   }
 
   const handleCreate = async () => {
+    if (!feeReady) return // RP-003: Block submit until fee loaded
+    if (tokenDecimals === undefined) return // Guard against stale decimals
     try {
       setModalOpen(true)
       setTxStatus('pending')
       setTxMessage('Creating vesting schedule…')
 
-      const amount = parseUnits(form.totalAmount, 18)
+      // Use fetched token decimals (F-009)
+      const amount = parseUnits(form.totalAmount, tokenDecimals)
       const startTs = toTimestamp(form.startDate)
       const endTs = toTimestamp(form.endDate)
       const cliffTs = form.vestingType === 'cliff_linear' ? toTimestamp(form.cliffDate) : startTs
       const cliffDuration = cliffTs - startTs
       const vestingDuration = endTs - startTs
 
+      // Revocable parameter removed - not implemented in contract (F-011)
       const hash = await writeContractAsync({
         address: VESTING_FACTORY_ADDRESS,
         abi: VESTING_FACTORY_ABI,
@@ -363,9 +437,9 @@ export function VestingForm() {
           startTs,
           cliffDuration,
           vestingDuration,
-          form.revocable,
+          false, // revocable param — required for ABI selector match; ignored on-chain
         ],
-        value: VESTING_FEE,
+        value: vestingFee!, // RP-003: Use live fee from contract
       })
       setCurrentTxHash(hash)
     } catch (err: unknown) {
@@ -401,7 +475,10 @@ export function VestingForm() {
     return true
   })()
 
-  const canReview = form.vestingType === 'custom' ? isStep1Valid : isStep1Valid && isScheduleValid
+  const isContractConfigured = isValidContractAddress(VESTING_FACTORY_ADDRESS)
+  // Decimals must be loaded before proceeding
+  const decimalsReady = tokenDecimals !== undefined
+  const canReview = isContractConfigured && decimalsReady && (form.vestingType === 'custom' ? isStep1Valid : isStep1Valid && isScheduleValid)
 
   // Show success panel when done
   if (successResult && !modalOpen) {
@@ -423,6 +500,15 @@ export function VestingForm() {
                 onChange={(v) => set('tokenAddress', v)}
                 placeholder="0x… token contract"
               />
+              {isValidAddress(form.tokenAddress) && (
+                <p className={`text-xs mt-1 ${isDecimalsLoading ? 'text-blue-400' : tokenDecimals !== undefined ? 'text-green-400' : 'text-white/40'}`}>
+                  {isDecimalsLoading
+                    ? 'Reading token decimals...'
+                    : tokenDecimals !== undefined
+                    ? `Token decimals: ${tokenDecimals}`
+                    : ''}
+                </p>
+              )}
             </div>
 
             <div>
@@ -447,23 +533,8 @@ export function VestingForm() {
               />
             </div>
 
-            <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-white">Revocable</p>
-                <p className="text-xs text-white/40">
-                  If ON, you can cancel the vesting schedule and reclaim unvested tokens
-                </p>
-              </div>
-              <Switch.Root
-                checked={form.revocable}
-                onCheckedChange={(v) => set('revocable', v)}
-                className={`relative h-6 w-11 cursor-pointer rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-                  form.revocable ? 'bg-[var(--accent)]' : 'bg-white/10'
-                }`}
-              >
-                <Switch.Thumb className="block h-4 w-4 translate-x-1 rounded-full bg-white shadow-sm transition-transform data-[state=checked]:translate-x-6" />
-              </Switch.Root>
-            </div>
+            {/* Revocable toggle removed (F-011) - revocable vesting not yet implemented in contract
+               TODO: Re-add when VestingFactory supports revocable vesting schedules */}
           </div>
 
           {/* ── Section 2: Vesting Schedule ── */}
@@ -648,12 +719,7 @@ export function VestingForm() {
                   </div>
                 </>
               )}
-              <div>
-                <p className="text-white/40 text-xs mb-0.5">Revocable</p>
-                <p className={form.revocable ? 'text-amber-400' : 'text-white/60'}>
-                  {form.revocable ? 'Yes' : 'No'}
-                </p>
-              </div>
+              {/* Revocable field removed (F-011) - not implemented in contract */}
             </div>
 
             {/* Timeline */}
@@ -669,10 +735,10 @@ export function VestingForm() {
             )}
           </div>
 
-          {/* Fee */}
+          {/* Fee (RP-003: live fee from contract) */}
           <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-4 flex items-center justify-between">
             <span className="text-sm text-white/60">Platform fee</span>
-            <FeeDisplay feeLTC={0.03} feeLabel="Fee" />
+            <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.03} feeLabel="Fee" />
           </div>
 
           {/* Two-step deploy */}
@@ -698,13 +764,13 @@ export function VestingForm() {
                 {txPhase === 'approve' ? '1. Approve Token' : '1. Approved ✓'}
               </button>
 
-              {/* Step 2 — Create */}
+              {/* Step 2 — Create (RP-003: disable until fee loaded) */}
               <button
                 onClick={handleCreate}
-                disabled={txPhase !== 'create'}
+                disabled={txPhase !== 'create' || !feeReady}
                 className="flex-1 rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                2. Create Schedule
+                {isFeeLoading ? 'Loading fee…' : '2. Create Schedule'}
               </button>
             </div>
           </div>

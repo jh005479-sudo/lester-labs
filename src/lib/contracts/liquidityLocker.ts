@@ -11,6 +11,14 @@ export const LIQUIDITY_LOCKER_ABI = [
     ],
     outputs: [{ name: 'lockId', type: 'uint256' }],
   },
+  // RP-003: Fee getter view function
+  {
+    name: 'lockFee',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
   {
     name: 'getLock',
     type: 'function',
@@ -30,6 +38,17 @@ export const LIQUIDITY_LOCKER_ABI = [
     stateMutability: 'nonpayable',
     inputs: [{ name: 'lockId', type: 'uint256' }],
     outputs: [],
+  },
+  {
+    type: 'event',
+    name: 'LockCreated',
+    inputs: [
+      { name: 'lockId', type: 'uint256', indexed: true },
+      { name: 'lpToken', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'unlockTime', type: 'uint256', indexed: false },
+      { name: 'withdrawer', type: 'address', indexed: false },
+    ],
   },
 ] as const
 
@@ -53,8 +72,8 @@ export const ERC20_APPROVE_ABI = [
   },
 ] as const
 
-export const LIQUIDITY_LOCKER_ADDRESS =
-  '0x0000000000000000000000000000000000000000' as `0x${string}`
+// Re-export from centralized config
+export { LIQUIDITY_LOCKER_ADDRESS } from '@/config/contracts'
 
 // Flat fee: 0.03 zkLTC
 export const LOCK_FEE = BigInt('30000000000000000')

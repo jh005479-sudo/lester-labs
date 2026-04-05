@@ -10,11 +10,17 @@ contract LesterToken is ERC20, ERC20Burnable, ERC20Pausable, Ownable {
     bool public mintable;
     bool public burnable;
     bool public pausable;
+    uint8 private immutable _customDecimals;
 
+    /**
+     * @dev Creates a new token.
+     * @param totalSupply_ The initial supply in BASE UNITS (already scaled by 10^decimals).
+     *        Convention: UI passes base units via parseUnits(), contract mints exactly that amount.
+     */
     constructor(
         string memory name,
         string memory symbol,
-        uint256 totalSupply,
+        uint256 totalSupply_,
         uint8 decimals_,
         bool _mintable,
         bool _burnable,
@@ -24,12 +30,28 @@ contract LesterToken is ERC20, ERC20Burnable, ERC20Pausable, Ownable {
         mintable = _mintable;
         burnable = _burnable;
         pausable = _pausable;
-        _mint(owner, totalSupply * (10 ** decimals_));
+        _customDecimals = decimals_;
+        // totalSupply_ is already in base units - mint exactly what's passed
+        _mint(owner, totalSupply_);
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return _customDecimals;
     }
 
     function mint(address to, uint256 amount) public onlyOwner {
         require(mintable, "Not mintable");
         _mint(to, amount);
+    }
+
+    function burn(uint256 amount) public virtual override {
+        require(burnable, "Token is not burnable");
+        super.burn(amount);
+    }
+
+    function burnFrom(address account, uint256 amount) public virtual override {
+        require(burnable, "Token is not burnable");
+        super.burnFrom(account, amount);
     }
 
     function pause() public onlyOwner {
@@ -66,7 +88,7 @@ contract TokenFactory is Ownable {
         bool burnable,
         bool pausable
     ) external payable returns (address tokenAddress) {
-        require(msg.value >= creationFee, "Insufficient fee");
+        require(msg.value == creationFee, "Incorrect fee amount"); // RP-004: exact fee policy
 
         LesterToken token = new LesterToken(
             name, symbol, totalSupply, decimals,
@@ -82,6 +104,7 @@ contract TokenFactory is Ownable {
     }
 
     function withdraw() external onlyOwner {
-        payable(owner()).transfer(address(this).balance);
+        (bool success, ) = payable(owner()).call{value: address(this).balance}("");
+        require(success, "Withdrawal failed");
     }
 }
