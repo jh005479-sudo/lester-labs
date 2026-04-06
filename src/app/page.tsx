@@ -419,8 +419,8 @@ export default function HomePage() {
               <div className="b-card-body"><h3>Developer Docs</h3><p>Roll up your sleeves and start building.</p></div>
             </a>
 
-            {/* Grants */}
-            <a href="https://litvm.com" target="_blank" rel="noopener noreferrer" className="b-card reveal reveal-delay-2 tilt-card" style={{ '--b-glow': 'rgba(245,166,35,.08)' } as React.CSSProperties}>
+            {/* Block Explorer */}
+            <a href="/explorer" className="b-card reveal reveal-delay-2 tilt-card" style={{ '--b-glow': 'rgba(245,166,35,.08)' } as React.CSSProperties}>
               <div className="b-card-bg" style={{ background: 'linear-gradient(145deg,#1f1810 0%,#2a1e12 40%,#1e1610 70%,#141008 100%)' }} />
               <div className="b-card-top">
                 <div className="b-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5A623" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8 10h8"/></svg></div>
@@ -452,11 +452,11 @@ export default function HomePage() {
                   <circle cx="45" cy="75" r="1.5" fill="#F5A623" className="b-sparkle" style={{ animationDelay: '1.4s' }}/>
                 </svg>
               </div>
-              <div className="b-card-body"><h3>Grants</h3><p>Get funding to build something.</p></div>
+              <div className="b-card-body"><h3>Block Explorer</h3><p>Track transactions, blocks, and on-chain activity.</p></div>
             </a>
 
-            {/* GitHub */}
-            <a href="#" className="b-card" style={{ '--b-glow': 'rgba(54,209,220,.08)' } as React.CSSProperties}>
+            {/* Connect on X */}
+            <a href="https://x.com/LesterLabsHQ" target="_blank" rel="noopener noreferrer" className="b-card" style={{ '--b-glow': 'rgba(54,209,220,.08)' } as React.CSSProperties}>
               <div className="b-card-bg" style={{ background: 'linear-gradient(145deg,#0e1a1e 0%,#122228 40%,#0e1820 70%,#0a1015 100%)' }} />
               <div className="b-card-top">
                 <div className="b-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#36D1DC" strokeWidth="1.5"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg></div>
@@ -490,11 +490,11 @@ export default function HomePage() {
                   <circle cx="175" cy="38" r="1.5" fill="#36D1DC" className="b-sparkle" style={{ animationDelay: '.2s' }}/>
                 </svg>
               </div>
-              <div className="b-card-body"><h3>Github</h3><p>Open-source and audited. Verify on-chain.</p></div>
+              <div className="b-card-body"><h3>Connect on X</h3><p>Follow updates and announcements from Lester Labs.</p></div>
             </a>
 
-            {/* Discord */}
-            <a href="#" className="b-card reveal reveal-delay-3 tilt-card" style={{ '--b-glow': 'rgba(228,79,181,.08)' } as React.CSSProperties}>
+            {/* Built for LitVM */}
+            <a href="https://www.litvm.com/" target="_blank" rel="noopener noreferrer" className="b-card reveal reveal-delay-3 tilt-card" style={{ '--b-glow': 'rgba(228,79,181,.08)' } as React.CSSProperties}>
               <div className="b-card-bg" style={{ background: 'linear-gradient(145deg,#1e1025 0%,#2a1430 40%,#1e0e25 70%,#140a18 100%)' }} />
               <div className="b-card-top">
                 <div className="b-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E44FB5" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
@@ -529,7 +529,7 @@ export default function HomePage() {
                   <circle cx="42" cy="50" r="2" fill="#E44FB5" className="b-sparkle" style={{ animationDelay: '1.1s' }}/>
                 </svg>
               </div>
-              <div className="b-card-body"><h3>Discord</h3><p>Chat with fellow developers and validators.</p></div>
+              <div className="b-card-body"><h3>Built for LitVM</h3><p>Learn more about the chain powering Lester Labs.</p></div>
             </a>
           </div>
         </section>
