@@ -383,7 +383,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
           </div>
 
           {/* CTA Buttons */}
-          <div style={{
+          <div className="hero-cta-group" style={{
             display: 'flex', gap: 14, justifyContent: 'center', marginTop: 36,
             opacity: ctaOn ? 1 : 0, transform: ctaOn ? 'translateY(0)' : 'translateY(20px)',
             transition: `opacity .7s ${tr}, transform .7s ${tr}`,
@@ -416,6 +416,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
         {/* Skip button */}
         {!skipGone && (
           <button
+            className="hero-skip-btn"
             onClick={() => { if (!revealDone.current) { revealDone.current = true; doReveal() } }}
             style={{
               position: 'absolute', bottom: 28, right: 28, zIndex: 60,

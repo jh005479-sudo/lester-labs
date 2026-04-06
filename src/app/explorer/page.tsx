@@ -163,7 +163,7 @@ export default function ExplorerPage() {
               {blocks.map((block) => (
                 <div
                   key={block.number}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-white/5 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-5 py-3 hover:bg-white/5 transition-colors"
                 >
                   <div className="flex flex-col gap-1">
                     <Link
@@ -198,7 +198,7 @@ export default function ExplorerPage() {
               {txs.map((tx, i) => (
                 <div
                   key={`${tx.hash}-${i}`}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-white/5 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-5 py-3 hover:bg-white/5 transition-colors"
                 >
                   <div className="flex flex-col gap-1">
                     <Link
@@ -238,7 +238,7 @@ export default function ExplorerPage() {
       {/* Tweet Snapshot Button */}
       <button
         onClick={handleTweet}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] px-5 py-3 text-sm font-medium text-white shadow-lg hover:opacity-90 transition-opacity"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] px-4 sm:px-5 py-3 text-sm font-medium text-white shadow-lg hover:opacity-90 transition-opacity"
       >
         <Twitter className="h-4 w-4" />
         Share Stats

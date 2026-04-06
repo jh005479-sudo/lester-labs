@@ -115,7 +115,7 @@ export function RecipientInput({ onChange }: RecipientInputProps) {
         onChange([])
       }}
     >
-      <Tabs.List className="mb-4 flex gap-1 rounded-lg bg-white/5 p-1">
+      <Tabs.List className="mb-4 flex gap-1 rounded-lg bg-white/5 p-1 overflow-x-auto">
         <Tabs.Trigger value="manual" className={tabClass(activeTab === 'manual')}>
           <List size={14} />
           Manual Entry

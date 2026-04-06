@@ -175,7 +175,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
       {/* Summary */}
       <div className="rounded-xl border border-white/10 bg-white/5 p-5 text-left space-y-3">
         <p className="text-xs font-medium uppercase tracking-wider text-white/40">Summary</p>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <div>
             <span className="text-white/40">Token</span>
             <p className="font-mono text-white">{shortAddr(result.tokenAddress)}</p>
