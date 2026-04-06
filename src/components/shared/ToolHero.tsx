@@ -110,17 +110,6 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
         pointerEvents: 'none', zIndex: 0,
       }} />
 
-      {/* Horizontal accent lines */}
-      <div style={{
-        position: 'absolute', top: '50%', left: 0, right: 0,
-        height: '1px', pointerEvents: 'none', zIndex: 1,
-      }}>
-        <div style={{
-          position: 'absolute', top: 0, left: 'clamp(16px,4vw,40px)', width: '20%',
-          height: '1px',
-          background: `linear-gradient(90deg, transparent, rgba(${r},${g},${b},0.25))`,
-        }} />
-      </div>
 
       {/* Floating particles */}
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 1 }}>
