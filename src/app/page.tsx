@@ -1,499 +1,618 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Coins, Lock, Clock, Send, Users, Rocket, ChevronDown } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
-import { LTCBanner } from '@/components/LTCBanner'
+import ScrollHero from '@/components/home/ScrollHero'
 
-/* ─── Data ──────────────────────────────────────────────────────────── */
-
-const utilities = [
+const tools = [
   {
-    href: '/launch',
-    icon: Coins,
-    name: 'Token Factory',
-    description: 'Deploy a standard ERC-20 token in 3 steps. No coding required.',
-    fee: '0.05 zkLTC/deploy',
+    name: 'Lester Minter', label: 'Token Creation',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B4FFF" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v12"/><path d="M8 10h8"/><path d="M9 14h6"/></svg>`,
+    tagline: 'Deploy ERC-20 tokens in 3 steps',
+    desc: 'Configure supply, name, and features — deploy in under a minute.',
+    fee: '0.05 zkLTC', color: '#6B4FFF', href: '/launch',
+    stats: [['Type','ERC-20'],['Speed','< 1 min'],['Code','None']],
+    imgPos: '30%', img: '/images/carousel/token-factory.png'
   },
   {
-    href: '/locker',
-    icon: Lock,
-    name: 'Liquidity Locker',
-    description: 'Lock LP tokens and generate a shareable lock certificate for your community.',
-    fee: '0.03 zkLTC/lock',
+    name: 'Lester Lockup', label: 'LP Security',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2DCE89" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    tagline: 'Lock LP tokens with proof',
+    desc: 'Lock liquidity on-chain and generate a shareable certificate.',
+    fee: '0.03 zkLTC', color: '#2DCE89', href: '/locker',
+    stats: [['Proof','On-chain'],['Certificate','Shareable'],['Trust','Day one']],
+    imgPos: '30%', img: '/images/carousel/liquidity-locker.png'
   },
   {
-    href: '/vesting',
-    icon: Clock,
-    name: 'Token Vesting',
-    description: 'Set linear or cliff vesting schedules for team and investor allocations.',
-    fee: '0.03 zkLTC/schedule',
+    name: 'Lester Vester', label: 'Token Distribution',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+    tagline: 'Linear & cliff schedules',
+    desc: 'Set vesting schedules for teams and investors. Auto-release.',
+    fee: '0.03 zkLTC', color: '#F5A623', href: '/vesting',
+    stats: [['Schedules','Linear + Cliff'],['Release','Automatic'],['Claims','Zero']],
+    imgPos: '50%', img: '/images/carousel/token-vesting.png'
   },
   {
-    href: '/airdrop',
-    icon: Send,
-    name: 'Airdrop Tool',
-    description: 'Send tokens to hundreds of wallets in one transaction. CSV import supported.',
-    fee: '0.01 zkLTC/batch',
+    name: 'Lester Dropper', label: 'Mass Distribution',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#36D1DC" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`,
+    tagline: 'Batch send in one transaction',
+    desc: 'Send tokens to hundreds of wallets at once. CSV supported.',
+    fee: '0.01 zkLTC', color: '#36D1DC', href: '/airdrop',
+    stats: [['Wallets','Hundreds'],['Import','CSV'],['Tx','Single']],
+    imgPos: '50%', img: '/images/carousel/airdrop.png'
   },
   {
-    href: '/governance',
-    icon: Users,
-    name: 'Governance',
-    description: 'Create proposals and let your community vote. No gas required.',
-    fee: 'Free',
+    name: 'Lester Gov', label: 'Community Voting',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E44FB5" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    tagline: 'Gasless community voting',
+    desc: 'Create proposals and let token holders vote. No gas costs.',
+    fee: 'Free', color: '#E44FB5', href: '/governance',
+    stats: [['Gas','Zero'],['Style','Snapshot'],['Cost','Free']],
+    imgPos: '50%', img: '/images/carousel/governance.png'
   },
   {
-    href: '/launchpad',
-    icon: Rocket,
-    name: 'Launchpad',
-    description: 'Community presales with automatic SparkDex LP creation and locking. Self-service, permissionless.',
-    fee: '0.03 zkLTC + 2%',
+    name: 'Lester Launch', label: 'Presale Platform',
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E6AD2" stroke-width="1.5"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 3 0 3 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-3 0-3"/></svg>`,
+    tagline: 'Permissionless presales',
+    desc: 'Community presales with automatic LP creation on LitVM\'s native dex.',
+    fee: '0.03 zkLTC + 2%', color: '#5E6AD2', href: '/launchpad',
+    stats: [['LP','Auto-created'],['DEX','SparkDex'],['Access','Open']],
+    imgPos: '50%', img: '/images/carousel/launchpad.png'
   },
 ]
-
-const reasons = [
-  {
-    emoji: '🔒',
-    title: 'Battle-Tested Contracts',
-    body: 'Forked 1:1 from OpenZeppelin, Unicrypt, Disperse, and Snapshot. No custom contract logic means no new attack surface.',
-  },
-  {
-    emoji: '⚡',
-    title: 'Built for LitVM Day One',
-    body: 'The first DeFi utility suite on LitVM. Get your project running from the moment mainnet launches.',
-  },
-  {
-    emoji: '🐾',
-    title: 'Backed by the Community',
-    body: 'Built by the team behind QuickSwap, SparkDex, and Polygon. Grant-supported by the LitVM Foundation.',
-  },
-]
-
-const faqs = [
-  {
-    question: 'Is this free to use?',
-    answer:
-      'Each utility has a small protocol fee paid in zkLTC (the native gas token on LitVM). Fees are shown before you sign any transaction. Governance voting is always free.',
-  },
-  {
-    question: 'Are the contracts audited?',
-    answer:
-      'Our contracts are forked 1:1 from battle-tested implementations — OpenZeppelin, Unicrypt, Disperse, and Snapshot. We deliberately avoid custom logic to minimize attack surface. Testnet is unaudited; a formal audit will be completed before mainnet.',
-  },
-  {
-    question: 'What wallet do I need?',
-    answer:
-      'Any EVM-compatible wallet works — MetaMask, WalletConnect, Coinbase Wallet, Rabby, etc. Make sure to add LitVM (or Arbitrum Sepolia for testnet) as a network.',
-  },
-  {
-    question: 'When does mainnet launch?',
-    answer:
-      'Lester-Labs launches on LitVM mainnet day one. Until then, you can test all utilities on Arbitrum Sepolia using free testnet ETH.',
-  },
-  {
-    question: 'Who is behind Lester-Labs?',
-    answer:
-      "Built by the team behind QuickSwap, SparkDex, and Polygon, with grant support from the LitVM Foundation. We're committed to the long-term success of the Litecoin and LitVM ecosystem.",
-  },
-]
-
-const socials = [
-  {
-    name: 'Twitter/X',
-    href: 'https://twitter.com/LesterLabs',
-    icon: (
-      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-      </svg>
-    ),
-  },
-  {
-    name: 'Telegram',
-    href: 'https://t.me/LesterLabs',
-    icon: (
-      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
-      </svg>
-    ),
-  },
-  {
-    name: 'Discord',
-    href: 'https://discord.gg/LesterLabs',
-    icon: (
-      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z" />
-      </svg>
-    ),
-  },
-]
-
-/* ─── FAQ Accordion ────────────────────────────────────────────────── */
-
-function FAQItem({ question, answer }: { question: string; answer: string }) {
-  const [isOpen, setIsOpen] = useState(false)
-
-  return (
-    <div
-      className="border-b transition-colors"
-      style={{ borderColor: 'rgba(255,255,255,0.08)' }}
-    >
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between py-5 text-left transition-colors hover:text-white"
-        style={{ color: isOpen ? '#fff' : 'rgba(237,237,237,0.8)' }}
-      >
-        <span className="text-base font-medium pr-4">{question}</span>
-        <ChevronDown
-          size={18}
-          className={`flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-          style={{ color: 'rgba(237,237,237,0.4)' }}
-        />
-      </button>
-      <div
-        className={`overflow-hidden transition-all duration-200 ${
-          isOpen ? 'max-h-96 pb-5' : 'max-h-0'
-        }`}
-      >
-        <p className="text-sm leading-relaxed" style={{ color: 'rgba(237,237,237,0.5)' }}>
-          {answer}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-/* ─── Page ──────────────────────────────────────────────────────────── */
 
 export default function HomePage() {
+  const [introComplete, setIntroComplete] = useState(false)
+
+  useEffect(() => {
+    // ─── Google Fonts ────────────────────────────────────
+    const fontLink = document.createElement('link')
+    fontLink.rel = 'stylesheet'
+    fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Sora:wght@600;700;800&display=swap'
+    document.head.appendChild(fontLink)
+
+    // ─── Carousel ────────────────────────────────────────
+    const track = document.getElementById('carousel-track') as HTMLElement
+    const dotsWrap = document.getElementById('carousel-dots') as HTMLElement
+    let currentSlide = 0
+
+    if (track && dotsWrap) {
+      tools.forEach((t, i) => {
+        const r = parseInt(t.color.slice(1,3),16)
+        const g = parseInt(t.color.slice(3,5),16)
+        const b = parseInt(t.color.slice(5,7),16)
+
+        const slide = document.createElement('div')
+        slide.className = 'carousel-slide' + (i===0 ? ' active' : '')
+        slide.style.setProperty('--card-color', t.color)
+        slide.style.setProperty('--card-glow', `rgba(${r},${g},${b},.1)`)
+        slide.style.setProperty('--card-glow-sm', `rgba(${r},${g},${b},.05)`)
+        slide.style.setProperty('--card-color-25', `rgba(${r},${g},${b},.25)`)
+        slide.style.setProperty('--card-color-15', `rgba(${r},${g},${b},.15)`)
+        slide.innerHTML = `
+          <div class="c-card" onclick="window.location.href='${t.href}'" style="cursor:pointer">
+            <div class="c-card-body">
+              <div>
+                <div class="c-card-label" style="color:${t.color}">${t.label}</div>
+                <div class="c-card-title" style="margin-top:12px">
+                  <div class="c-icon" style="background:rgba(${r},${g},${b},.12);border:1px solid rgba(${r},${g},${b},.15)">${t.icon}</div>
+                  <h3>${t.name}</h3>
+                </div>
+              </div>
+              <div class="c-card-stats">
+                ${t.stats.map(([k,v]) => `<div class="c-card-stat"><span>${k}</span><span>${v}</span></div>`).join('')}
+              </div>
+              <div>
+                <div style="font-size:12px;color:rgba(240,238,245,.5);margin-bottom:16px;line-height:1.55">${t.desc}</div>
+                <a href="${t.href}" class="c-card-link" style="color:${t.color};text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px">↗ Open ${t.name}</a>
+              </div>
+            </div>
+            <div class="c-card-visual">
+              <div class="c-card-visual-grid"></div>
+              <div class="c-card-visual-glow" style="background:${t.color}"></div>
+              <img src="${t.img}" alt="${t.name}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:${t.imgPos} center;z-index:1;border-radius:0">
+            </div>
+          </div>`
+        track.appendChild(slide)
+
+        const dot = document.createElement('div')
+        dot.className = 'c-dot' + (i===0 ? ' active' : '')
+        dot.onclick = () => goSlide(i)
+        dotsWrap.appendChild(dot)
+      })
+    }
+
+    function goSlide(i: number) {
+      i = ((i % tools.length) + tools.length) % tools.length
+      currentSlide = i
+      const slides = track.querySelectorAll('.carousel-slide')
+      const wrapW = (document.getElementById('carousel-wrap') as HTMLElement).offsetWidth
+      slides.forEach((s,j) => s.classList.toggle('active', j===i))
+      dotsWrap.querySelectorAll('.c-dot').forEach((d: Element, j: number) => {
+        d.classList.toggle('active', j===i);
+        (d as HTMLElement).style.background = j===i ? tools[i].color : ''
+      })
+      requestAnimationFrame(() => {
+        const activeSlide = slides[i] as HTMLElement
+        const slideLeft = activeSlide.offsetLeft
+        const slideW = activeSlide.offsetWidth
+        const offset = slideLeft - (wrapW - slideW) / 2;
+        (track as HTMLElement).style.transform = `translateX(${-offset}px)`
+      })
+    }
+
+    window.addEventListener('resize', () => goSlide(currentSlide))
+    setTimeout(() => goSlide(0), 50)
+
+    // Arrow buttons
+    const prevBtn = document.getElementById('carousel-prev')
+    const nextBtn = document.getElementById('carousel-next')
+    prevBtn?.addEventListener('click', () => goSlide(currentSlide - 1))
+    nextBtn?.addEventListener('click', () => goSlide(currentSlide + 1))
+
+    let autoTimer = setInterval(() => goSlide(currentSlide + 1), 4000)
+    const wrap = document.getElementById('carousel-wrap')
+    wrap?.addEventListener('mouseenter', () => clearInterval(autoTimer))
+    wrap?.addEventListener('mouseleave', () => { autoTimer = setInterval(() => goSlide(currentSlide + 1), 4000) })
+
+    // ─── Scroll-triggered reveals ─────────────────────────
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible') })
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' })
+    document.querySelectorAll('.reveal, .reveal-scale, .title-reveal, .sub-reveal').forEach(el => revealObserver.observe(el))
+
+    // ─── 3D Card tilt ──────────────────────────────────────
+    document.querySelectorAll('.tilt-card').forEach((card) => {
+      const el = card as HTMLElement
+      el.addEventListener('mousemove', (e: MouseEvent) => {
+        const rect = el.getBoundingClientRect()
+        const x = e.clientX - rect.left, y = e.clientY - rect.top
+        const rotateX = ((y - rect.height/2) / (rect.height/2)) * -4
+        const rotateY = ((x - rect.width/2) / (rect.width/2)) * 4
+        el.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`
+      })
+      el.addEventListener('mouseleave', () => { el.style.transform = 'perspective(800px) rotateX(0) rotateY(0) translateY(0)' })
+    })
+
+    // ─── Magnetic buttons ─────────────────────────────────
+    document.querySelectorAll('.magnetic').forEach((btn) => {
+      const el = btn as HTMLElement
+      el.addEventListener('mousemove', (e: MouseEvent) => {
+        const rect = el.getBoundingClientRect()
+        const x = e.clientX - rect.left - rect.width/2
+        const y = e.clientY - rect.top - rect.height/2
+        el.style.transform = `translate(${x*0.15}px, ${y*0.15}px)`
+      })
+      el.addEventListener('mouseleave', () => { el.style.transform = 'translate(0,0)' })
+    })
+
+    // ─── Scroll progress bar ──────────────────────────────
+    const progressBar = document.getElementById('scroll-progress')
+    function updateProgress() {
+      const scrollTop = window.scrollY
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight
+      if (progressBar) progressBar.style.width = ((scrollTop / docHeight) * 100) + '%'
+    }
+    window.addEventListener('scroll', updateProgress, { passive: true })
+
+    // ─── Back to top ───────────────────────────────────────
+    const backBtn = document.getElementById('back-to-top')
+    window.addEventListener('scroll', () => {
+      backBtn?.classList.toggle('visible', window.scrollY > window.innerHeight)
+    }, { passive: true })
+    backBtn?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
+
+    // ─── Background color shift ────────────────────────────
+    const body = document.body
+    const bgObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return
+        const section = entry.target as HTMLElement
+        body.style.transition = 'background-color 1.5s ease'
+        if (section.classList.contains('trust-section')) body.style.backgroundColor = '#0b0819'
+        else if (section.classList.contains('builders-section')) body.style.backgroundColor = '#090816'
+        else if (section.classList.contains('cta-section')) body.style.backgroundColor = '#0a0818'
+      })
+    }, { threshold: 0.3 })
+    document.querySelectorAll('.trust-section, .builders-section, .cta-section').forEach(s => bgObserver.observe(s))
+
+
+    return () => {
+      window.removeEventListener('scroll', updateProgress)
+      window.removeEventListener('resize', () => goSlide(currentSlide))
+      clearInterval(autoTimer)
+    }
+  }, [])
+
   return (
-    <div className="min-h-screen" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
-      <Navbar />
-      <LTCBanner />
+    <div className="noise-overlay" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+      {/* Fixed UI elements */}
+      <div className="scroll-progress" id="scroll-progress" />
+      <div className="back-to-top" id="back-to-top">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>
+      </div>
+
 
       <main>
-        {/* ── Section 1: Hero ──────────────────────────────────────────── */}
-        <section className="relative flex flex-col items-center justify-center px-4 pb-24 pt-40 text-center sm:px-6 lg:px-8">
-          {/* Subtle radial glow behind headline */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 flex items-center justify-center"
-            style={{
-              background:
-                'radial-gradient(ellipse 60% 40% at 50% 30%, var(--accent-muted) 0%, transparent 70%)',
-            }}
-          />
+        {/* HERO */}
+        <ScrollHero onIntroComplete={() => setIntroComplete(true)} />
 
-          {/* Network badge */}
-          <div className="relative mb-10">
-            <span
-              className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-medium"
-              style={{
-                borderColor: 'rgba(245,158,11,0.35)',
-                background: 'rgba(245,158,11,0.08)',
-                color: '#f59e0b',
-              }}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-              Live on LitVM Testnet — Coming Soon
-            </span>
+        {/* Everything below scrolls over the fixed hero */}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 2,
+            background:
+              'linear-gradient(180deg, rgba(10,8,24,0) 0px, rgba(10,8,24,0.38) 140px, var(--bg) 360px)',
+            opacity: introComplete ? 1 : 0,
+            transition: 'opacity 500ms ease',
+          }}
+        >
+
+        {/* ── TOOL SHOWCASE CAROUSEL ─────────────────────── */}
+        <section id="suite-section" className="carousel-section">
+          <div className="carousel-header reveal">
+            <div className="title-glow" />
+            <div className="title-lines" />
+            <div className="title-particles">
+              <span /><span /><span /><span /><span /><span />
+            </div>
+            <div className="section-label">The Suite</div>
+            <h2 className="suite-title title-reveal">
+              <span className="word">Six tools.</span>&nbsp;
+              <span className="word highlight">One platform.</span>
+            </h2>
+            <p className="suite-sub sub-reveal">From token creation to governance — deploy, lock, vest, airdrop, vote, and launch.</p>
           </div>
 
-          {/* Headline */}
-          <h1
-            className="relative mx-auto max-w-4xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl"
-            style={{ lineHeight: 1.1 }}
-          >
-            Every Tool a LitVM Project Needs{' '}
-            <span style={{ color: 'var(--accent)' }}>— In One Place</span>
-          </h1>
+          <div className="carousel-wrap" id="carousel-wrap">
+            <div className="carousel-track" id="carousel-track" />
+            <div className="carousel-nav">
+              <div className="carousel-arrow" id="carousel-prev">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+              </div>
+              <div className="carousel-arrow" id="carousel-next">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 6 15 12 9 18"/></svg>
+              </div>
+            </div>
+          </div>
+          <div className="carousel-dots" id="carousel-dots" />
+        </section>
 
-          {/* Subheadline */}
-          <p
-            className="relative mx-auto mt-6 max-w-2xl text-lg leading-relaxed"
-            style={{ color: 'rgba(237,237,237,0.55)' }}
-          >
-            The DeFi utility suite for LitVM — Token Factory, Locker, Vesting, Airdrop,
-            Governance &amp; Launchpad. Testnet live on Arbitrum Sepolia. Mainnet launches with LitVM.
-          </p>
+        <div style={{ padding: '0 clamp(16px,4vw,40px)' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}><div className="divider" /></div>
+        </div>
 
-          {/* CTAs */}
-          <div className="relative mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              href="/launch"
-              className="inline-flex items-center rounded-lg px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: 'var(--accent)' }}
-            >
-              Launch a Token →
-            </Link>
-            <a
-              href="#utilities"
-              className="inline-flex items-center rounded-lg border px-6 py-3 text-sm font-semibold transition-colors hover:bg-white/5"
-              style={{
-                borderColor: 'rgba(255,255,255,0.15)',
-                color: 'rgba(237,237,237,0.8)',
-              }}
-            >
-              Explore Tools
+        {/* ── TRUST / WHY LESTER LABS ────────────────────── */}
+        <section className="trust-section" style={{ paddingLeft: 'clamp(16px,4vw,40px)', paddingRight: 'clamp(16px,4vw,40px)' }}>
+          <div className="trust-bg">
+            <div className="trust-grid-bg" />
+            <div className="trust-scanline" />
+          </div>
+
+          <div className="trust-header reveal">
+            <div className="trust-glow" />
+            <div className="trust-lines" />
+            <div className="trust-particles"><span /><span /><span /><span /><span /></div>
+            <div className="section-label">Why Lester Labs</div>
+            <h2 className="trust-title title-reveal">
+              <span className="word">Built different.</span>&nbsp;
+              <span className="word highlight">Built to last.</span>
+            </h2>
+            <p className="trust-sub sub-reveal">Security, speed, and community — the pillars every DeFi project needs.</p>
+          </div>
+
+          <div className="trust-cards">
+            {/* Battle-Tested */}
+            <div className="trust-card reveal reveal-delay-1 tilt-card" style={{ '--tc-color-10': 'rgba(45,206,137,.1)', '--tc-color-15': 'rgba(45,206,137,.15)', '--tc-color-20': 'rgba(45,206,137,.2)', '--tc-color-30': 'rgba(45,206,137,.3)', '--tc-color-40': 'rgba(45,206,137,.4)', '--tc-glow': 'rgba(45,206,137,.06)' } as React.CSSProperties}>
+              <div className="tc-status">
+                <div className="tc-dot" style={{ background: '#2DCE89' }} />
+                <span className="tc-status-text">Verified</span>
+              </div>
+              <div className="tc-icon-wrap" style={{ background: 'rgba(45,206,137,.08)', border: '1px solid rgba(45,206,137,.12)' }}>
+                <div className="tc-ring" />
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2DCE89" strokeWidth="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+              </div>
+              <div className="tc-value">Battle-Tested</div>
+              <div className="tc-label">Industry-standard tools, proven security from day one.</div>
+              <div className="tc-data">
+                <div className="tc-data-item"><span>Source</span><span>OZ</span></div>
+                <div className="tc-data-item"><span>Locks</span><span>Unicrypt</span></div>
+                <div className="tc-data-item"><span>Voting</span><span>Snapshot</span></div>
+              </div>
+            </div>
+
+            {/* LitVM Native */}
+            <div className="trust-card reveal reveal-delay-2 tilt-card" style={{ '--tc-color-10': 'rgba(107,79,255,.1)', '--tc-color-15': 'rgba(107,79,255,.15)', '--tc-color-20': 'rgba(107,79,255,.2)', '--tc-color-30': 'rgba(107,79,255,.3)', '--tc-color-40': 'rgba(107,79,255,.4)', '--tc-glow': 'rgba(107,79,255,.06)' } as React.CSSProperties}>
+              <div className="tc-status">
+                <div className="tc-dot" style={{ background: '#6B4FFF' }} />
+                <span className="tc-status-text">Live on Testnet</span>
+              </div>
+              <div className="tc-icon-wrap" style={{ background: 'rgba(107,79,255,.08)', border: '1px solid rgba(107,79,255,.12)' }}>
+                <div className="tc-ring" />
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B4FFF" strokeWidth="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </div>
+              <div className="tc-value">LitVM Native</div>
+              <div className="tc-label">The first DeFi utility suite built natively for LitVM, live from day one of mainnet launch. No bridges, no workarounds.</div>
+              <div className="tc-data">
+                <div className="tc-data-item"><span>Network</span><span>LitVM</span></div>
+                <div className="tc-data-item"><span>Status</span><span>Testnet</span></div>
+                <div className="tc-data-item"><span>Tools</span><span>6 Live</span></div>
+              </div>
+            </div>
+
+            {/* Community */}
+            <div className="trust-card reveal reveal-delay-3 tilt-card" style={{ '--tc-color-10': 'rgba(228,79,181,.1)', '--tc-color-15': 'rgba(228,79,181,.15)', '--tc-color-20': 'rgba(228,79,181,.2)', '--tc-color-30': 'rgba(228,79,181,.3)', '--tc-color-40': 'rgba(228,79,181,.4)', '--tc-glow': 'rgba(228,79,181,.06)' } as React.CSSProperties}>
+              <div className="tc-status">
+                <div className="tc-dot" style={{ background: '#E44FB5' }} />
+                <span className="tc-status-text">Community Focused</span>
+              </div>
+              <div className="tc-icon-wrap" style={{ background: 'rgba(228,79,181,.08)', border: '1px solid rgba(228,79,181,.12)' }}>
+                <div className="tc-ring" />
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E44FB5" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div className="tc-value">Community</div>
+              <div className="tc-label">Built by a team that cares deeply about the success of the LitVM and Litecoin ecosystem. Community-driven from the start.</div>
+              <div className="tc-data">
+                <div className="tc-data-item"><span>Team</span><span>Trusted</span></div>
+                <div className="tc-data-item"><span>DEX</span><span>Pending</span></div>
+                <div className="tc-data-item"><span>Chain</span><span>LitVM</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div style={{ padding: '0 clamp(16px,4vw,40px)' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}><div className="divider" /></div>
+        </div>
+
+        {/* ── FOR BUILDERS BENTO ─────────────────────────── */}
+        <section className="builders-section" style={{ paddingLeft: 'clamp(16px,4vw,40px)', paddingRight: 'clamp(16px,4vw,40px)' }}>
+          <div className="builders-header reveal">
+            <div className="builders-glow" />
+            <div className="builders-lines" />
+            <div className="builders-particles"><span /><span /><span /><span /></div>
+            <div className="section-label">Developers</div>
+            <h2 className="builders-title title-reveal">
+              <span className="word">For</span>&nbsp;
+              <span className="word highlight">Builders</span>
+            </h2>
+            <p className="builders-sub sub-reveal">Docs, grants, open-source contracts, and community — everything you need to ship on LitVM.</p>
+          </div>
+
+          <div className="builders-bento">
+            {/* Docs */}
+            <a href="/docs" className="b-card" style={{ '--b-glow': 'rgba(107,79,255,.08)' } as React.CSSProperties}>
+              <div className="b-card-bg" style={{ background: 'linear-gradient(145deg,#1a1440 0%,#251b52 40%,#1e1245 70%,#140f30 100%)' }} />
+              <div className="b-card-top">
+                <div className="b-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B74FF" strokeWidth="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+                <div className="b-card-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
+              </div>
+              <div className="b-card-visual">
+                <svg width="200" height="170" viewBox="0 0 200 170" fill="none" className="b-float2">
+                  <path d="M50 130 L50 35 Q50 25 60 25 L150 25 Q160 25 160 35 L160 130 Z" fill="#2a2060" stroke="#6B4FFF" strokeWidth="1"/>
+                  <path d="M50 130 L50 35" stroke="#8B74FF" strokeWidth="2"/>
+                  <rect x="56" y="32" width="98" height="90" rx="2" fill="#1e1748" stroke="rgba(107,79,255,.2)" strokeWidth=".5"/>
+                  <rect x="66" y="44" width="50" height="3" rx="1.5" fill="rgba(107,79,255,.4)"/>
+                  <rect x="66" y="54" width="75" height="2" rx="1" fill="rgba(255,255,255,.08)"/>
+                  <rect x="66" y="62" width="60" height="2" rx="1" fill="rgba(255,255,255,.08)"/>
+                  <rect x="66" y="70" width="70" height="2" rx="1" fill="rgba(255,255,255,.08)"/>
+                  <rect x="66" y="82" width="40" height="3" rx="1.5" fill="rgba(107,79,255,.3)"/>
+                  <rect x="66" y="92" width="65" height="2" rx="1" fill="rgba(255,255,255,.08)"/>
+                  <rect x="66" y="100" width="55" height="2" rx="1" fill="rgba(255,255,255,.08)"/>
+                  <path d="M138 25 L138 50 L143 45 L148 50 L148 25" fill="#6B4FFF" opacity=".6"/>
+                  <g className="b-float" style={{ animationDelay: '.3s' }}>
+                    <rect x="135" y="10" width="50" height="35" rx="3" fill="#251b52" stroke="rgba(107,79,255,.25)" strokeWidth=".5" transform="rotate(8 160 27)"/>
+                    <rect x="143" y="18" width="30" height="2" rx="1" fill="rgba(107,79,255,.2)" transform="rotate(8 160 27)"/>
+                    <rect x="143" y="24" width="22" height="2" rx="1" fill="rgba(255,255,255,.06)" transform="rotate(8 160 27)"/>
+                  </g>
+                  <g className="b-float" style={{ animationDelay: '.8s', animationDuration: '5s' }}>
+                    <rect x="155" y="55" width="40" height="30" rx="3" fill="#201748" stroke="rgba(107,79,255,.2)" strokeWidth=".5" transform="rotate(-5 175 70)"/>
+                    <rect x="162" y="63" width="24" height="2" rx="1" fill="rgba(107,79,255,.15)" transform="rotate(-5 175 70)"/>
+                    <rect x="162" y="69" width="18" height="2" rx="1" fill="rgba(255,255,255,.05)" transform="rotate(-5 175 70)"/>
+                  </g>
+                  <circle cx="172" cy="15" r="2" fill="#8B74FF" className="b-sparkle"/>
+                  <circle cx="185" cy="45" r="1.5" fill="#6B4FFF" className="b-sparkle" style={{ animationDelay: '1s' }}/>
+                  <text x="155" y="112" fontSize="16" fill="rgba(107,79,255,.25)" fontFamily="monospace" className="b-glow-anim">&lt;/&gt;</text>
+                </svg>
+              </div>
+              <div className="b-card-body"><h3>Developer Docs</h3><p>Roll up your sleeves and start building.</p></div>
+            </a>
+
+            {/* Block Explorer */}
+            <a href="/explorer" className="b-card reveal reveal-delay-2 tilt-card" style={{ '--b-glow': 'rgba(245,166,35,.08)' } as React.CSSProperties}>
+              <div className="b-card-bg" style={{ background: 'linear-gradient(145deg,#1f1810 0%,#2a1e12 40%,#1e1610 70%,#141008 100%)' }} />
+              <div className="b-card-top">
+                <div className="b-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5A623" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8 10h8"/></svg></div>
+                <div className="b-card-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
+              </div>
+              <div className="b-card-visual">
+                <svg width="180" height="160" viewBox="0 0 180 160" fill="none" className="b-float" style={{ animationDuration: '5s' }}>
+                  <ellipse cx="105" cy="95" rx="32" ry="8" fill="#3d2e10" stroke="#F5A623" strokeWidth=".5" opacity=".3"/>
+                  <rect x="73" y="65" width="64" height="30" rx="0" fill="#2a1e12"/>
+                  <ellipse cx="105" cy="65" rx="32" ry="8" fill="#3d2e10" stroke="#F5A623" strokeWidth=".5" opacity=".4"/>
+                  <ellipse cx="90" cy="105" rx="32" ry="8" fill="#3d2e10" stroke="#F5A623" strokeWidth=".5" opacity=".4"/>
+                  <rect x="58" y="80" width="64" height="25" rx="0" fill="#2a1e12"/>
+                  <ellipse cx="90" cy="80" rx="32" ry="8" fill="#463514" stroke="#F5A623" strokeWidth=".8"/>
+                  <ellipse cx="90" cy="87" rx="32" ry="7" fill="none" stroke="#F5A623" strokeWidth=".3" opacity=".3"/>
+                  <ellipse cx="90" cy="94" rx="32" ry="7" fill="none" stroke="#F5A623" strokeWidth=".3" opacity=".3"/>
+                  <ellipse cx="75" cy="115" rx="32" ry="8" fill="#3d2e10" stroke="#F5A623" strokeWidth=".5" opacity=".5"/>
+                  <rect x="43" y="92" width="64" height="23" rx="0" fill="#2a1e12"/>
+                  <ellipse cx="75" cy="92" rx="32" ry="8" fill="#4a3816" stroke="#F5A623" strokeWidth="1"/>
+                  <circle cx="75" cy="92" r="14" fill="none" stroke="#F5A623" strokeWidth=".5" opacity=".4"/>
+                  <circle cx="75" cy="92" r="8" fill="none" stroke="#F5A623" strokeWidth=".3" opacity=".3"/>
+                  <text x="71" y="96" fontSize="11" fill="#F5A623" fontFamily="Sora,sans-serif" fontWeight="700" opacity=".5">$</text>
+                  <g className="b-float" style={{ animationDelay: '.5s', animationDuration: '3s' }}>
+                    <ellipse cx="140" cy="45" rx="18" ry="18" fill="#3d2e10" stroke="#F5A623" strokeWidth="1" transform="rotate(-20 140 45)"/>
+                    <ellipse cx="140" cy="45" rx="10" ry="10" fill="none" stroke="#F5A623" strokeWidth=".5" opacity=".4" transform="rotate(-20 140 45)"/>
+                    <text x="135" y="50" fontSize="13" fill="#F5A623" fontFamily="Sora,sans-serif" fontWeight="700" opacity=".6" transform="rotate(-20 140 45)">$</text>
+                  </g>
+                  <circle cx="125" cy="30" r="2.5" fill="#F5A623" className="b-sparkle"/>
+                  <circle cx="155" cy="60" r="2" fill="#F5A623" className="b-sparkle" style={{ animationDelay: '.7s' }}/>
+                  <circle cx="45" cy="75" r="1.5" fill="#F5A623" className="b-sparkle" style={{ animationDelay: '1.4s' }}/>
+                </svg>
+              </div>
+              <div className="b-card-body"><h3>Block Explorer</h3><p>Track transactions, blocks, and on-chain activity.</p></div>
+            </a>
+
+            {/* Connect on X */}
+            <a href="https://x.com/LesterLabsHQ" target="_blank" rel="noopener noreferrer" className="b-card" style={{ '--b-glow': 'rgba(54,209,220,.08)' } as React.CSSProperties}>
+              <div className="b-card-bg" style={{ background: 'linear-gradient(145deg,#0e1a1e 0%,#122228 40%,#0e1820 70%,#0a1015 100%)' }} />
+              <div className="b-card-top">
+                <div className="b-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#36D1DC" strokeWidth="1.5"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg></div>
+                <div className="b-card-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
+              </div>
+              <div className="b-card-visual">
+                <svg width="190" height="160" viewBox="0 0 190 160" fill="none">
+                  <g className="b-float2" style={{ animationDuration: '6s' }}>
+                    <rect x="30" y="20" width="130" height="100" rx="10" fill="#0e1820" stroke="#36D1DC" strokeWidth=".8"/>
+                    <rect x="30" y="20" width="130" height="20" rx="10" fill="#132830"/>
+                    <rect x="30" y="30" width="130" height="10" fill="#132830"/>
+                    <circle cx="46" cy="30" r="3" fill="#ef4444" opacity=".5"/>
+                    <circle cx="56" cy="30" r="3" fill="#F5A623" opacity=".5"/>
+                    <circle cx="66" cy="30" r="3" fill="#2DCE89" opacity=".5"/>
+                    <rect x="42" y="48" width="8" height="3" rx="1" fill="#36D1DC" opacity=".5"/>
+                    <rect x="54" y="48" width="45" height="3" rx="1" fill="rgba(255,255,255,.08)"/>
+                    <rect x="42" y="58" width="12" height="3" rx="1" fill="#2DCE89" opacity=".4"/>
+                    <rect x="58" y="58" width="55" height="3" rx="1" fill="rgba(255,255,255,.08)"/>
+                    <rect x="50" y="68" width="35" height="3" rx="1" fill="rgba(255,255,255,.06)"/>
+                    <rect x="50" y="78" width="50" height="3" rx="1" fill="rgba(255,255,255,.06)"/>
+                    <rect x="42" y="88" width="8" height="3" rx="1" fill="#36D1DC" opacity=".5"/>
+                    <rect x="54" y="88" width="30" height="3" rx="1" fill="rgba(255,255,255,.08)"/>
+                    <rect x="42" y="98" width="7" height="3" rx="1" fill="#36D1DC" className="b-glow-anim"/>
+                  </g>
+                  <line x1="165" y1="50" x2="165" y2="110" stroke="#36D1DC" strokeWidth="1" opacity=".15"/>
+                  <circle cx="165" cy="55" r="4" fill="#122228" stroke="#36D1DC" strokeWidth=".8" opacity=".4"/>
+                  <circle cx="165" cy="80" r="4" fill="#122228" stroke="#36D1DC" strokeWidth=".8" opacity=".4"/>
+                  <line x1="165" y1="80" x2="178" y2="95" stroke="#36D1DC" strokeWidth=".8" opacity=".2" className="b-dash"/>
+                  <circle cx="178" cy="98" r="3.5" fill="#36D1DC" opacity=".15" className="b-glow-anim" style={{ animationDelay: '.5s' }}/>
+                  <circle cx="165" cy="105" r="4" fill="#122228" stroke="#2DCE89" strokeWidth=".8" opacity=".5"/>
+                  <circle cx="175" cy="38" r="1.5" fill="#36D1DC" className="b-sparkle" style={{ animationDelay: '.2s' }}/>
+                </svg>
+              </div>
+              <div className="b-card-body"><h3>Connect on X</h3><p>Follow updates and announcements from Lester Labs.</p></div>
+            </a>
+
+            {/* Built for LitVM */}
+            <a href="https://www.litvm.com/" target="_blank" rel="noopener noreferrer" className="b-card reveal reveal-delay-3 tilt-card" style={{ '--b-glow': 'rgba(228,79,181,.08)' } as React.CSSProperties}>
+              <div className="b-card-bg" style={{ background: 'linear-gradient(145deg,#1e1025 0%,#2a1430 40%,#1e0e25 70%,#140a18 100%)' }} />
+              <div className="b-card-top">
+                <div className="b-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E44FB5" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+                <div className="b-card-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div>
+              </div>
+              <div className="b-card-visual">
+                <svg width="180" height="160" viewBox="0 0 180 160" fill="none">
+                  <path d="M50 140 L50 55 Q50 20 90 20 Q130 20 130 55 L130 140" fill="#1e0e25" stroke="#E44FB5" strokeWidth="1" opacity=".6"/>
+                  <path d="M58 140 L58 60 Q58 30 90 30 Q122 30 122 60 L122 140" fill="#25122e"/>
+                  <circle cx="75" cy="55" r="1" fill="#fff" opacity=".3" className="b-sparkle" style={{ animationDelay: '0s' }}/>
+                  <circle cx="105" cy="48" r="1.2" fill="#fff" opacity=".25" className="b-sparkle" style={{ animationDelay: '.5s' }}/>
+                  <circle cx="90" cy="68" r="1" fill="#fff" opacity=".2" className="b-sparkle" style={{ animationDelay: '1s' }}/>
+                  <circle cx="80" cy="80" r=".8" fill="#fff" opacity=".2" className="b-sparkle" style={{ animationDelay: '1.5s' }}/>
+                  <circle cx="100" cy="75" r="1" fill="#fff" opacity=".3" className="b-sparkle" style={{ animationDelay: '.8s' }}/>
+                  <circle cx="70" cy="95" r=".8" fill="#fff" opacity=".15" className="b-sparkle" style={{ animationDelay: '1.2s' }}/>
+                  <circle cx="110" cy="90" r="1" fill="#fff" opacity=".2" className="b-sparkle" style={{ animationDelay: '.3s' }}/>
+                  <circle cx="85" cy="105" r=".8" fill="#fff" opacity=".15"/>
+                  <circle cx="95" cy="55" r=".7" fill="#E44FB5" opacity=".4" className="b-sparkle" style={{ animationDelay: '.6s' }}/>
+                  <circle cx="82" cy="42" r=".8" fill="#E44FB5" opacity=".3" className="b-sparkle" style={{ animationDelay: '1.3s' }}/>
+                  <rect x="65" y="125" width="50" height="8" rx="2" fill="#2a1430" stroke="#E44FB5" strokeWidth=".5" opacity=".4"/>
+                  <rect x="70" y="118" width="40" height="7" rx="2" fill="#301838" stroke="#E44FB5" strokeWidth=".5" opacity=".5"/>
+                  <rect x="75" y="111" width="30" height="7" rx="2" fill="#381c40" stroke="#E44FB5" strokeWidth=".5" opacity=".6"/>
+                  <ellipse cx="90" cy="22" rx="20" ry="5" fill="#E44FB5" opacity=".08" className="b-glow-anim"/>
+                  <g className="b-float" style={{ animationDelay: '.5s', animationDuration: '3.5s' }}>
+                    <circle cx="90" cy="60" r="10" fill="#301838" stroke="#E44FB5" strokeWidth=".8"/>
+                    <circle cx="90" cy="60" r="5" fill="#E44FB5" opacity=".15"/>
+                  </g>
+                  <g className="b-sparkle" style={{ animationDelay: '.4s' }}>
+                    <line x1="140" y1="40" x2="140" y2="48" stroke="#E44FB5" strokeWidth="1.2" strokeLinecap="round"/>
+                    <line x1="136" y1="44" x2="144" y2="44" stroke="#E44FB5" strokeWidth="1.2" strokeLinecap="round"/>
+                  </g>
+                  <circle cx="42" cy="50" r="2" fill="#E44FB5" className="b-sparkle" style={{ animationDelay: '1.1s' }}/>
+                </svg>
+              </div>
+              <div className="b-card-body"><h3>Built for LitVM</h3><p>Learn more about the chain powering Lester Labs.</p></div>
             </a>
           </div>
-
-          {/* Tagline */}
-          <p
-            className="relative mt-6 text-xs"
-            style={{ color: 'rgba(237,237,237,0.3)' }}
-          >
-            Powered by battle-tested contracts. Built for LitVM.
-          </p>
         </section>
 
-        {/* ── Section 2: Utility Cards ─────────────────────────────────── */}
-        <section
-          id="utilities"
-          className="mx-auto max-w-7xl px-4 pb-28 sm:px-6 lg:px-8"
-        >
-          <h2
-            className="mb-3 text-center text-2xl font-bold tracking-tight"
-            style={{ color: 'var(--foreground)' }}
-          >
-            Everything your project needs
-          </h2>
-          <p className="mb-12 text-center text-sm" style={{ color: 'rgba(237,237,237,0.4)' }}>
-            Six utilities. One dashboard. Zero guesswork.
-          </p>
+        <div style={{ padding: '0 clamp(16px,4vw,40px)' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}><div className="divider" /></div>
+        </div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {utilities.map(({ href, icon: Icon, name, description, fee }) => (
-              <div
-                key={href}
-                className="group relative flex flex-col rounded-xl p-6 transition-colors"
-                style={{
-                  background: 'var(--surface-1)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                }}
-                onMouseEnter={(e) => {
-                  ;(e.currentTarget as HTMLElement).style.borderColor =
-                    'rgba(99,102,241,0.4)'
-                }}
-                onMouseLeave={(e) => {
-                  ;(e.currentTarget as HTMLElement).style.borderColor =
-                    'rgba(255,255,255,0.07)'
-                }}
-              >
-                {/* Icon + status badge row */}
-                <div className="mb-5 flex items-start justify-between">
-                  <div
-                    className="flex h-11 w-11 items-center justify-center rounded-lg"
-                    style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}
-                  >
-                    <Icon size={20} strokeWidth={1.8} />
-                  </div>
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-                    style={{
-                      background: 'rgba(255,184,0,0.1)',
-                      color: '#FFB800',
-                      border: '1px solid rgba(255,184,0,0.25)',
-                    }}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#FFB800' }} />
-                    Testnet Preview
-                  </span>
-                </div>
-
-                {/* Name */}
-                <h3 className="mb-1.5 text-base font-semibold" style={{ color: 'var(--foreground)' }}>
-                  {name}
-                </h3>
-
-                {/* Description */}
-                <p
-                  className="mb-4 flex-1 text-sm leading-relaxed"
-                  style={{ color: 'rgba(237,237,237,0.5)' }}
-                >
-                  {description}
-                </p>
-
-                {/* Fee + Open row */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: 'rgba(237,237,237,0.3)' }}>
-                    Fee: {fee}
-                  </span>
-                  <Link
-                    href={href}
-                    className="text-sm font-medium transition-colors"
-                    style={{ color: 'var(--accent)' }}
-                  >
-                    Open →
-                  </Link>
-                </div>
+        {/* ── CTA ────────────────────────────────────────── */}
+        <section className="cta-section">
+          <div className="cta-inner">
+            {/* Left: illustration card */}
+            <div className="cta-card reveal reveal-delay-1">
+              <div className="cta-card-grid" />
+              <div className="cta-card-glow" />
+              <div className="cta-card-glow2" />
+              <div className="cta-card-deco">
+                <div className="cta-coin cta-coin-1" />
+                <div className="cta-coin cta-coin-2" />
+                <div className="cta-coin cta-coin-3" />
+                <div className="cta-sparkle cta-sparkle-1" />
+                <div className="cta-sparkle cta-sparkle-2" />
+                <div className="cta-sparkle cta-sparkle-3" />
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Section 3: Why Lester-Labs ───────────────────────────────── */}
-        <section
-          className="border-y px-4 py-20 sm:px-6 lg:px-8"
-          style={{
-            background: 'var(--surface-1)',
-            borderColor: 'rgba(255,255,255,0.06)',
-          }}
-        >
-          <div className="mx-auto max-w-5xl">
-            <h2
-              className="mb-12 text-center text-2xl font-bold tracking-tight"
-              style={{ color: 'var(--foreground)' }}
-            >
-              Why Lester-Labs?
-            </h2>
-            <div className="grid grid-cols-1 gap-10 sm:grid-cols-3">
-              {reasons.map(({ emoji, title, body }) => (
-                <div key={title} className="text-center sm:text-left">
-                  <div className="mb-4 text-3xl">{emoji}</div>
-                  <h3 className="mb-2 text-base font-semibold" style={{ color: 'var(--foreground)' }}>
-                    {title}
-                  </h3>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(237,237,237,0.45)' }}>
-                    {body}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Section 4: FAQ ───────────────────────────────────────────── */}
-        <section className="px-4 py-20 sm:px-6 lg:px-8" style={{ background: 'var(--background)' }}>
-          <div className="mx-auto max-w-3xl">
-            <h2
-              className="mb-3 text-center text-2xl font-bold tracking-tight"
-              style={{ color: 'var(--foreground)' }}
-            >
-              Frequently Asked Questions
-            </h2>
-            <p className="mb-10 text-center text-sm" style={{ color: 'rgba(237,237,237,0.4)' }}>
-              Quick answers to common questions
-            </p>
-
-            <div className="border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-              {faqs.map((faq) => (
-                <FAQItem key={faq.question} question={faq.question} answer={faq.answer} />
-              ))}
-            </div>
-
-            {/* More questions CTA */}
-            <div className="mt-8 text-center">
-              <p className="text-sm" style={{ color: 'rgba(237,237,237,0.4)' }}>
-                Still have questions?{' '}
-                <a
-                  href="https://t.me/LesterLabs"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium transition-colors hover:opacity-80"
-                  style={{ color: 'var(--accent)' }}
-                >
-                  Ask in Telegram →
-                </a>
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Section 5: Community / Socials CTA ───────────────────────── */}
-        <section
-          className="border-t px-4 py-16 sm:px-6 lg:px-8"
-          style={{
-            background: 'var(--surface-1)',
-            borderColor: 'rgba(255,255,255,0.06)',
-          }}
-        >
-          <div className="mx-auto max-w-2xl text-center">
-            <h2
-              className="mb-3 text-xl font-bold tracking-tight"
-              style={{ color: 'var(--foreground)' }}
-            >
-              Join the Community
-            </h2>
-            <p className="mb-8 text-sm" style={{ color: 'rgba(237,237,237,0.45)' }}>
-              Get updates, ask questions, and connect with the LitVM ecosystem.
-            </p>
-
-            <div className="flex items-center justify-center gap-4">
-              {socials.map((social) => (
-                <a
-                  key={social.name}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-lg border px-5 py-3 text-sm font-medium transition-all hover:border-[var(--accent)]/40 hover:bg-[var(--accent-muted)]"
-                  style={{
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    color: 'rgba(237,237,237,0.8)',
-                  }}
-                >
-                  {social.icon}
-                  <span>{social.name}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Section 6: Footer ────────────────────────────────────────── */}
-        <footer className="px-4 py-12 sm:px-6 lg:px-8" style={{ background: 'var(--background)' }}>
-          <div className="mx-auto max-w-7xl">
-            <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
-              {/* Left */}
-              <div>
-                <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-                  🐾 Lester-Labs
-                </p>
-                <p className="mt-1 text-xs" style={{ color: 'rgba(237,237,237,0.3)' }}>
-                  © 2026 Lester-Labs. Built on LitVM.
-                </p>
-              </div>
-
-              {/* Right links */}
-              <div className="flex items-center gap-6">
-                <a
-                  href="/docs"
-                  className="text-xs transition-colors hover:opacity-80"
-                  style={{ color: 'rgba(237,237,237,0.4)' }}
-                >
-                  Docs
-                </a>
-                <span
-                  className="text-xs"
-                  style={{ color: 'rgba(107,107,138,0.5)' }}
-                >
-                  GitHub (soon)
-                </span>
-                <a
-                  href="https://twitter.com/LesterLabs"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs transition-colors hover:opacity-80"
-                  style={{ color: 'rgba(237,237,237,0.4)' }}
-                >
-                  Twitter/X
-                </a>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/images/cta-hero.png" alt="Lester Labs" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 30%', zIndex: 2, borderRadius: 23 }} />
+              <div className="cta-steps">
+                <div className="cta-step" />
+                <div className="cta-step" />
+                <div className="cta-step" />
+                <div className="cta-step" />
               </div>
             </div>
 
-            {/* Disclaimer */}
-            <p
-              className="mt-8 border-t pt-6 text-xs"
-              style={{
-                borderColor: 'rgba(255,255,255,0.06)',
-                color: 'rgba(237,237,237,0.2)',
-              }}
-            >
-              Use at your own risk. Smart contracts are unaudited on testnet. Not financial advice.
-            </p>
+            {/* Right: text + buttons */}
+            <div className="cta-text reveal reveal-delay-2">
+              <h2 className="cta-title"><span className="grad">Start building</span><br />today.</h2>
+              <p>Simply connect your wallet and start deploying on LitVM instantly, from anywhere. No sign-ups required.</p>
+              <div className="cta-buttons">
+                <Link href="/launch" className="btn-primary magnetic">Launch a Token →</Link>
+                <a href="/docs" className="btn-ghost magnetic">Read the Docs ↗</a>
+              </div>
+              <p className="cta-fine">Lester Labs uses battle-tested contracts forked from industry standards. Supported across all major wallets. Testnet is live — mainnet launches with LitVM.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── FOOTER ─────────────────────────────────────── */}
+        <footer className="lester-footer">
+          <div className="footer-bg">
+            <div className="footer-grid-bg" />
+            <div className="footer-glow" />
+          </div>
+          <div className="footer-inner">
+            <div className="footer-brand">
+              <p className="logo">Lester<span>Labs</span></p>
+              <p className="desc">The DeFi utility suite for LitVM.</p>
+            </div>
+            <div className="footer-cols">
+              <div className="footer-col">
+                <h4>Tools</h4>
+                {['Launch','Locker','Vesting','Airdrop','Governance','Launchpad'].map(l => (
+                  <Link key={l} href={`/${l.toLowerCase()}`}>{l}</Link>
+                ))}
+              </div>
+              <div className="footer-col">
+                <h4>Developers</h4>
+                <Link href="/docs">Docs</Link>
+                <Link href="/explorer">Explorer</Link>
+                <a href="https://www.litvm.com/" target="_blank" rel="noopener noreferrer">Built for LitVM</a>
+              </div>
+              <div className="footer-col">
+                <h4>Community</h4>
+                <a href="https://x.com/LesterLabsHQ" target="_blank" rel="noopener noreferrer">Twitter/X</a>
+              </div>
+            </div>
+          </div>
+          <div className="footer-bottom">
+            <span>© 2026 Lester Labs. Built on LitVM.</span>
+            <span>Unaudited testnet. Not financial advice.</span>
           </div>
         </footer>
+        </div>{/* end post-hero wrapper */}
       </main>
     </div>
   )

@@ -22,8 +22,8 @@ export function RecipientTable({ recipients, tokenSymbol = 'tokens' }: Recipient
 
   return (
     <div className="space-y-2">
-      <div className="overflow-hidden rounded-lg border border-white/10">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-lg border border-white/10">
+        <table className="w-full min-w-[560px] text-sm">
           <thead>
             <tr className="border-b border-white/10 bg-white/5">
               <th className="px-3 py-2 text-left text-xs font-medium text-white/40 w-10">#</th>

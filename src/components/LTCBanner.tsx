@@ -69,7 +69,8 @@ export function LTCBanner() {
 
   return (
     <div
-      className="sticky top-16 z-40 flex w-full items-center justify-between gap-4 overflow-x-auto px-4 sm:px-6"
+      id="ltc-banner"
+      className="fixed top-0 left-0 right-0 z-[80] flex w-full items-center justify-between gap-4 overflow-x-auto px-4 sm:px-6"
       style={{
         background: 'var(--surface-2)',
         height: 44,

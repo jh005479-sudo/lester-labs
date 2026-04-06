@@ -1,141 +1,108 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useState } from 'react'
 import { Menu, X } from 'lucide-react'
 
 const navLinks = [
-  { href: '/launch', label: 'Launch' },
-  { href: '/locker', label: 'Locker' },
-  { href: '/vesting', label: 'Vesting' },
-  { href: '/airdrop', label: 'Airdrop' },
+  { href: '/launch',     label: 'Launch' },
+  { href: '/locker',     label: 'Locker' },
+  { href: '/vesting',    label: 'Vesting' },
+  { href: '/airdrop',    label: 'Airdrop' },
   { href: '/governance', label: 'Governance' },
-  { href: '/launchpad', label: 'Launchpad' },
-  { href: '/explorer', label: 'Explorer' },
-  { href: '/docs', label: 'Docs' },
+  { href: '/launchpad',  label: 'Launchpad' },
+  { href: '/explorer',   label: 'Explorer' },
+  { href: '/docs',       label: 'Docs' },
 ]
 
 export function Navbar() {
   const pathname = usePathname()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileMenuOpen(false)
-  }, [pathname])
-
-  // Prevent body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => {
-      document.body.style.overflow = ''
-    }
-  }, [mobileMenuOpen])
+  const isHome = pathname === '/'
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <>
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-[#0a0a0a]/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          {/* Logo */}
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-lg font-semibold text-white hover:opacity-80 transition-opacity"
-          >
-            <span>🐾</span>
-            <span>Lester-Labs</span>
-          </Link>
+    <nav
+      className="fixed top-[44px] left-0 right-0 z-[70]"
+      style={{
+        background: isHome ? 'transparent' : 'rgba(8, 6, 14, 0.6)',
+        backdropFilter: isHome ? 'none' : 'blur(24px) saturate(180%)',
+        borderBottom: isHome ? 'none' : '1px solid rgba(255,255,255,0.04)',
+        transition: 'all 0.5s ease',
+      }}
+    >
+      <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-8 lg:px-10">
+        <Link href="/" className="transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
+          <span className="text-sm font-bold tracking-widest uppercase" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
+            Lester<span style={{ color: 'var(--accent)' }}>Labs</span>
+          </span>
+        </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-1">
-            {navLinks.map(({ href, label }) => {
-              const isActive = pathname === href || pathname.startsWith(href + '/')
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-white/10 text-white'
-                      : 'text-white/60 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {label}
-                </Link>
-              )
-            })}
-          </div>
-
-          {/* Right side: Wallet + Mobile hamburger */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block">
-              <ConnectButton chainStatus="icon" showBalance={false} accountStatus="avatar" />
-            </div>
-
-            {/* Mobile hamburger button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden flex items-center justify-center w-10 h-10 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors"
-              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
-          </div>
+        <div className="hidden md:flex items-center gap-8">
+          {navLinks.map(({ href, label }) => {
+            const isActive = pathname === href || pathname.startsWith(href + '/')
+            return (
+              <Link
+                key={href}
+                href={href}
+                className="relative text-[13px] tracking-wide transition-all duration-300"
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 400,
+                  color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
+                  letterSpacing: '0.04em',
+                }}
+                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = 'var(--foreground)' }}
+                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = 'var(--foreground-dim)' }}
+              >
+                {label}
+                {isActive && (
+                  <span className="absolute -bottom-1 left-0 right-0 h-px" style={{ background: 'var(--accent)', opacity: 0.6 }} />
+                )}
+              </Link>
+            )
+          })}
         </div>
-      </nav>
 
-      {/* Mobile menu overlay */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Mobile menu slide-out panel */}
-      <div
-        className={`fixed top-16 right-0 bottom-0 z-40 w-72 bg-[#0a0a0a] border-l border-white/10 transform transition-transform duration-200 ease-out md:hidden ${
-          mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <div className="flex flex-col h-full">
-          {/* Nav links */}
-          <div className="flex-1 overflow-y-auto py-4 px-4">
-            <div className="space-y-1">
-              {navLinks.map(({ href, label }) => {
-                const isActive = pathname === href || pathname.startsWith(href + '/')
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={`block px-4 py-3 rounded-lg text-base font-medium transition-colors ${
-                      isActive
-                        ? 'bg-[var(--accent)] text-white'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    {label}
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Mobile wallet connect at bottom */}
-          <div className="border-t border-white/10 p-4 sm:hidden">
-            <div className="flex justify-center">
-              <ConnectButton chainStatus="icon" showBalance={false} accountStatus="avatar" />
-            </div>
-          </div>
+        <div className="flex items-center gap-4">
+          <ConnectButton chainStatus="icon" showBalance={false} accountStatus="avatar" />
+          <button
+            className="md:hidden transition-colors duration-300 p-2 -mr-2"
+            style={{ color: 'var(--foreground-dim)' }}
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+          >
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
       </div>
-    </>
+
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 top-[108px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
+          style={{ background: 'rgba(8, 6, 14, 0.97)', backdropFilter: 'blur(40px)' }}
+        >
+          {navLinks.map(({ href, label }) => {
+            const isActive = pathname === href || pathname.startsWith(href + '/')
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMobileOpen(false)}
+                className="py-3 text-xl font-light tracking-wide transition-colors duration-300"
+                style={{
+                  color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)',
+                  fontFamily: 'var(--font-heading)',
+                }}
+              >
+                {label}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </nav>
   )
 }

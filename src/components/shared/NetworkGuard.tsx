@@ -7,49 +7,27 @@ export default function NetworkGuard() {
   const { isConnected } = useAccount()
   const chainId = useChainId()
   const { switchChain, isPending } = useSwitchChain()
-
   const isWrongNetwork = isConnected && chainId !== arbitrumSepolia.id
-
   if (!isWrongNetwork) return null
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: '64px',
-        left: 0,
-        right: 0,
-        zIndex: 200,
-        background: 'rgba(255, 184, 0, 0.12)',
-        borderBottom: '1px solid rgba(255, 184, 0, 0.3)',
-        padding: '10px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '16px',
-        fontFamily: 'monospace',
-        fontSize: '13px',
-      }}
-    >
-      <span style={{ color: '#FFB800' }}>
-        ⚠ Wrong network — Lester-Labs runs on Arbitrum Sepolia (testnet)
-      </span>
+    <div style={{
+      position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)',
+      zIndex: 200,
+      background: 'rgba(251, 191, 36, 0.06)',
+      border: '1px solid rgba(251, 191, 36, 0.15)',
+      borderRadius: '12px', padding: '10px 20px',
+      display: 'flex', alignItems: 'center', gap: '14px',
+      fontSize: '13px', backdropFilter: 'blur(20px)',
+    }}>
+      <span style={{ color: 'var(--warning)' }}>Wrong network — switch to Arbitrum Sepolia</span>
       <button
         onClick={() => switchChain({ chainId: arbitrumSepolia.id })}
         disabled={isPending}
-        style={{
-          padding: '5px 14px',
-          background: 'rgba(255,184,0,0.2)',
-          border: '1px solid rgba(255,184,0,0.5)',
-          borderRadius: '6px',
-          color: '#FFB800',
-          fontSize: '12px',
-          cursor: isPending ? 'not-allowed' : 'pointer',
-          fontFamily: 'monospace',
-          fontWeight: 600,
-        }}
+        className="cin-btn"
+        style={{ padding: '5px 14px', fontSize: '12px', background: 'rgba(251,191,36,0.12)', color: 'var(--warning)', boxShadow: 'none', border: '1px solid rgba(251,191,36,0.2)' }}
       >
-        {isPending ? 'Switching...' : 'Switch Network'}
+        {isPending ? 'Switching…' : 'Switch'}
       </button>
     </div>
   )
