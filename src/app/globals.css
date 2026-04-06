@@ -664,3 +664,88 @@ footer.lester-footer{border-top:1px solid var(--border);padding:48px clamp(16px,
 
 
 
+/* --- Mobile polish (320px–430px focus) ----------------------------- */
+* { box-sizing: border-box; }
+img, svg, canvas, video { max-width: 100%; height: auto; }
+
+@media (max-width: 900px) {
+  .tool-preview { position: static; top: auto; }
+  .tool-steps { overflow-x: auto; padding-bottom: 4px; }
+  .tool-step-text { white-space: nowrap; }
+  .tool-tab-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tool-tab-bar::-webkit-scrollbar { display: none; }
+  .tool-tab { flex: 0 0 auto; white-space: nowrap; padding: 10px 14px; }
+}
+
+@media (max-width: 768px) {
+  .carousel-section { padding: 120px 0 56px; }
+  .carousel-header { margin-bottom: 36px; }
+  .carousel-nav { display: none; }
+  .c-card-body { padding: 24px 20px; }
+  .c-card-stats { gap: 14px; flex-wrap: wrap; }
+  .c-card-title h3 { font-size: 22px; }
+
+  .trust-section, .builders-section { padding-top: 64px; padding-bottom: 64px; }
+  .trust-header, .builders-header { margin-bottom: 36px; }
+  .trust-card { padding: 24px 20px 0; }
+  .tc-data { margin: auto -20px 0; }
+  .tc-label { min-height: auto; }
+
+  .builders-bento { gap: 12px; }
+  .b-card { min-height: 290px; }
+  .b-card-body { padding: 18px 18px 20px; }
+  .b-card-body h3 { font-size: 18px; }
+
+  .cta-section { padding-top: 72px; padding-bottom: 72px; }
+  .cta-card { min-height: 320px; }
+  .cta-text { padding-top: 0; }
+  .cta-title { font-size: clamp(30px, 10vw, 44px); margin-bottom: 14px; }
+  .cta-text p { font-size: 14px; margin-bottom: 24px; }
+  .cta-buttons { gap: 10px; }
+  .btn-primary, .btn-ghost { width: 100%; justify-content: center; padding: 14px 20px; }
+
+  .footer-inner { flex-direction: column; gap: 24px; }
+  .footer-cols { width: 100%; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .footer-bottom { gap: 6px; font-size: 10px; }
+
+  .tool-hero-inner { padding-top: 66px; padding-bottom: 44px; gap: 22px; }
+  .tool-hero-title { font-size: clamp(32px, 11vw, 48px); }
+  .tool-hero-desc { font-size: 14px; max-width: 100%; }
+  .tool-workspace { padding-top: 30px; padding-bottom: 56px; }
+
+  .hero-cta-group { flex-direction: column; width: min(100%, 320px); }
+  .hero-btn-primary, .hero-btn-ghost { width: 100%; justify-content: center; padding: 13px 16px; }
+  .hero-skip-btn { right: 14px !important; bottom: 18px !important; padding: 6px 12px !important; }
+}
+
+@media (max-width: 430px) {
+  .suite-sub, .trust-sub, .builders-sub { font-size: 14px; line-height: 1.6; }
+  .trust-title, .builders-title, .suite-title { font-size: clamp(26px, 8.8vw, 34px); }
+
+  .tool-steps { gap: 8px; }
+  .tool-step-text { display: none; }
+  .tool-step-line { min-width: 18px; margin: 0 8px; }
+
+  .launchpad-stats-grid { grid-template-columns: 1fr !important; }
+  .launchpad-grid-two { grid-template-columns: 1fr !important; }
+  .launchpad-card-details { grid-template-columns: 1fr !important; }
+  .launchpad-tab-row {
+    width: 100% !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+  }
+  .launchpad-tab-btn { white-space: nowrap; }
+  .launchpad-create-wrap > div { padding: 22px 16px !important; }
+
+  .prose-docs h1 { font-size: 1.7rem; }
+  .prose-docs h2 { font-size: 1.3rem; }
+  .prose-docs pre { padding: 0.8rem; }
+  .prose-docs table { display: block; overflow-x: auto; white-space: nowrap; }
+
+  .back-to-top { right: 14px; bottom: 16px; width: 40px; height: 40px; }
+}

@@ -201,7 +201,7 @@ function CreatePresaleForm() {
   }
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto' }}>
+    <div className="launchpad-create-wrap" style={{ maxWidth: 600, margin: '0 auto' }}>
       <div
         style={{
           background: 'var(--surface-1)',
@@ -239,6 +239,7 @@ function CreatePresaleForm() {
 
           {/* Caps */}
           <div
+            className="launchpad-grid-two"
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
@@ -297,6 +298,7 @@ function CreatePresaleForm() {
 
           {/* Dates */}
           <div
+            className="launchpad-grid-two"
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
@@ -605,6 +607,7 @@ function PresaleCard({ presale }: { presale: MockPresale }) {
 
       {/* Details */}
       <div
+        className="launchpad-card-details"
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -688,6 +691,7 @@ export default function LaunchpadPage() {
 
         {/* Stats bar */}
         <div
+          className="launchpad-stats-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
@@ -738,6 +742,7 @@ export default function LaunchpadPage() {
 
         {/* Tabs */}
         <div
+          className="launchpad-tab-row"
           style={{
             display: 'flex',
             gap: '4px',
@@ -752,6 +757,7 @@ export default function LaunchpadPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
+              className="launchpad-tab-btn"
               style={{
                 padding: '8px 20px',
                 background:

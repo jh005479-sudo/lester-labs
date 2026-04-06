@@ -146,7 +146,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
       {/* Next steps */}
       <div className="pt-2">
         <p className="mb-3 text-sm font-medium text-white/60">What&apos;s next?</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {nextSteps.map((step) => (
             <Link
               key={step.href}

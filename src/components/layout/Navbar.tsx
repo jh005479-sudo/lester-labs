@@ -24,7 +24,7 @@ export function Navbar() {
 
   return (
     <nav
-      className="fixed top-9 left-0 right-0 z-[70]"
+      className="fixed top-[44px] left-0 right-0 z-[70]"
       style={{
         background: isHome ? 'transparent' : 'rgba(8, 6, 14, 0.6)',
         backdropFilter: isHome ? 'none' : 'blur(24px) saturate(180%)',
@@ -32,7 +32,7 @@ export function Navbar() {
         transition: 'all 0.5s ease',
       }}
     >
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 sm:px-8 lg:px-10">
+      <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-8 lg:px-10">
         <Link href="/" className="transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
           <span className="text-sm font-bold tracking-widest uppercase" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
             Lester<span style={{ color: 'var(--accent)' }}>Labs</span>
@@ -68,9 +68,10 @@ export function Navbar() {
         <div className="flex items-center gap-4">
           <ConnectButton chainStatus="icon" showBalance={false} accountStatus="avatar" />
           <button
-            className="md:hidden transition-colors duration-300"
+            className="md:hidden transition-colors duration-300 p-2 -mr-2"
             style={{ color: 'var(--foreground-dim)' }}
             onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
@@ -79,7 +80,7 @@ export function Navbar() {
 
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 top-20 flex flex-col px-8 pt-8 gap-2"
+          className="md:hidden fixed inset-0 top-[108px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
           style={{ background: 'rgba(8, 6, 14, 0.97)', backdropFilter: 'blur(40px)' }}
         >
           {navLinks.map(({ href, label }) => {
@@ -89,7 +90,7 @@ export function Navbar() {
                 key={href}
                 href={href}
                 onClick={() => setMobileOpen(false)}
-                className="py-4 text-2xl font-light tracking-wide transition-colors duration-300"
+                className="py-3 text-xl font-light tracking-wide transition-colors duration-300"
                 style={{
                   color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
                   borderBottom: '1px solid rgba(255,255,255,0.04)',
