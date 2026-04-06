@@ -14,17 +14,21 @@ export const arbitrumSepolia = {
   testnet: true,
 } as const
 
-// LitVM mainnet — constants TBA, placeholder structure ready
+// LitVM Testnet — Caldera Arbitrum Nitro rollup (Chain ID 4441)
 export const litvm = defineChain({
-  id: 0, // TBA — update when LitVM publishes
-  name: 'LitVM',
+  id: 4441,
+  name: 'LitVM Testnet',
   nativeCurrency: { name: 'zkLTC', symbol: 'zkLTC', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://rpc.litvm.io'] }, // TBA
+    default: {
+      http: ['https://liteforge.rpc.caldera.xyz/http'],
+      webSocket: ['wss://liteforge.rpc.caldera.xyz/ws'],
+    },
   },
   blockExplorers: {
-    default: { name: 'LitVM Explorer', url: 'https://explorer.litvm.io' }, // TBA
+    default: { name: 'LiteForge Explorer', url: 'https://liteforge.explorer.caldera.xyz' },
   },
+  testnet: true,
 })
 
-export const supportedChains = [arbitrumSepolia] as const
+export const supportedChains = [litvm, arbitrumSepolia] as const
