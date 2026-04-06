@@ -730,7 +730,9 @@ img, svg, canvas, video { max-width: 100%; height: auto; }
   .tool-step-text { display: none; }
   .tool-step-line { min-width: 18px; margin: 0 8px; }
 
-  .launchpad-stats-grid { grid-template-columns: 1fr !important; }
+  .launchpad-stats-grid { flex-direction: column !important; align-items: center !important; gap: 14px !important; }
+  .launchpad-stat-item { gap: 0 !important; }
+  .launchpad-stat-sep { display: none !important; }
   .launchpad-grid-two { grid-template-columns: 1fr !important; }
   .launchpad-card-details { grid-template-columns: 1fr !important; }
   .launchpad-tab-row {

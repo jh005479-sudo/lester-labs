@@ -680,7 +680,6 @@ export default function LaunchpadPage() {
           { label: 'LP', value: 'Auto-created' },
           { label: 'Fee', value: '2% of raise' },
         ]}
-        compact
       />
       <div
         style={{
@@ -690,16 +689,16 @@ export default function LaunchpadPage() {
         }}
       >
 
-        {/* Stats bar */}
+        {/* Launchpad at-a-glance stats */}
         <div
           className="launchpad-stats-grid"
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '12px',
-            background: 'transparent',
-            borderRadius: '12px',
-            marginBottom: '32px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'stretch',
+            gap: '34px',
+            marginBottom: '30px',
+            flexWrap: 'wrap',
           }}
         >
           {(
@@ -708,36 +707,50 @@ export default function LaunchpadPage() {
               ['Total Raised', '0'],
               ['Platform Fee', '2%'],
             ] as [string, string][]
-          ).map(([label, value]) => (
+          ).map(([label, value], i, arr) => (
             <div
               key={label}
+              className="launchpad-stat-item"
               style={{
-                background: 'var(--surface-1)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '12px',
-                padding: '18px 20px',
-                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '34px',
               }}
             >
-              <div
-                style={{
-                  fontSize: '22px',
-                  fontWeight: 700,
-                  marginBottom: '4px',
-                }}
-              >
-                {value}
+              <div style={{ textAlign: 'center' }}>
+                <div
+                  style={{
+                    fontSize: '28px',
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    color: '#F0EEF5',
+                    marginBottom: '6px',
+                  }}
+                >
+                  {value}
+                </div>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: 'rgba(240,238,245,0.42)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.09em',
+                    fontWeight: 600,
+                  }}
+                >
+                  {label}
+                </div>
               </div>
-              <div
-                style={{
-                  fontSize: '12px',
-                  color: 'rgba(255,255,255,0.4)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}
-              >
-                {label}
-              </div>
+              {i < arr.length - 1 && (
+                <div
+                  className="launchpad-stat-sep"
+                  style={{
+                    width: '1px',
+                    height: '40px',
+                    background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.14), transparent)',
+                  }}
+                />
+              )}
             </div>
           ))}
         </div>
