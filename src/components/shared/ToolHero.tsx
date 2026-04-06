@@ -15,6 +15,7 @@ interface ToolHeroProps {
   color: string           // hex e.g. "#6B4FFF"
   stats: StatPill[]
   image?: string          // e.g. "/images/carousel/token-factory.png"
+  compact?: boolean
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -24,7 +25,7 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b]
 }
 
-export function ToolHero({ category, title, titleHighlight, subtitle, color, stats, image }: ToolHeroProps) {
+export function ToolHero({ category, title, titleHighlight, subtitle, color, stats, image, compact = false }: ToolHeroProps) {
   const headerRef = useRef<HTMLDivElement>(null)
   const [r, g, b] = hexToRgb(color)
   const bg = '#0a0818'
@@ -138,7 +139,9 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
         zIndex: 2,
         maxWidth: '1280px',
         margin: '0 auto',
-        padding: 'clamp(120px,11vw,150px) clamp(16px,4vw,40px) clamp(64px,7vw,90px)',
+        padding: compact
+          ? 'clamp(98px,9vw,124px) clamp(16px,4vw,40px) clamp(38px,4vw,54px)'
+          : 'clamp(120px,11vw,150px) clamp(16px,4vw,40px) clamp(64px,7vw,90px)',
       }}>
         <div style={{ maxWidth: '560px' }}>
 
