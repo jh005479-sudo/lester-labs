@@ -382,7 +382,7 @@ export default function HomePage() {
 
           <div className="builders-bento">
             {/* Docs */}
-            <a href="https://docs.litvm.com" target="_blank" rel="noopener noreferrer" className="b-card" style={{ '--b-glow': 'rgba(107,79,255,.08)' } as React.CSSProperties}>
+            <a href="/docs" className="b-card" style={{ '--b-glow': 'rgba(107,79,255,.08)' } as React.CSSProperties}>
               <div className="b-card-bg" style={{ background: 'linear-gradient(145deg,#1a1440 0%,#251b52 40%,#1e1245 70%,#140f30 100%)' }} />
               <div className="b-card-top">
                 <div className="b-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B74FF" strokeWidth="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
