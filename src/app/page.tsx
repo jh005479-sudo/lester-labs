@@ -250,7 +250,7 @@ export default function HomePage() {
         >
 
         {/* ── TOOL SHOWCASE CAROUSEL ─────────────────────── */}
-        <section className="carousel-section">
+        <section id="suite-section" className="carousel-section">
           <div className="carousel-header reveal">
             <div className="title-glow" />
             <div className="title-lines" />

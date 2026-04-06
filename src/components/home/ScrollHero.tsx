@@ -388,8 +388,16 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
             opacity: ctaOn ? 1 : 0, transform: ctaOn ? 'translateY(0)' : 'translateY(20px)',
             transition: `opacity .7s ${tr}, transform .7s ${tr}`,
           }}>
-            <button className="hero-btn-primary">Launch App →</button>
-            <button className="hero-btn-ghost">Explore Suite ↓</button>
+            <button className="hero-btn-primary" onClick={() => { window.location.href = '/launch' }}>Launch App →</button>
+            <button
+              className="hero-btn-ghost"
+              onClick={() => {
+                const suiteSection = document.getElementById('suite-section')
+                if (suiteSection) suiteSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+            >
+              Explore Suite ↓
+            </button>
           </div>
         </div>
 
