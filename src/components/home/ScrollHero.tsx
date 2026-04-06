@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 const VIDEO_URL  = '/lester-hero.mp4'
 const POSTER_IMG = '/lester-hero-poster.png'
 const VIDEO_HOLD = 5000   // ms of video before reveal starts
+const INTRO_SEEN_KEY = 'lesterlabs_intro_seen'
 
 export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () => void }) {
   const videoRef      = useRef<HTMLVideoElement>(null)
@@ -19,6 +20,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
 
   const [elapsed,   setElapsed]   = useState(0)
   const [done,      setDone]      = useState(false)   // scroll unlocked
+  const [skipIntro, setSkipIntro] = useState(false)
   const [videoReady,setVideoReady]= useState(false)
   const [videoOut,  setVideoOut]  = useState(false)
   const [skipGone,  setSkipGone]  = useState(false)
@@ -30,6 +32,26 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
   const [tagOn,     setTagOn]     = useState(false)
   const [ctaOn,     setCtaOn]     = useState(false)
   const [siOn,      setSiOn]      = useState(false)
+
+  // ─── First-visit intro gating ───────────────────────────
+  useEffect(() => {
+    const introSeen = typeof window !== 'undefined' && window.sessionStorage.getItem(INTRO_SEEN_KEY) === '1'
+    if (!introSeen) return
+
+    setSkipIntro(true)
+    setVideoOut(true)
+    setSkipGone(true)
+    setBgOn(true)
+    setFogOn(true)
+    setGlowOn(true)
+    setS1On(true)
+    setTitleOn(true)
+    setTagOn(true)
+    setCtaOn(true)
+    setSiOn(true)
+    setDone(true)
+    onIntroComplete?.()
+  }, [onIntroComplete])
 
   // ─── Scroll lock ────────────────────────────────────────
   useEffect(() => {
@@ -50,11 +72,13 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
 
   // ─── Autoplay ───────────────────────────────────────────
   useEffect(() => {
+    if (skipIntro) return
     videoRef.current?.play().catch(() => {})
-  }, [])
+  }, [skipIntro])
 
   // ─── Clock ──────────────────────────────────────────────
   useEffect(() => {
+    if (skipIntro) return
     const tick = (ts: number) => {
       if (!startRef.current) startRef.current = ts
       setElapsed(ts - startRef.current)
@@ -62,7 +86,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
     }
     clockRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(clockRef.current)
-  }, [])
+  }, [skipIntro])
 
   // ─── Liquid animation ────────────────────────────────────
   const startLiquid = useCallback(() => {
@@ -175,6 +199,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
   // ─── Reveal sequence ────────────────────────────────────
   const doReveal = useCallback(() => {
     cancelAnimationFrame(clockRef.current)
+    if (typeof window !== 'undefined') window.sessionStorage.setItem(INTRO_SEEN_KEY, '1')
     setVideoOut(true)
     setSkipGone(true)
     setTimeout(() => { setBgOn(true); setFogOn(true); setGlowOn(true) }, 600)
@@ -191,11 +216,12 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
 
   // Trigger at VIDEO_HOLD
   useEffect(() => {
+    if (skipIntro) return
     if (!revealDone.current && elapsed >= VIDEO_HOLD) {
       revealDone.current = true
       doReveal()
     }
-  }, [elapsed, doReveal])
+  }, [elapsed, doReveal, skipIntro])
 
   // Start liquid when title appears
   useEffect(() => {
