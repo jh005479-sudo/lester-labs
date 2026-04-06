@@ -664,7 +664,7 @@ footer.lester-footer{border-top:1px solid var(--border);padding:48px clamp(16px,
 
 
 
-/* --- Mobile polish (320px–430px focus) ----------------------------- */
+/* --- Mobile polish (320px-430px focus) ----------------------------- */
 * { box-sizing: border-box; }
 img, svg, canvas, video { max-width: 100%; height: auto; }
 
