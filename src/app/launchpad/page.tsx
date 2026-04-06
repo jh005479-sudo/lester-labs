@@ -685,7 +685,7 @@ export default function LaunchpadPage() {
         style={{
           maxWidth: '1100px',
           margin: '0 auto',
-          padding: '24px clamp(16px,4vw,40px) 60px',
+          padding: '8px clamp(16px,4vw,40px) 60px',
         }}
       >
 
@@ -704,9 +704,9 @@ export default function LaunchpadPage() {
         >
           {(
             [
-              ['Total Presales', '— (live at testnet)'],
-              ['Total Raised', '— (live at testnet)'],
-              ['Platform Fee', '2% of raise'],
+              ['Total Presales', '0'],
+              ['Total Raised', '0'],
+              ['Platform Fee', '2%'],
             ] as [string, string][]
           ).map(([label, value]) => (
             <div
