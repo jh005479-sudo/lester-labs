@@ -595,16 +595,15 @@ export default function HomePage() {
                   <Link key={l} href={`/${l.toLowerCase()}`}>{l}</Link>
                 ))}
               </div>
-<div className="footer-col">
+              <div className="footer-col">
                 <h4>Developers</h4>
-                <a href="https://docs.litvm.com" target="_blank" rel="noopener noreferrer">Docs</a>
-                <a href="#">GitHub</a>
-                <a href="#">Grants</a>
+                <Link href="/docs">Docs</Link>
+                <Link href="/explorer">Explorer</Link>
+                <a href="https://www.litvm.com/" target="_blank" rel="noopener noreferrer">Built for LitVM</a>
               </div>
               <div className="footer-col">
                 <h4>Community</h4>
-                <a href="#">Twitter/X</a>
-                <a href="#">Discord</a>
+                <a href="https://x.com/LesterLabsHQ" target="_blank" rel="noopener noreferrer">Twitter/X</a>
               </div>
             </div>
           </div>
