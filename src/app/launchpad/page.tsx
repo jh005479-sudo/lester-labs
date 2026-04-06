@@ -680,6 +680,7 @@ export default function LaunchpadPage() {
           { label: 'LP', value: 'Auto-created' },
           { label: 'Fee', value: '2% of raise' },
         ]}
+        compact
       />
       <div
         style={{
@@ -695,11 +696,10 @@ export default function LaunchpadPage() {
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '1px',
-            background: 'rgba(255,255,255,0.06)',
+            gap: '12px',
+            background: 'transparent',
             borderRadius: '12px',
-            overflow: 'hidden',
-            marginBottom: '40px',
+            marginBottom: '32px',
           }}
         >
           {(
@@ -713,7 +713,9 @@ export default function LaunchpadPage() {
               key={label}
               style={{
                 background: 'var(--surface-1)',
-                padding: '20px',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '12px',
+                padding: '18px 20px',
                 textAlign: 'center',
               }}
             >
