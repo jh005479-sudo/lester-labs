@@ -136,7 +136,7 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
       <div style={{
         position: 'relative',
         zIndex: 2,
-        maxWidth: '1100px',
+        maxWidth: '1280px',
         margin: '0 auto',
         padding: 'clamp(120px,11vw,150px) clamp(16px,4vw,40px) clamp(64px,7vw,90px)',
       }}>
