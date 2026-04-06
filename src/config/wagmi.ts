@@ -1,5 +1,5 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
-import { arbitrumSepolia } from './chains'
+import { litvm, arbitrumSepolia } from './chains'
 
 // RP-008: Read WalletConnect project ID from environment variable
 const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
@@ -15,6 +15,6 @@ if (!walletConnectProjectId) {
 export const wagmiConfig = getDefaultConfig({
   appName: 'Lester-Labs',
   projectId: walletConnectProjectId,
-  chains: [arbitrumSepolia],
+  chains: [litvm, arbitrumSepolia],
   ssr: true,
 })
