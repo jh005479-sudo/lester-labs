@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
+import { ToolHero } from '@/components/shared/ToolHero'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseEther, parseUnits, isAddress, formatEther } from 'viem'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
@@ -663,57 +664,27 @@ export default function LaunchpadPage() {
       style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >
       <Navbar />
+      <ToolHero
+        category="Presale Platform"
+        title="Lester"
+        titleHighlight="Launch"
+        subtitle="Community presales with automatic LP creation and locking on SparkDex. Self-service, permissionless, contract-enforced."
+        color="#5E6AD2"
+        image="/images/carousel/launchpad.png"
+        stats={[
+          { label: 'Mode', value: 'Permissionless' },
+          { label: 'DEX', value: 'SparkDex' },
+          { label: 'LP', value: 'Auto-created' },
+          { label: 'Fee', value: '2% of raise' },
+        ]}
+      />
       <div
         style={{
           maxWidth: '1100px',
           margin: '0 auto',
-          padding: '80px 24px 60px',
+          padding: '24px clamp(16px,4vw,40px) 60px',
         }}
       >
-        {/* Hero */}
-        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '6px 16px',
-              background: 'rgba(99,102,241,0.1)',
-              border: '1px solid rgba(99,102,241,0.3)',
-              borderRadius: '20px',
-              fontSize: '12px',
-              color: 'var(--accent)',
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              marginBottom: '20px',
-            }}
-          >
-            🚀 Testnet
-          </div>
-          <h1
-            style={{
-              fontSize: 'clamp(32px, 5vw, 52px)',
-              fontWeight: 800,
-              lineHeight: 1.1,
-              marginBottom: '16px',
-            }}
-          >
-            Launchpad
-          </h1>
-          <p
-            style={{
-              fontSize: '18px',
-              color: 'rgba(255,255,255,0.5)',
-              maxWidth: '520px',
-              margin: '0 auto',
-              lineHeight: 1.6,
-            }}
-          >
-            Community presales with automatic LP creation and locking on
-            SparkDex. Self-service, permissionless, contract-enforced.
-          </p>
-        </div>
 
         {/* Stats bar */}
         <div
