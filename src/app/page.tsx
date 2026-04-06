@@ -570,7 +570,7 @@ export default function HomePage() {
               <p>Simply connect your wallet and start deploying on LitVM instantly, from anywhere. No sign-ups required.</p>
               <div className="cta-buttons">
                 <Link href="/launch" className="btn-primary magnetic">Launch a Token →</Link>
-                <a href="https://docs.litvm.com" target="_blank" rel="noopener noreferrer" className="btn-ghost magnetic">Read the Docs ↗</a>
+                <a href="/docs" className="btn-ghost magnetic">Read the Docs ↗</a>
               </div>
               <p className="cta-fine">Lester Labs uses battle-tested contracts forked from industry standards. Supported across all major wallets. Testnet is live — mainnet launches with LitVM.</p>
             </div>
