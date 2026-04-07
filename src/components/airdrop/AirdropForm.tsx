@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { isAddress, parseUnits } from 'viem'
-import { CheckCircle2, Download, ExternalLink, Loader2 } from 'lucide-react'
+import { CheckCircle2, Coins, Download, ExternalLink, Loader2, Send, TriangleAlert, Zap } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { RecipientInput } from './RecipientInput'
@@ -64,9 +64,9 @@ function downloadReport(success: SuccessState) {
 function SuccessPanel({ success, onReset }: { success: SuccessState; onReset: () => void }) {
   return (
     <div className="space-y-6 text-center">
-      <div className="text-5xl">🪂</div>
+      <div className="flex justify-center"><Send size={40} className="text-[var(--accent)]" /></div>
       <div>
-        <h2 className="text-2xl font-bold text-white">Airdrop complete! ✓</h2>
+        <h2 className="text-2xl font-bold text-white inline-flex items-center gap-2"><CheckCircle2 size={22} className="text-green-400" />Airdrop complete!</h2>
         <p className="mt-2 text-white/60">
           Successfully reached{' '}
           <span className="font-semibold text-white">{success.totalRecipients}</span> recipients
@@ -349,8 +349,8 @@ export function AirdropForm() {
       <div className="flex gap-2">
         {(
           [
-            { value: 'token' as Mode, label: '🪙 Token Airdrop', sub: 'ERC-20' },
-            { value: 'native' as Mode, label: '⚡ zkLTC Airdrop', sub: 'Native' },
+            { value: 'token' as Mode, label: 'Token Airdrop', sub: 'ERC-20', icon: <Coins size={14} /> },
+            { value: 'native' as Mode, label: 'zkLTC Airdrop', sub: 'Native', icon: <Zap size={14} /> },
           ] as const
         ).map((opt) => (
           <button
@@ -365,7 +365,7 @@ export function AirdropForm() {
                 : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white'
             }`}
           >
-            {opt.label}
+            <span className="inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>
             <span className="text-[10px] font-normal opacity-60">{opt.sub}</span>
           </button>
         ))}
@@ -374,8 +374,8 @@ export function AirdropForm() {
       {/* F-013: ETH Airdrop EOA-only warning */}
       {mode === 'native' && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-          <p className="text-sm font-medium text-amber-400 mb-1">
-            ⚠️ ETH Airdrop — EOA Wallets Only
+          <p className="text-sm font-medium text-amber-400 mb-1 inline-flex items-center gap-1.5">
+            <TriangleAlert size={14} /> ETH Airdrop — EOA Wallets Only
           </p>
           <p className="text-xs text-amber-300/80">
             Native ETH dispersal uses a gas-limited transfer. Sending to smart contract addresses
@@ -503,7 +503,7 @@ export function AirdropForm() {
 
           {batchCount > 1 && (
             <div className="flex items-center gap-2 text-xs text-yellow-400">
-              <span>⚠</span>
+              <TriangleAlert size={14} />
               Will send in {batchCount} batches ({batchCount} transactions total)
             </div>
           )}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
-import { CheckCircle2, Copy, ExternalLink, ArrowRight } from 'lucide-react'
+import { CheckCircle2, Circle, CircleAlert, CircleDashed, Copy, ExternalLink, ArrowRight, Mail, PartyPopper, Send } from 'lucide-react'
 import Link from 'next/link'
 import { FeeDisplay } from '@/components/shared/FeeDisplay'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
@@ -119,14 +119,14 @@ function VestingTypeCard({
   type: _type, // eslint-disable-line @typescript-eslint/no-unused-vars
   selected,
   onSelect,
-  emoji,
+  icon,
   label,
   description,
 }: {
   type: VestingType
   selected: boolean
   onSelect: () => void
-  emoji: string
+  icon: React.ReactNode
   label: string
   description: string
 }) {
@@ -141,7 +141,7 @@ function VestingTypeCard({
       }`}
     >
       <div className="flex items-center gap-2">
-        <span className="text-xl">{emoji}</span>
+        <span className="text-[var(--accent)]">{icon}</span>
         <span className="text-sm font-semibold text-white">{label}</span>
       </div>
       <p className="text-xs text-white/50 leading-relaxed">{description}</p>
@@ -164,7 +164,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
   return (
     <div className="space-y-6 text-center">
       <div className="space-y-2">
-        <div className="text-5xl">🎉</div>
+        <div className="flex justify-center"><PartyPopper size={40} className="text-[var(--accent)]" /></div>
         <h2 className="text-2xl font-bold text-white">Vesting schedule created!</h2>
         <p className="text-white/60 text-sm">
           Schedule ID:{' '}
@@ -211,7 +211,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
 
       {/* Beneficiary link */}
       <div className="rounded-xl border border-[var(--accent)]/30 bg-[var(--accent-muted)] p-4 text-left">
-        <p className="text-sm font-medium text-white mb-2">📬 Share with beneficiary</p>
+        <p className="text-sm font-medium text-white mb-2 inline-flex items-center gap-1.5"><Mail size={14} /> Share with beneficiary</p>
         <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2">
           <span className="flex-1 truncate font-mono text-xs text-white/70">{claimLink}</span>
           <button
@@ -244,7 +244,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
           className="group flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4 hover:border-[var(--accent)]/40 hover:bg-[var(--accent-muted)] transition-all"
         >
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🪂</span>
+            <span className="text-[var(--accent)]"><Send size={20} /></span>
             <div className="text-left">
               <p className="text-sm font-semibold text-white group-hover:text-white">
                 Airdrop remaining tokens →
@@ -547,7 +547,7 @@ export function VestingForm() {
                 type="linear"
                 selected={form.vestingType === 'linear'}
                 onSelect={() => set('vestingType', 'linear')}
-                emoji="🔵"
+                icon={<Circle size={18} />}
                 label="Linear"
                 description="Tokens unlock gradually every block from start to end"
               />
@@ -555,7 +555,7 @@ export function VestingForm() {
                 type="cliff_linear"
                 selected={form.vestingType === 'cliff_linear'}
                 onSelect={() => set('vestingType', 'cliff_linear')}
-                emoji="🟡"
+                icon={<CircleAlert size={18} />}
                 label="Cliff + Linear"
                 description="Tokens locked until cliff date, then unlock linearly"
               />
@@ -563,7 +563,7 @@ export function VestingForm() {
                 type="custom"
                 selected={form.vestingType === 'custom'}
                 onSelect={() => set('vestingType', 'custom')}
-                emoji="🟢"
+                icon={<CircleDashed size={18} />}
                 label="Custom Milestones"
                 description="Milestone-based unlocks on specific dates"
               />
@@ -761,7 +761,7 @@ export function VestingForm() {
                 }`}
               >
                 {txPhase !== 'approve' && <CheckCircle2 size={15} />}
-                {txPhase === 'approve' ? '1. Approve Token' : '1. Approved ✓'}
+                {txPhase === 'approve' ? '1. Approve Token' : '1. Approved'}
               </button>
 
               {/* Step 2 — Create (RP-003: disable until fee loaded) */}

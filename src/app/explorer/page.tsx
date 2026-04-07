@@ -100,7 +100,7 @@ export default function ExplorerPage() {
   }
 
   const handleTweet = () => {
-    const text = `🔬 LitVM Network Stats via @LesterLabs\n\n📦 Block: #${latestBlock.toLocaleString()}\n⚡ TPS: 47.3\n🔄 24h Txs: 128,440\n⏱️ Block Time: 2.1s\n\nBuilding on LitVM 🧪⚗️\n\nlesterlabs.vercel.app/explorer\n\n#LitVM #Litecoin #DeFi`
+    const text = `LitVM Network Stats via @LesterLabs\n\nBlock: #${latestBlock.toLocaleString()}\nTPS: 47.3\n24h Txs: 128,440\nBlock Time: 2.1s\n\nBuilding on LitVM\n\nlesterlabs.vercel.app/explorer\n\n#LitVM #Litecoin #DeFi`
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank')
   }
 
