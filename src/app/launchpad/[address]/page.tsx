@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation'
 import { Navbar } from '@/components/layout/Navbar'
 import Link from 'next/link'
+import { Rocket } from 'lucide-react'
 
 export default function PresalePage() {
   const { address } = useParams<{ address: string }>()
@@ -11,7 +12,7 @@ export default function PresalePage() {
     <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}>
       <Navbar />
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '80px 24px 60px', textAlign: 'center' }}>
-        <div style={{ fontSize: '40px', marginBottom: '20px' }}>🚀</div>
+        <div style={{ marginBottom: '20px', display: 'inline-flex' }}><Rocket size={36} color="var(--accent)" /></div>
         <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '12px' }}>Presale Details</h1>
         <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', fontFamily: 'monospace' }}>
           {address}

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, decodeEventLog, formatEther } from 'viem'
-import { CheckCircle2, Copy, ExternalLink, ArrowRight } from 'lucide-react'
+import { CheckCircle2, Copy, ExternalLink, ArrowRight, Calendar, Lock, PartyPopper, Send } from 'lucide-react'
 import Link from 'next/link'
 import { StepBasics, type TokenBasics } from './StepBasics'
 import { StepFeatures, type TokenFeatures } from './StepFeatures'
@@ -44,7 +44,7 @@ function StepIndicator({ current }: { current: number }) {
           <div key={step.id} style={{ display:'flex', alignItems:'center' }}>
             <div className="tool-step">
               <div className={`tool-step-dot ${done ? 'done' : active ? 'active' : 'pending'}`}>
-                {done ? '✓' : step.id}
+                {done ? <CheckCircle2 size={14} /> : step.id}
               </div>
               <span className={`tool-step-text ${done ? 'done' : active ? 'active' : ''}`}>{step.label}</span>
             </div>
@@ -90,16 +90,16 @@ function SuccessPanel({ result }: { result: SuccessState }) {
   }, [result.tokenAddress])
 
   const nextSteps = [
-    { label: 'Lock Liquidity', icon: '🔒', href: '/locker' },
-    { label: 'Set Up Vesting', icon: '📅', href: '/vesting' },
-    { label: 'Airdrop Tokens', icon: '🪂', href: '/airdrop' },
+    { label: 'Lock Liquidity', icon: <Lock size={18} />, href: '/locker' },
+    { label: 'Set Up Vesting', icon: <Calendar size={18} />, href: '/vesting' },
+    { label: 'Airdrop Tokens', icon: <Send size={18} />, href: '/airdrop' },
   ]
 
   return (
     <div className="space-y-6 text-center">
       {/* Hero */}
       <div className="space-y-2">
-        <div className="text-5xl">🎉</div>
+        <div className="flex justify-center"><PartyPopper size={40} className="text-[var(--accent)]" /></div>
         <h2 className="text-2xl font-bold text-white">Your token is live!</h2>
         <p className="text-white/60">
           <span className="font-semibold text-white">{result.name}</span>
@@ -153,7 +153,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
               href={step.href}
               className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4 hover:border-[var(--accent)]/40 hover:bg-[var(--accent-muted)] transition-all"
             >
-              <span className="text-2xl">{step.icon}</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[var(--accent)]">{step.icon}</span>
               <span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors text-center">
                 {step.label}
               </span>

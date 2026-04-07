@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, ArrowRight, Users, FileText } from 'lucide-react'
+import { Search, ArrowRight, Users, FileText, Bolt, Diamond, FlaskConical, HardHat } from 'lucide-react'
 import { GovernanceInfoModal } from './GovernanceInfoModal'
 
 interface SpaceCard {
@@ -10,7 +10,7 @@ interface SpaceCard {
   token: string
   members: number
   proposals: number
-  emoji: string
+  icon: 'bolt' | 'diamond' | 'flask' | 'hardhat'
 }
 
 const DEMO_SPACES: SpaceCard[] = [
@@ -20,7 +20,7 @@ const DEMO_SPACES: SpaceCard[] = [
     token: '0x1a2b...3c4d',
     members: 1842,
     proposals: 7,
-    emoji: '⚡',
+    icon: 'bolt',
   },
   {
     name: 'zkLTC Protocol',
@@ -28,7 +28,7 @@ const DEMO_SPACES: SpaceCard[] = [
     token: '0x9e8f...7a6b',
     members: 3210,
     proposals: 12,
-    emoji: '🔷',
+    icon: 'diamond',
   },
   {
     name: 'Lester DAO',
@@ -36,7 +36,7 @@ const DEMO_SPACES: SpaceCard[] = [
     token: '0x4c5d...2e1f',
     members: 654,
     proposals: 3,
-    emoji: '🧪',
+    icon: 'flask',
   },
   {
     name: 'DeFi Builders',
@@ -44,7 +44,7 @@ const DEMO_SPACES: SpaceCard[] = [
     token: '0x7b8c...9d0e',
     members: 2108,
     proposals: 18,
-    emoji: '🏗️',
+    icon: 'hardhat',
   },
 ]
 
@@ -92,7 +92,12 @@ export function SpacesTab() {
             >
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{space.emoji}</span>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[var(--accent)]">
+                    {space.icon === 'bolt' && <Bolt size={16} />}
+                    {space.icon === 'diamond' && <Diamond size={16} />}
+                    {space.icon === 'flask' && <FlaskConical size={16} />}
+                    {space.icon === 'hardhat' && <HardHat size={16} />}
+                  </span>
                   <div>
                     <h3 className="font-semibold text-white">{space.name}</h3>
                     <p className="text-xs text-white/40">{space.slug}</p>

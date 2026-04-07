@@ -6,6 +6,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseEther, parseUnits, isAddress, formatEther } from 'viem'
+import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI } from '@/config/abis'
 
@@ -417,7 +418,10 @@ function CreatePresaleForm() {
               color: '#f87171',
               fontSize: '13px',
             }}>
-              ⚠️ ILO Factory contract not deployed on this network. Presale creation is disabled.
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={14} />
+                ILO Factory contract not deployed on this network. Presale creation is disabled.
+              </span>
             </div>
           )}
 
@@ -472,7 +476,7 @@ function CreatePresaleForm() {
 
           {isSuccess && (
             <div style={{ padding: '16px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', fontSize: '14px', color: '#4ade80' }}>
-              <div style={{ fontWeight: 700, marginBottom: '10px' }}>✓ Presale created successfully!</div>
+              <div style={{ fontWeight: 700, marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><CircleCheck size={16} /> Presale created successfully!</div>
               <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.8 }}>
                 <strong style={{ color: 'rgba(255,255,255,0.9)' }}>Next steps:</strong><br />
                 1. Find your new presale contract address in the transaction receipt<br />
@@ -672,6 +676,7 @@ export default function LaunchpadPage() {
         title="Lester"
         titleHighlight="Launch"
         subtitle="Community presales with automatic LP creation and locking on SparkDex. Self-service, permissionless, contract-enforced."
+        subtitleMaxWidth="560px"
         color="#5E6AD2"
         image="/images/carousel/launchpad.png"
         stats={[
@@ -787,7 +792,10 @@ export default function LaunchpadPage() {
                 transition: 'all 0.15s',
               }}
             >
-              {t === 'browse' ? '📡 Browse Presales' : '🚀 Create Presale'}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                {t === 'browse' ? <Radio size={14} /> : <Rocket size={14} />}
+                {t === 'browse' ? 'Browse Presales' : 'Create Presale'}
+              </span>
             </button>
           ))}
         </div>
@@ -803,8 +811,8 @@ export default function LaunchpadPage() {
                   color: 'rgba(255,255,255,0.3)',
                 }}
               >
-                <div style={{ fontSize: '40px', marginBottom: '16px' }}>
-                  🌑
+                <div style={{ marginBottom: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Moon size={34} color="rgba(255,255,255,0.45)" />
                 </div>
                 <div
                   style={{

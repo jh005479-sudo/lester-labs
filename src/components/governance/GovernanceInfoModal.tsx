@@ -1,7 +1,7 @@
 'use client'
 
 import * as Dialog from '@radix-ui/react-dialog'
-import { X } from 'lucide-react'
+import { Vote, X } from 'lucide-react'
 
 interface GovernanceInfoModalProps {
   open: boolean
@@ -16,8 +16,8 @@ export function GovernanceInfoModal({ open, onClose }: GovernanceInfoModalProps)
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/10 bg-[#0f1117] p-6 shadow-xl focus:outline-none">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/20 text-xl">
-                🗳️
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/20 text-violet-300">
+                <Vote size={18} />
               </div>
               <Dialog.Title className="text-lg font-semibold text-white">
                 Snapshot Integration Coming Soon

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import * as Tabs from '@radix-ui/react-tabs'
-import { Upload, List, Equal } from 'lucide-react'
+import { Upload, List, Equal, CheckCircle2 } from 'lucide-react'
 import type { Recipient } from './RecipientTable'
 
 interface RecipientInputProps {
@@ -169,8 +169,8 @@ export function RecipientInput({ onChange }: RecipientInputProps) {
           />
         </div>
         {csvRowCount !== null && (
-          <p className="text-xs text-green-400">
-            ✓ Parsed {csvRowCount} {csvRowCount === 1 ? 'recipient' : 'recipients'}
+          <p className="text-xs text-green-400 inline-flex items-center gap-1">
+            <CheckCircle2 size={12} /> Parsed {csvRowCount} {csvRowCount === 1 ? 'recipient' : 'recipients'}
           </p>
         )}
       </Tabs.Content>
