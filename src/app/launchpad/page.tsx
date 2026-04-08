@@ -417,7 +417,7 @@ function CreatePresaleForm() {
               color: '#f87171',
               fontSize: '13px',
             }}>
-              ⚠️ ILO Factory contract not deployed on this network. Presale creation is disabled.
+              NOTE️ ILO Factory contract not deployed on this network. Presale creation is disabled.
             </div>
           )}
 
@@ -787,7 +787,7 @@ export default function LaunchpadPage() {
                 transition: 'all 0.15s',
               }}
             >
-              {t === 'browse' ? '📡 Browse Presales' : '🚀 Create Presale'}
+              {t === 'browse' ? '📡 Browse Presales' : 'LIVE Create Presale'}
             </button>
           ))}
         </div>

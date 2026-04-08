@@ -89,7 +89,7 @@ export function LTCBanner() {
 
         {/* Price */}
         <span className="flex items-center gap-1.5">
-          <span style={{ color: 'var(--accent)' }}>🔬 LTC/USD</span>
+          <span style={{ color: 'var(--accent)' }}>LTC/USD</span>
           <span style={{ color: 'var(--foreground)' }}>
             ${data.price != null ? data.price.toFixed(2) : '--'}
           </span>

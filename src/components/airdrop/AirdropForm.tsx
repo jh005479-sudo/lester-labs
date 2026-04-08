@@ -64,7 +64,7 @@ function downloadReport(success: SuccessState) {
 function SuccessPanel({ success, onReset }: { success: SuccessState; onReset: () => void }) {
   return (
     <div className="space-y-6 text-center">
-      <div className="text-5xl">🪂</div>
+      <div className="text-5xl">DROP</div>
       <div>
         <h2 className="text-2xl font-bold text-white">Airdrop complete! ✓</h2>
         <p className="mt-2 text-white/60">
@@ -349,7 +349,7 @@ export function AirdropForm() {
       <div className="flex gap-2">
         {(
           [
-            { value: 'token' as Mode, label: '🪙 Token Airdrop', sub: 'ERC-20' },
+            { value: 'token' as Mode, label: 'TOKEN Token Airdrop', sub: 'ERC-20' },
             { value: 'native' as Mode, label: '⚡ zkLTC Airdrop', sub: 'Native' },
           ] as const
         ).map((opt) => (
@@ -375,7 +375,7 @@ export function AirdropForm() {
       {mode === 'native' && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
           <p className="text-sm font-medium text-amber-400 mb-1">
-            ⚠️ ETH Airdrop — EOA Wallets Only
+            NOTE️ ETH Airdrop — EOA Wallets Only
           </p>
           <p className="text-xs text-amber-300/80">
             Native ETH dispersal uses a gas-limited transfer. Sending to smart contract addresses
@@ -503,7 +503,7 @@ export function AirdropForm() {
 
           {batchCount > 1 && (
             <div className="flex items-center gap-2 text-xs text-yellow-400">
-              <span>⚠</span>
+              <span>NOTE</span>
               Will send in {batchCount} batches ({batchCount} transactions total)
             </div>
           )}

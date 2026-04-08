@@ -56,7 +56,7 @@ export function MySchedules() {
       {/* Placeholder — my schedules list */}
       {lookupResult === null && (
         <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center">
-          <div className="mb-3 text-4xl">📅</div>
+          <div className="mb-3 text-4xl">VEST</div>
           <h3 className="mb-2 text-base font-semibold text-white">No schedules found</h3>
           <p className="text-sm text-white/40">
             Vesting schedules created from this wallet will appear here.

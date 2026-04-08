@@ -44,7 +44,7 @@ function StepIndicator({ current }: { current: number }) {
           <div key={step.id} style={{ display:'flex', alignItems:'center' }}>
             <div className="tool-step">
               <div className={`tool-step-dot ${done ? 'done' : active ? 'active' : 'pending'}`}>
-                {done ? '✓' : step.id}
+                {done ? <CheckCircle2 size={14} /> : step.id}
               </div>
               <span className={`tool-step-text ${done ? 'done' : active ? 'active' : ''}`}>{step.label}</span>
             </div>
@@ -90,17 +90,17 @@ function SuccessPanel({ result }: { result: SuccessState }) {
   }, [result.tokenAddress])
 
   const nextSteps = [
-    { label: 'Lock Liquidity', icon: '🔒', href: '/locker' },
-    { label: 'Set Up Vesting', icon: '📅', href: '/vesting' },
-    { label: 'Airdrop Tokens', icon: '🪂', href: '/airdrop' },
+    { label: 'Lock Liquidity', icon: 'LOCK', href: '/locker' },
+    { label: 'Set Up Vesting', icon: 'VEST', href: '/vesting' },
+    { label: 'Airdrop Tokens', icon: 'DROP', href: '/airdrop' },
   ]
 
   return (
     <div className="space-y-6 text-center">
       {/* Hero */}
       <div className="space-y-2">
-        <div className="text-5xl">🎉</div>
-        <h2 className="text-2xl font-bold text-white">Your token is live!</h2>
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-emerald-300"><CheckCircle2 size={28} /></div>
+        <h2 className="text-2xl font-bold text-white">Your token is live</h2>
         <p className="text-white/60">
           <span className="font-semibold text-white">{result.name}</span>
           {' '}
@@ -153,7 +153,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
               href={step.href}
               className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4 hover:border-[var(--accent)]/40 hover:bg-[var(--accent-muted)] transition-all"
             >
-              <span className="text-2xl">{step.icon}</span>
+              <span className="rounded-md border border-white/10 px-2 py-1 text-[10px] font-semibold tracking-[0.2em] text-white/70">{step.icon}</span>
               <span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors text-center">
                 {step.label}
               </span>
