@@ -20,12 +20,23 @@ interface HolderEntry { address: string; balance: bigint }
 
 async function fetchTopHolders(tokenAddr: string, decimals: number): Promise<{ entries: HolderEntry[]; totalSupply: bigint }> {
   try {
+    // Get latest block to limit scan range
+    const latestRes = await fetch(LITVM_RPC_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
+      cache: 'no-store',
+    })
+    const latestData = (await latestRes.json()) as { result?: string }
+    const latestBlock = latestData.result ? parseInt(latestData.result, 16) : 0
+    const fromBlock = Math.max(0, latestBlock - 100000) // Last 100k blocks only
+
     const res = await fetch(LITVM_RPC_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         jsonrpc: '2.0', id: 1, method: 'eth_getLogs',
-        params: [{ address: tokenAddr, topics: [TRANSFER_TOPIC], fromBlock: '0x0', toBlock: 'latest' }],
+        params: [{ address: tokenAddr, topics: [TRANSFER_TOPIC], fromBlock: `0x${fromBlock.toString(16)}`, toBlock: 'latest' }],
       }),
       cache: 'no-store',
     })
@@ -233,7 +244,19 @@ function SafetyScorePanel({ tokenAddress }: { tokenAddress: string }) {
 
 export default function TokenDetailPage() {
   const params = useParams()
-  const address = params.address as string
+  const rawAddress = params.address as string
+  if (!/^0x[0-9a-fA-F]{40}$/.test(rawAddress)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-2">Invalid Address</h1>
+          <p className="text-white/60">Addresses must be 42 hexadecimal characters starting with 0x</p>
+          <Link href="/explorer" className="text-[var(--accent)] mt-4 inline-block">Return to Explorer</Link>
+        </div>
+      </div>
+    )
+  }
+  const address = rawAddress
 
   const [details, setDetails] = useState<TokenDetails | null>(null)
   const [transfers, setTransfers] = useState<TokenTransfer[]>([])
@@ -300,7 +323,7 @@ export default function TokenDetailPage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-2xl font-bold">{details.name}</h1>
+                <h1 className="text-2xl font-bold">{details.name.length > 64 ? details.name.slice(0, 61) + '...' : details.name}</h1>
                 <span className="text-lg text-white/50">${details.symbol}</span>
               </div>
               <div className="flex items-center gap-2 text-sm font-mono text-white/50">

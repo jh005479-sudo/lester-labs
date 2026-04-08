@@ -149,6 +149,7 @@ export function TokenTracker() {
         <div>
           <h2 className="text-xl font-bold">Token Launch Tracker</h2>
           <p className="text-white/50 text-sm mt-1">Live ERC-20 token deployments on LitVM</p>
+          <p className="text-white/30 text-xs mt-0.5">Sparklines show estimated activity pattern, not real hourly data.</p>
         </div>
         <button
           onClick={load}
@@ -249,7 +250,7 @@ export function TokenTracker() {
                       </span>
                     )}
                   </div>
-                  <div className="text-white/60 text-sm">{token.name}</div>
+                  <div className="text-white/60 text-sm">{token.name.length > 64 ? token.name.slice(0, 61) + '...' : token.name}</div>
                 </div>
                 <div className="text-right text-xs text-white/40">
                   <div className="font-mono">{timeAgo(token.createdAt)}</div>

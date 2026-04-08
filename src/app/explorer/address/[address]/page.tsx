@@ -34,16 +34,27 @@ const ERC20_ABI = [
 ]
 
 function encodeFunction(name: string): string {
-  const entry = ERC20_ABI.find(e => e.name === name)
-  if (!entry) return '0x'
-  const sig = `${entry.name}(${entry.inputs.map(i => i.type).join(',')})`
-  let hash = 0n
-  for (let i = 0; i < sig.length; i++) { hash = ((hash << 5n) - hash + BigInt(sig.charCodeAt(i))) & 0xffffffffn }
-  return '0x' + hash.toString(16).padStart(8, '0')
+  const selectors: Record<string, string> = {
+    'name': '0x06fdde03',
+    'symbol': '0x95d89b41',
+    'decimals': '0x313ce567',
+    'totalSupply': '0x18160ddd',
+    'balanceOf': '0x70a08231',
+    'owner': '0x8da5cb5b',
+  }
+  return selectors[name] || ''
 }
 
 async function ethCall(to: string, data: string): Promise<string | null> {
   try { return await rpc<string>('eth_call', [{ to, data }, 'latest']) } catch { return null }
+}
+
+function decodeStr(hex: string | null) {
+  if (!hex || hex.length < 130) return null
+  try {
+    const len = parseInt(hex.slice(66, 130), 16)
+    return Buffer.from(hex.slice(130, 130 + len * 2), 'hex').toString('utf8')
+  } catch { return null }
 }
 
 async function getERC20Meta(tokenAddr: string) {
@@ -52,13 +63,6 @@ async function getERC20Meta(tokenAddr: string) {
     ethCall(tokenAddr, encodeFunction('symbol')),
     ethCall(tokenAddr, encodeFunction('decimals')),
   ])
-  const decodeStr = (hex: string | null) => {
-    if (!hex || hex.length < 130) return null
-    try {
-      const len = parseInt(hex.slice(66, 130), 16)
-      return Buffer.from(hex.slice(130, 130 + len * 2), 'hex').toString('utf8')
-    } catch { return null }
-  }
   const decodeNum = (hex: string | null) => hex ? parseInt(hex, 16) : null
   return {
     name: decodeStr(name),
@@ -105,7 +109,19 @@ const PAGE_SIZE = 20
 
 export default function AddressPage() {
   const params = useParams()
-  const address = (params.address as string).toLowerCase()
+  const rawAddress = params.address as string
+  if (!/^0x[0-9a-fA-F]{40}$/.test(rawAddress)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-2">Invalid Address</h1>
+          <p className="text-white/60">Addresses must be 42 hexadecimal characters starting with 0x</p>
+          <Link href="/explorer" className="text-[var(--accent)] mt-4 inline-block">Return to Explorer</Link>
+        </div>
+      </div>
+    )
+  }
+  const address = rawAddress.toLowerCase()
 
   const [balance, setBalance] = useState<string>('0')
   const [label, setLabel] = useState<{ label: string; type: string; description: string } | null>(null)
@@ -288,11 +304,10 @@ export default function AddressPage() {
   }, [address])
 
   const toggleWatch = () => {
-    const watched: string[] = JSON.parse(localStorage.getItem('watchedAddresses') || '[]')
-    const idx = watched.indexOf(address)
-    if (idx >= 0) watched.splice(idx, 1)
-    else watched.push(address)
-    localStorage.setItem('watchedAddresses', JSON.stringify(watched))
+    const watched = JSON.parse(localStorage.getItem('watchedAddresses') || '[]') as string[]
+    const filtered = watched.filter(a => a !== address)
+    const updated = watched.includes(address) ? filtered : [...filtered, address].slice(0, 50) // Max 50
+    localStorage.setItem('watchedAddresses', JSON.stringify(updated))
     setWatching(!watching)
   }
 
