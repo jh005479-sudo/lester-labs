@@ -109,6 +109,11 @@ export default function AddressPage() {
 
   const [balance, setBalance] = useState<string>('0')
   const [label, setLabel] = useState<{ label: string; type: string; description: string } | null>(null)
+  const [flowSummary, setFlowSummary] = useState<{
+    received: number; receivedCount: number;
+    sent: number; sentCount: number;
+    topCounterparties: Array<{ address: string; volume: number; direction: 'in' | 'out' | 'both' }>
+  } | null>(null)
   const [txs, setTxs] = useState<TxInfo[]>([])
   const [txPage, setTxPage] = useState(0)
   const [totalTxCount, setTotalTxCount] = useState(0)
@@ -223,10 +228,34 @@ export default function AddressPage() {
         }
 
         if (!active) return
-        setTxs(foundTxs.sort((a, b) => b.timestamp - a.timestamp))
-        setTotalTxCount(foundTxs.length)
+        const sortedTxs = foundTxs.sort((a, b) => b.timestamp - a.timestamp)
+        setTxs(sortedTxs)
+        setTotalTxCount(sortedTxs.length)
         setFirstSeen(firstSeenTs)
         setLastSeen(lastSeenTs)
+
+        // Build flow summary
+        let received = 0, receivedCount = 0, sent = 0, sentCount = 0
+        const cpVolume = new Map<string, { vol: number; lastDir: 'in' | 'out' }>()
+        for (const tx of sortedTxs) {
+          const from = (tx.from || '').toLowerCase()
+          const to = (tx.to || '').toLowerCase()
+          const val = parseFloat(tx.value) || 0
+          if (to === address) {
+            received += val; receivedCount++
+            const prev = cpVolume.get(from)
+            cpVolume.set(from, { vol: (prev?.vol ?? 0) + val, lastDir: 'in' })
+          } else if (from === address) {
+            sent += val; sentCount++
+            const prev = cpVolume.get(to)
+            cpVolume.set(to, { vol: (prev?.vol ?? 0) + val, lastDir: 'out' })
+          }
+        }
+        const topCounterparties = Array.from(cpVolume.entries())
+          .sort((a, b) => b[1].vol - a[1].vol)
+          .slice(0, 3)
+          .map(([addr, { vol, lastDir }]) => ({ address: addr, volume: vol, direction: lastDir }))
+        setFlowSummary({ received, receivedCount, sent, sentCount, topCounterparties })
 
         // Label
         setLabel(inferLabel(address, foundTxs.length))
@@ -357,6 +386,55 @@ export default function AddressPage() {
             </div>
           </div>
         </div>
+
+        {/* Transaction Flow Summary */}
+        {flowSummary && (flowSummary.received > 0 || flowSummary.sent > 0) && (
+          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5 mb-6">
+            <h2 className="text-sm font-medium text-white/50 mb-4">Transaction Flow</h2>
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-5 text-sm">
+              <div className="flex flex-col items-center p-3 rounded-lg bg-green-500/10 border border-green-500/20 min-w-[110px]">
+                <span className="text-green-400 font-mono font-bold">{flowSummary.received.toFixed(4)}</span>
+                <span className="text-green-400/70 text-xs">zkLTC received</span>
+                <span className="text-white/30 text-xs">{flowSummary.receivedCount} sources</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <ArrowRight className="w-5 h-5 text-green-500" />
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/20 min-w-[110px]">
+                <span className="font-mono text-xs text-white/50 break-all text-center">{address.slice(0, 6)}...{address.slice(-4)}</span>
+                <span className="text-white/40 text-xs mt-1">This address</span>
+                <span className="font-mono font-bold text-white text-sm">{balance} zkLTC</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <ArrowRight className="w-5 h-5 text-red-500" />
+              </div>
+              <div className="flex flex-col items-center p-3 rounded-lg bg-red-500/10 border border-red-500/20 min-w-[110px]">
+                <span className="text-red-400 font-mono font-bold">{flowSummary.sent.toFixed(4)}</span>
+                <span className="text-red-400/70 text-xs">zkLTC sent</span>
+                <span className="text-white/30 text-xs">{flowSummary.sentCount} destinations</span>
+              </div>
+            </div>
+            {flowSummary.topCounterparties.length > 0 && (
+              <div>
+                <p className="text-xs text-white/30 mb-2">Top counterparties by volume</p>
+                <div className="space-y-1.5">
+                  {flowSummary.topCounterparties.map((cp, i) => (
+                    <div key={i} className="flex items-center gap-3 text-xs">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cp.direction === 'in' ? 'bg-green-400' : 'bg-red-400'}`} />
+                      <Link href={`/explorer/address/${cp.address}`} className="font-mono text-[var(--accent)] hover:underline flex-1">
+                        {cp.address.slice(0, 10)}...{cp.address.slice(-6)}
+                      </Link>
+                      <span className="text-white/60 font-mono">{cp.volume.toFixed(4)} zkLTC</span>
+                      <span className={`text-xs ${cp.direction === 'in' ? 'text-green-400' : 'text-red-400'}`}>
+                        {cp.direction === 'in' ? '↓ recv' : '↑ sent'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Contract Info */}
         {contract.isContract && (
