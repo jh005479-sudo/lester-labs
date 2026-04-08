@@ -164,7 +164,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
   return (
     <div className="space-y-6 text-center">
       <div className="space-y-2">
-        <div className="text-5xl">🎉</div>
+        <div className="text-5xl">DONE</div>
         <h2 className="text-2xl font-bold text-white">Vesting schedule created!</h2>
         <p className="text-white/60 text-sm">
           Schedule ID:{' '}
@@ -244,7 +244,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
           className="group flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4 hover:border-[var(--accent)]/40 hover:bg-[var(--accent-muted)] transition-all"
         >
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🪂</span>
+            <span className="text-2xl">DROP</span>
             <div className="text-left">
               <p className="text-sm font-semibold text-white group-hover:text-white">
                 Airdrop remaining tokens →

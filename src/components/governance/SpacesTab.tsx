@@ -36,7 +36,7 @@ const DEMO_SPACES: SpaceCard[] = [
     token: '0x4c5d...2e1f',
     members: 654,
     proposals: 3,
-    emoji: '🧪',
+    emoji: 'LAB',
   },
   {
     name: 'DeFi Builders',

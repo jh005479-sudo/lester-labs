@@ -44,7 +44,7 @@ export function LockCertificate({ data, onReset }: LockCertificateProps) {
     <div className="space-y-6">
       {/* Hero */}
       <div className="text-center space-y-2">
-        <div className="text-5xl">🔒</div>
+        <div className="text-5xl">LOCK</div>
         <h2 className="text-2xl font-bold text-white">Liquidity Locked!</h2>
         <p className="text-white/60">
           Your LP tokens are now secured on-chain.{' '}

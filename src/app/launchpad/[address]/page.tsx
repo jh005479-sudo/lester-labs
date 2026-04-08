@@ -11,7 +11,7 @@ export default function PresalePage() {
     <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}>
       <Navbar />
       <div style={{ maxWidth: '800px', margin: '0 auto', padding: '80px 24px 60px', textAlign: 'center' }}>
-        <div style={{ fontSize: '40px', marginBottom: '20px' }}>🚀</div>
+        <div style={{ fontSize: '40px', marginBottom: '20px' }}>LIVE</div>
         <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '12px' }}>Presale Details</h1>
         <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', marginBottom: '8px', fontFamily: 'monospace' }}>
           {address}

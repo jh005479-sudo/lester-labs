@@ -17,7 +17,7 @@ export function GovernanceInfoModal({ open, onClose }: GovernanceInfoModalProps)
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/20 text-xl">
-                🗳️
+                GOV️
               </div>
               <Dialog.Title className="text-lg font-semibold text-white">
                 Snapshot Integration Coming Soon

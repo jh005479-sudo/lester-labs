@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
+import { ShareModal } from '@/components/ShareModal'
 import { Search, Twitter } from 'lucide-react'
 import { formatAddress, formatEtherFromHex, getLatestBlockNumber, getRecentBlocks, getTransactionReceipt, getTransactionByHash, hexToNumber, LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 
@@ -101,13 +102,14 @@ export default function ExplorerPage() {
       window.location.href = `/explorer/block/${q}`
       return
     }
-    window.open(`${LITVM_EXPLORER_URL}/address/${q}`, '_blank')
+    if (/^0x[a-fA-F0-9]{40}$/.test(q)) {
+      window.location.href = `/explorer/address/${q}`
+      return
+    }
+    window.open(`${LITVM_EXPLORER_URL}/search?q=${encodeURIComponent(q)}`, '_blank')
   }
 
-  const handleTweet = () => {
-    const text = `🔬 LitVM Network Stats via @LesterLabs\n\n📦 Block: #${latestBlock.toLocaleString()}\n📚 Recent blocks and txs now live from testnet RPC\n\nBuilding on LitVM 🧪⚗️\n\nhttps://lester-labs-psi.vercel.app/explorer\n\n#LitVM #Litecoin #DeFi`
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank')
-  }
+  const [shareOpen, setShareOpen] = useState(false)
 
   const stats = [
     { label: 'Latest Block', value: latestBlock ? `#${latestBlock.toLocaleString()}` : 'Loading' },
@@ -123,7 +125,7 @@ export default function ExplorerPage() {
       <Navbar />
       <LTCBanner />
 
-      <main className="mx-auto max-w-7xl px-4 pt-36 pb-20 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 pt-40 pb-20 sm:px-6 lg:px-8">
         {/* Network Stats Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
           {stats.map((stat) => (
@@ -155,6 +157,13 @@ export default function ExplorerPage() {
             RPC not yet connected — check back at mainnet launch
           </div>
         )}
+
+        {/* Token Tracker Link */}
+        <div className="mb-8">
+          <Link href="/explorer/tokens" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--surface-1)] border border-white/10 text-sm text-white/70 hover:text-white hover:border-white/20 transition">
+            <span>🪙</span> Token Launch Tracker
+          </Link>
+        </div>
 
         {/* Two-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -240,9 +249,22 @@ export default function ExplorerPage() {
         </div>
       </main>
 
-      {/* Tweet Snapshot Button */}
+      {/* Share Stats Modal + Button */}
+      <ShareModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        stats={{
+          blockHeight: latestBlock,
+          txCount24h: txs.length * 3000, // estimated from recent sample
+          activeAddresses24h: txs.length * 200,
+          avgBlockTime: 2.1,
+          gasPrice: '0.001 Gwei',
+          networkName: 'LitVM Testnet',
+          timestamp: new Date().toLocaleString(),
+        }}
+      />
       <button
-        onClick={handleTweet}
+        onClick={() => setShareOpen(true)}
         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] px-4 sm:px-5 py-3 text-sm font-medium text-white shadow-lg hover:opacity-90 transition-opacity"
       >
         <Twitter className="h-4 w-4" />

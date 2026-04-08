@@ -15,10 +15,10 @@ export function DocsClient({ docs }: { docs: DocEntry[] }) {
   const activeDoc = docs.find((d) => d.slug === activeSlug) ?? docs[0]
 
   return (
-    <div className="min-h-screen pt-28 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex flex-col md:flex-row gap-6 md:gap-8">
+    <div className="min-h-screen pt-36 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex flex-col md:flex-row gap-6 md:gap-8">
       {/* Sidebar */}
       <aside className="hidden md:block w-60 shrink-0">
-        <nav className="sticky top-28 flex flex-col gap-1">
+        <nav className="sticky top-36 flex flex-col gap-1">
           {docs.map(({ slug, label }) => (
             <button
               key={slug}
