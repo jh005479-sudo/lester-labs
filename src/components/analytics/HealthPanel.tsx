@@ -122,7 +122,7 @@ export function HealthPanel() {
       finally { if (active) setLoading(false) }
     }
     load()
-    const interval = setInterval(load, 30000)
+    const interval = setInterval(load, 60000) // Poll every 60s instead of 30s
     return () => { active = false; clearInterval(interval) }
   }, [])
 
@@ -199,8 +199,8 @@ export function HealthPanel() {
           </h3>
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div><p className="text-xs text-white/40">24h</p><p className="text-lg font-mono font-bold text-white">{data.active24h}</p></div>
-            <div><p className="text-xs text-white/40">7d</p><p className="text-lg font-mono font-bold text-white">{data.active7d}</p></div>
-            <div><p className="text-xs text-white/40">30d</p><p className="text-lg font-mono font-bold text-white">{data.active30d}</p></div>
+            <div><p className="text-xs text-white/40">7d (estimated)</p><p className="text-lg font-mono font-bold text-white">{data.active7d}</p></div>
+            <div><p className="text-xs text-white/40">30d (estimated)</p><p className="text-lg font-mono font-bold text-white">{data.active30d}</p></div>
           </div>
           <div className="border-t border-white/5 pt-3">
             <p className="text-xs text-white/40">New addresses (24h)</p>
