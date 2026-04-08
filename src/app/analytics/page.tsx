@@ -6,11 +6,18 @@ import { LTCBanner } from '@/components/LTCBanner'
 import { TokenTracker } from '@/components/analytics/TokenTracker'
 import { HealthPanel } from '@/components/analytics/HealthPanel'
 
-type Tab = 'tokens' | 'health'
+import { DexPanel } from '@/components/analytics/DexPanel'
+import { BridgePanel } from '@/components/analytics/BridgePanel'
+import { SmartMoneyPanel } from '@/components/analytics/SmartMoneyPanel'
+
+type Tab = 'tokens' | 'health' | 'dex' | 'bridge' | 'smartmoney'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'tokens', label: 'TOKENS' },
   { key: 'health', label: 'HEALTH' },
+  { key: 'dex', label: 'DEX' },
+  { key: 'bridge', label: 'BRIDGE' },
+  { key: 'smartmoney', label: 'SMART MONEY' },
 ]
 
 export default function AnalyticsPage() {
@@ -48,22 +55,15 @@ export default function AnalyticsPage() {
               )}
             </button>
           ))}
-          {/* Future tabs — grayed out */}
-          {['DEX', 'BRIDGE', 'SMART MONEY'].map(label => (
-            <button
-              key={label}
-              disabled
-              className="relative px-5 py-3 text-xs font-mono tracking-wider text-white/15 cursor-not-allowed"
-            >
-              {label}
-              <span className="ml-1.5 text-[10px] text-white/20 font-sans normal-case tracking-normal">soon</span>
-            </button>
-          ))}
+
         </div>
 
         {/* Tab content */}
         {activeTab === 'tokens' && <TokenTracker />}
         {activeTab === 'health' && <HealthPanel />}
+        {activeTab === 'dex' && <DexPanel />}
+        {activeTab === 'bridge' && <BridgePanel />}
+        {activeTab === 'smartmoney' && <SmartMoneyPanel />}
       </div>
     </main>
   )

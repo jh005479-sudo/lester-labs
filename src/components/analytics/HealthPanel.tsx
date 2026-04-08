@@ -91,7 +91,8 @@ export function HealthPanel() {
         const now = Math.floor(Date.now() / 1000)
         const lastBlockAge = blocks.length > 0 ? now - blocks[blocks.length - 1].timestamp : 9999
         let status: 'healthy' | 'degraded' | 'issues' = 'healthy'
-        if (lastBlockAge > 60) status = 'issues'
+        // Threshold adjusted to 300s (5 min) for testnet — low activity means longer gaps are normal
+        if (lastBlockAge > 300) status = 'issues'
         else if (avgBlockTime > 5 || gaps > 0) status = 'degraded'
 
         const sampleBlocks = await Promise.all(
