@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { Vote } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { SpacesTab } from '@/components/governance/SpacesTab'
 import { CreateProposalTab } from '@/components/governance/CreateProposalTab'
 import { VoteTab } from '@/components/governance/VoteTab'
-import { ToolHero } from '@/components/shared/ToolHero'
 
 type Tab = 'spaces' | 'create' | 'vote'
-const COLOR = '#E44FB5'
+
 const TABS: { id: Tab; label: string }[] = [
   { id: 'spaces', label: 'Spaces' },
   { id: 'create', label: 'Create Proposal' },
@@ -19,38 +19,46 @@ export default function GovernancePage() {
   const [activeTab, setActiveTab] = useState<Tab>('spaces')
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
+    <div className="min-h-screen bg-background premium-tight">
       <Navbar />
-      <ToolHero
-        category="Community Voting"
-        title="Lester"
-        titleHighlight="Gov"
-        subtitle="Off-chain proposals and gasless voting — Snapshot-style, no gas required."
-        color={COLOR}
-        image="/images/carousel/governance.png"
-        stats={[
-          { label: 'Gas', value: 'Zero' },
-          { label: 'Style', value: 'Snapshot' },
-          { label: 'Cost', value: 'Free' },
-          { label: 'Proposals', value: 'Unlimited' },
-        ]}
-      />
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '48px clamp(16px,4vw,40px) 80px' }}>
-        <div className="tool-tab-bar">
+      <main className="app-shell" style={{ maxWidth: 1040 }}>
+        {/* Page header */}
+        <div className="tool-hero">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
+              <Vote size={20} className="text-white" />
+            </div>
+            <h1 className="tool-hero-title">Governance</h1>
+          </div>
+          <p className="tool-hero-copy">
+            Off-chain voting and proposal management — Snapshot-style, no gas required.
+          </p>
+        </div>
+
+        <div className="tool-after-hero">
+        {/* Tab switcher */}
+        <div className="mb-8 flex rounded-xl border border-white/10 bg-[var(--surface-1)] p-1 gap-1">
           {TABS.map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tool-tab"
-              style={{
-                background: activeTab === tab.id ? COLOR : 'transparent',
-                color: activeTab === tab.id ? '#fff' : 'rgba(240,238,245,0.45)',
-              }}>
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-[var(--accent)] text-white shadow'
+                  : 'text-white/50 hover:text-white/80'
+              }`}
+            >
               {tab.label}
             </button>
           ))}
         </div>
+
+        {/* Tab content */}
         {activeTab === 'spaces' && <SpacesTab />}
         {activeTab === 'create' && <CreateProposalTab />}
         {activeTab === 'vote' && <VoteTab />}
-      </div>
+        </div>
+      </main>
     </div>
   )
 }
