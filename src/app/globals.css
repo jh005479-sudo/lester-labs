@@ -598,16 +598,16 @@ footer.lester-footer{border-top:1px solid var(--border);padding:40px clamp(16px,
 @media(max-width:768px){.tool-hero-stats{justify-content:center}}
 .tool-stat-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(240,238,245,.22);margin-bottom:2px}
 .tool-stat-value{font-size:16px;font-weight:700;color:#fff}
-.tool-illus-card{position:relative;border-radius:24px;overflow:hidden;aspect-ratio:4/3;border:1px solid rgba(107,79,255,.12);background:linear-gradient(145deg,#1a1440 0%,#201650 40%,#180f3a 100%);animation:cardFloat 6s ease-in-out infinite;transition:transform .5s cubic-bezier(.22,1,.36,1),box-shadow .5s;transform-style:preserve-3d;cursor:default}
-.tool-illus-card:hover{box-shadow:0 0 40px rgba(107,79,255,.15),0 20px 60px rgba(0,0,0,.3)}
-.tool-illus-card img{width:100%;height:100%;object-fit:cover;object-position:center 40%;transition:transform .8s cubic-bezier(.22,1,.36,1),filter .5s}
-.tool-illus-card:hover img{transform:scale(1.05);filter:brightness(1.1)}
+.tool-illus-card{position:relative;border-radius:24px;overflow:hidden;aspect-ratio:4/3;border:1px solid rgba(107,79,255,.16);background:linear-gradient(145deg,#1a1440 0%,#201650 40%,#180f3a 100%);transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s;transform-style:preserve-3d;cursor:default;box-shadow:0 16px 42px rgba(0,0,0,.32),0 0 0 1px rgba(255,255,255,.02) inset}
+.tool-illus-card:hover{transform:translateY(-2px);box-shadow:0 0 44px rgba(107,79,255,.17),0 24px 60px rgba(0,0,0,.34)}
+.tool-illus-card img{width:100%;height:100%;object-fit:cover;object-position:center 38%;transition:transform .55s cubic-bezier(.22,1,.36,1),filter .35s}
+.tool-illus-card:hover img{transform:scale(1.03);filter:brightness(1.06) contrast(1.04)}
 .tool-illus-glow{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 100%,rgba(107,79,255,.2) 0%,transparent 60%);pointer-events:none;transition:opacity .5s}
 .tool-illus-card:hover .tool-illus-glow{opacity:.6}
 .tool-illus-card::after{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.03) 45%,rgba(255,255,255,.06) 50%,rgba(255,255,255,.03) 55%,transparent 60%);transform:translateX(-100%);pointer-events:none;z-index:5}
 .tool-illus-card:hover::after{animation:toolShineSweep 1.2s ease-out forwards}
 @keyframes toolShineSweep{to{transform:translateX(60%)}}
-@keyframes cardFloat{0%,100%{transform:translateY(0) rotate(.5deg)}50%{transform:translateY(-8px) rotate(-.5deg)}}
+@keyframes cardFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
 .tool-workspace-wrap{position:relative;overflow:hidden}
 .tool-ws-bg{position:absolute;inset:0;pointer-events:none;z-index:0}
 .tool-ws-glow-1{position:absolute;top:10%;left:-15%;width:500px;height:500px;border-radius:50%;filter:blur(80px);animation:wsGlow2 12s ease-in-out infinite;opacity:.5}

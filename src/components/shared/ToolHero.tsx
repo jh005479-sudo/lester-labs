@@ -58,7 +58,7 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
         <div style={{
           position: 'absolute',
           top: 0, right: 0, bottom: 0,
-          width: '52%',
+          width: '56%',
           zIndex: 0,
           pointerEvents: 'none',
         }}>
@@ -70,16 +70,17 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              objectPosition: 'center 30%',
+              objectPosition: 'center 34%',
               display: 'block',
-              opacity: 0.55,
+              opacity: 0.68,
+              filter: 'contrast(1.08) saturate(1.04)',
             }}
           />
           {/* Fade left edge into bg */}
           <div style={{
             position: 'absolute',
             inset: 0,
-            background: `linear-gradient(to right, ${bg} 0%, rgba(10,8,24,0.7) 30%, rgba(10,8,24,0.2) 65%, transparent 100%)`,
+            background: `linear-gradient(to right, ${bg} 0%, rgba(10,8,24,0.84) 34%, rgba(10,8,24,0.32) 68%, rgba(10,8,24,0.06) 100%)`,
           }} />
           {/* Fade bottom edge */}
           <div style={{
@@ -91,7 +92,7 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
           <div style={{
             position: 'absolute',
             inset: 0,
-            background: `linear-gradient(to bottom, ${bg} 0%, transparent 25%)`,
+            background: `linear-gradient(to bottom, ${bg} 0%, rgba(10,8,24,0.35) 22%, transparent 38%)`,
           }} />
           {/* Accent color tint overlay */}
           <div style={{
@@ -144,7 +145,7 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
           ? 'clamp(98px,9vw,124px) clamp(16px,4vw,40px) clamp(38px,4vw,54px)'
           : 'clamp(120px,11vw,150px) clamp(16px,4vw,40px) clamp(64px,7vw,90px)',
       }}>
-        <div style={{ maxWidth: '560px' }}>
+        <div style={{ maxWidth: '600px' }}>
 
           {/* Category chip */}
           <div className="reveal" style={{
