@@ -64,14 +64,25 @@ function getHolderTrend(token: TokenInfo): 'up' | 'down' | 'stable' {
 export function TrendingPanel() {
   const [tokens, setTokens] = useState<TokenInfo[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [timeframe, setTimeframe] = useState<Timeframe>('24h')
 
   const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
-      const list = await getIndexedTokens()
+      // Timeout after 15s to avoid infinite loading if RPC is unresponsive
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('RPC timeout — chain may be unreachable')), 15_000)
+      )
+      const list = await Promise.race([getIndexedTokens(), timeoutPromise])
       setTokens(list)
-    } catch {}
-    setLoading(false)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load tokens'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -152,10 +163,32 @@ export function TrendingPanel() {
       </div>
 
       {loading && tokens.length === 0 && (
-        <div className="text-center py-20 text-white/50">Loading tokens...</div>
+        <div className="text-center py-20">
+          <div className="flex items-center justify-center gap-3 text-white/50">
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            <span>Scanning chain for tokens...</span>
+          </div>
+          <div className="text-white/20 text-xs mt-2">This may take a few seconds on first load</div>
+        </div>
       )}
 
-      {!loading && trending.length === 0 && (
+      {!loading && error && (
+        <div className="text-center py-20">
+          <div className="text-red-400/80 text-sm mb-2">⚠️ {error}</div>
+          <button onClick={load} className="mt-3 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white/50 hover:text-white/70 transition">
+            Try again
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && tokens.length === 0 && (
+        <div className="text-center py-20">
+          <div className="text-white/30 text-lg mb-2">No tokens available yet</div>
+          <div className="text-white/20 text-sm">No tokens available yet — awaiting DEX deployment</div>
+        </div>
+      )}
+
+      {!loading && !error && tokens.length > 0 && trending.length === 0 && (
         <div className="text-center py-20">
           <div className="text-white/30 text-lg mb-2">No trending data yet</div>
           <div className="text-white/20 text-sm">Activity data will populate as tokens are traded on the DEX</div>

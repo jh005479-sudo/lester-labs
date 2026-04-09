@@ -145,7 +145,12 @@ async function countHoldersAndTx(address: `0x${string}`, sinceBlock: number): Pr
   }
 }
 
-async function getHourlyTransferCounts(address: `0x${string}`, sinceBlock: number): Promise<number[]> {
+async function getHourlyTransferCounts(
+  address: `0x${string}`,
+  sinceBlock: number,
+  latestBlockNumber?: number,
+  latestBlockTimestamp?: number,
+): Promise<number[]> {
   try {
     const now = Math.floor(Date.now() / 1000)
     const logs = (await client.getLogs({
@@ -155,13 +160,19 @@ async function getHourlyTransferCounts(address: `0x${string}`, sinceBlock: numbe
       toBlock: 'latest',
     })) as any[]
 
+    // Use provided latest block info or fall back to current time estimate
+    // Estimate 1 second per block (LitVM ~1s block time) — avoids per-block RPC calls
+    const latestBlock = latestBlockNumber ?? sinceBlock
+    const latestTs = latestBlockTimestamp ?? now
+    const BLOCK_TIME_SECS = 1 // ~1s per block on LitVM
+
     // Bucket by hour (last 24 hours)
     const buckets = new Array(24).fill(0)
     for (const log of logs) {
       const blockNum = Number(log.blockNumber)
-      const block = await client.getBlock({ blockNumber: BigInt(blockNum) })
-      const ts = Number(block.timestamp)
-      const hoursAgo = Math.floor((now - ts) / 3600)
+      // Estimate timestamp from block number delta — no RPC needed
+      const estimatedTs = latestTs - (latestBlock - blockNum) * BLOCK_TIME_SECS
+      const hoursAgo = Math.floor((now - estimatedTs) / 3600)
       if (hoursAgo >= 0 && hoursAgo < 24) {
         buckets[23 - hoursAgo]++ // Index 0 = oldest (23h ago), 23 = current hour
       }
@@ -232,7 +243,7 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
 
     const [{ holders, txCount }, hourly] = await Promise.all([
       countHoldersAndTx(address, blockNumber),
-      getHourlyTransferCounts(address, blockNumber),
+      getHourlyTransferCounts(address, blockNumber, toBlock, Math.floor(Date.now() / 1000)),
     ])
 
     const token: TokenInfo = {
@@ -281,7 +292,7 @@ export async function getTokenDetails(contractAddress: string): Promise<TokenDet
 
   const [{ holders, txCount }, hourly] = await Promise.all([
     countHoldersAndTx(addr, fromBlock),
-    getHourlyTransferCounts(addr, fromBlock),
+    getHourlyTransferCounts(addr, fromBlock, Number(latest), Math.floor(Date.now() / 1000)),
   ])
 
   const base: TokenInfo = cached ?? {
