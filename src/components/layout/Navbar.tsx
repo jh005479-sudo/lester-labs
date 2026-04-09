@@ -24,7 +24,7 @@ export function Navbar() {
 
   return (
     <nav
-      className="fixed top-[32px] left-0 right-0 z-[70]"}},{
+      className="fixed top-[32px] left-0 right-0 z-[70]"
       style={{
         background: isHome ? 'rgba(8, 6, 14, 0.82)' : 'rgba(8, 6, 14, 0.9)',
         backdropFilter: 'blur(22px) saturate(165%)',
@@ -107,3 +107,5 @@ export function Navbar() {
     </nav>
   )
 }
+
+
