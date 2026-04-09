@@ -584,7 +584,7 @@ footer.lester-footer{border-top:1px solid var(--border);padding:48px clamp(16px,
 .tool-hero-glow-2{position:absolute;bottom:-30%;right:10%;width:500px;height:400px;border-radius:50%;background:radial-gradient(ellipse,rgba(228,79,181,.03) 0%,transparent 70%);filter:blur(60px);animation:toolHeroGlow 14s ease-in-out infinite reverse}
 @keyframes toolHeroGlow{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
 .tool-hero-grid{position:absolute;inset:0;opacity:.012;background-image:linear-gradient(rgba(255,255,255,.3) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.3) 1px,transparent 1px);background-size:56px 56px;-webkit-mask-image:linear-gradient(to bottom,black,transparent 90%);mask-image:linear-gradient(to bottom,black,transparent 90%)}
-.tool-hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:40px;padding:80px 0 60px;position:relative;z-index:2}
+.tool-hero-inner{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:46px;padding:96px 0 68px;position:relative;z-index:2}
 @media(max-width:768px){.tool-hero-inner{grid-template-columns:1fr;text-align:center}}
 .tool-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px}
 .tool-badge-dot{width:6px;height:6px;border-radius:50%;box-shadow:0 0 6px currentColor;animation:toolDotPulse 2s ease-in-out infinite}
@@ -592,7 +592,7 @@ footer.lester-footer{border-top:1px solid var(--border);padding:48px clamp(16px,
 .tool-hero-title{font-size:clamp(40px,5.5vw,60px);font-weight:800;line-height:1.05;margin-bottom:16px;font-family:'Sora',sans-serif;letter-spacing:-.02em}
 .tool-hero-title .white{color:#fff}
 .tool-hero-title .accent{-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.tool-hero-desc{font-size:15px;color:rgba(240,238,245,.5);line-height:1.7;margin-bottom:24px;max-width:380px}
+.tool-hero-desc{font-size:15px;color:rgba(240,238,245,.62);line-height:1.72;margin-bottom:28px;max-width:420px}
 @media(max-width:768px){.tool-hero-desc{margin:0 auto 24px}}
 .tool-hero-stats{display:flex;gap:24px;flex-wrap:wrap}
 @media(max-width:768px){.tool-hero-stats{justify-content:center}}
@@ -617,7 +617,7 @@ footer.lester-footer{border-top:1px solid var(--border);padding:48px clamp(16px,
 .tool-ws-scanline{position:absolute;top:0;left:0;right:0;height:100%;overflow:hidden;opacity:.015;pointer-events:none}
 .tool-ws-scanline::after{content:'';position:absolute;top:-100%;left:0;right:0;height:60px;background:linear-gradient(180deg,transparent,rgba(107,79,255,.8),transparent);animation:toolScanMove 8s linear infinite}
 @keyframes toolScanMove{0%{top:-100%}100%{top:200%}}
-.tool-workspace{max-width:1100px;margin:0 auto;padding:48px clamp(16px,4vw,40px) 80px;display:grid;grid-template-columns:1fr 340px;gap:32px;align-items:start;position:relative;z-index:1}
+.tool-workspace{max-width:1120px;margin:0 auto;padding:64px clamp(16px,4vw,40px) 88px;display:grid;grid-template-columns:1fr 340px;gap:36px;align-items:start;position:relative;z-index:1}
 @media(max-width:900px){.tool-workspace{grid-template-columns:1fr;max-width:640px}}
 .tool-steps{display:flex;align-items:center;gap:0;margin-bottom:28px}
 .tool-step{display:flex;align-items:center;gap:8px}
@@ -712,10 +712,10 @@ img, svg, canvas, video { max-width: 100%; height: auto; }
   .footer-cols { width: 100%; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
   .footer-bottom { gap: 6px; font-size: 10px; }
 
-  .tool-hero-inner { padding-top: 66px; padding-bottom: 44px; gap: 22px; }
+  .tool-hero-inner { padding-top: 74px; padding-bottom: 52px; gap: 24px; }
   .tool-hero-title { font-size: clamp(32px, 11vw, 48px); }
   .tool-hero-desc { font-size: 14px; max-width: 100%; }
-  .tool-workspace { padding-top: 30px; padding-bottom: 56px; }
+  .tool-workspace { padding-top: 42px; padding-bottom: 64px; }
 
   .hero-cta-group { flex-direction: column; width: min(100%, 320px); }
   .hero-btn-primary, .hero-btn-ghost { width: 100%; justify-content: center; padding: 13px 16px; }

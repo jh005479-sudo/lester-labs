@@ -24,12 +24,13 @@ export function Navbar() {
 
   return (
     <nav
-      className="fixed top-[44px] left-0 right-0 z-[70]"
+      className="fixed top-[36px] left-0 right-0 z-[70]"
       style={{
-        background: isHome ? 'transparent' : 'rgba(8, 6, 14, 0.6)',
-        backdropFilter: isHome ? 'none' : 'blur(24px) saturate(180%)',
-        borderBottom: isHome ? 'none' : '1px solid rgba(255,255,255,0.04)',
-        transition: 'all 0.5s ease',
+        background: isHome ? 'rgba(8, 6, 14, 0.82)' : 'rgba(8, 6, 14, 0.9)',
+        backdropFilter: 'blur(22px) saturate(165%)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        boxShadow: '0 10px 34px rgba(3,2,10,0.35)',
+        transition: 'all 0.35s ease',
       }}
     >
       <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-8 lg:px-10">
@@ -80,7 +81,7 @@ export function Navbar() {
 
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 top-[108px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
+          className="md:hidden fixed inset-0 top-[100px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
           style={{ background: 'rgba(8, 6, 14, 0.97)', backdropFilter: 'blur(40px)' }}
         >
           {navLinks.map(({ href, label }) => {
