@@ -37,8 +37,8 @@ export default function TransactionDetailsPage({ params }: { params: Promise<{ h
   if (loading) return <div className="p-6 pt-28 text-sm text-zinc-400">Loading transaction from LitVM testnet…</div>
   if (error || !tx) return <div className="p-6 pt-28 text-sm text-red-400">Transaction unavailable: {error || 'Not found'}</div>
 
-  const gasUsed = receipt?.gasUsed ? hexToBigInt(receipt.gasUsed) : 0n
-  const gasPrice = tx?.gasPrice ? hexToBigInt(tx.gasPrice) : 0n
+  const gasUsed: bigint = receipt?.gasUsed ? BigInt(hexToBigInt(receipt.gasUsed)) : 0n
+  const gasPrice: bigint = tx?.gasPrice ? BigInt(hexToBigInt(tx.gasPrice)) : 0n
   const txFeeWei = gasUsed * gasPrice
   const txFee = Number(txFeeWei) / 1e18
   const method = tx?.input && tx.input !== '0x' ? tx.input.slice(0, 10) : 'Transfer'
