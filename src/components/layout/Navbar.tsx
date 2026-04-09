@@ -33,7 +33,7 @@ export function Navbar() {
         transition: 'all 0.35s ease',
       }}
     >
-      <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-8 lg:px-10">
+      <div className="mx-auto flex h-14 sm:h-16 max-w-[1560px] items-center justify-between px-4 sm:px-8 lg:px-10">
         <Link href="/" className="transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
           <span className="text-sm font-bold tracking-widest uppercase" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
             Lester<span style={{ color: 'var(--accent)' }}>Labs</span>
@@ -81,7 +81,7 @@ export function Navbar() {
 
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 top-[100px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
+          className="md:hidden fixed inset-0 top-[92px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
           style={{ background: 'rgba(8, 6, 14, 0.97)', backdropFilter: 'blur(40px)' }}
         >
           {navLinks.map(({ href, label }) => {
