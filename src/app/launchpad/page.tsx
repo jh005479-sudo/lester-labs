@@ -693,10 +693,10 @@ export default function LaunchpadPage() {
           className="launchpad-stats-grid"
           style={{
             display: 'flex',
-            justifyContent: 'center',
+            justifyContent: 'flex-start',
             alignItems: 'stretch',
             gap: '34px',
-            marginBottom: '30px',
+            marginBottom: '38px',
             flexWrap: 'wrap',
           }}
         >
@@ -719,11 +719,12 @@ export default function LaunchpadPage() {
               <div style={{ textAlign: 'center' }}>
                 <div
                   style={{
-                    fontSize: '28px',
+                    fontSize: '30px',
                     fontWeight: 800,
                     lineHeight: 1,
                     color: '#F0EEF5',
-                    marginBottom: '6px',
+                    marginBottom: '7px',
+                    letterSpacing: '-0.02em',
                   }}
                 >
                   {value}
@@ -731,10 +732,10 @@ export default function LaunchpadPage() {
                 <div
                   style={{
                     fontSize: '11px',
-                    color: 'rgba(240,238,245,0.42)',
+                    color: 'rgba(240,238,245,0.5)',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.09em',
-                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    fontWeight: 650,
                   }}
                 >
                   {label}
@@ -760,11 +761,12 @@ export default function LaunchpadPage() {
           style={{
             display: 'flex',
             gap: '4px',
-            marginBottom: '32px',
+            marginBottom: '36px',
             background: 'var(--surface-1)',
             padding: '4px',
             borderRadius: '10px',
             width: 'fit-content',
+            border: '1px solid rgba(255,255,255,0.1)',
           }}
         >
           {(['browse', 'create'] as Tab[]).map((t) => (

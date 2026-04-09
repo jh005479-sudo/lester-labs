@@ -170,12 +170,14 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
 
           {/* Title */}
           <h1 className="title-reveal" style={{
-            fontSize: 'clamp(44px, 6vw, 70px)',
+            fontSize: 'clamp(42px, 5.4vw, 64px)',
             fontWeight: 800,
-            lineHeight: 1.05,
-            letterSpacing: '-0.025em',
-            marginBottom: '18px',
+            lineHeight: 1.06,
+            letterSpacing: '-0.024em',
+            marginBottom: '16px',
             fontFamily: 'Sora, sans-serif',
+            maxWidth: '12.5ch',
+            textWrap: 'balance',
           }}>
             {titleHighlight ? (
               <>
@@ -220,14 +222,14 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
 
           {/* Stat row */}
           <div className="reveal reveal-delay-1" style={{
-            display: 'flex', gap: '28px', flexWrap: 'wrap',
+            display: 'flex', gap: '34px', flexWrap: 'wrap',
           }}>
             {stats.map(({ label, value }) => (
               <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                 <span style={{
                   fontSize: '10px', fontWeight: 600,
                   letterSpacing: '0.08em', textTransform: 'uppercase' as const,
-                  color: 'rgba(240,238,245,0.28)',
+                  color: 'rgba(240,238,245,0.4)',
                 }}>
                   {label}
                 </span>
