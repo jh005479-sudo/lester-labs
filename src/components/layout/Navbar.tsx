@@ -24,7 +24,7 @@ export function Navbar() {
 
   return (
     <nav
-      className="fixed top-[36px] left-0 right-0 z-[70]"
+      className="fixed top-[32px] left-0 right-0 z-[70]"}},{
       style={{
         background: isHome ? 'rgba(8, 6, 14, 0.82)' : 'rgba(8, 6, 14, 0.9)',
         backdropFilter: 'blur(22px) saturate(165%)',
@@ -33,26 +33,26 @@ export function Navbar() {
         transition: 'all 0.35s ease',
       }}
     >
-      <div className="mx-auto flex h-14 sm:h-16 max-w-[1560px] items-center justify-between px-4 sm:px-8 lg:px-10">
+      <div className="mx-auto flex h-12 sm:h-14 max-w-[1560px] items-center justify-between px-4 sm:px-8 lg:px-10">
         <Link href="/" className="transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
           <span className="text-sm font-bold tracking-widest uppercase" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
             Lester<span style={{ color: 'var(--accent)' }}>Labs</span>
           </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-6">
           {navLinks.map(({ href, label }) => {
             const isActive = pathname === href || pathname.startsWith(href + '/')
             return (
               <Link
                 key={href}
                 href={href}
-                className="relative text-[13px] tracking-wide transition-all duration-300"
+                className="relative text-[12px] tracking-wide transition-all duration-300"
                 style={{
                   fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
-                  letterSpacing: '0.04em',
+                  fontWeight: 500,
+                  color: isActive ? 'var(--foreground)' : 'rgba(255,255,255,0.62)',
+                  letterSpacing: '0.035em',
                 }}
                 onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = 'var(--foreground)' }}
                 onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = 'var(--foreground-dim)' }}
@@ -81,7 +81,7 @@ export function Navbar() {
 
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 top-[92px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
+          className="md:hidden fixed inset-0 top-[84px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
           style={{ background: 'rgba(8, 6, 14, 0.97)', backdropFilter: 'blur(40px)' }}
         >
           {navLinks.map(({ href, label }) => {
