@@ -35,7 +35,7 @@ export default function GovernancePage() {
           { label: 'Proposals', value: 'Unlimited' },
         ]}
       />
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '48px clamp(16px,4vw,40px) 80px' }}>
+      <div className="tool-page-content" style={{ maxWidth: '1040px' }}>
         <div className="tool-tab-bar">
           {TABS.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tool-tab"

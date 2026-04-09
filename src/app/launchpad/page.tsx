@@ -686,13 +686,7 @@ export default function LaunchpadPage() {
           { label: 'Fee', value: '2% of raise' },
         ]}
       />
-      <div
-        style={{
-          maxWidth: '1100px',
-          margin: '0 auto',
-          padding: '8px clamp(16px,4vw,40px) 60px',
-        }}
-      >
+      <div className="tool-page-content" style={{ maxWidth: '1120px', paddingTop: 40 }}>
 
         {/* Launchpad at-a-glance stats */}
         <div
