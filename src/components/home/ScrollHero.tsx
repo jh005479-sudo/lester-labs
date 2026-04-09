@@ -263,7 +263,10 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
       <div
         style={{
           position: 'fixed',
-          inset: 0,
+          top: 108,
+          left: 0,
+          right: 0,
+          height: 'calc(100vh - 108px)',
           zIndex: done ? 1 : 5000,
           pointerEvents: done ? 'none' : 'auto',
         }}
