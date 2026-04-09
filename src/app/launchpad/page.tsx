@@ -1,25 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
-import { ToolHero } from '@/components/shared/ToolHero'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
-import { parseEther, parseUnits, isAddress, formatEther } from 'viem'
-import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
-import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { parseEther } from 'viem'
+import { ILO_FACTORY_ADDRESS } from '@/config/contracts'
 import { ILO_FACTORY_ABI } from '@/config/abis'
-
-// ABI for fetching token decimals (RP-001)
-const ERC20_DECIMALS_ABI = [
-  {
-    name: 'decimals',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint8' }],
-  },
-] as const
 
 type Tab = 'browse' | 'create'
 
@@ -63,41 +50,6 @@ function CreatePresaleForm() {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [tokenDecimals, setTokenDecimals] = useState<number | undefined>(undefined)
-
-  // Fetch token decimals on-chain (RP-001)
-  const { data: fetchedDecimals, isLoading: isDecimalsLoading, isError: isDecimalsError } = useReadContract({
-    address: isAddress(form.tokenAddress) ? (form.tokenAddress as `0x${string}`) : undefined,
-    abi: ERC20_DECIMALS_ABI,
-    functionName: 'decimals',
-    query: {
-      enabled: isAddress(form.tokenAddress),
-    },
-  })
-
-  // Reset decimals when token address changes to prevent stale values
-  useEffect(() => {
-    setTokenDecimals(undefined)
-  }, [form.tokenAddress])
-
-  // Update tokenDecimals when fetched
-  useEffect(() => {
-    if (fetchedDecimals !== undefined) {
-      setTokenDecimals(fetchedDecimals)
-    }
-  }, [fetchedDecimals])
-
-  // Fetch creation fee from contract (RP-003)
-  const { data: creationFee, isLoading: isFeeLoading } = useReadContract({
-    address: ILO_FACTORY_ADDRESS,
-    abi: ILO_FACTORY_ABI,
-    functionName: 'creationFee',
-    query: {
-      enabled: isValidContractAddress(ILO_FACTORY_ADDRESS),
-    },
-  })
-
-  const feeDisplay = creationFee ? formatEther(creationFee) : '...'
 
   const set =
     (k: keyof typeof form) =>
@@ -148,17 +100,9 @@ function CreatePresaleForm() {
     marginTop: '4px',
   }
 
-  const iloFactoryValid = isValidContractAddress(ILO_FACTORY_ADDRESS)
-
-  // Gate submit on successful decimals fetch (RP-001)
-  const decimalsReady = tokenDecimals !== undefined && !isDecimalsError
-  const feeReady = creationFee !== undefined && !isFeeLoading
-
   const handleCreate = async () => {
     if (!isConnected) return
-    if (!iloFactoryValid) return
     if (!validate()) return
-    if (!decimalsReady || !feeReady) return // Block if decimals/fee not loaded (RP-001, RP-003)
     const startTs = Math.floor(new Date(form.startDate).getTime() / 1000)
     const endTs = Math.floor(new Date(form.endDate).getTime() / 1000)
     writeContract({
@@ -167,16 +111,16 @@ function CreatePresaleForm() {
       functionName: 'createILO',
       args: [
         form.tokenAddress as `0x${string}`,
-        parseEther(form.softCap || '0'), // native asset units
-        parseEther(form.hardCap || '0'),  // native asset units
-        parseUnits(form.tokensPerEth || '0', tokenDecimals!), // Use token decimals (RP-001)
+        parseEther(form.softCap || '0'),
+        parseEther(form.hardCap || '0'),
+        parseEther(form.tokensPerEth || '0'),
         BigInt(startTs),
         BigInt(endTs),
         BigInt(Math.floor(parseFloat(form.liquidityPct) * 100)),
         BigInt(parseInt(form.lpLockDays) * 86400),
         form.whitelist,
       ],
-      value: creationFee!, // Use live fee from contract (RP-003)
+      value: parseEther('0.03'), // creation fee
     })
   }
 
@@ -202,7 +146,7 @@ function CreatePresaleForm() {
   }
 
   return (
-    <div className="launchpad-create-wrap" style={{ maxWidth: 600, margin: '0 auto' }}>
+    <div style={{ maxWidth: 600, margin: '0 auto' }}>
       <div
         style={{
           background: 'var(--surface-1)',
@@ -240,7 +184,6 @@ function CreatePresaleForm() {
 
           {/* Caps */}
           <div
-            className="launchpad-grid-two"
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
@@ -285,21 +228,10 @@ function CreatePresaleForm() {
             <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
               e.g. 1,000,000 means contributors get 1M tokens per 1 LTC raised
             </p>
-            {/* RP-001: Token decimals UI note */}
-            {isAddress(form.tokenAddress) && (
-              <p style={{ fontSize: '11px', color: isDecimalsError ? '#f87171' : 'rgba(99,102,241,0.8)', marginTop: '4px' }}>
-                {isDecimalsLoading
-                  ? 'Fetching token decimals...'
-                  : isDecimalsError
-                  ? 'Failed to fetch token decimals - check token address'
-                  : `Uses token decimals fetched from contract (${tokenDecimals})`}
-              </p>
-            )}
           </div>
 
           {/* Dates */}
           <div
-            className="launchpad-grid-two"
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
@@ -390,7 +322,7 @@ function CreatePresaleForm() {
             </label>
           </div>
 
-          {/* Fee note (RP-003: live fee from contract) */}
+          {/* Fee note */}
           <div
             style={{
               padding: '14px',
@@ -402,51 +334,20 @@ function CreatePresaleForm() {
             }}
           >
             Creation fee:{' '}
-            <strong style={{ color: 'rgba(255,255,255,0.9)' }}>{feeDisplay} LTC</strong>{' '}
+            <strong style={{ color: 'rgba(255,255,255,0.9)' }}>0.03 LTC</strong>{' '}
             · Platform fee:{' '}
             <strong style={{ color: 'rgba(255,255,255,0.9)' }}>2% of raise</strong>{' '}
             at finalization
           </div>
 
-          {/* Contract address guard warning */}
-          {!iloFactoryValid && (
-            <div style={{
-              padding: '10px 14px',
-              background: 'rgba(239,68,68,0.1)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: '8px',
-              color: '#f87171',
-              fontSize: '13px',
-            }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <AlertTriangle size={14} />
-                ILO Factory contract not deployed on this network. Presale creation is disabled.
-              </span>
-            </div>
-          )}
-
-          {/* RP-001: Error if decimals fetch fails */}
-          {isDecimalsError && isAddress(form.tokenAddress) && (
-            <div style={{
-              padding: '10px 14px',
-              background: 'rgba(239,68,68,0.1)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: '8px',
-              color: '#f87171',
-              fontSize: '13px',
-            }}>
-              Failed to fetch token decimals. Please verify the token address is a valid ERC20 contract.
-            </div>
-          )}
-
-          {/* Submit (RP-001, RP-003: gate on decimals and fee) */}
+          {/* Submit */}
           <button
             onClick={handleCreate}
-            disabled={!isConnected || !iloFactoryValid || isPending || isConfirming || !decimalsReady || !feeReady}
+            disabled={!isConnected || isPending || isConfirming}
             style={{
               padding: '14px',
               background:
-                !isConnected || !iloFactoryValid || isPending || isConfirming || !decimalsReady || !feeReady
+                !isConnected || isPending || isConfirming
                   ? 'rgba(99,102,241,0.3)'
                   : 'var(--accent)',
               border: 'none',
@@ -455,7 +356,7 @@ function CreatePresaleForm() {
               fontSize: '15px',
               fontWeight: 600,
               cursor:
-                !isConnected || isPending || isConfirming || !decimalsReady || !feeReady
+                !isConnected || isPending || isConfirming
                   ? 'not-allowed'
                   : 'pointer',
               transition: 'opacity 0.2s',
@@ -467,16 +368,12 @@ function CreatePresaleForm() {
                 ? 'Confirm in wallet…'
                 : isConfirming
                   ? 'Creating presale…'
-                  : isDecimalsLoading
-                    ? 'Loading token decimals…'
-                    : isFeeLoading
-                      ? 'Loading fee…'
-                      : `Create Presale — ${feeDisplay} LTC`}
+                  : 'Create Presale — 0.03 LTC'}
           </button>
 
           {isSuccess && (
             <div style={{ padding: '16px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', fontSize: '14px', color: '#4ade80' }}>
-              <div style={{ fontWeight: 700, marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><CircleCheck size={16} /> Presale created successfully!</div>
+              <div style={{ fontWeight: 700, marginBottom: '10px' }}>✓ Presale created successfully!</div>
               <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.8 }}>
                 <strong style={{ color: 'rgba(255,255,255,0.9)' }}>Next steps:</strong><br />
                 1. Find your new presale contract address in the transaction receipt<br />
@@ -611,7 +508,6 @@ function PresaleCard({ presale }: { presale: MockPresale }) {
 
       {/* Details */}
       <div
-        className="launchpad-card-details"
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -667,102 +563,95 @@ export default function LaunchpadPage() {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen premium-tight"
       style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >
       <Navbar />
-      <ToolHero
-        category="Presale Platform"
-        title="Lester"
-        titleHighlight="Launch"
-        subtitle="Community presales with automatic LP creation and locking on SparkDex. Self-service, permissionless, contract-enforced."
-        subtitleMaxWidth="560px"
-        color="#5E6AD2"
-        image="/images/carousel/launchpad.png"
-        stats={[
-          { label: 'Mode', value: 'Permissionless' },
-          { label: 'DEX', value: 'SparkDex' },
-          { label: 'LP', value: 'Auto-created' },
-          { label: 'Fee', value: '2% of raise' },
-        ]}
-      />
-      <div
-        style={{
-          maxWidth: '1100px',
-          margin: '0 auto',
-          padding: '8px clamp(16px,4vw,40px) 60px',
-        }}
-      >
+      <div className="app-shell">
+        {/* Hero */}
+        <div className="tool-hero" style={{ textAlign: 'center', marginBottom: '0' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 16px',
+              background: 'rgba(99,102,241,0.1)',
+              border: '1px solid rgba(99,102,241,0.3)',
+              borderRadius: '20px',
+              fontSize: '12px',
+              color: 'var(--accent)',
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              marginBottom: '20px',
+            }}
+          >
+            🚀 Testnet
+          </div>
+          <h1 className="tool-hero-title" style={{ marginBottom: '12px' }}>
+            Launchpad
+          </h1>
+          <p className="tool-hero-copy" style={{ fontSize: '18px', margin: '0 auto' }}>
 
-        {/* Launchpad at-a-glance stats */}
+            Community presales with automatic LP creation and locking on
+            SparkDex. Self-service, permissionless, contract-enforced.
+          </p>
+        </div>
+
+        {/* Stats bar */}
         <div
-          className="launchpad-stats-grid"
           style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'stretch',
-            gap: '34px',
-            marginBottom: '30px',
-            flexWrap: 'wrap',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '1px',
+            background: 'rgba(255,255,255,0.06)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            marginTop: '42px',
+            marginBottom: '52px',
           }}
         >
           {(
             [
-              ['Total Presales', '0'],
-              ['Total Raised', '0'],
-              ['Platform Fee', '2%'],
+              ['Total Presales', '— (live at testnet)'],
+              ['Total Raised', '— (live at testnet)'],
+              ['Platform Fee', '2% of raise'],
             ] as [string, string][]
-          ).map(([label, value], i, arr) => (
+          ).map(([label, value]) => (
             <div
               key={label}
-              className="launchpad-stat-item"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '34px',
+                background: 'var(--surface-1)',
+                padding: '20px',
+                textAlign: 'center',
               }}
             >
-              <div style={{ textAlign: 'center' }}>
-                <div
-                  style={{
-                    fontSize: '28px',
-                    fontWeight: 800,
-                    lineHeight: 1,
-                    color: '#F0EEF5',
-                    marginBottom: '6px',
-                  }}
-                >
-                  {value}
-                </div>
-                <div
-                  style={{
-                    fontSize: '11px',
-                    color: 'rgba(240,238,245,0.42)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.09em',
-                    fontWeight: 600,
-                  }}
-                >
-                  {label}
-                </div>
+              <div
+                style={{
+                  fontSize: '22px',
+                  fontWeight: 700,
+                  marginBottom: '4px',
+                }}
+              >
+                {value}
               </div>
-              {i < arr.length - 1 && (
-                <div
-                  className="launchpad-stat-sep"
-                  style={{
-                    width: '1px',
-                    height: '40px',
-                    background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.14), transparent)',
-                  }}
-                />
-              )}
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: 'rgba(255,255,255,0.4)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                {label}
+              </div>
             </div>
           ))}
         </div>
 
         {/* Tabs */}
         <div
-          className="launchpad-tab-row"
           style={{
             display: 'flex',
             gap: '4px',
@@ -777,7 +666,6 @@ export default function LaunchpadPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className="launchpad-tab-btn"
               style={{
                 padding: '8px 20px',
                 background:
@@ -792,10 +680,7 @@ export default function LaunchpadPage() {
                 transition: 'all 0.15s',
               }}
             >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                {t === 'browse' ? <Radio size={14} /> : <Rocket size={14} />}
-                {t === 'browse' ? 'Browse Presales' : 'Create Presale'}
-              </span>
+              {t === 'browse' ? '📡 Browse Presales' : '🚀 Create Presale'}
             </button>
           ))}
         </div>
@@ -811,8 +696,8 @@ export default function LaunchpadPage() {
                   color: 'rgba(255,255,255,0.3)',
                 }}
               >
-                <div style={{ marginBottom: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Moon size={34} color="rgba(255,255,255,0.45)" />
+                <div style={{ fontSize: '40px', marginBottom: '16px' }}>
+                  🌑
                 </div>
                 <div
                   style={{

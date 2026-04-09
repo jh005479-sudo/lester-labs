@@ -2,29 +2,30 @@
 
 import { Navbar } from '@/components/layout/Navbar'
 import { AirdropForm } from '@/components/airdrop/AirdropForm'
-import { ToolHero } from '@/components/shared/ToolHero'
+import { Gift } from 'lucide-react'
 
 export default function AirdropPage() {
+
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
+    <div className="min-h-screen bg-background premium-tight">
       <Navbar />
-      <ToolHero
-        category="Mass Distribution"
-        title="Lester"
-        titleHighlight="Dropper"
-        subtitle="Send tokens to hundreds of wallets in a single transaction. CSV import supported."
-        color="#36D1DC"
-        image="/images/carousel/airdrop.png"
-        stats={[
-          { label: 'Wallets', value: 'Hundreds' },
-          { label: 'Import', value: 'CSV' },
-          { label: 'Tx', value: 'Single' },
-          { label: 'Fee', value: '0.01 zkLTC' },
-        ]}
-      />
-      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px clamp(16px,4vw,40px) 80px' }}>
-        <AirdropForm />
-      </div>
+      <main className="app-shell" style={{ maxWidth: 980 }}>
+        <div className="tool-hero">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
+              <Gift size={20} className="text-white" />
+            </div>
+            <h1 className="tool-hero-title">Airdrop</h1>
+          </div>
+          <p className="tool-hero-copy">
+            Bulk-send tokens or zkLTC to hundreds of addresses in one click.
+          </p>
+        </div>
+
+        <div className="tool-after-hero">
+          <AirdropForm />
+        </div>
+      </main>
     </div>
   )
 }
