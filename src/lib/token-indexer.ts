@@ -354,6 +354,47 @@ export async function getTokenTransfers(contractAddress: string, limit: number):
   return transfers
 }
 
+export interface FeaturedToken {
+  symbol: string
+  name: string
+  address: string
+  description: string
+  isEcosystem: boolean
+  holderCount?: number
+  txCount24h?: number
+}
+
+export async function getFeaturedTokens(): Promise<FeaturedToken[]> {
+  const tokens = await getIndexedTokens()
+  const featured: FeaturedToken[] = []
+
+  // Find LTC (native bridge asset)
+  const ltc = tokens.find(t => t.symbol.toUpperCase() === 'LTC')
+  featured.push({
+    symbol: 'LTC',
+    name: 'Litecoin',
+    address: ltc?.address ?? '',
+    description: 'Native bridge asset — Litecoin on LitVM',
+    isEcosystem: false,
+    holderCount: ltc?.holderCount,
+    txCount24h: ltc?.txCount24h,
+  })
+
+  // Find LITVM token (ecosystem token)
+  const litvm = tokens.find(t => t.symbol.toUpperCase() === 'LITVM')
+  featured.push({
+    symbol: 'LITVM',
+    name: 'LitVM Token',
+    address: litvm?.address ?? '',
+    description: 'Ecosystem governance and utility token',
+    isEcosystem: true,
+    holderCount: litvm?.holderCount,
+    txCount24h: litvm?.txCount24h,
+  })
+
+  return featured
+}
+
 export async function watchForNewTokens(callback: (token: TokenInfo) => void): Promise<() => void> {
   let running = true
 

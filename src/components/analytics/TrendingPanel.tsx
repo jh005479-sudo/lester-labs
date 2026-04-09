@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { getIndexedTokens, type TokenInfo } from '@/lib/token-indexer'
+import { getIndexedTokens, getFeaturedTokens, type TokenInfo, type FeaturedToken } from '@/lib/token-indexer'
 import { RefreshCw, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 type Timeframe = '10m' | '1h' | '4h' | '24h' | '7d'
@@ -15,11 +15,7 @@ const TIMEFRAMES: { key: Timeframe; label: string }[] = [
   { key: '7d', label: '7D' },
 ]
 
-// Known featured tokens
-const FEATURED_TOKENS = [
-  { symbol: 'LTC', name: 'Litecoin', address: '0x', description: 'Native bridge asset — Litecoin on LitVM', isEcosystem: false },
-  { symbol: 'LITVM', name: 'LitVM Token', address: '0x', description: 'Ecosystem governance and utility token', isEcosystem: true },
-]
+
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -65,6 +61,7 @@ export function TrendingPanel() {
   const [tokens, setTokens] = useState<TokenInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [featured, setFeatured] = useState<FeaturedToken[]>([])
   const [timeframe, setTimeframe] = useState<Timeframe>('24h')
 
   const load = useCallback(async () => {
@@ -75,8 +72,12 @@ export function TrendingPanel() {
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('RPC timeout — chain may be unreachable')), 15_000)
       )
-      const list = await Promise.race([getIndexedTokens(), timeoutPromise])
+      const [list, featuredList] = await Promise.race([
+        Promise.all([getIndexedTokens(), getFeaturedTokens()]),
+        timeoutPromise,
+      ] as any)
       setTokens(list)
+      setFeatured(featuredList)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load tokens'
       setError(msg)
@@ -100,9 +101,8 @@ export function TrendingPanel() {
       <div className="mb-8">
         <h3 className="text-sm font-mono tracking-wider text-white/40 mb-4">FEATURED TOKENS</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {FEATURED_TOKENS.map(ft => {
-            const match = tokens.find(t => t.symbol.toUpperCase() === ft.symbol)
-            const href = match ? `/analytics/token/${match.address}` : '#'
+          {featured.map(ft => {
+            const href = ft.address ? `/analytics/token/${ft.address}` : '#'
             return (
               <Link
                 key={ft.symbol}
@@ -124,10 +124,10 @@ export function TrendingPanel() {
                   </div>
                 </div>
                 <p className="text-white/40 text-xs">{ft.description}</p>
-                {match && (
+                {ft.holderCount !== undefined && (
                   <div className="mt-3 flex gap-4 text-xs text-white/60">
-                    <span>Holders: {match.holderCount}</span>
-                    <span>Txns: {match.txCount24h}</span>
+                    <span>Holders: {ft.holderCount}</span>
+                    <span>Txns: {ft.txCount24h}</span>
                   </div>
                 )}
               </Link>
