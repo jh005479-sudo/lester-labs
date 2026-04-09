@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
+import { TrendingPanel } from '@/components/analytics/TrendingPanel'
 import { TokenTracker } from '@/components/analytics/TokenTracker'
 import { HealthPanel } from '@/components/analytics/HealthPanel'
 
@@ -10,9 +11,10 @@ import { DexPanel } from '@/components/analytics/DexPanel'
 import { BridgePanel } from '@/components/analytics/BridgePanel'
 import { SmartMoneyPanel } from '@/components/analytics/SmartMoneyPanel'
 
-type Tab = 'tokens' | 'health' | 'dex' | 'bridge' | 'smartmoney'
+type Tab = 'trending' | 'tokens' | 'health' | 'dex' | 'bridge' | 'smartmoney'
 
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'trending', label: '🔥 TRENDING' },
   { key: 'tokens', label: 'TOKENS' },
   { key: 'health', label: 'HEALTH' },
   { key: 'dex', label: 'DEX' },
@@ -21,7 +23,7 @@ const TABS: { key: Tab; label: string }[] = [
 ]
 
 export default function AnalyticsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('tokens')
+  const [activeTab, setActiveTab] = useState<Tab>('trending')
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
@@ -59,6 +61,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Tab content */}
+        {activeTab === 'trending' && <TrendingPanel />}
         {activeTab === 'tokens' && <TokenTracker />}
         {activeTab === 'health' && <HealthPanel />}
         {activeTab === 'dex' && <DexPanel />}

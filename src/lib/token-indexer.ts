@@ -1,5 +1,5 @@
 import { createPublicClient, http } from 'viem'
-import { LITVM_RPC_URL } from './explorerRpc'
+import { RPC_URL } from './rpcClient'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -15,12 +15,25 @@ export interface TokenInfo {
   createdAt: number
   holderCount: number
   txCount24h: number
+  txCountByHour: number[] // Last 24 hourly transfer counts
+  // Extended fields for trending/detail views
+  priceChange?: { '10m'?: number; '1h'?: number; '4h'?: number; '24h'?: number; '7d'?: number }
+  holderTrend?: 'up' | 'down' | 'stable'
+  lpLocked?: boolean
+  poolAddress?: string
+  buyCount?: number
+  sellCount?: number
+  description?: string
+  website?: string
+  contractWarnings?: string[]
 }
 
 export interface TokenDetails extends TokenInfo {
   priceUsd?: number
   volume24h?: number
   priceChange24h?: number
+  priceHistory?: { timestamp: number; price: number }[]
+  distribution?: { label: string; value: number; address: string }[]
 }
 
 export interface TokenTransfer {
@@ -56,7 +69,10 @@ const transferTopic = `0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4
 // ── Client ─────────────────────────────────────────────────────────────────
 
 const client = createPublicClient({
-  transport: http(LITVM_RPC_URL),
+  transport: http(RPC_URL, {
+    retryCount: 3,
+    retryDelay: 1000,
+  }),
 })
 
 // ── In-memory cache ────────────────────────────────────────────────────────
@@ -129,6 +145,33 @@ async function countHoldersAndTx(address: `0x${string}`, sinceBlock: number): Pr
   }
 }
 
+async function getHourlyTransferCounts(address: `0x${string}`, sinceBlock: number): Promise<number[]> {
+  try {
+    const now = Math.floor(Date.now() / 1000)
+    const logs = (await client.getLogs({
+      address,
+      event: TRANSFER_EVENT,
+      fromBlock: BigInt(sinceBlock),
+      toBlock: 'latest',
+    })) as any[]
+
+    // Bucket by hour (last 24 hours)
+    const buckets = new Array(24).fill(0)
+    for (const log of logs) {
+      const blockNum = Number(log.blockNumber)
+      const block = await client.getBlock({ blockNumber: BigInt(blockNum) })
+      const ts = Number(block.timestamp)
+      const hoursAgo = Math.floor((now - ts) / 3600)
+      if (hoursAgo >= 0 && hoursAgo < 24) {
+        buckets[23 - hoursAgo]++ // Index 0 = oldest (23h ago), 23 = current hour
+      }
+    }
+    return buckets
+  } catch {
+    return new Array(24).fill(0)
+  }
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 export async function scanForTokens(fromBlock: number, toBlock: number): Promise<TokenInfo[]> {
@@ -187,7 +230,10 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
       getTxSender(txHash),
     ])
 
-    const { holders, txCount } = await countHoldersAndTx(address, blockNumber)
+    const [{ holders, txCount }, hourly] = await Promise.all([
+      countHoldersAndTx(address, blockNumber),
+      getHourlyTransferCounts(address, blockNumber),
+    ])
 
     const token: TokenInfo = {
       address,
@@ -201,6 +247,7 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
       createdAt: timestamp,
       holderCount: holders,
       txCount24h: txCount,
+      txCountByHour: hourly,
     }
 
     newTokens.push(token)
@@ -232,7 +279,10 @@ export async function getTokenDetails(contractAddress: string): Promise<TokenDet
   const latest = await client.getBlockNumber()
   const fromBlock = cached ? cached.creationBlock : Math.max(0, Number(latest) - 50000)
 
-  const { holders, txCount } = await countHoldersAndTx(addr, fromBlock)
+  const [{ holders, txCount }, hourly] = await Promise.all([
+    countHoldersAndTx(addr, fromBlock),
+    getHourlyTransferCounts(addr, fromBlock),
+  ])
 
   const base: TokenInfo = cached ?? {
     address: contractAddress,
@@ -246,10 +296,12 @@ export async function getTokenDetails(contractAddress: string): Promise<TokenDet
     createdAt: Math.floor(Date.now() / 1000),
     holderCount: holders,
     txCount24h: txCount,
+    txCountByHour: hourly,
   }
 
   base.holderCount = holders
   base.txCount24h = txCount
+  base.txCountByHour = hourly
 
   return {
     ...base,

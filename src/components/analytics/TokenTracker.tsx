@@ -27,16 +27,9 @@ function isLPToken(token: TokenInfo): boolean {
   )
 }
 
-// Generate hourly buckets from txCount24h (approximated as flat distribution)
+// Use actual hourly transfer counts from TokenInfo
 function generateSparklineData(token: TokenInfo): number[] {
-  if (token.txCount24h === 0) return new Array(24).fill(0)
-  // Distribute txCount24h across 24 hours with some variance
-  const base = token.txCount24h / 24
-  const seed = token.address.charCodeAt(2) + token.address.charCodeAt(3)
-  return Array.from({ length: 24 }, (_, i) => {
-    const pseudo = Math.abs(Math.sin(seed + i * 7.3)) 
-    return Math.max(0, Math.round(base * (0.5 + pseudo)))
-  })
+  return token.txCountByHour ?? new Array(24).fill(0)
 }
 
 function Sparkline({ data }: { data: number[] }) {
@@ -94,7 +87,7 @@ export function TokenTracker() {
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
-    const iv = setInterval(load, 10_000)
+    const iv = setInterval(load, 30_000) // Poll every 30s instead of 10s
     return () => clearInterval(iv)
   }, [load])
   useEffect(() => {
@@ -149,7 +142,7 @@ export function TokenTracker() {
         <div>
           <h2 className="text-xl font-bold">Token Launch Tracker</h2>
           <p className="text-white/50 text-sm mt-1">Live ERC-20 token deployments on LitVM</p>
-          <p className="text-white/30 text-xs mt-0.5">Sparklines show estimated activity pattern, not real hourly data.</p>
+          <p className="text-white/30 text-xs mt-0.5">Sparklines show actual hourly Transfer events over last 24h.</p>
         </div>
         <button
           onClick={load}

@@ -1,20 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { hexToNumber, getLatestBlockNumber, getBlockByNumber, LITVM_RPC_URL } from '@/lib/explorerRpc'
+import { hexToNumber, getLatestBlockNumber, getBlockByNumber } from '@/lib/explorerRpc'
 import { Activity, Clock, Zap, Fuel, TrendingUp, Users, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
-
-async function rpc<T>(method: string, params: unknown[]): Promise<T> {
-  const res = await fetch(LITVM_RPC_URL, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-    cache: 'no-store',
-  })
-  const data = (await res.json()) as { result?: T; error?: { message: string } }
-  if (data.error) throw new Error(data.error.message)
-  return data.result as T
-}
 
 interface BlockData {
   number: number; timestamp: number; gasUsed: number; gasLimit: number
@@ -45,15 +34,36 @@ export function HealthPanel() {
   const [data, setData] = useState<HealthData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const CACHE_KEY = 'healthpanel_blocks'
+
+  function loadCachedBlocks(): { blocks: BlockData[]; latestCached: number } {
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY)
+      if (!raw) return { blocks: [], latestCached: -1 }
+      return JSON.parse(raw)
+    } catch { return { blocks: [], latestCached: -1 } }
+  }
+
+  function saveCachedBlocks(blocks: BlockData[]) {
+    try {
+      // Keep only last 100 blocks in cache to limit sessionStorage size
+      const trimmed = blocks.length > 100 ? blocks.slice(-100) : blocks
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ blocks: trimmed, latestCached: trimmed[trimmed.length - 1].number }))
+    } catch { /* sessionStorage full — ignore */ }
+  }
+
   useEffect(() => {
     let active = true
     const load = async () => {
       try {
         const latest = await getLatestBlockNumber()
-        const startBlock = Math.max(0, latest - 100)
-        const blocks: BlockData[] = []
+        const { blocks: cachedBlocks, latestCached } = loadCachedBlocks()
+        let blocks: BlockData[] = [...cachedBlocks]
 
-        for (let i = startBlock; i <= latest; i += 20) {
+        // Only fetch blocks newer than what we have cached
+        const fetchStart = latestCached >= 0 ? Math.max(latestCached + 1, latest - 100) : Math.max(0, latest - 100)
+
+        for (let i = fetchStart; i <= latest; i += 20) {
           const batch = await Promise.all(
             Array.from({ length: Math.min(20, latest - i + 1) }, (_, j) => i + j)
               .filter(n => n >= 0)
@@ -73,6 +83,14 @@ export function HealthPanel() {
 
         if (!active) return
         blocks.sort((a, b) => a.number - b.number)
+        // Deduplicate by block number (in case cache + fetch overlap)
+        const seen = new Set<number>()
+        const deduped = blocks.filter(b => { if (seen.has(b.number)) return false; seen.add(b.number); return true })
+        deduped.splice(0, Math.max(0, deduped.length - 101)) // Keep last ~100
+
+        saveCachedBlocks(deduped)
+
+        blocks = deduped
 
         const blockTimes: { block: number; time: number }[] = []
         for (let i = 1; i < blocks.length; i++) {
@@ -114,7 +132,9 @@ export function HealthPanel() {
           latestBlock: latest, avgBlockTime, tps, gasPrice, uptime, status,
           blockTimes: blockTimes.slice(-50), txsPerBlock: blocks.map(b => ({ block: b.number, count: b.txCount })).slice(-50),
           gasTrend: blocks.map(b => ({ block: b.number, gas: b.baseFeePerGas })).slice(-50),
-          active24h: allAddresses.size, active7d: allAddresses.size * 3, active30d: allAddresses.size * 8,
+          active24h: allAddresses.size,
+          active7d: allAddresses.size, // NOTE: same as 24h — no historical data to estimate 7d/30d yet
+          active30d: allAddresses.size, // NOTE: same as 24h — no historical data to estimate 7d/30d yet
           newAddresses24h: Math.floor(allAddresses.size * 0.1),
           activeTrend: blocks.slice(-20).map(b => ({ block: b.number, addresses: uniqueMiners.size })),
         })
