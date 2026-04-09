@@ -271,7 +271,7 @@ function Orbs({ progress, time }: { progress: number; time: number }) {
 }
 
 /* ─── Main Hero Component ────────────────────────────────────────────── */
-export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () => void } = {}) {
+export default function ScrollHero() {
   const [progress, setProgress] = useState(0)
   const [time, setTime] = useState(0)
   const [frameImg, setFrameImg] = useState(POSTER_IMG)
@@ -284,7 +284,6 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
   const tp = useRef(0)
   const st = useRef(Date.now())
   const [dims, setDims] = useState({ w: 1200, h: 675 })
-  const introNotifiedRef = useRef(false)
 
   const captureFrame = useCallback(() => {
     if (frozen) return
@@ -307,13 +306,6 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
     }
     setFrozen(true)
   }, [frozen])
-
-  useEffect(() => {
-    if (onIntroComplete && progress > 0.98 && !introNotifiedRef.current) {
-      introNotifiedRef.current = true
-      onIntroComplete()
-    }
-  }, [progress, onIntroComplete])
 
   useEffect(() => {
     const handleScroll = () => {
