@@ -28,6 +28,7 @@ export default function GovernancePage() {
         subtitle="Off-chain proposals and gasless voting — Snapshot-style, no gas required."
         color={COLOR}
         image="/images/carousel/governance.png"
+        imagePosition="center 30%"
         stats={[
           { label: 'Gas', value: 'Zero' },
           { label: 'Style', value: 'Snapshot' },
