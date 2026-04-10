@@ -305,8 +305,10 @@ h1, h2, h3, h4, h5, h6 {
   --rk-fonts-body: var(--font-body) !important;
 }
 
-/* Base wallet button behavior */
-[data-rk] button {
+/* Nav wallet buttons only (avoid affecting RainbowKit modal internals) */
+[data-rk] [data-testid='rk-connect-button'],
+[data-rk] [data-testid='rk-chain-button'],
+[data-rk] [data-testid='rk-account-button'] {
   transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
   font-weight: 600 !important;
 }
@@ -317,7 +319,7 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 8px 24px rgba(75, 49, 220, 0.35);
 }
 
-/* Connected: chain + account buttons styled to match site purple system */
+/* Connected: chain + account buttons */
 [data-rk] [data-testid='rk-chain-button'],
 [data-rk] [data-testid='rk-account-button'] {
   background: rgba(74, 49, 220, 0.22) !important;
@@ -327,8 +329,8 @@ h1, h2, h3, h4, h5, h6 {
   backdrop-filter: blur(8px) saturate(130%);
 }
 
-/* Remove bright/white inner block on account button */
-[data-rk] [data-testid='rk-account-button'] > div {
+/* Only the account button's direct inner capsule */
+[data-rk] [data-testid='rk-account-button'] > [style] {
   background: transparent !important;
   border-color: rgba(167, 137, 255, 0.46) !important;
 }
