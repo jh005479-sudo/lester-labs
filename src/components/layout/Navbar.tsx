@@ -4,15 +4,18 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useState } from 'react'
-import { Menu, X } from 'lucide-react'
+import { ChevronDown, Menu, X } from 'lucide-react'
 
-const navLinks = [
-  { href: '/launch',     label: 'Launch' },
+const dappLinks = [
+  { href: '/launch',     label: 'Minter' },
   { href: '/locker',     label: 'Locker' },
   { href: '/vesting',    label: 'Vesting' },
   { href: '/airdrop',    label: 'Airdrop' },
   { href: '/governance', label: 'Governance' },
   { href: '/launchpad',  label: 'Launchpad' },
+]
+
+const navLinks = [
   { href: '/explorer',   label: 'Explorer' },
   { href: '/analytics',  label: 'Analytics' },
   { href: '/docs',       label: 'Docs' },
@@ -22,6 +25,7 @@ export function Navbar() {
   const pathname = usePathname()
   const isHome = pathname === '/'
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [dappsOpen, setDappsOpen] = useState(false)
 
   return (
     <nav
@@ -42,6 +46,52 @@ export function Navbar() {
         </Link>
 
         <div className="hidden md:flex items-center gap-6">
+          <div className="relative">
+            <button
+              onClick={() => setDappsOpen(!dappsOpen)}
+              className="relative flex items-center gap-1 text-[12px] tracking-wide transition-all duration-300"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                color: dappLinks.some(({ href }) => pathname === href || pathname.startsWith(href + '/'))
+                  ? 'var(--foreground)'
+                  : 'rgba(255,255,255,0.62)',
+                letterSpacing: '0.035em',
+              }}
+            >
+              dApps
+              <ChevronDown size={14} className={`transition-transform ${dappsOpen ? 'rotate-180' : ''}`} />
+              {dappLinks.some(({ href }) => pathname === href || pathname.startsWith(href + '/')) && (
+                <span className="absolute -bottom-1 left-0 right-0 h-px" style={{ background: 'var(--accent)', opacity: 0.6 }} />
+              )}
+            </button>
+
+            {dappsOpen && (
+              <div
+                className="absolute left-0 top-8 min-w-[180px] rounded-xl border border-white/10 p-2"
+                style={{ background: 'rgba(12, 10, 18, 0.96)', backdropFilter: 'blur(14px)' }}
+              >
+                {dappLinks.map(({ href, label }) => {
+                  const isActive = pathname === href || pathname.startsWith(href + '/')
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={() => setDappsOpen(false)}
+                      className="block rounded-lg px-3 py-2 text-sm transition-colors"
+                      style={{
+                        color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
+                        background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
+                      }}
+                    >
+                      {label}
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {navLinks.map(({ href, label }) => {
             const isActive = pathname === href || pathname.startsWith(href + '/')
             return (
@@ -85,6 +135,34 @@ export function Navbar() {
           className="md:hidden fixed inset-0 top-[84px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
           style={{ background: 'rgba(8, 6, 14, 0.97)', backdropFilter: 'blur(40px)' }}
         >
+          <div className="py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <p
+              className="mb-2 text-xs uppercase tracking-[0.12em]"
+              style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-body)' }}
+            >
+              dApps
+            </p>
+            <div className="flex flex-col gap-1">
+              {dappLinks.map(({ href, label }) => {
+                const isActive = pathname === href || pathname.startsWith(href + '/')
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setMobileOpen(false)}
+                    className="py-2 text-lg font-light tracking-wide transition-colors duration-300"
+                    style={{
+                      color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
+                      fontFamily: 'var(--font-heading)',
+                    }}
+                  >
+                    {label}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+
           {navLinks.map(({ href, label }) => {
             const isActive = pathname === href || pathname.startsWith(href + '/')
             return (
