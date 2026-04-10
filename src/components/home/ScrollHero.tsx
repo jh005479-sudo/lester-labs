@@ -18,6 +18,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
   const contentRef    = useRef<HTMLDivElement>(null)
   const svgRef        = useRef<SVGSVGElement>(null)
 
+  const [gateChecked, setGateChecked] = useState(false)
   const [elapsed,   setElapsed]   = useState(0)
   const [done,      setDone]      = useState(false)   // scroll unlocked
   const [skipIntro, setSkipIntro] = useState(false)
@@ -36,21 +37,22 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
   // ─── First-visit intro gating ───────────────────────────
   useEffect(() => {
     const introSeen = typeof window !== 'undefined' && window.sessionStorage.getItem(INTRO_SEEN_KEY) === '1'
-    if (!introSeen) return
-
-    setSkipIntro(true)
-    setVideoOut(true)
-    setSkipGone(true)
-    setBgOn(true)
-    setFogOn(true)
-    setGlowOn(true)
-    setS1On(true)
-    setTitleOn(true)
-    setTagOn(true)
-    setCtaOn(true)
-    setSiOn(true)
-    setDone(true)
-    onIntroComplete?.()
+    if (introSeen) {
+      setSkipIntro(true)
+      setVideoOut(true)
+      setSkipGone(true)
+      setBgOn(true)
+      setFogOn(true)
+      setGlowOn(true)
+      setS1On(true)
+      setTitleOn(true)
+      setTagOn(true)
+      setCtaOn(true)
+      setSiOn(true)
+      setDone(true)
+      onIntroComplete?.()
+    }
+    setGateChecked(true)
   }, [onIntroComplete])
 
   // ─── Scroll lock ────────────────────────────────────────
@@ -298,7 +300,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
         <div className={glowOn ? 'hero-title-glow on' : 'hero-title-glow'} />
 
         {/* Video */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: 50, opacity: videoOut ? 0 : 1, transition: 'opacity 2s ease', pointerEvents: videoOut ? 'none' : 'auto', background: '#000' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 50, opacity: !gateChecked || videoOut ? 0 : 1, transition: 'opacity 2s ease', pointerEvents: !gateChecked || videoOut ? 'none' : 'auto', background: '#000' }}>
           <video
             ref={videoRef}
             src={VIDEO_URL}
