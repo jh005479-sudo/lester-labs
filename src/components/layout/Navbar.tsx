@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useState } from 'react'
-import { ChevronDown, Menu, X } from 'lucide-react'
+import { ChevronDown, Menu, Wallet, X } from 'lucide-react'
 
 const dappLinks = [
   { href: '/launch',     label: 'Minter' },
@@ -183,7 +183,7 @@ export function Navbar() {
                         className="w-6 h-6 rounded-full"
                       />
                     ) : (
-                      <span className="text-white text-sm">●</span>
+                      <Wallet size={16} color="#f6f4ff" />
                     )}
                   </button>
                 </div>
