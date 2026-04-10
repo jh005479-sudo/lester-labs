@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
 import { TrendingPanel } from '@/components/analytics/TrendingPanel'
@@ -24,6 +24,35 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('trending')
+
+  useEffect(() => {
+    const cards = Array.from(document.querySelectorAll('.analytics-card')) as HTMLElement[]
+    const cleanups: Array<() => void> = []
+
+    cards.forEach((el) => {
+      const onMove = (e: MouseEvent) => {
+        const rect = el.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+        const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -3
+        const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 3
+        el.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`
+      }
+
+      const onLeave = () => {
+        el.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0px)'
+      }
+
+      el.addEventListener('mousemove', onMove)
+      el.addEventListener('mouseleave', onLeave)
+      cleanups.push(() => {
+        el.removeEventListener('mousemove', onMove)
+        el.removeEventListener('mouseleave', onLeave)
+      })
+    })
+
+    return () => cleanups.forEach((fn) => fn())
+  }, [activeTab])
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
