@@ -204,6 +204,7 @@ function CreatePresaleForm() {
   return (
     <div className="launchpad-create-wrap" style={{ maxWidth: 600, margin: '0 auto' }}>
       <div
+        className="analytics-card"
         style={{
           background: 'var(--surface-1)',
           border: '1px solid rgba(255,255,255,0.07)',
@@ -516,6 +517,7 @@ function PresaleCard({ presale }: { presale: MockPresale }) {
 
   return (
     <div
+      className="analytics-card"
       style={{
         background: 'var(--surface-1)',
         border: '1px solid rgba(255,255,255,0.07)',
