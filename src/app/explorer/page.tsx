@@ -44,6 +44,7 @@ export default function ExplorerPage() {
   const [latestBlock, setLatestBlock] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [toastVisible, setToastVisible] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     let active = true
