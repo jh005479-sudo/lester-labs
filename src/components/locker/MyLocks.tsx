@@ -93,7 +93,7 @@ export function MyLocks() {
   return (
     <div className="space-y-6">
       {/* Wallet context */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-white">Your Wallet</label>
           <input
@@ -119,7 +119,7 @@ export function MyLocks() {
       </div>
 
       {/* Lock ID lookup */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-white mb-1">Look Up a Lock</h3>
           <p className="text-xs text-[var(--text-muted)]">
@@ -155,3 +155,4 @@ export function MyLocks() {
     </div>
   )
 }
+

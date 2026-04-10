@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { CheckCircle2, Copy, ExternalLink, Share2 } from 'lucide-react'
+import { CheckCircle2, Copy, ExternalLink, Lock, Share2 } from 'lucide-react'
 
 export interface LockCertificateData {
   lockId: string
@@ -44,7 +44,7 @@ export function LockCertificate({ data, onReset }: LockCertificateProps) {
     <div className="space-y-6">
       {/* Hero */}
       <div className="text-center space-y-2">
-        <div className="text-5xl">LOCK</div>
+        <div className="flex justify-center"><Lock size={40} className="text-[var(--accent)]" /></div>
         <h2 className="text-2xl font-bold text-white">Liquidity Locked!</h2>
         <p className="text-white/60">
           Your LP tokens are now secured on-chain.{' '}
@@ -93,7 +93,7 @@ export function LockCertificate({ data, onReset }: LockCertificateProps) {
       </div>
 
       {/* Shareable URL */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-4 space-y-3">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-4 space-y-3">
         <p className="text-xs font-medium text-white/40 uppercase tracking-wider">
           Share Lock Certificate
         </p>
@@ -150,3 +150,4 @@ function CertRow({
     </div>
   )
 }
+

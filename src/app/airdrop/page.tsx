@@ -22,7 +22,7 @@ export default function AirdropPage() {
           { label: 'Fee', value: '0.01 zkLTC' },
         ]}
       />
-      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px clamp(16px,4vw,40px) 80px' }}>
+      <div className="tool-page-content" style={{ maxWidth: '920px' }}>
         <AirdropForm />
       </div>
     </div>

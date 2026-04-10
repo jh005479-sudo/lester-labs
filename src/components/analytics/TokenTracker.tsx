@@ -221,7 +221,7 @@ export function TokenTracker() {
             <Link
               key={token.address}
               href={`/explorer/token/${token.address}`}
-              className="block p-5 rounded-xl bg-[var(--surface-1)] border border-white/10 hover:border-white/20 transition group relative"
+              className="analytics-card block p-5 rounded-xl bg-[var(--surface-1)] border border-white/10 hover:border-white/20 transition group relative"
             >
               <div className="flex items-start justify-between mb-3">
                 <div>

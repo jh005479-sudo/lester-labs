@@ -44,6 +44,7 @@ export default function ExplorerPage() {
   const [latestBlock, setLatestBlock] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [toastVisible, setToastVisible] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -109,7 +110,10 @@ export default function ExplorerPage() {
     window.open(`${LITVM_EXPLORER_URL}/search?q=${encodeURIComponent(q)}`, '_blank')
   }
 
-  const [shareOpen, setShareOpen] = useState(false)
+  const handleTweet = () => {
+    const text = `LitVM Network Stats via @LesterLabs\n\nBlock: #${latestBlock.toLocaleString()}\nTPS: 47.3\n24h Txs: 128,440\nBlock Time: 2.1s\n\nBuilding on LitVM\n\nlesterlabs.vercel.app/explorer\n\n#LitVM #Litecoin #DeFi`
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank')
+  }
 
   const stats = [
     { label: 'Latest Block', value: latestBlock ? `#${latestBlock.toLocaleString()}` : 'Loading' },
@@ -131,7 +135,7 @@ export default function ExplorerPage() {
           {stats.map((stat) => (
             <div
               key={stat.label}
-              className="rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3"
+              className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3"
             >
               <p className="text-xs text-white/40 uppercase tracking-wider">{stat.label}</p>
               <p className="text-lg font-semibold font-mono text-white mt-1">{stat.value}</p>
@@ -147,7 +151,7 @@ export default function ExplorerPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by address, tx hash, or block number"
-            className="w-full rounded-lg border border-white/10 bg-[var(--surface-1)] py-3 pl-12 pr-4 text-sm text-white placeholder:text-white/30 focus:border-[var(--accent)] focus:outline-none transition-colors font-mono"
+            className="analytics-card w-full rounded-lg border border-white/10 bg-[var(--surface-1)] py-3 pl-12 pr-4 text-sm text-white placeholder:text-white/30 focus:border-[var(--accent)] focus:outline-none transition-colors font-mono"
           />
         </form>
 
@@ -168,7 +172,7 @@ export default function ExplorerPage() {
         {/* Two-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Latest Blocks */}
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <h2 className="text-lg font-semibold text-white">Latest Blocks</h2>
               <span className="text-xs text-white/40">Auto-refreshing</span>
@@ -203,7 +207,7 @@ export default function ExplorerPage() {
           </div>
 
           {/* Latest Transactions */}
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <h2 className="text-lg font-semibold text-white">Latest Transactions</h2>
               <span className="text-xs text-white/40">Auto-refreshing</span>
@@ -273,3 +277,4 @@ export default function ExplorerPage() {
     </div>
   )
 }
+

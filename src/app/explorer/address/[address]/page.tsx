@@ -353,7 +353,7 @@ export default function AddressPage() {
 
       <main className="mx-auto max-w-7xl px-4 pt-40 pb-20 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 mb-6">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-semibold text-white">Address</h1>
@@ -404,7 +404,7 @@ export default function AddressPage() {
 
         {/* Transaction Flow Summary */}
         {flowSummary && (flowSummary.received > 0 || flowSummary.sent > 0) && (
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5 mb-6">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5 mb-6">
             <h2 className="text-sm font-medium text-white/50 mb-4">Transaction Flow</h2>
             <div className="flex flex-wrap items-center justify-center gap-2 mb-5 text-sm">
               <div className="flex flex-col items-center p-3 rounded-lg bg-green-500/10 border border-green-500/20 min-w-[110px]">
@@ -453,7 +453,7 @@ export default function AddressPage() {
 
         {/* Contract Info */}
         {contract.isContract && (
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 mb-6">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 mb-6">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <FileCode className="h-5 w-5 text-[var(--accent)]" /> Contract
             </h2>
@@ -510,7 +510,7 @@ export default function AddressPage() {
 
         {/* Transactions Tab */}
         {activeTab === 'transactions' && (
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -564,7 +564,7 @@ export default function AddressPage() {
 
         {/* Tokens Tab */}
         {activeTab === 'tokens' && (
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
             <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2">
               <Coins className="h-4 w-4 text-[var(--accent)]" />
               <h3 className="font-semibold text-white">Token Holdings</h3>
@@ -603,7 +603,7 @@ export default function AddressPage() {
 
         {/* Contract Tab */}
         {activeTab === 'contract' && contract.isContract && (
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6">
             <h3 className="font-semibold text-white mb-4">Read Contract</h3>
             {contractMeta ? (
               <div className="space-y-3">

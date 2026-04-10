@@ -107,7 +107,7 @@ export function TrendingPanel() {
               <Link
                 key={ft.symbol}
                 href={href}
-                className="block p-5 rounded-xl bg-gradient-to-br from-[var(--surface-1)] to-[var(--surface-2,#111)] border border-white/10 hover:border-white/25 transition group"
+                className="analytics-card block p-5 rounded-xl bg-gradient-to-br from-[var(--surface-1)] to-[var(--surface-2,#111)] border border-white/10 hover:border-white/25 transition group"
               >
                 <div className="flex items-center gap-3 mb-2">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${ft.isEcosystem ? 'bg-purple-500/20 text-purple-400' : 'bg-amber-500/20 text-amber-400'}`}>

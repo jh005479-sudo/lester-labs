@@ -4,6 +4,7 @@ import { Geist_Mono } from 'next/font/google'
 import { Providers } from './providers'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
+import { SiteFooter } from '@/components/layout/SiteFooter'
 import './globals.css'
 
 const inter = Inter({
@@ -45,6 +46,7 @@ export default function RootLayout({
           <LTCBanner />
           <Navbar />
           {children}
+          <SiteFooter />
         </Providers>
       </body>
     </html>

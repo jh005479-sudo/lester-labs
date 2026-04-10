@@ -48,7 +48,7 @@ export function CreateProposalTab() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-6">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-6">
         {/* Space Slug */}
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-white/70">Space Slug</label>
@@ -192,3 +192,4 @@ export function CreateProposalTab() {
     </div>
   )
 }
+

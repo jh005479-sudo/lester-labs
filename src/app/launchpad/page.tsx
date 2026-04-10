@@ -6,6 +6,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseEther, parseUnits, isAddress, formatEther } from 'viem'
+import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI } from '@/config/abis'
 
@@ -203,6 +204,7 @@ function CreatePresaleForm() {
   return (
     <div className="launchpad-create-wrap" style={{ maxWidth: 600, margin: '0 auto' }}>
       <div
+        className="analytics-card"
         style={{
           background: 'var(--surface-1)',
           border: '1px solid rgba(255,255,255,0.07)',
@@ -417,7 +419,10 @@ function CreatePresaleForm() {
               color: '#f87171',
               fontSize: '13px',
             }}>
-              NOTE️ ILO Factory contract not deployed on this network. Presale creation is disabled.
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={14} />
+                ILO Factory contract not deployed on this network. Presale creation is disabled.
+              </span>
             </div>
           )}
 
@@ -472,7 +477,7 @@ function CreatePresaleForm() {
 
           {isSuccess && (
             <div style={{ padding: '16px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', fontSize: '14px', color: '#4ade80' }}>
-              <div style={{ fontWeight: 700, marginBottom: '10px' }}>✓ Presale created successfully!</div>
+              <div style={{ fontWeight: 700, marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><CircleCheck size={16} /> Presale created successfully!</div>
               <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.8 }}>
                 <strong style={{ color: 'rgba(255,255,255,0.9)' }}>Next steps:</strong><br />
                 1. Find your new presale contract address in the transaction receipt<br />
@@ -512,6 +517,7 @@ function PresaleCard({ presale }: { presale: MockPresale }) {
 
   return (
     <div
+      className="analytics-card"
       style={{
         background: 'var(--surface-1)',
         border: '1px solid rgba(255,255,255,0.07)',
@@ -672,8 +678,11 @@ export default function LaunchpadPage() {
         title="Lester"
         titleHighlight="Launch"
         subtitle="Community presales with automatic LP creation and locking on SparkDex. Self-service, permissionless, contract-enforced."
+        subtitleMaxWidth="560px"
         color="#5E6AD2"
         image="/images/carousel/launchpad.png"
+        imagePosition="center 18%"
+        imageTopFade={false}
         stats={[
           { label: 'Mode', value: 'Permissionless' },
           { label: 'DEX', value: 'SparkDex' },
@@ -681,23 +690,17 @@ export default function LaunchpadPage() {
           { label: 'Fee', value: '2% of raise' },
         ]}
       />
-      <div
-        style={{
-          maxWidth: '1100px',
-          margin: '0 auto',
-          padding: '8px clamp(16px,4vw,40px) 60px',
-        }}
-      >
+      <div className="tool-page-content" style={{ maxWidth: '1120px', paddingTop: 40 }}>
 
         {/* Launchpad at-a-glance stats */}
         <div
           className="launchpad-stats-grid"
           style={{
             display: 'flex',
-            justifyContent: 'center',
+            justifyContent: 'flex-start',
             alignItems: 'stretch',
             gap: '34px',
-            marginBottom: '30px',
+            marginBottom: '38px',
             flexWrap: 'wrap',
           }}
         >
@@ -720,11 +723,12 @@ export default function LaunchpadPage() {
               <div style={{ textAlign: 'center' }}>
                 <div
                   style={{
-                    fontSize: '28px',
+                    fontSize: '30px',
                     fontWeight: 800,
                     lineHeight: 1,
                     color: '#F0EEF5',
-                    marginBottom: '6px',
+                    marginBottom: '7px',
+                    letterSpacing: '-0.02em',
                   }}
                 >
                   {value}
@@ -732,10 +736,10 @@ export default function LaunchpadPage() {
                 <div
                   style={{
                     fontSize: '11px',
-                    color: 'rgba(240,238,245,0.42)',
+                    color: 'rgba(240,238,245,0.5)',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.09em',
-                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    fontWeight: 650,
                   }}
                 >
                   {label}
@@ -761,11 +765,12 @@ export default function LaunchpadPage() {
           style={{
             display: 'flex',
             gap: '4px',
-            marginBottom: '32px',
+            marginBottom: '36px',
             background: 'var(--surface-1)',
             padding: '4px',
             borderRadius: '10px',
             width: 'fit-content',
+            border: '1px solid rgba(255,255,255,0.1)',
           }}
         >
           {(['browse', 'create'] as Tab[]).map((t) => (
@@ -787,7 +792,10 @@ export default function LaunchpadPage() {
                 transition: 'all 0.15s',
               }}
             >
-              {t === 'browse' ? '📡 Browse Presales' : 'LIVE Create Presale'}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                {t === 'browse' ? <Radio size={14} /> : <Rocket size={14} />}
+                {t === 'browse' ? 'Browse Presales' : 'Create Presale'}
+              </span>
             </button>
           ))}
         </div>
@@ -803,8 +811,8 @@ export default function LaunchpadPage() {
                   color: 'rgba(255,255,255,0.3)',
                 }}
               >
-                <div style={{ fontSize: '40px', marginBottom: '16px' }}>
-                  🌑
+                <div style={{ marginBottom: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Moon size={34} color="rgba(255,255,255,0.45)" />
                 </div>
                 <div
                   style={{
