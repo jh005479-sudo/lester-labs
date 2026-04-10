@@ -88,7 +88,7 @@ export function SpacesTab() {
           {filtered.map((space) => (
             <div
               key={space.slug}
-              className="group rounded-xl border border-white/10 bg-white/5 p-5 hover:border-white/20 hover:bg-white/[0.07] transition-all"
+              className="analytics-card group rounded-xl border border-white/10 bg-white/5 p-5 hover:border-white/20 hover:bg-white/[0.07] transition-all"
             >
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div className="flex items-center gap-3">
@@ -129,7 +129,7 @@ export function SpacesTab() {
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-white/10 bg-white/5 py-16 text-center">
+        <div className="analytics-card rounded-xl border border-white/10 bg-white/5 py-16 text-center">
           <p className="text-white/40">No spaces found</p>
         </div>
       )}

@@ -129,34 +129,42 @@ export default function Template({ children }: { children: React.ReactNode }) {
       el.addEventListener('mouseleave', onLeave)
     })
 
-    // Shared card tilt (analytics + dApps + explorer)
-    const tiltCards = Array.from(document.querySelectorAll('.analytics-card')) as HTMLElement[]
-    const tiltCleanups: Array<() => void> = []
-    tiltCards.forEach((el) => {
-      const onCardMove = (e: MouseEvent) => {
-        const rect = el.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
-        const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -3
-        const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 3
-        el.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`
-      }
-      const onCardLeave = () => {
-        el.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0px)'
-      }
-      el.addEventListener('mousemove', onCardMove)
-      el.addEventListener('mouseleave', onCardLeave)
-      tiltCleanups.push(() => {
-        el.removeEventListener('mousemove', onCardMove)
-        el.removeEventListener('mouseleave', onCardLeave)
-      })
-    })
+    // Shared card tilt (analytics + dApps + explorer), delegated for dynamic tab content
+    let activeTiltCard: HTMLElement | null = null
+    const resetTilt = (el?: HTMLElement | null) => {
+      if (!el) return
+      el.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0px)'
+    }
+    const onDocMove = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      const card = target?.closest?.('.analytics-card') as HTMLElement | null
+
+      if (activeTiltCard && activeTiltCard !== card) resetTilt(activeTiltCard)
+      activeTiltCard = card
+      if (!card) return
+
+      const rect = card.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -3
+      const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 3
+      card.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`
+    }
+    const onDocLeave = () => {
+      resetTilt(activeTiltCard)
+      activeTiltCard = null
+    }
+
+    document.addEventListener('mousemove', onDocMove)
+    document.addEventListener('mouseleave', onDocLeave)
 
     return () => {
       document.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('resize', resizeCanvas)
       cancelAnimationFrame(rafId)
-      tiltCleanups.forEach((fn) => fn())
+      document.removeEventListener('mousemove', onDocMove)
+      document.removeEventListener('mouseleave', onDocLeave)
+      resetTilt(activeTiltCard)
     }
   }, [])
 
