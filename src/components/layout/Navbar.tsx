@@ -118,7 +118,78 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-          <ConnectButton chainStatus="name" showBalance={false} accountStatus="avatar" />
+          <ConnectButton.Custom>
+            {({
+              account,
+              chain,
+              openAccountModal,
+              openChainModal,
+              openConnectModal,
+              mounted,
+            }) => {
+              const ready = mounted
+              const connected = ready && account && chain
+
+              if (!connected) {
+                return (
+                  <button
+                    onClick={openConnectModal}
+                    type="button"
+                    className="px-4 py-2 rounded-[14px] text-[14px] font-semibold"
+                    style={{
+                      color: '#f6f4ff',
+                      background: 'linear-gradient(135deg, #6B4FFF 0%, #5B3FF0 100%)',
+                      boxShadow: '0 8px 24px rgba(75, 49, 220, 0.35)',
+                      border: 'none',
+                    }}
+                  >
+                    Connect Wallet
+                  </button>
+                )
+              }
+
+              return (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={openChainModal}
+                    type="button"
+                    className="px-4 py-2 rounded-[14px] text-[14px] font-semibold inline-flex items-center gap-2"
+                    style={{
+                      color: '#f6f4ff',
+                      background: 'rgba(74, 49, 220, 0.22)',
+                      border: '1px solid rgba(167, 137, 255, 0.46)',
+                      boxShadow: '0 8px 22px rgba(45, 26, 120, 0.35)',
+                    }}
+                  >
+                    {chain?.name}
+                    <ChevronDown size={16} />
+                  </button>
+
+                  <button
+                    onClick={openAccountModal}
+                    type="button"
+                    className="h-[42px] min-w-[64px] px-3 rounded-[14px] inline-flex items-center justify-center"
+                    style={{
+                      background: 'rgba(74, 49, 220, 0.22)',
+                      border: '1px solid rgba(167, 137, 255, 0.46)',
+                      boxShadow: '0 8px 22px rgba(45, 26, 120, 0.35)',
+                      outline: 'none',
+                    }}
+                  >
+                    {chain?.hasIcon && chain.iconUrl ? (
+                      <img
+                        src={chain.iconUrl}
+                        alt={chain.name ?? 'Chain'}
+                        className="w-6 h-6 rounded-full"
+                      />
+                    ) : (
+                      <span className="text-white text-sm">●</span>
+                    )}
+                  </button>
+                </div>
+              )
+            }}
+          </ConnectButton.Custom>
           <button
             className="md:hidden transition-colors duration-300 p-2 -mr-2"
             style={{ color: 'var(--foreground-dim)' }}
