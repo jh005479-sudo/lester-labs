@@ -690,8 +690,8 @@ footer.lester-footer{border-top:1px solid var(--border);padding:40px clamp(16px,
 .tool-step-line{flex:1;height:1px;background:rgba(255,255,255,.06);margin:0 12px;min-width:20px;position:relative}
 .tool-step-line-fill{position:absolute;inset:0;width:0;background:#2DCE89;transition:width .5s cubic-bezier(.22,1,.36,1)}
 .tool-step-line-fill.done{width:100%}
-.tool-form-card{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:clamp(24px,3vw,32px);position:relative;overflow:hidden;transition:border-color .3s, box-shadow .3s}
-.tool-form-card:hover{border-color:rgba(255,255,255,.14);box-shadow:0 14px 34px rgba(0,0,0,.26)}
+.tool-form-card{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:clamp(24px,3vw,32px);position:relative;overflow:hidden;transition:border-color .3s, box-shadow .3s;box-shadow:0 0 28px rgba(107,79,255,.12),0 10px 26px rgba(0,0,0,.22)}
+.tool-form-card:hover{border-color:rgba(139,116,255,.45);box-shadow:0 0 56px rgba(107,79,255,.2),0 16px 36px rgba(0,0,0,.3)}
 .tool-form-card-line{position:absolute;top:0;left:0;right:0;height:1px}
 .tool-preview{position:sticky;top:80px}
 .tool-preview-launch-align{margin-top:58px}
