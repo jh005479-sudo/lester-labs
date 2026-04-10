@@ -305,14 +305,37 @@ h1, h2, h3, h4, h5, h6 {
   --rk-fonts-body: var(--font-body) !important;
 }
 
+/* Base wallet button behavior */
 [data-rk] button {
-  border: none !important;
-  box-shadow: 0 8px 24px rgba(75, 49, 220, 0.35);
   transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
   font-weight: 600 !important;
 }
 
-[data-rk] button:hover {
+/* Disconnected: Connect Wallet */
+[data-rk] [data-testid='rk-connect-button'] {
+  border: none !important;
+  box-shadow: 0 8px 24px rgba(75, 49, 220, 0.35);
+}
+
+/* Connected: chain + account buttons styled to match site purple system */
+[data-rk] [data-testid='rk-chain-button'],
+[data-rk] [data-testid='rk-account-button'] {
+  background: rgba(74, 49, 220, 0.22) !important;
+  color: #f6f4ff !important;
+  border: 1px solid rgba(167, 137, 255, 0.46) !important;
+  box-shadow: 0 8px 22px rgba(45, 26, 120, 0.35);
+  backdrop-filter: blur(8px) saturate(130%);
+}
+
+/* Remove bright/white inner block on account button */
+[data-rk] [data-testid='rk-account-button'] > div {
+  background: transparent !important;
+  border-color: rgba(167, 137, 255, 0.46) !important;
+}
+
+[data-rk] [data-testid='rk-connect-button']:hover,
+[data-rk] [data-testid='rk-chain-button']:hover,
+[data-rk] [data-testid='rk-account-button']:hover {
   transform: translateY(-1px);
   filter: brightness(1.04);
   box-shadow: 0 10px 28px rgba(75, 49, 220, 0.45);
