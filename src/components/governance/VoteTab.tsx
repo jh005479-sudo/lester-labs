@@ -49,7 +49,7 @@ export function VoteTab() {
   return (
     <div className="space-y-6">
       {/* Proposal ID input */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-white/70">Proposal ID</label>
           <div className="flex gap-2">
@@ -75,7 +75,7 @@ export function VoteTab() {
 
       {/* Demo / loaded proposal card */}
       {loaded && (
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-6">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-6">
           {/* Demo badge */}
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-0.5 text-xs font-medium text-yellow-400">
@@ -169,3 +169,4 @@ export function VoteTab() {
     </div>
   )
 }
+

@@ -36,7 +36,7 @@ export default function LockerPage() {
           { label: 'Fee', value: '0.03 zkLTC' },
         ]}
       />
-      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px clamp(16px,4vw,40px) 80px' }}>
+      <div className="tool-page-content" style={{ maxWidth: '920px' }}>
         {!isConnected ? (
           <ConnectWalletPrompt />
         ) : (

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, ExternalLink } from 'lucide-react'
+import { Search, ExternalLink, Calendar } from 'lucide-react'
 
 export function MySchedules() {
   const [lookupId, setLookupId] = useState('')
@@ -16,7 +16,7 @@ export function MySchedules() {
   return (
     <div className="space-y-6">
       {/* Lookup by ID */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6">
         <h3 className="mb-1 text-base font-semibold text-white">Look Up a Schedule</h3>
         <p className="mb-4 text-sm text-white/50">
           Enter a Schedule ID to view its details and vesting progress.
@@ -56,7 +56,7 @@ export function MySchedules() {
       {/* Placeholder — my schedules list */}
       {lookupResult === null && (
         <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center">
-          <div className="mb-3 text-4xl">VEST</div>
+          <div className="mb-3 flex justify-center text-[var(--accent)]"><Calendar size={30} /></div>
           <h3 className="mb-2 text-base font-semibold text-white">No schedules found</h3>
           <p className="text-sm text-white/40">
             Vesting schedules created from this wallet will appear here.
@@ -86,3 +86,4 @@ export function MySchedules() {
     </div>
   )
 }
+

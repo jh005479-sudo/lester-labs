@@ -401,7 +401,7 @@ export function LockForm() {
         </div>
       )}
 
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8 space-y-6">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8 space-y-6">
         {/* LP Token Address */}
         <Field
           label="LP Token Address"
@@ -512,7 +512,7 @@ export function LockForm() {
             className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
             <Loader2 size={15} className="opacity-0 pointer-events-none" aria-hidden />
-            {isFeeLoading ? 'Loading fee…' : 'Step 2: Lock Tokens LOCK'}
+            {isFeeLoading ? 'Loading fee…' : 'Step 2: Lock Tokens'}
           </button>
         )}
       </div>
@@ -544,3 +544,4 @@ function errMessage(err: unknown): string {
   }
   return 'An unexpected error occurred.'
 }
+

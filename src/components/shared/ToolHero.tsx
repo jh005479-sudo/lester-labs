@@ -15,7 +15,10 @@ interface ToolHeroProps {
   color: string           // hex e.g. "#6B4FFF"
   stats: StatPill[]
   image?: string          // e.g. "/images/carousel/token-factory.png"
+  imagePosition?: string  // e.g. "center 42%"
+  imageTopFade?: boolean
   compact?: boolean
+  subtitleMaxWidth?: string
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -25,7 +28,7 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b]
 }
 
-export function ToolHero({ category, title, titleHighlight, subtitle, color, stats, image, compact = false }: ToolHeroProps) {
+export function ToolHero({ category, title, titleHighlight, subtitle, color, stats, image, imagePosition = 'center 34%', imageTopFade = true, compact = false, subtitleMaxWidth = '420px' }: ToolHeroProps) {
   const headerRef = useRef<HTMLDivElement>(null)
   const [r, g, b] = hexToRgb(color)
   const bg = '#0a0818'
@@ -57,7 +60,7 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
         <div style={{
           position: 'absolute',
           top: 0, right: 0, bottom: 0,
-          width: '52%',
+          width: '56%',
           zIndex: 0,
           pointerEvents: 'none',
         }}>
@@ -69,16 +72,17 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              objectPosition: 'center 30%',
+              objectPosition: imagePosition,
               display: 'block',
-              opacity: 0.55,
+              opacity: 0.68,
+              filter: 'contrast(1.08) saturate(1.04)',
             }}
           />
           {/* Fade left edge into bg */}
           <div style={{
             position: 'absolute',
             inset: 0,
-            background: `linear-gradient(to right, ${bg} 0%, rgba(10,8,24,0.7) 30%, rgba(10,8,24,0.2) 65%, transparent 100%)`,
+            background: `linear-gradient(to right, ${bg} 0%, rgba(10,8,24,0.84) 34%, rgba(10,8,24,0.32) 68%, rgba(10,8,24,0.06) 100%)`,
           }} />
           {/* Fade bottom edge */}
           <div style={{
@@ -87,11 +91,13 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
             background: `linear-gradient(to top, ${bg} 0%, transparent 40%)`,
           }} />
           {/* Fade top edge */}
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: `linear-gradient(to bottom, ${bg} 0%, transparent 25%)`,
-          }} />
+          {imageTopFade && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: `linear-gradient(to bottom, ${bg} 0%, rgba(10,8,24,0.35) 22%, transparent 38%)`,
+            }} />
+          )}
           {/* Accent color tint overlay */}
           <div style={{
             position: 'absolute',
@@ -143,7 +149,7 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
           ? 'clamp(98px,9vw,124px) clamp(16px,4vw,40px) clamp(38px,4vw,54px)'
           : 'clamp(120px,11vw,150px) clamp(16px,4vw,40px) clamp(64px,7vw,90px)',
       }}>
-        <div style={{ maxWidth: '560px' }}>
+        <div style={{ maxWidth: '600px' }}>
 
           {/* Category chip */}
           <div className="reveal" style={{
@@ -168,12 +174,14 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
 
           {/* Title */}
           <h1 className="title-reveal" style={{
-            fontSize: 'clamp(44px, 6vw, 70px)',
+            fontSize: 'clamp(42px, 5.4vw, 64px)',
             fontWeight: 800,
-            lineHeight: 1.05,
-            letterSpacing: '-0.025em',
-            marginBottom: '18px',
+            lineHeight: 1.06,
+            letterSpacing: '-0.024em',
+            marginBottom: '16px',
             fontFamily: 'Sora, sans-serif',
+            maxWidth: '12.5ch',
+            textWrap: 'balance',
           }}>
             {titleHighlight ? (
               <>
@@ -209,7 +217,7 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
           <p className="sub-reveal" style={{
             fontSize: '16px',
             color: 'rgba(240,238,245,0.5)',
-            maxWidth: '420px',
+            maxWidth: subtitleMaxWidth,
             lineHeight: 1.7,
             marginBottom: '32px',
           }}>
@@ -218,14 +226,14 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
 
           {/* Stat row */}
           <div className="reveal reveal-delay-1" style={{
-            display: 'flex', gap: '28px', flexWrap: 'wrap',
+            display: 'flex', gap: '34px', flexWrap: 'wrap',
           }}>
             {stats.map(({ label, value }) => (
               <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                 <span style={{
                   fontSize: '10px', fontWeight: 600,
                   letterSpacing: '0.08em', textTransform: 'uppercase' as const,
-                  color: 'rgba(240,238,245,0.28)',
+                  color: 'rgba(240,238,245,0.4)',
                 }}>
                   {label}
                 </span>

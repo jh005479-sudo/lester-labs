@@ -72,11 +72,12 @@ export function LTCBanner() {
       id="ltc-banner"
       className="fixed top-0 left-0 right-0 z-[80] flex w-full items-center justify-between gap-4 overflow-x-auto px-4 sm:px-6"
       style={{
-        background: 'var(--surface-2)',
-        height: 44,
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: 'linear-gradient(90deg, rgba(28,22,64,0.9) 0%, rgba(21,15,53,0.9) 100%)',
+        backdropFilter: 'blur(12px) saturate(140%)',
+        height: 32,
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
         fontFamily: 'var(--font-geist-mono), monospace',
-        fontSize: 12,
+        fontSize: 10.5,
       }}
     >
       {/* Left metrics */}
@@ -128,7 +129,7 @@ export function LTCBanner() {
       {/* Right note */}
       <span
         className="hidden shrink-0 whitespace-nowrap lg:block"
-        style={{ color: 'rgba(237,237,237,0.25)', fontSize: 11 }}
+        style={{ color: 'rgba(237,237,237,0.36)', fontSize: 10 }}
       >
         Data via Bitaps · zkLTC data coming at LitVM mainnet
       </span>

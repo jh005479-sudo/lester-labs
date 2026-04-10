@@ -1,6 +1,7 @@
 'use client'
 
 import * as Switch from '@radix-ui/react-switch'
+import { TriangleAlert } from 'lucide-react'
 
 export interface TokenFeatures {
   mintable: boolean
@@ -79,7 +80,7 @@ export function StepFeatures({ values, onChange }: StepFeaturesProps) {
 
       {values.mintable && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-          <span className="text-lg leading-none mt-0.5">!</span>
+          <TriangleAlert size={16} className="mt-0.5 text-amber-300" />
           <p className="text-sm text-amber-300">
             Mintable tokens may be viewed as higher risk by investors
           </p>

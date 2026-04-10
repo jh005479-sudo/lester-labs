@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, decodeEventLog, formatEther } from 'viem'
-import { CheckCircle2, Copy, ExternalLink, ArrowRight } from 'lucide-react'
+import { CheckCircle2, Copy, ExternalLink, ArrowRight, Calendar, Lock, PartyPopper, Send } from 'lucide-react'
 import Link from 'next/link'
 import { StepBasics, type TokenBasics } from './StepBasics'
 import { StepFeatures, type TokenFeatures } from './StepFeatures'
@@ -90,17 +90,17 @@ function SuccessPanel({ result }: { result: SuccessState }) {
   }, [result.tokenAddress])
 
   const nextSteps = [
-    { label: 'Lock Liquidity', icon: 'LOCK', href: '/locker' },
-    { label: 'Set Up Vesting', icon: 'VEST', href: '/vesting' },
-    { label: 'Airdrop Tokens', icon: 'DROP', href: '/airdrop' },
+    { label: 'Lock Liquidity', icon: <Lock size={18} />, href: '/locker' },
+    { label: 'Set Up Vesting', icon: <Calendar size={18} />, href: '/vesting' },
+    { label: 'Airdrop Tokens', icon: <Send size={18} />, href: '/airdrop' },
   ]
 
   return (
     <div className="space-y-6 text-center">
       {/* Hero */}
       <div className="space-y-2">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-emerald-300"><CheckCircle2 size={28} /></div>
-        <h2 className="text-2xl font-bold text-white">Your token is live</h2>
+        <div className="flex justify-center"><PartyPopper size={40} className="text-[var(--accent)]" /></div>
+        <h2 className="text-2xl font-bold text-white">Your token is live!</h2>
         <p className="text-white/60">
           <span className="font-semibold text-white">{result.name}</span>
           {' '}
@@ -153,7 +153,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
               href={step.href}
               className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-4 hover:border-[var(--accent)]/40 hover:bg-[var(--accent-muted)] transition-all"
             >
-              <span className="rounded-md border border-white/10 px-2 py-1 text-[10px] font-semibold tracking-[0.2em] text-white/70">{step.icon}</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[var(--accent)]">{step.icon}</span>
               <span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors text-center">
                 {step.label}
               </span>

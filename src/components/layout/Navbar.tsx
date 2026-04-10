@@ -4,15 +4,18 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useState } from 'react'
-import { Menu, X } from 'lucide-react'
+import { ChevronDown, Menu, Wallet, X } from 'lucide-react'
 
-const navLinks = [
-  { href: '/launch',     label: 'Launch' },
+const dappLinks = [
+  { href: '/launch',     label: 'Minter' },
   { href: '/locker',     label: 'Locker' },
   { href: '/vesting',    label: 'Vesting' },
   { href: '/airdrop',    label: 'Airdrop' },
   { href: '/governance', label: 'Governance' },
   { href: '/launchpad',  label: 'Launchpad' },
+]
+
+const navLinks = [
   { href: '/explorer',   label: 'Explorer' },
   { href: '/analytics',  label: 'Analytics' },
   { href: '/docs',       label: 'Docs' },
@@ -22,37 +25,85 @@ export function Navbar() {
   const pathname = usePathname()
   const isHome = pathname === '/'
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [dappsOpen, setDappsOpen] = useState(false)
 
   return (
     <nav
-      className="fixed top-[44px] left-0 right-0 z-[70]"
+      className="fixed top-[32px] left-0 right-0 z-[70]"
       style={{
-        background: isHome ? 'transparent' : 'rgba(8, 6, 14, 0.6)',
-        backdropFilter: isHome ? 'none' : 'blur(24px) saturate(180%)',
-        borderBottom: isHome ? 'none' : '1px solid rgba(255,255,255,0.04)',
-        transition: 'all 0.5s ease',
+        background: isHome ? 'rgba(8, 6, 14, 0.82)' : 'rgba(8, 6, 14, 0.9)',
+        backdropFilter: 'blur(22px) saturate(165%)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        boxShadow: '0 10px 34px rgba(3,2,10,0.35)',
+        transition: 'all 0.35s ease',
       }}
     >
-      <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-8 lg:px-10">
+      <div className="mx-auto flex h-12 sm:h-14 max-w-[1560px] items-center justify-between px-4 sm:px-8 lg:px-10">
         <Link href="/" className="transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
           <span className="text-sm font-bold tracking-widest uppercase" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
             Lester<span style={{ color: 'var(--accent)' }}>Labs</span>
           </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-8">
+        <div className="hidden md:flex items-center gap-6">
+          <div className="relative">
+            <button
+              onClick={() => setDappsOpen(!dappsOpen)}
+              className="relative flex items-center gap-1 text-[12px] tracking-wide transition-all duration-300"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                color: dappLinks.some(({ href }) => pathname === href || pathname.startsWith(href + '/'))
+                  ? 'var(--foreground)'
+                  : 'rgba(255,255,255,0.62)',
+                letterSpacing: '0.035em',
+              }}
+            >
+              dApps
+              <ChevronDown size={14} className={`transition-transform ${dappsOpen ? 'rotate-180' : ''}`} />
+              {dappLinks.some(({ href }) => pathname === href || pathname.startsWith(href + '/')) && (
+                <span className="absolute -bottom-1 left-0 right-0 h-px" style={{ background: 'var(--accent)', opacity: 0.6 }} />
+              )}
+            </button>
+
+            {dappsOpen && (
+              <div
+                className="absolute left-0 top-8 min-w-[180px] rounded-xl border border-white/10 p-2"
+                style={{ background: 'rgba(12, 10, 18, 0.96)', backdropFilter: 'blur(14px)' }}
+              >
+                {dappLinks.map(({ href, label }) => {
+                  const isActive = pathname === href || pathname.startsWith(href + '/')
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={() => setDappsOpen(false)}
+                      className="block rounded-lg px-3 py-2 text-sm transition-colors"
+                      style={{
+                        color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
+                        background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
+                      }}
+                    >
+                      {label}
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {navLinks.map(({ href, label }) => {
             const isActive = pathname === href || pathname.startsWith(href + '/')
             return (
               <Link
                 key={href}
                 href={href}
-                className="relative text-[13px] tracking-wide transition-all duration-300"
+                className="relative text-[12px] tracking-wide transition-all duration-300"
                 style={{
                   fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
-                  letterSpacing: '0.04em',
+                  fontWeight: 500,
+                  color: isActive ? 'var(--foreground)' : 'rgba(255,255,255,0.62)',
+                  letterSpacing: '0.035em',
                 }}
                 onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = 'var(--foreground)' }}
                 onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = 'var(--foreground-dim)' }}
@@ -67,7 +118,78 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-          <ConnectButton chainStatus="icon" showBalance={false} accountStatus="avatar" />
+          <ConnectButton.Custom>
+            {({
+              account,
+              chain,
+              openAccountModal,
+              openChainModal,
+              openConnectModal,
+              mounted,
+            }) => {
+              const ready = mounted
+              const connected = ready && account && chain
+
+              if (!connected) {
+                return (
+                  <button
+                    onClick={openConnectModal}
+                    type="button"
+                    className="px-4 py-2 rounded-[14px] text-[14px] font-semibold"
+                    style={{
+                      color: '#f6f4ff',
+                      background: 'linear-gradient(135deg, #6B4FFF 0%, #5B3FF0 100%)',
+                      boxShadow: '0 8px 24px rgba(75, 49, 220, 0.35)',
+                      border: 'none',
+                    }}
+                  >
+                    Connect Wallet
+                  </button>
+                )
+              }
+
+              return (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={openChainModal}
+                    type="button"
+                    className="px-4 py-2 rounded-[14px] text-[14px] font-semibold inline-flex items-center gap-2"
+                    style={{
+                      color: '#f6f4ff',
+                      background: 'rgba(74, 49, 220, 0.22)',
+                      border: '1px solid rgba(167, 137, 255, 0.46)',
+                      boxShadow: '0 8px 22px rgba(45, 26, 120, 0.35)',
+                    }}
+                  >
+                    {chain?.name}
+                    <ChevronDown size={16} />
+                  </button>
+
+                  <button
+                    onClick={openAccountModal}
+                    type="button"
+                    className="h-[42px] min-w-[64px] px-3 rounded-[14px] inline-flex items-center justify-center"
+                    style={{
+                      background: 'rgba(74, 49, 220, 0.22)',
+                      border: '1px solid rgba(167, 137, 255, 0.46)',
+                      boxShadow: '0 8px 22px rgba(45, 26, 120, 0.35)',
+                      outline: 'none',
+                    }}
+                  >
+                    {chain?.hasIcon && chain.iconUrl ? (
+                      <img
+                        src={chain.iconUrl}
+                        alt={chain.name ?? 'Chain'}
+                        className="w-6 h-6 rounded-full"
+                      />
+                    ) : (
+                      <Wallet size={16} color="#f6f4ff" />
+                    )}
+                  </button>
+                </div>
+              )
+            }}
+          </ConnectButton.Custom>
           <button
             className="md:hidden transition-colors duration-300 p-2 -mr-2"
             style={{ color: 'var(--foreground-dim)' }}
@@ -81,9 +203,37 @@ export function Navbar() {
 
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 top-[108px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
+          className="md:hidden fixed inset-0 top-[84px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
           style={{ background: 'rgba(8, 6, 14, 0.97)', backdropFilter: 'blur(40px)' }}
         >
+          <div className="py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <p
+              className="mb-2 text-xs uppercase tracking-[0.12em]"
+              style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-body)' }}
+            >
+              dApps
+            </p>
+            <div className="flex flex-col gap-1">
+              {dappLinks.map(({ href, label }) => {
+                const isActive = pathname === href || pathname.startsWith(href + '/')
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setMobileOpen(false)}
+                    className="py-2 text-lg font-light tracking-wide transition-colors duration-300"
+                    style={{
+                      color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
+                      fontFamily: 'var(--font-heading)',
+                    }}
+                  >
+                    {label}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+
           {navLinks.map(({ href, label }) => {
             const isActive = pathname === href || pathname.startsWith(href + '/')
             return (
@@ -107,3 +257,5 @@ export function Navbar() {
     </nav>
   )
 }
+
+
