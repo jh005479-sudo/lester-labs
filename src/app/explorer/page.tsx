@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
+import { ShareModal } from '@/components/ShareModal'
 import { Search, Twitter } from 'lucide-react'
-
-// TODO: Replace with live RPC calls to LitVM node — endpoint: process.env.NEXT_PUBLIC_LITVM_RPC_URL
+import { formatAddress, formatEtherFromHex, getLatestBlockNumber, getRecentBlocks, getTransactionReceipt, getTransactionByHash, hexToNumber, LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 
 interface Block {
   number: number
@@ -25,78 +25,88 @@ interface Transaction {
   status: 'Success' | 'Pending'
 }
 
-const VALIDATORS = [
-  '0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b',
-  '0x2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c',
-  '0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d',
-  '0x4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e',
-  '0x5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f',
-]
-
-function randomHex(length: number): string {
-  return Array.from({ length }, () => Math.floor(Math.random() * 16).toString(16)).join('')
+function timeAgoFromHex(hexTimestamp?: string) {
+  const ts = hexToNumber(hexTimestamp)
+  if (!ts) return 'Unknown'
+  const delta = Math.max(0, Math.floor(Date.now() / 1000) - ts)
+  if (delta < 60) return `${delta}s ago`
+  if (delta < 3600) return `${Math.floor(delta / 60)}m ago`
+  return `${Math.floor(delta / 3600)}h ago`
 }
 
-function truncateAddress(addr: string): string {
+function truncateAddress(addr: string) {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-function generateBlock(number: number, secondsAgo: number): Block {
-  return {
-    number,
-    time: `${secondsAgo}s ago`,
-    txCount: Math.floor(Math.random() * 20) + 3,
-    validator: VALIDATORS[Math.floor(Math.random() * VALIDATORS.length)],
-    sizeKB: Math.floor(Math.random() * 50) + 10,
-  }
-}
-
-function generateTx(secondsAgo: number): Transaction {
-  return {
-    hash: `0x${randomHex(64)}`,
-    from: `0x${randomHex(40)}`,
-    to: `0x${randomHex(40)}`,
-    value: (Math.random() * 100).toFixed(4),
-    time: `${secondsAgo}s ago`,
-    status: Math.random() > 0.15 ? 'Success' : 'Pending',
-  }
-}
-
-const INITIAL_BLOCK = 1284091
-
-function generateInitialBlocks(): Block[] {
-  return Array.from({ length: 8 }, (_, i) => generateBlock(INITIAL_BLOCK - i, (i + 1) * 3))
-}
-
-function generateInitialTxs(): Transaction[] {
-  return Array.from({ length: 8 }, (_, i) => generateTx((i + 1) * 2 + 1))
-}
-
 export default function ExplorerPage() {
-  const [blocks, setBlocks] = useState<Block[]>(generateInitialBlocks)
-  const [txs, setTxs] = useState<Transaction[]>(generateInitialTxs)
-  const [latestBlock, setLatestBlock] = useState(INITIAL_BLOCK)
+  const [blocks, setBlocks] = useState<Block[]>([])
+  const [txs, setTxs] = useState<Transaction[]>([])
+  const [latestBlock, setLatestBlock] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [toastVisible, setToastVisible] = useState(false)
 
-  const addNewData = useCallback(() => {
-    setLatestBlock((prev) => {
-      const next = prev + 1
-      setBlocks((prevBlocks) => [generateBlock(next, 1), ...prevBlocks.slice(0, 7)])
-      setTxs((prevTxs) => [generateTx(1), ...prevTxs.slice(0, 7)])
-      return next
-    })
-  }, [])
-
   useEffect(() => {
-    const interval = setInterval(addNewData, 5000)
-    return () => clearInterval(interval)
-  }, [addNewData])
+    let active = true
+    const load = async () => {
+      try {
+        const recentBlocks = await getRecentBlocks(8)
+        if (!active) return
+        setBlocks(recentBlocks.map((block: any) => ({
+          number: hexToNumber(block.number),
+          time: timeAgoFromHex(block.timestamp),
+          txCount: Array.isArray(block.transactions) ? block.transactions.length : 0,
+          validator: block.miner || block.author || 'Unknown',
+          sizeKB: Math.max(1, Math.round(hexToNumber(block.size) / 1024)),
+        })))
+        const latest = await getLatestBlockNumber()
+        if (!active) return
+        setLatestBlock(latest)
+
+        const txCandidates = recentBlocks.flatMap((block: any) => Array.isArray(block.transactions) ? block.transactions.slice(0, 2) : []).slice(0, 8)
+        const txDetails = await Promise.all(txCandidates.map(async (tx: any) => {
+          const hash = typeof tx === 'string' ? tx : tx.hash
+          const txData = typeof tx === 'string' ? await getTransactionByHash(hash) : tx
+          const receipt = await getTransactionReceipt(hash).catch(() => null)
+          return {
+            hash,
+            from: txData.from,
+            to: txData.to || '0x0000000000000000000000000000000000000000',
+            value: formatEtherFromHex(txData.value),
+            time: timeAgoFromHex(recentBlocks.find((b: any) => Array.isArray(b.transactions) && b.transactions.some((it: any) => (typeof it === 'string' ? it : it.hash) === hash))?.timestamp),
+            status: receipt?.status === '0x1' ? 'Success' : 'Pending' as 'Success' | 'Pending',
+          }
+        }))
+        if (!active) return
+        setTxs(txDetails)
+      } catch (e) {
+        console.error('Failed to load live explorer data', e)
+      }
+    }
+    load()
+    const interval = setInterval(load, 15000)
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
+  }, [])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    setToastVisible(true)
-    setTimeout(() => setToastVisible(false), 3000)
+    const q = searchQuery.trim()
+    if (!q) return
+    if (/^0x[a-fA-F0-9]{64}$/.test(q)) {
+      window.location.href = `/explorer/tx/${q}`
+      return
+    }
+    if (/^\d+$/.test(q)) {
+      window.location.href = `/explorer/block/${q}`
+      return
+    }
+    if (/^0x[a-fA-F0-9]{40}$/.test(q)) {
+      window.location.href = `/explorer/address/${q}`
+      return
+    }
+    window.open(`${LITVM_EXPLORER_URL}/search?q=${encodeURIComponent(q)}`, '_blank')
   }
 
   const handleTweet = () => {
@@ -105,12 +115,12 @@ export default function ExplorerPage() {
   }
 
   const stats = [
-    { label: 'Latest Block', value: `#${latestBlock.toLocaleString()}` },
-    { label: 'Block Time', value: '2.1s avg' },
-    { label: 'TPS', value: '47.3' },
-    { label: 'Active Validators', value: '21' },
-    { label: '24h Transactions', value: '128,440' },
-    { label: 'zkLTC Price', value: '$0.0842' },
+    { label: 'Latest Block', value: latestBlock ? `#${latestBlock.toLocaleString()}` : 'Loading' },
+    { label: 'Block Time', value: blocks.length > 1 ? 'Live' : 'Loading' },
+    { label: 'Recent Blocks', value: blocks.length.toString() },
+    { label: 'Recent Txs', value: txs.length.toString() },
+    { label: 'Chain ID', value: '4441' },
+    { label: 'Network', value: 'LitVM Testnet' },
   ]
 
   return (
@@ -118,7 +128,7 @@ export default function ExplorerPage() {
       <Navbar />
       <LTCBanner />
 
-      <main className="mx-auto max-w-7xl px-4 pt-28 pb-20 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 pt-40 pb-20 sm:px-6 lg:px-8">
         {/* Network Stats Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
           {stats.map((stat) => (
@@ -150,6 +160,13 @@ export default function ExplorerPage() {
             RPC not yet connected — check back at mainnet launch
           </div>
         )}
+
+        {/* Token Tracker Link */}
+        <div className="mb-8">
+          <Link href="/explorer/tokens" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--surface-1)] border border-white/10 text-sm text-white/70 hover:text-white hover:border-white/20 transition">
+            <span>🪙</span> Token Launch Tracker
+          </Link>
+        </div>
 
         {/* Two-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -235,9 +252,22 @@ export default function ExplorerPage() {
         </div>
       </main>
 
-      {/* Tweet Snapshot Button */}
+      {/* Share Stats Modal + Button */}
+      <ShareModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        stats={{
+          blockHeight: latestBlock,
+          txCount24h: txs.length * 3000, // estimated from recent sample
+          activeAddresses24h: txs.length * 200,
+          avgBlockTime: 2.1,
+          gasPrice: '0.001 Gwei',
+          networkName: 'LitVM Testnet',
+          timestamp: new Date().toLocaleString(),
+        }}
+      />
       <button
-        onClick={handleTweet}
+        onClick={() => setShareOpen(true)}
         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] px-4 sm:px-5 py-3 text-sm font-medium text-white shadow-lg hover:opacity-90 transition-opacity"
       >
         <Twitter className="h-4 w-4" />

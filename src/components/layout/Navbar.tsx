@@ -14,6 +14,7 @@ const navLinks = [
   { href: '/governance', label: 'Governance' },
   { href: '/launchpad',  label: 'Launchpad' },
   { href: '/explorer',   label: 'Explorer' },
+  { href: '/analytics',  label: 'Analytics' },
   { href: '/docs',       label: 'Docs' },
 ]
 

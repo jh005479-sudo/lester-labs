@@ -22,7 +22,8 @@ const config: HardhatUserConfig = {
         : [],
     },
     litvm: {
-      url: process.env.LITVM_RPC_URL || "https://rpc.litvm.io",
+      url: process.env.LITVM_RPC_URL || "https://liteforge.rpc.caldera.xyz/http",
+      chainId: 4441,
       accounts: process.env.DEPLOYER_PRIVATE_KEY
         ? [process.env.DEPLOYER_PRIVATE_KEY]
         : [],
