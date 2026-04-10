@@ -679,7 +679,7 @@ export default function LaunchpadPage() {
         subtitleMaxWidth="560px"
         color="#5E6AD2"
         image="/images/carousel/launchpad.png"
-        imagePosition="center 52%"
+        imagePosition="center 24%"
         stats={[
           { label: 'Mode', value: 'Permissionless' },
           { label: 'DEX', value: 'SparkDex' },
