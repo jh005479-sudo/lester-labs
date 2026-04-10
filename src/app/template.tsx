@@ -146,9 +146,9 @@ export default function Template({ children }: { children: React.ReactNode }) {
       const rect = card.getBoundingClientRect()
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
-      const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -3
-      const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 3
-      card.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`
+      const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -1.1
+      const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 1.1
+      card.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-1px)`
     }
     const onDocLeave = () => {
       resetTilt(activeTiltCard)
