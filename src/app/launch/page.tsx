@@ -54,7 +54,7 @@ export default function LaunchPage() {
             <TokenWizard onStateChange={setWizState} />
           </div>
           {/* Right: live preview */}
-          <div className="tool-preview">
+          <div className="tool-preview tool-preview-launch-align">
             <div className="tool-preview-card">
               <div className="tool-preview-header">
                 <div className="tool-preview-dot" style={{ background: COLOR, boxShadow: `0 0 6px ${COLOR}` }} />

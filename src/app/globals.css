@@ -693,6 +693,8 @@ footer.lester-footer{border-top:1px solid var(--border);padding:40px clamp(16px,
 .tool-form-card:hover{border-color:rgba(255,255,255,.14);box-shadow:0 14px 34px rgba(0,0,0,.26)}
 .tool-form-card-line{position:absolute;top:0;left:0;right:0;height:1px}
 .tool-preview{position:sticky;top:80px}
+.tool-preview-launch-align{margin-top:40px}
+@media(max-width:900px){.tool-preview-launch-align{margin-top:0}}
 .tool-preview-card{border-radius:18px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,.24)}
 .tool-preview-header{padding:16px 20px 14px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:8px}
 .tool-preview-dot{width:8px;height:8px;border-radius:50%}
