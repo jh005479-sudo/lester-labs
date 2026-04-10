@@ -332,7 +332,16 @@ h1, h2, h3, h4, h5, h6 {
 /* Only the account button's direct inner capsule */
 [data-rk] [data-testid='rk-account-button'] > [style] {
   background: transparent !important;
-  border-color: rgba(167, 137, 255, 0.46) !important;
+  border: 1px solid rgba(167, 137, 255, 0.46) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Extra hard override for the lingering white ring on account pill */
+[data-rk] [data-testid='rk-account-button'],
+[data-rk] [data-testid='rk-account-button'] > * {
+  box-shadow: 0 8px 22px rgba(45, 26, 120, 0.35) !important;
+  outline: none !important;
 }
 
 [data-rk] [data-testid='rk-connect-button']:hover,
