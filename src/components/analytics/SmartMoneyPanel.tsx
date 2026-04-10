@@ -69,7 +69,7 @@ export function SmartMoneyPanel() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Whale leaderboard */}
-        <div className="lg:col-span-2 rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card lg:col-span-2 rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
             <Crown className="h-4 w-4 text-yellow-400" /> Whale Leaderboard
           </h3>
