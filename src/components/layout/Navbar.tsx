@@ -118,7 +118,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-          <ConnectButton chainStatus="icon" showBalance={false} accountStatus="avatar" />
+          <ConnectButton chainStatus="none" showBalance={false} accountStatus="full" />
           <button
             className="md:hidden transition-colors duration-300 p-2 -mr-2"
             style={{ color: 'var(--foreground-dim)' }}

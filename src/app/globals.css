@@ -293,33 +293,29 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ─── RainbowKit ─────────────────────────────────────────────────────── */
 [data-rk] {
-  --rk-colors-accentColor: var(--accent) !important;
+  --rk-colors-accentColor: #6B4FFF !important;
   --rk-colors-accentColorForeground: #f6f4ff !important;
-  --rk-colors-connectButtonBackground: linear-gradient(135deg, rgba(107,79,255,.24), rgba(228,79,181,.14)) !important;
-  --rk-colors-connectButtonInnerBackground: rgba(19, 14, 34, 0.9) !important;
-  --rk-colors-connectButtonText: #f0eef5 !important;
-  --rk-colors-connectButtonBackgroundError: rgba(180, 52, 85, 0.2) !important;
-  --rk-colors-connectButtonTextError: #ffb7cc !important;
-  --rk-colors-generalBorder: rgba(139, 116, 255, 0.28) !important;
-  --rk-colors-generalBorderDim: rgba(255,255,255,0.1) !important;
-  --rk-colors-actionButtonSecondaryBackground: rgba(255,255,255,0.06) !important;
-  --rk-colors-profileAction: rgba(255,255,255,0.06) !important;
-  --rk-colors-profileActionHover: rgba(139,116,255,0.2) !important;
-  --rk-radii-connectButton: 12px !important;
-  --rk-radii-menuButton: 12px !important;
+  --rk-colors-connectButtonBackground: linear-gradient(135deg, #6B4FFF 0%, #5B3FF0 100%) !important;
+  --rk-colors-connectButtonInnerBackground: transparent !important;
+  --rk-colors-connectButtonText: #f6f4ff !important;
+  --rk-colors-generalBorder: transparent !important;
+  --rk-colors-generalBorderDim: transparent !important;
+  --rk-radii-connectButton: 14px !important;
+  --rk-radii-menuButton: 14px !important;
   --rk-fonts-body: var(--font-body) !important;
 }
 
 [data-rk] button {
-  box-shadow: 0 6px 24px rgba(8, 6, 20, 0.35);
-  backdrop-filter: blur(10px) saturate(140%);
-  border: 1px solid rgba(139, 116, 255, 0.22) !important;
-  transition: all .25s ease;
+  border: none !important;
+  box-shadow: 0 8px 24px rgba(75, 49, 220, 0.35);
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+  font-weight: 600 !important;
 }
 
 [data-rk] button:hover {
-  border-color: rgba(139, 116, 255, 0.45) !important;
-  box-shadow: 0 10px 28px rgba(24, 15, 48, 0.45), 0 0 0 1px rgba(107, 79, 255, 0.16) inset;
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow: 0 10px 28px rgba(75, 49, 220, 0.45);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
