@@ -20,7 +20,7 @@ interface HealthData {
 }
 
 const StatCard = ({ icon: Icon, label, value, unit, color }: { icon: any; label: string; value: string; unit?: string; color?: string }) => (
-  <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+  <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
     <div className="flex items-center gap-2 mb-2">
       <Icon className={`h-4 w-4 ${color ?? 'text-[var(--accent)]'}`} />
       <span className="text-xs text-white/40 uppercase tracking-wider">{label}</span>
@@ -180,7 +180,7 @@ export function HealthPanel() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Block Time (seconds)</h3>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={data.blockTimes}>
@@ -191,7 +191,7 @@ export function HealthPanel() {
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Transactions Per Block</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={data.txsPerBlock}>
@@ -202,7 +202,7 @@ export function HealthPanel() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Gas Price Trend</h3>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={data.gasTrend}>
@@ -213,7 +213,7 @@ export function HealthPanel() {
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
             <Users className="h-4 w-4 text-[var(--accent)]" /> Active Addresses
           </h3>
@@ -231,3 +231,4 @@ export function HealthPanel() {
     </div>
   )
 }
+

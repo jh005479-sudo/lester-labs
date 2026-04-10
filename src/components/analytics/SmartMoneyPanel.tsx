@@ -98,7 +98,7 @@ export function SmartMoneyPanel() {
         </div>
 
         {/* Portfolio distribution */}
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Whale Portfolio Split</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
@@ -121,7 +121,7 @@ export function SmartMoneyPanel() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Smart money alerts */}
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
             <Bell className="h-4 w-4 text-yellow-400" /> Smart Money Alerts
           </h3>
@@ -139,7 +139,7 @@ export function SmartMoneyPanel() {
         </div>
 
         {/* Token picks */}
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-green-400" /> Smart Money Token Picks
           </h3>
@@ -162,3 +162,4 @@ export function SmartMoneyPanel() {
     </div>
   )
 }
+

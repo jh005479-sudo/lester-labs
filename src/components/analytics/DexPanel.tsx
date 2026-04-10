@@ -41,7 +41,7 @@ export function DexPanel() {
       </div>
 
       {/* Pool list */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5 mb-6">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5 mb-6">
         <h3 className="text-sm font-semibold text-white mb-4">Top Liquidity Pools</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -71,7 +71,7 @@ export function DexPanel() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Pool distribution */}
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4">TVL Distribution</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
@@ -92,7 +92,7 @@ export function DexPanel() {
         </div>
 
         {/* 24h volume chart */}
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4">24h Volume</h3>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={volumeData}>
@@ -106,7 +106,7 @@ export function DexPanel() {
       </div>
 
       {/* Swap history */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
         <h3 className="text-sm font-semibold text-white mb-4">Recent Swaps</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -136,3 +136,4 @@ export function DexPanel() {
     </div>
   )
 }
+

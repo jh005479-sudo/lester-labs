@@ -8,7 +8,7 @@ const DEMO_BADGE = (
 )
 
 const StatCard = ({ icon: Icon, label, value, color }: { icon: any; label: string; value: string; color?: string }) => (
-  <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+  <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
     <div className="flex items-center gap-2 mb-2">
       <Icon className={`h-4 w-4 ${color ?? 'text-[var(--accent)]'}`} />
       <span className="text-xs text-white/40 uppercase tracking-wider">{label}</span>
@@ -60,7 +60,7 @@ export function BridgePanel() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Flow chart */}
-        <div className="lg:col-span-2 rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card lg:col-span-2 rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Bridge Flow (14d)</h3>
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={flowData}>
@@ -78,7 +78,7 @@ export function BridgePanel() {
         </div>
 
         {/* Sources pie */}
-        <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+        <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4">Top Sources</h3>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
@@ -100,7 +100,7 @@ export function BridgePanel() {
       </div>
 
       {/* Recent bridges */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
         <h3 className="text-sm font-semibold text-white mb-4">Recent Bridges</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -130,3 +130,4 @@ export function BridgePanel() {
     </div>
   )
 }
+
