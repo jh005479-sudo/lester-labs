@@ -16,6 +16,7 @@ interface ToolHeroProps {
   stats: StatPill[]
   image?: string          // e.g. "/images/carousel/token-factory.png"
   imagePosition?: string  // e.g. "center 42%"
+  imageTopFade?: boolean
   compact?: boolean
   subtitleMaxWidth?: string
 }
@@ -27,7 +28,7 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b]
 }
 
-export function ToolHero({ category, title, titleHighlight, subtitle, color, stats, image, imagePosition = 'center 34%', compact = false, subtitleMaxWidth = '420px' }: ToolHeroProps) {
+export function ToolHero({ category, title, titleHighlight, subtitle, color, stats, image, imagePosition = 'center 34%', imageTopFade = true, compact = false, subtitleMaxWidth = '420px' }: ToolHeroProps) {
   const headerRef = useRef<HTMLDivElement>(null)
   const [r, g, b] = hexToRgb(color)
   const bg = '#0a0818'
@@ -90,11 +91,13 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
             background: `linear-gradient(to top, ${bg} 0%, transparent 40%)`,
           }} />
           {/* Fade top edge */}
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: `linear-gradient(to bottom, ${bg} 0%, rgba(10,8,24,0.35) 22%, transparent 38%)`,
-          }} />
+          {imageTopFade && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: `linear-gradient(to bottom, ${bg} 0%, rgba(10,8,24,0.35) 22%, transparent 38%)`,
+            }} />
+          )}
           {/* Accent color tint overlay */}
           <div style={{
             position: 'absolute',
