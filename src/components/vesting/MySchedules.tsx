@@ -16,7 +16,7 @@ export function MySchedules() {
   return (
     <div className="space-y-6">
       {/* Lookup by ID */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6">
         <h3 className="mb-1 text-base font-semibold text-white">Look Up a Schedule</h3>
         <p className="mb-4 text-sm text-white/50">
           Enter a Schedule ID to view its details and vesting progress.
@@ -86,3 +86,4 @@ export function MySchedules() {
     </div>
   )
 }
+

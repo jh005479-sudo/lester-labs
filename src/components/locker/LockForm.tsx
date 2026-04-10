@@ -401,7 +401,7 @@ export function LockForm() {
         </div>
       )}
 
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8 space-y-6">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8 space-y-6">
         {/* LP Token Address */}
         <Field
           label="LP Token Address"
@@ -544,3 +544,4 @@ function errMessage(err: unknown): string {
   }
   return 'An unexpected error occurred.'
 }
+

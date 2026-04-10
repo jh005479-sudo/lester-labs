@@ -93,7 +93,7 @@ export function LockCertificate({ data, onReset }: LockCertificateProps) {
       </div>
 
       {/* Shareable URL */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-4 space-y-3">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-4 space-y-3">
         <p className="text-xs font-medium text-white/40 uppercase tracking-wider">
           Share Lock Certificate
         </p>
@@ -150,3 +150,4 @@ function CertRow({
     </div>
   )
 }
+

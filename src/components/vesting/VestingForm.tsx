@@ -490,7 +490,7 @@ export function VestingForm() {
       {step === 'form' ? (
         <>
           {/* ── Section 1: Token & Beneficiary ── */}
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-5">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-5">
             <h2 className="text-base font-semibold text-white">Token & Beneficiary</h2>
 
             <div>
@@ -538,7 +538,7 @@ export function VestingForm() {
           </div>
 
           {/* ── Section 2: Vesting Schedule ── */}
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-5">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-5">
             <h2 className="text-base font-semibold text-white">Vesting Schedule</h2>
 
             {/* Type selector */}
@@ -671,7 +671,7 @@ export function VestingForm() {
         /* ── Section 3: Review & Deploy ── */
         <div className="space-y-5">
           {/* Summary card */}
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-white">Review Schedule</h2>
               <button
@@ -736,13 +736,13 @@ export function VestingForm() {
           </div>
 
           {/* Fee (RP-003: live fee from contract) */}
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-4 flex items-center justify-between">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-4 flex items-center justify-between">
             <span className="text-sm text-white/60">Platform fee</span>
             <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.03} feeLabel="Fee" />
           </div>
 
           {/* Two-step deploy */}
-          <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
+          <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
             <h2 className="text-base font-semibold text-white">Deploy</h2>
             <p className="text-sm text-white/50">
               Two transactions required: first approve the token transfer, then create the vesting
@@ -794,3 +794,4 @@ export function VestingForm() {
     </div>
   )
 }
+

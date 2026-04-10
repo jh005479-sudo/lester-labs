@@ -129,10 +129,34 @@ export default function Template({ children }: { children: React.ReactNode }) {
       el.addEventListener('mouseleave', onLeave)
     })
 
+    // Shared card tilt (analytics + dApps + explorer)
+    const tiltCards = Array.from(document.querySelectorAll('.analytics-card')) as HTMLElement[]
+    const tiltCleanups: Array<() => void> = []
+    tiltCards.forEach((el) => {
+      const onCardMove = (e: MouseEvent) => {
+        const rect = el.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const y = e.clientY - rect.top
+        const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -3
+        const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 3
+        el.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`
+      }
+      const onCardLeave = () => {
+        el.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0px)'
+      }
+      el.addEventListener('mousemove', onCardMove)
+      el.addEventListener('mouseleave', onCardLeave)
+      tiltCleanups.push(() => {
+        el.removeEventListener('mousemove', onCardMove)
+        el.removeEventListener('mouseleave', onCardLeave)
+      })
+    })
+
     return () => {
       document.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('resize', resizeCanvas)
       cancelAnimationFrame(rafId)
+      tiltCleanups.forEach((fn) => fn())
     }
   }, [])
 

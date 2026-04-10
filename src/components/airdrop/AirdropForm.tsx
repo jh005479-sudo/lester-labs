@@ -337,7 +337,7 @@ export function AirdropForm() {
 
   if (successState && !modalOpen) {
     return (
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8">
         <SuccessPanel success={successState} onReset={handleReset} />
       </div>
     )
@@ -386,7 +386,7 @@ export function AirdropForm() {
       )}
 
       {/* Main card */}
-      <div className="rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8 space-y-8">
+      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 sm:p-8 space-y-8">
         {/* Step 1 — Token (only for ERC-20 mode) */}
         {mode === 'token' && (
           <section className="space-y-3">
@@ -546,3 +546,4 @@ export function AirdropForm() {
     </div>
   )
 }
+
