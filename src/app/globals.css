@@ -6,14 +6,19 @@ html {
 }
 
 body {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
   min-height: 100vh;
   min-height: 100dvh;
 }
 
 /* ─── Lester Labs — Cinematic / Dziukiewicz-inspired tokens ─────────── */
 :root {
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --ltc-banner-height: 32px;
+  --mobile-nav-height: 48px;
+  --mobile-header-stack: calc(var(--safe-top) + var(--ltc-banner-height) + var(--mobile-nav-height));
   --background: #0a0818;
   --background-deep: #070513;
   --foreground: #F0EEF5;
