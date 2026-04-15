@@ -2,11 +2,46 @@
 
 import { useState, useCallback } from 'react'
 import * as Tabs from '@radix-ui/react-tabs'
-import { Upload, List, Equal, CheckCircle2 } from 'lucide-react'
+import { Upload, List, Equal, CheckCircle2, Download } from 'lucide-react'
 import type { Recipient } from './RecipientTable'
 
 interface RecipientInputProps {
   onChange: (recipients: Recipient[]) => void
+}
+
+function normalizeCell(value: string): string {
+  return value
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .replace(/^"(.*)"$/, '$1')
+    .replace(/^'(.*)'$/, '$1')
+    .trim()
+}
+
+function isLikelyHeaderRow(address: string, amount: string): boolean {
+  const normalizedAddress = normalizeCell(address).toLowerCase()
+  const normalizedAmount = normalizeCell(amount).toLowerCase()
+
+  return (
+    /(address|wallet|recipient|account)/.test(normalizedAddress) ||
+    /(amount|allocation|value|token)/.test(normalizedAmount)
+  )
+}
+
+function downloadCsvTemplate() {
+  const template = [
+    'address,amount',
+    '0x1111111111111111111111111111111111111111,100',
+    '0x2222222222222222222222222222222222222222,250',
+  ].join('\n')
+
+  const blob = new Blob([template], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = 'airdrop-template.csv'
+  anchor.click()
+  URL.revokeObjectURL(url)
 }
 
 function parseManualText(text: string): Recipient[] {
@@ -16,19 +51,28 @@ function parseManualText(text: string): Recipient[] {
     .filter(Boolean)
     .map((line) => {
       // Support: "address, amount" or "address amount" or "address\tamount"
-      const parts = line.split(/[\s,\t]+/)
-      return { address: parts[0] ?? '', amount: parts[1] ?? '' }
+      const parts = line.split(/[,\s\t]+/)
+      return {
+        address: normalizeCell(parts[0] ?? ''),
+        amount: normalizeCell(parts[1] ?? ''),
+      }
     })
 }
 
 function parseCSVText(text: string): Recipient[] {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-  // Skip header row if first cell is not an address-like value
-  const start =
-    lines[0] && !lines[0].startsWith('0x') ? 1 : 0
-  return lines.slice(start).map((line) => {
-    const [address = '', amount = ''] = line.split(',').map((s) => s.trim())
-    return { address, amount }
+  if (lines.length === 0) return []
+
+  const rows = lines.map((line) => line.split(','))
+  const [firstAddress = '', firstAmount = ''] = rows[0] ?? []
+  const start = isLikelyHeaderRow(firstAddress, firstAmount) ? 1 : 0
+
+  return rows.slice(start).map((row) => {
+    const [address = '', amount = ''] = row
+    return {
+      address: normalizeCell(address),
+      amount: normalizeCell(amount),
+    }
   })
 }
 
@@ -168,11 +212,23 @@ export function RecipientInput({ onChange }: RecipientInputProps) {
             className="absolute inset-0 cursor-pointer opacity-0"
           />
         </div>
-        {csvRowCount !== null && (
-          <p className="text-xs text-green-400 inline-flex items-center gap-1">
-            <CheckCircle2 size={12} /> Parsed {csvRowCount} {csvRowCount === 1 ? 'recipient' : 'recipients'}
-          </p>
-        )}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          {csvRowCount !== null ? (
+            <p className="inline-flex items-center gap-1 text-xs text-green-400">
+              <CheckCircle2 size={12} /> Parsed {csvRowCount} {csvRowCount === 1 ? 'recipient' : 'recipients'}
+            </p>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            onClick={downloadCsvTemplate}
+            className="inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+          >
+            <Download size={12} />
+            Download CSV Template
+          </button>
+        </div>
       </Tabs.Content>
 
       {/* Equal Distribution */}
