@@ -8,7 +8,7 @@ import { CheckCircle2, Coins, Download, ExternalLink, Loader2, Send, TriangleAle
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { RecipientInput } from './RecipientInput'
-import { RecipientTable, type Recipient } from './RecipientTable'
+import { RecipientTable, isRecipientValid, type Recipient } from './RecipientTable'
 import {
   DISPERSE_ABI,
   ERC20_APPROVE_ABI,
@@ -43,6 +43,16 @@ interface SuccessState {
   totalRecipients: number
   totalAmount: string
   symbol: string
+}
+
+function buildParsedRecipients(mode: Mode, tokenDecimals: number | undefined, recipients: Recipient[]) {
+  if (mode === 'token' && tokenDecimals === undefined) return []
+
+  return recipients.map((recipient) => ({
+    addr: recipient.address as `0x${string}`,
+    wei: parseUnits(recipient.amount, tokenDecimals ?? 18),
+    displayAmount: recipient.amount,
+  }))
 }
 
 function downloadReport(success: SuccessState) {
@@ -165,20 +175,12 @@ export function AirdropForm() {
     }
   }, [fetchedDecimals])
 
-  const validRecipients = recipients.filter(
-    (r) => isAddress(r.address) && !isNaN(parseFloat(r.amount)) && parseFloat(r.amount) > 0,
-  )
+  const validRecipients = recipients.filter(isRecipientValid)
 
   // RP-002: Build parsedRecipients with precomputed wei values (bigint)
   // This ensures approval amount is computed deterministically from bigint, never from float
   // Guard: only build if decimals are loaded for token mode
-  const parsedRecipients = (mode === 'token' && tokenDecimals === undefined)
-    ? []
-    : validRecipients.map((r) => ({
-        addr: r.address as `0x${string}`,
-        wei: parseUnits(r.amount, tokenDecimals ?? 18),
-        displayAmount: r.amount,
-      }))
+  const parsedRecipients = buildParsedRecipients(mode, tokenDecimals, validRecipients)
 
   // RP-002: totalAmountWei computed from bigint reduce - never from parseFloat
   const totalAmountWei = parsedRecipients.reduce((a, r) => a + r.wei, 0n)
@@ -216,6 +218,8 @@ export function AirdropForm() {
 
     try {
       if (mode === 'token') {
+        const parsedRecipientsForSend = buildParsedRecipients(mode, tokenDecimals, validRecipients)
+
         // Step 1: Approve — must be CONFIRMED before dispersing
         // RP-002: Use precomputed totalAmountWei (bigint) directly - never derive from float
         setTxMessage('Step 1 of 2: Approving token spend…')
@@ -235,9 +239,9 @@ export function AirdropForm() {
 
         // Step 2: Disperse in batches — wait for each receipt before marking complete (F-007)
         // RP-002: Use precomputed wei values per recipient in batch sends
-        const parsedBatches: typeof parsedRecipients[] = []
-        for (let i = 0; i < parsedRecipients.length; i += BATCH_SIZE) {
-          parsedBatches.push(parsedRecipients.slice(i, i + BATCH_SIZE))
+        const parsedBatches: typeof parsedRecipientsForSend[] = []
+        for (let i = 0; i < parsedRecipientsForSend.length; i += BATCH_SIZE) {
+          parsedBatches.push(parsedRecipientsForSend.slice(i, i + BATCH_SIZE))
         }
 
         for (let b = 0; b < parsedBatches.length; b++) {
@@ -318,7 +322,7 @@ export function AirdropForm() {
           : 'An unexpected error occurred.'
       setTxMessage(msg)
     }
-  }, [canSubmit, mode, tokenAddress, tokenDecimals, validRecipients, totalAmount, totalAmountWei, parsedRecipients, writeContractAsync])
+  }, [canSubmit, mode, tokenAddress, tokenDecimals, validRecipients, totalAmount, totalAmountWei, writeContractAsync])
 
   const handleReset = () => {
     setSuccessState(null)
@@ -546,4 +550,3 @@ export function AirdropForm() {
     </div>
   )
 }
-

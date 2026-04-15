@@ -80,7 +80,7 @@ interface SuccessState {
   txHash: string
 }
 
-function SuccessPanel({ result }: { result: SuccessState }) {
+function SuccessPanel({ result, onReset }: { result: SuccessState; onReset: () => void }) {
   const [copied, setCopied] = useState(false)
 
   const copy = useCallback(() => {
@@ -142,6 +142,15 @@ function SuccessPanel({ result }: { result: SuccessState }) {
       >
         View on Explorer <ExternalLink size={13} />
       </a>
+
+      <div className="flex justify-center">
+        <button
+          onClick={onReset}
+          className="rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
+        >
+          Deploy Another Token
+        </button>
+      </div>
 
       {/* Next steps */}
       <div className="pt-2">
@@ -251,11 +260,11 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
       }
       // RP-007: If event not found, set error state with verification message
       if (deployedAddress === undefined) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setTxStatus('error')
         setTxMessage('Transaction mined but expected event was not decoded; verify on explorer')
         return
       }
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       handleReceipt(currentTxHash, deployedAddress)
     }
   }, [receipt, currentTxHash, txStatus, handleReceipt])
@@ -299,15 +308,30 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
     }
   }
 
+  const resetTransactionState = useCallback(() => {
+    setTxStatus('pending')
+    setTxMessage(undefined)
+    setCurrentTxHash(undefined)
+  }, [])
+
+  const handleReset = useCallback(() => {
+    setStep(1)
+    setBasics(DEFAULT_BASICS)
+    setFeatures(DEFAULT_FEATURES)
+    setSuccessResult(null)
+    setModalOpen(false)
+    resetTransactionState()
+  }, [resetTransactionState])
+
   const handleModalClose = () => {
     setModalOpen(false)
-    if (txStatus === 'success' && successResult) {
-      // Show success panel inline
+    if (txStatus !== 'pending') {
+      resetTransactionState()
     }
   }
 
   if (successResult && !modalOpen) {
-    return <SuccessPanel result={successResult} />
+    return <SuccessPanel result={successResult} onReset={handleReset} />
   }
 
   return (
