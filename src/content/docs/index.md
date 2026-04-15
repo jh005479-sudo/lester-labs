@@ -19,10 +19,12 @@ Lester-Labs aims to be the premier analytics platform for the LitVM ecosystem �
 
 The Analytics dashboard is organized into focused sub-tabs:
 
-- **Overview** — TVL, Volume, Transactions, and Gas metrics for LitVM. Macro ecosystem health at a glance.
-- **Dashboard** — Pools, Users, and Farms data. Sub-tabs for All / Pools / Farms give a deeper breakdown of liquidity and yield opportunities.
-- **DEX** — Live trading data across LitVM DEX pairs. Tracks price, 24h change, volume, and liquidity by pair.
-- **Farms** — Yield farming opportunities across the LitVM ecosystem. TVL and APY by farm.
+- **Trending** — Real-time trending tokens ranked by price movement and tx activity. Timeframes: 10m / 1H / 4H / 24H / 7D. Useful for spotting early momentum in new tokens.
+- **Tokens** — Full token index for LitVM. Tracks all deployed tokens, their age, transfer counts, and classification (core vs LP pairs). The primary surface for new token discovery.
+- **Health** — Chain network health: latest block, avg block time, TPS, gas price, and active address trends over 24h / 7d / 30d. Status indicator (healthy / degraded / issues) for at-a-glance network state.
+- **Dex** — Trading activity across LitVM DEX pairs. Top pairs by TVL and volume, 24h change, recent swaps with size and price impact. Volume trend chart for the last 24 hours.
+- **Bridge** — Cross-chain bridge inflow and outflow activity over time. Source chain breakdown (Ethereum, Arbitrum, Optimism, Other). Useful for monitoring capital flow into and out of LitVM.
+- **Smart Money** — Whale wallet tracking on LitVM. Top wallets by holdings, recent activity alerts (accumulates, bridges, swaps, LP additions, staking claims). Signal layer for following sophisticated capital moves.
 
 Live at [lester-labs.com/analytics](https://www.lester-labs.com/analytics).
 
