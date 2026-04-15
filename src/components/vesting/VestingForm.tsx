@@ -228,7 +228,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
 
       {/* Explorer */}
       <a
-        href={`https://sepolia.arbiscan.io/tx/${result.txHash}`}
+        href={`https://liteforge.caldera.xyz/tx/${result.txHash}`}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"

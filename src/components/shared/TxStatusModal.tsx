@@ -13,7 +13,7 @@ interface TxStatusModalProps {
   onRetry?: () => void
 }
 
-const EXPLORER_BASE = 'https://sepolia.arbiscan.io'
+const EXPLORER_BASE = 'https://liteforge.caldera.xyz'
 
 export function TxStatusModal({ isOpen, onClose, status, txHash, contractAddress, message, onRetry }: TxStatusModalProps) {
   return (

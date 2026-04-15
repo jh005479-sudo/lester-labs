@@ -67,7 +67,7 @@ export function LockCertificate({ data, onReset }: LockCertificateProps) {
             <div className="flex items-center gap-2">
               <span className="font-mono text-sm text-white">{shortenAddress(data.lpToken)}</span>
               <a
-                href={`https://sepolia.arbiscan.io/address/${data.lpToken}`}
+                href={`https://liteforge.caldera.xyz/address/${data.lpToken}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-white/40 hover:text-[var(--accent)] transition-colors"

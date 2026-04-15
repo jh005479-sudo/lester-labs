@@ -29,7 +29,7 @@ const ERC20_DECIMALS_ABI = [
 ] as const
 
 const BATCH_SIZE = 200
-const EXPLORER_BASE = 'https://sepolia.arbiscan.io'
+const EXPLORER_BASE = 'https://liteforge.caldera.xyz'
 
 type Mode = 'token' | 'native'
 
