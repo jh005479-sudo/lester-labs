@@ -757,6 +757,16 @@ footer.lester-footer{border-top:1px solid var(--border);padding:40px clamp(16px,
 
 
 
+/* --- Docs mobile nav select ---------------------------------------- */
+.docs-mobile-select {
+  background: #0e0b22;
+  color: #F0EEF5;
+}
+.docs-mobile-select option {
+  background: #0e0b22;
+  color: #F0EEF5;
+}
+
 /* --- Mobile polish (320px-430px focus) ----------------------------- */
 * { box-sizing: border-box; }
 img, svg, canvas, video { max-width: 100%; height: auto; }

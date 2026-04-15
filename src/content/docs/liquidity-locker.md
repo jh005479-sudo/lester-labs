@@ -12,7 +12,7 @@ You deposit LP tokens into the locker contract along with an unlock timestamp. T
 
 1. Connect your wallet and switch to LitVM network
 2. Navigate to Liquidity Locker
-3. Paste the LP token contract address (obtain from SparkDex or wherever you created the pair)
+3. Paste the LP token contract address (obtain from the DEX where you created the pair)
 4. Enter the amount of LP tokens to lock
 5. Select the unlock date
 6. Review the fee (0.03 zkLTC) and confirm

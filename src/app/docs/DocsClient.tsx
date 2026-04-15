@@ -47,10 +47,11 @@ export function DocsClient({ docs }: { docs: DocEntry[] }) {
         <select
           value={activeSlug}
           onChange={(e) => setActiveSlug(e.target.value)}
-          className="w-full rounded-md bg-[var(--surface-1)] border border-white/10 text-white px-3 py-2 text-sm"
+          className="w-full rounded-md border border-white/10 text-white px-3 py-2 text-sm"
+          style={{ background: '#0e0b22', color: '#F0EEF5' }}
         >
           {docs.map(({ slug, label }) => (
-            <option key={slug} value={slug}>
+            <option key={slug} value={slug} style={{ background: '#0e0b22', color: '#F0EEF5' }}>
               {label}
             </option>
           ))}

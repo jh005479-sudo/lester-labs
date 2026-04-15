@@ -1,6 +1,6 @@
 # Lester-Labs Documentation
 
-Lester-Labs is a self-service DeFi utility suite built natively for LitVM — a ZK-SNARK verified Bitcoin L2 with zkLTC as its native token. Six permissionless tools covering the full project lifecycle, from token creation through community launches. No sign-ups, no admin approvals, no custom contract logic.
+Lester-Labs is a self-service DeFi utility suite built natively for LitVM — a ZK-SNARK verified Litecoin L2 with zkLTC as its native token. Six permissionless tools covering the full project lifecycle, from token creation through community launches. No sign-ups, no admin approvals, no custom contract logic.
 
 ## Utilities
 
@@ -15,15 +15,15 @@ Lester-Labs is a self-service DeFi utility suite built natively for LitVM — a 
 
 ## Network Configuration
 
-**Testnet (current):** Arbitrum Sepolia is used as the proxy chain while LitVM testnet is in development. Chain constants will be updated when LitVM publishes its testnet parameters.
+**Testnet (current):** LitVM testnet (Liteforge) is live. Connect using the parameters below.
 
-| Parameter | Arbitrum Sepolia (Testnet) | LitVM (Mainnet) |
+| Parameter | LitVM Testnet (Liteforge) | LitVM Mainnet |
 |---|---|---|
-| Chain ID | 421614 | TBA |
-| RPC URL | https://sepolia-rollup.arbitrum.io/rpc | https://rpc.litvm.io |
-| Explorer | https://sepolia.arbiscan.io | https://explorer.litvm.io |
-| Native Token | ETH (testnet) | zkLTC |
-| Faucet | https://www.alchemy.com/faucets/arbitrum-sepolia | N/A |
+| Chain ID | 4441 | TBA |
+| RPC URL | https://liteforge.rpc.caldera.xyz/http | TBA |
+| Explorer | https://liteforge.caldera.xyz | TBA |
+| Native Token | zkLTC (testnet) | zkLTC |
+| Faucet | TBA | N/A |
 
 ## Quick Start
 

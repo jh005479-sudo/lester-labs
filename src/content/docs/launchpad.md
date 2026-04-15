@@ -2,11 +2,11 @@
 
 ## Overview
 
-The Launchpad enables project teams to run community presales (ILOs — Initial Liquidity Offerings) with automatic SparkDex LP creation and locking at finalization. Self-service and permissionless — deploy your presale, accept contributions, and launch with locked liquidity in a single finalize transaction. No admin involvement required.
+The Launchpad enables project teams to run community presales (ILOs — Initial Liquidity Offerings) with automatic LP creation and locking at finalization. Self-service and permissionless — deploy your presale, accept contributions, and launch with locked liquidity in a single finalize transaction. No admin involvement required.
 
 ## How it works
 
-A project creates an ILO by depositing their tokens into the factory contract and configuring presale parameters. Community members contribute zkLTC during the contribution window. At close, the project calls `finalize()` — the contract automatically uses the raised funds plus the project's tokens to create a liquidity pair on SparkDex, locks the LP tokens for the configured duration, and makes project tokens claimable by contributors. If the soft cap is not met, all contributions are automatically refundable. The factory handles all fee collection — 2% of raised zkLTC is taken at finalization.
+A project creates an ILO by depositing their tokens into the factory contract and configuring presale parameters. Community members contribute zkLTC during the contribution window. At close, the project calls `finalize()` — the contract automatically uses the raised funds plus the project's tokens to create a liquidity pair on the native DEX, locks the LP tokens for the configured duration, and makes project tokens claimable by contributors. If the soft cap is not met, all contributions are automatically refundable. The factory handles all fee collection — 2% of raised zkLTC is taken at finalization.
 
 ## Step-by-step guide
 
@@ -70,7 +70,7 @@ A project creates an ILO by depositing their tokens into the factory contract an
 
 **Key functions (ILO — per presale):**
 - `contribute()` — contribute zkLTC to the presale (payable)
-- `finalize()` — create LP on SparkDex, lock LP, enable token claims (project owner only, after end date if soft cap met)
+- `finalize()` — create LP on the native DEX, lock LP, enable token claims (project owner only, after end date if soft cap met)
 - `claimTokens()` — contributor claims their token allocation post-finalization
 - `userRefund()` — contributor claims full zkLTC refund if soft cap not met
 - `claimLP()` — project owner claims LP tokens after lock expires
