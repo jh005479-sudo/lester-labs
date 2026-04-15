@@ -21,6 +21,8 @@ const navLinks = [
   { href: '/docs',       label: 'Docs' },
 ]
 
+const MOBILE_MENU_HEIGHT = 'calc(100dvh - var(--mobile-header-stack))'
+
 export function Navbar() {
   const pathname = usePathname()
   const isHome = pathname === '/'
@@ -31,7 +33,7 @@ export function Navbar() {
     <nav
       className="fixed left-0 right-0 z-[70]"
       style={{
-        top: 32,
+        top: 'calc(var(--ltc-banner-height) + var(--safe-top))',
         background: isHome ? 'rgba(8, 6, 14, 0.82)' : 'rgba(8, 6, 14, 0.9)',
         backdropFilter: 'blur(22px) saturate(165%)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -39,7 +41,7 @@ export function Navbar() {
         transition: 'all 0.35s ease',
       }}
     >
-      <div className="mx-auto flex h-12 sm:h-14 max-w-[1560px] items-center justify-between px-4 sm:px-8 lg:px-10">
+      <div className="mx-auto flex h-12 md:h-14 max-w-[1560px] items-center justify-between px-4 sm:px-8 lg:px-10">
         <Link href="/" className="transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
           <span className="text-sm font-bold tracking-widest uppercase" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
             Lester<span style={{ color: 'var(--accent)' }}>Labs</span>
@@ -204,13 +206,17 @@ export function Navbar() {
 
       {mobileOpen && (
         <div
-          className="md:hidden fixed left-0 right-0 flex flex-col px-5 gap-1 overflow-y-auto"
+          className="md:hidden absolute left-0 right-0 flex flex-col gap-1 overflow-y-auto px-5"
           style={{
-            top: 0,
-            paddingTop: 116,
-            bottom: 0,
+            top: '100%',
+            height: MOBILE_MENU_HEIGHT,
+            paddingTop: 16,
+            paddingBottom: 'calc(24px + var(--safe-bottom))',
             background: 'rgba(8, 6, 14, 0.97)',
             backdropFilter: 'blur(40px)',
+            borderTop: '1px solid rgba(255,255,255,0.04)',
+            overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           <div className="py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -264,5 +270,3 @@ export function Navbar() {
     </nav>
   )
 }
-
-
