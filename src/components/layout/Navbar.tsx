@@ -29,8 +29,9 @@ export function Navbar() {
 
   return (
     <nav
-      className="fixed top-[32px] left-0 right-0 z-[70]"
+      className="fixed left-0 right-0 z-[70]"
       style={{
+        top: 'env(safe-area-inset-top, 32px)',
         background: isHome ? 'rgba(8, 6, 14, 0.82)' : 'rgba(8, 6, 14, 0.9)',
         backdropFilter: 'blur(22px) saturate(165%)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -203,8 +204,14 @@ export function Navbar() {
 
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 top-[84px] flex flex-col px-5 pt-5 gap-1 overflow-y-auto"
-          style={{ background: 'rgba(8, 6, 14, 0.97)', backdropFilter: 'blur(40px)' }}
+          className="md:hidden fixed left-0 right-0 flex flex-col px-5 gap-1 overflow-y-auto"
+          style={{
+            top: 'env(safe-area-inset-top, 0px)',
+            paddingTop: 'calc(84px + env(safe-area-inset-top, 0px))',
+            bottom: 'env(safe-area-inset-bottom, 0px)',
+            background: 'rgba(8, 6, 14, 0.97)',
+            backdropFilter: 'blur(40px)',
+          }}
         >
           <div className="py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
             <p

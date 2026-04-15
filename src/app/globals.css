@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* ─── iOS safe area — extend content into notch/status bar ──────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 /* ─── Lester Labs — Cinematic / Dziukiewicz-inspired tokens ─────────── */
 :root {
   --background: #0a0818;
