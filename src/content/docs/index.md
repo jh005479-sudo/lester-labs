@@ -19,12 +19,10 @@ Lester-Labs aims to be the premier analytics platform for the LitVM ecosystem �
 
 The Analytics dashboard is organized into focused sub-tabs:
 
-- **Overview** — High-level metrics on LitVM TVL, transaction volumes, and active addresses. A macro view of ecosystem health at a glance.
-- **Token Factory** — Tracks newly deployed ERC-20 tokens, their creation parameters, and deployment frequency. Useful for identifying new project launches and token trends.
-- **Liquidity** — Monitor locked LP positions across the LitVM DEX ecosystem. Identify deep liquidity pools, track lock expiry schedules, and assess LP age as a signal of project commitment.
-- **Vesting** — Real-time view of active vesting schedules. Track cliff and vesting progress for team allocations, investor token releases, and unlock timelines.
-- **Launchpad** — Activity on community presales (ILOs). Track active and upcoming raises, raised amounts, participation levels, and post-launch performance.
-- **Governance** — Off-chain voting activity and proposal participation. Monitor delegate distribution and engagement levels across governance proposals.
+- **Overview** — TVL, Volume, Transactions, and Gas metrics for LitVM. Macro ecosystem health at a glance.
+- **Dashboard** — Pools, Users, and Farms data. Sub-tabs for All / Pools / Farms give a deeper breakdown of liquidity and yield opportunities.
+- **DEX** — Live trading data across LitVM DEX pairs. Tracks price, 24h change, volume, and liquidity by pair.
+- **Farms** — Yield farming opportunities across the LitVM ecosystem. TVL and APY by farm.
 
 Live at [lester-labs.com/analytics](https://www.lester-labs.com/analytics).
 
