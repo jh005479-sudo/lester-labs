@@ -108,6 +108,5 @@ All Lester-Labs contracts are forked 1:1 from industry-standard, battle-tested s
 
 ## Support
 
-- Twitter: [@LesterLabs](#) *(coming soon)*
-- GitHub: [github.com/jh005479-sudo/lester-labs](https://github.com/jh005479-sudo/lester-labs)
+- X: [@lesterlabshq](https://x.com/lesterlabshq)
 - Website: [lester-labs.com](https://lester-labs.com)

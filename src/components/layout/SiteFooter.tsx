@@ -27,7 +27,7 @@ export function SiteFooter() {
           </div>
           <div className="footer-col">
             <h4>Community</h4>
-            <a href="https://x.com/LesterLabsHQ" target="_blank" rel="noopener noreferrer">Twitter/X</a>
+            <a href="https://x.com/lesterlabshq" target="_blank" rel="noopener noreferrer">X</a>
           </div>
         </div>
       </div>
