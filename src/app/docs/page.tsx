@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import { Navbar } from '@/components/layout/Navbar'
 import { DocsClient } from './DocsClient'
 
 const docList = [
@@ -23,7 +22,6 @@ export default function DocsPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <Navbar />
       <DocsClient docs={docs} />
     </div>
   )
