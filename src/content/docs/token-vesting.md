@@ -58,6 +58,10 @@ Fee is non-refundable. One fee per vesting schedule regardless of token amount o
 - `vestedAmount(token, timestamp)` — returns total tokens vested as of a given timestamp
 - `releasable(token)` — returns tokens available to claim right now
 
+## Sources
+
+- [OpenZeppelin VestingWallet](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/finance/VestingWallet.sol)
+
 ## Security
 
 Forked from OpenZeppelin VestingWallet, part of the OpenZeppelin contracts library that has been formally audited and maintained since 2018. The contract has no owner-controlled pause or claw-back mechanism — once tokens are deposited, they will vest according to the schedule regardless of the deployer's actions. This immutability is intentional and is the property that makes vesting schedules trustworthy.

@@ -52,6 +52,10 @@ Example: 1,200 addresses = 3 batches = 0.03 zkLTC total.
 - `disperseToken(token, recipients[], amounts[])` — distribute ERC-20 tokens to multiple addresses
 - `disperseEther(recipients[], amounts[])` — distribute native zkLTC to multiple addresses
 
+## Sources
+
+- [Disperse.app](https://github.com/Dispersao/disperse-contracts/blob/master/contracts/Disperse.sol)
+
 ## Security
 
 Forked from Disperse.app — one of the most widely used distribution contracts in DeFi, deployed and operational on Ethereum mainnet since 2018 without incident. The contract is ~50 lines with no owner functions, no upgradability, and no admin controls. Transfers are atomic: if any individual transfer fails, the entire batch reverts and no tokens are distributed. Always verify your recipient list before signing — distributions cannot be reversed once confirmed.

@@ -48,6 +48,10 @@ Fee is non-refundable. Sent to Lester-Labs treasury at lock time. Extending an e
 - `getLock(lockId)` — returns lock details (token, amount, unlock date, owner)
 - `getLocksForToken(token)` — returns all locks for a specific LP token
 
+## Sources
+
+- [Unicrypt UNCX Locker](https://github.com/UNCLE-NC/UNCLE-NC-LOCKER/blob/main/contracts/UNCXLocker.sol)
+
 ## Security
 
 Forked from Unicrypt UNCX Locker, the most widely used LP locking contract in DeFi with billions of dollars locked across BSC, Ethereum, and multiple other chains. The key security property is that the unlock date cannot be shortened after locking — this is enforced in the contract, not as a UI restriction. Only the original depositor address can withdraw after the unlock date. No admin override exists.
