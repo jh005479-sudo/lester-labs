@@ -52,6 +52,10 @@ Fee is non-refundable. Sent to Lester-Labs treasury at deployment.
 - `transfer(address, amount)` — standard ERC-20 transfer
 - `approve(address, amount)` — standard ERC-20 approval
 
+## Sources
+
+- [OpenZeppelin ERC-20](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol)
+
 ## Security
 
 Forked 1:1 from OpenZeppelin ERC-20, the most widely deployed and audited token standard in existence. OpenZeppelin contracts have secured trillions of dollars in value across thousands of deployments. No custom logic has been added. The Lester-Labs factory is a thin wrapper that calls the standard constructor — the deployed token contract is identical to any OpenZeppelin ERC-20.

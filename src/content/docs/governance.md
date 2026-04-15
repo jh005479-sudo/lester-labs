@@ -62,6 +62,10 @@ On-chain execution (treasury integration, automatic proposal execution) is plann
 - `IPFS` — decentralised storage for proposal content and vote records
 - Token balance at snapshot block — determines each voter's weight
 
+## Sources
+
+- [Snapshot](https://github.com/snapshot-labs/snapshot-strategies)
+
 ## Security
 
 Based on the Snapshot protocol, the dominant off-chain governance standard used by the largest DAOs in DeFi. Because votes are off-chain signatures rather than transactions, there is no smart contract risk associated with the voting process itself. The snapshot block mechanism prevents vote manipulation via flash loans or last-minute token purchases. Results are publicly verifiable — anyone can independently compute the tally from the IPFS vote records and on-chain token balances.

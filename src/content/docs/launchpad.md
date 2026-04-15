@@ -77,6 +77,10 @@ A project creates an ILO by depositing their tokens into the factory contract an
 - `sweepExcessETH()` — recover any zkLTC not consumed by LP creation due to slippage (owner only)
 - `addWhitelist(addresses[])` — add addresses to contribution whitelist (owner only)
 
+## Sources
+
+- [Unicrypt ILO](https://www.unicrypt.network/ilo)
+
 ## Security
 
 Forked from Unicrypt ILO, one of the most battle-tested presale contracts in DeFi, used for thousands of launches across Ethereum and BSC. Key security properties:
