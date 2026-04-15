@@ -74,7 +74,8 @@ export function LTCBanner() {
       style={{
         background: 'linear-gradient(90deg, rgba(28,22,64,0.9) 0%, rgba(21,15,53,0.9) 100%)',
         backdropFilter: 'blur(12px) saturate(140%)',
-        height: 32,
+        height: 'calc(var(--ltc-banner-height) + var(--safe-top))',
+        paddingTop: 'var(--safe-top)',
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         fontFamily: 'var(--font-geist-mono), monospace',
         fontSize: 10.5,
