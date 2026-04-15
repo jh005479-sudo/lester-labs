@@ -222,8 +222,8 @@ function CreatePresaleForm() {
             marginBottom: '28px',
           }}
         >
-          Launch a community presale. LP is automatically created on SparkDex
-          and locked for your chosen duration.
+          Launch a community presale. LP is automatically created and locked
+          for your chosen duration.
         </p>
 
         <div style={{ display: 'grid', gap: '20px' }}>
@@ -350,7 +350,7 @@ function CreatePresaleForm() {
                 marginTop: '4px',
               }}
             >
-              % of raised LTC that goes to SparkDex LP. Minimum 50%.
+              % of raised LTC that goes to LP. Minimum 50%.
             </p>
           </div>
 
@@ -626,7 +626,6 @@ function PresaleCard({ presale }: { presale: MockPresale }) {
             ['Time left', status === 'Live' ? `${daysLeft}d ${hoursLeft}h` : '—'],
             ['Liquidity', `${presale.liquidityBps / 100}% locked`],
             ['LP lock', `${Math.round(presale.lpLockDuration / 86400)}d`],
-            ['DEX', 'SparkDex'],
           ] as [string, string][]
         ).map(([k, v]) => (
           <div key={k}>
@@ -677,7 +676,7 @@ export default function LaunchpadPage() {
         category="Presale Platform"
         title="Lester"
         titleHighlight="Launch"
-        subtitle="Community presales with automatic LP creation and locking on SparkDex. Self-service, permissionless, contract-enforced."
+        subtitle="Community presales with automatic LP creation and locking at finalization. Self-service, permissionless, contract-enforced."
         subtitleMaxWidth="560px"
         color="#5E6AD2"
         image="/images/carousel/launchpad.png"
@@ -685,7 +684,6 @@ export default function LaunchpadPage() {
         imageTopFade={false}
         stats={[
           { label: 'Mode', value: 'Permissionless' },
-          { label: 'DEX', value: 'SparkDex' },
           { label: 'LP', value: 'Auto-created' },
           { label: 'Fee', value: '2% of raise' },
         ]}

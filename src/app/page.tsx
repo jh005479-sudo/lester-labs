@@ -56,7 +56,7 @@ const tools = [
     tagline: 'Permissionless presales',
     desc: 'Community presales with automatic LP creation on LitVM\'s native dex.',
     fee: '0.03 zkLTC + 2%', color: '#5E6AD2', href: '/launchpad',
-    stats: [['LP','Auto-created'],['DEX','SparkDex'],['Access','Open']],
+    stats: [['LP','Auto-created'],['Access','Open']],
     imgPos: '50%', img: '/images/carousel/launchpad.png'
   },
 ]
