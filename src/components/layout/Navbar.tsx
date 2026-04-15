@@ -31,7 +31,7 @@ export function Navbar() {
     <nav
       className="fixed left-0 right-0 z-[70]"
       style={{
-        top: 'calc(32px + env(safe-area-inset-top, 0px))',
+        top: 32,
         background: isHome ? 'rgba(8, 6, 14, 0.82)' : 'rgba(8, 6, 14, 0.9)',
         backdropFilter: 'blur(22px) saturate(165%)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -206,9 +206,9 @@ export function Navbar() {
         <div
           className="md:hidden fixed left-0 right-0 flex flex-col px-5 gap-1 overflow-y-auto"
           style={{
-            top: '0',
-            paddingTop: 'calc(80px + env(safe-area-inset-top, 0px))',
-            bottom: 'env(safe-area-inset-bottom, 0px)',
+            top: 0,
+            paddingTop: 116,
+            bottom: 0,
             background: 'rgba(8, 6, 14, 0.97)',
             backdropFilter: 'blur(40px)',
           }}
