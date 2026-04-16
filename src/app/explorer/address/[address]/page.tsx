@@ -200,6 +200,26 @@ export default function AddressPage() {
         const tokenAddresses = new Set<string>()
         const SCAN_BLOCKS = 200
 
+        // Also query Transfer events (address(0) → wallet) to catch minted tokens
+        const TRANSFER_SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+        const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
+        try {
+          const mintsR = await rpc<any[]>('eth_getLogs', [{
+            topics: [
+              TRANSFER_SIG,
+              '0x' + ZERO_ADDR.slice(2).padStart(64, '0'),
+              '0x' + address.slice(2).padStart(64, '0'),
+            ],
+            fromBlock: '0x1',
+            toBlock: 'latest',
+          }])
+          if (mintsR) {
+            for (const log of mintsR) {
+              if (log.address) tokenAddresses.add(log.address.toLowerCase())
+            }
+          }
+        } catch { /* RPC limit or error — block scan still works */ }
+
         for (let batchStart = latest; batchStart > Math.max(0, latest - SCAN_BLOCKS) && foundTxs.length < 100; batchStart -= 10) {
           const batch = await Promise.all(
             Array.from({ length: 10 }, (_, i) => batchStart - i).filter(n => n >= 0).map(n => getBlockByNumber(n, true))
