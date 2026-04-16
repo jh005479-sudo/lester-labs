@@ -21,7 +21,7 @@ export const litvm = defineChain({
   nativeCurrency: { name: 'zkLTC', symbol: 'zkLTC', decimals: 18 },
   rpcUrls: {
     default: {
-      http: ['https://liteforge.rpc.caldera.xyz/http'],
+      http: ['https://liteforge.rpc.caldera.xyz/infra-partner-http'],
       webSocket: ['wss://liteforge.rpc.caldera.xyz/ws'],
     },
   },

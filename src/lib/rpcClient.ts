@@ -7,7 +7,7 @@
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
-export const RPC_URL = process.env.NEXT_PUBLIC_LITVM_RPC_URL ?? 'https://liteforge.rpc.caldera.xyz/http'
+export const RPC_URL = process.env.NEXT_PUBLIC_LITVM_RPC_URL ?? 'https://liteforge.rpc.caldera.xyz/infra-partner-http'
 
 const MAX_RPS = 5                // Conservative: 5 requests/sec for free Caldera
 const BURST_CAPACITY = 10        // Allow short bursts up to 10
