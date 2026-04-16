@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { memo, useState, useCallback, useEffect } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, decodeEventLog, formatEther } from 'viem'
 import { CheckCircle2, Copy, ExternalLink, ArrowRight, Calendar, Lock, PartyPopper, Send } from 'lucide-react'
@@ -34,7 +34,7 @@ const DEFAULT_FEATURES: TokenFeatures = {
   pausable: false,
 }
 
-function StepIndicator({ current }: { current: number }) {
+const StepIndicator = memo(function StepIndicator({ current }: { current: number }) {
   return (
     <div className="tool-steps">
       {STEPS.map((step, idx) => {
@@ -58,7 +58,7 @@ function StepIndicator({ current }: { current: number }) {
       })}
     </div>
   )
-}
+})
 
 function isBasicsValid(basics: TokenBasics): boolean {
   return (
@@ -80,7 +80,13 @@ interface SuccessState {
   txHash: string
 }
 
-function SuccessPanel({ result, onReset }: { result: SuccessState; onReset: () => void }) {
+const SuccessPanel = memo(function SuccessPanel({
+  result,
+  onReset,
+}: {
+  result: SuccessState
+  onReset: () => void
+}) {
   const [copied, setCopied] = useState(false)
 
   const copy = useCallback(() => {
@@ -173,7 +179,7 @@ function SuccessPanel({ result, onReset }: { result: SuccessState; onReset: () =
       </div>
     </div>
   )
-}
+})
 
 interface TokenWizardProps {
   onStateChange?: (state: { name: string; symbol: string; supply: string; decimals: number; mintable: boolean; burnable: boolean; pausable: boolean }) => void

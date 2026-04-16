@@ -1,9 +1,20 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useState } from 'react'
-import { Navbar } from '@/components/layout/Navbar'
-import { TokenWizard } from '@/components/launch/TokenWizard'
 import { ToolHero } from '@/components/shared/ToolHero'
+
+const TokenWizard = dynamic(
+  () => import('@/components/launch/TokenWizard').then((mod) => mod.TokenWizard),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="tool-form-card">
+        <p className="text-sm text-white/50">Loading token wizard...</p>
+      </div>
+    ),
+  },
+)
 
 const COLOR = '#6B4FFF'
 const COLOR_RGB = '107,79,255'
@@ -23,8 +34,6 @@ export default function LaunchPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0818', color: '#f0eef5' }}>
-      <Navbar />
-
       <ToolHero
         category="Token Creation"
         title="Lester"

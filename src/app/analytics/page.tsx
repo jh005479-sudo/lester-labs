@@ -1,17 +1,34 @@
 'use client'
 
-import { useState } from 'react'
-import { Navbar } from '@/components/layout/Navbar'
-import { LTCBanner } from '@/components/LTCBanner'
-import { TrendingPanel } from '@/components/analytics/TrendingPanel'
-import { TokenTracker } from '@/components/analytics/TokenTracker'
-import { HealthPanel } from '@/components/analytics/HealthPanel'
-
-import { DexPanel } from '@/components/analytics/DexPanel'
-import { BridgePanel } from '@/components/analytics/BridgePanel'
-import { SmartMoneyPanel } from '@/components/analytics/SmartMoneyPanel'
+import dynamic from 'next/dynamic'
+import { useState, type ComponentType } from 'react'
 
 type Tab = 'trending' | 'tokens' | 'health' | 'dex' | 'bridge' | 'smartmoney'
+
+const TrendingPanel = dynamic(
+  () => import('@/components/analytics/TrendingPanel').then((mod) => mod.TrendingPanel),
+  { ssr: false, loading: () => <AnalyticsPanelLoading label="Loading trending data..." /> },
+)
+const TokenTracker = dynamic(
+  () => import('@/components/analytics/TokenTracker').then((mod) => mod.TokenTracker),
+  { ssr: false, loading: () => <AnalyticsPanelLoading label="Loading token tracker..." /> },
+)
+const HealthPanel = dynamic(
+  () => import('@/components/analytics/HealthPanel').then((mod) => mod.HealthPanel),
+  { ssr: false, loading: () => <AnalyticsPanelLoading label="Loading network health..." /> },
+)
+const DexPanel = dynamic(
+  () => import('@/components/analytics/DexPanel').then((mod) => mod.DexPanel),
+  { ssr: false, loading: () => <AnalyticsPanelLoading label="Loading DEX analytics..." /> },
+)
+const BridgePanel = dynamic(
+  () => import('@/components/analytics/BridgePanel').then((mod) => mod.BridgePanel),
+  { ssr: false, loading: () => <AnalyticsPanelLoading label="Loading bridge analytics..." /> },
+)
+const SmartMoneyPanel = dynamic(
+  () => import('@/components/analytics/SmartMoneyPanel').then((mod) => mod.SmartMoneyPanel),
+  { ssr: false, loading: () => <AnalyticsPanelLoading label="Loading smart money data..." /> },
+)
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'trending', label: '🔥 TRENDING' },
@@ -22,23 +39,39 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'smartmoney', label: 'SMART MONEY' },
 ]
 
+const TAB_COMPONENTS = {
+  trending: TrendingPanel,
+  tokens: TokenTracker,
+  health: HealthPanel,
+  dex: DexPanel,
+  bridge: BridgePanel,
+  smartmoney: SmartMoneyPanel,
+} satisfies Record<Tab, ComponentType>
+
+function AnalyticsPanelLoading({ label }: { label: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-10 text-center text-sm text-white/45">
+      {label}
+    </div>
+  )
+}
+
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('trending')
+  const ActivePanel = TAB_COMPONENTS[activeTab]
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
-      <LTCBanner />
-      <Navbar />
-      <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
-        {/* Page header */}
+      <div className="mx-auto max-w-7xl px-4 pb-20 pt-[120px]">
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-          <p className="text-white/50 text-sm mt-1">LitVM chain data — tokens, network health, and more</p>
+          <p className="mt-1 text-sm text-white/50">
+            LitVM chain data — tokens, network health, and more
+          </p>
         </div>
 
-        {/* Tab bar */}
-        <div className="flex items-end gap-0 border-b border-white/10 mb-8">
-          {TABS.map(tab => (
+        <div className="mb-8 flex items-end gap-0 border-b border-white/10">
+          {TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -57,16 +90,9 @@ export default function AnalyticsPage() {
               )}
             </button>
           ))}
-
         </div>
 
-        {/* Tab content */}
-        {activeTab === 'trending' && <TrendingPanel />}
-        {activeTab === 'tokens' && <TokenTracker />}
-        {activeTab === 'health' && <HealthPanel />}
-        {activeTab === 'dex' && <DexPanel />}
-        {activeTab === 'bridge' && <BridgePanel />}
-        {activeTab === 'smartmoney' && <SmartMoneyPanel />}
+        <ActivePanel />
       </div>
     </main>
   )
