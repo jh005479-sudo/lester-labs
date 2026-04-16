@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useAccount, useReadContract } from 'wagmi'
+import { useAccount, useReadContract, useBalance } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Wallet, Copy, Check, ExternalLink } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
@@ -35,7 +35,7 @@ interface LockEntry {
   withdrawn: boolean
 }
 
-type Tab = 'tokens' | 'presales' | 'vesting' | 'locks'
+type Tab = 'overview' | 'tokens' | 'presales' | 'vesting' | 'locks'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -94,6 +94,31 @@ const LOCK_EVENT_SIG    = '0xc841d5bbfd6bbee5b5afbcdd70a52778ca1aaa260339f7307f2
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+// ── Token creator scan (creator is topic 1 for TokenCreated) ────────────────
+async function fetchTokensByCreator(creator: string): Promise<string[]> {
+  try {
+    const resp = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getLogs',
+        params: [{
+          address: TOKEN_FACTORY_ADDRESS,
+          topics: [TOKEN_EVENT_SIG, creator.startsWith('0x') ? creator : `0x${creator}`, null],
+          fromBlock: '0x1',
+          toBlock: 'latest',
+        },],
+        id: 1,
+      }),
+    })
+    const json = await resp.json()
+    return Array.isArray(json.result) ? json.result.map((l: any) => l.address) : []
+  } catch {
+    return []
+  }
+}
+
 // Fetch token addresses created by `address` from TokenFactory events
 function useTokenAddresses(address: string | undefined) {
   const [addresses, setAddresses] = useState<string[]>([])
@@ -101,8 +126,8 @@ function useTokenAddresses(address: string | undefined) {
 
   useEffect(() => {
     if (!address) { setLoading(false); return }
-    fetchLogs(TOKEN_FACTORY_ADDRESS, TOKEN_EVENT_SIG, address).then((logs) => {
-      setAddresses(logs.map((l: any) => l.address))
+    fetchTokensByCreator(address).then((addrs) => {
+      setAddresses(addrs)
       setLoading(false)
     })
   }, [address])
@@ -120,6 +145,18 @@ function useILOAddresses(address: string | undefined) {
     query: { enabled: !!address },
   })
   return { addresses: (data as `0x${string}`[]) || [], loading: isLoading }
+}
+
+// usePresales — returns ILO count for Overview (uses wagmi for addresses, no metadata fetch)
+function usePresales(address: string | undefined) {
+  const { addresses, loading } = useILOAddresses(address)
+  return { presales: addresses, loading }
+}
+
+// useTokens — returns token count for Overview
+function useTokens(address: string | undefined) {
+  const { addresses, loading } = useTokenAddresses(address)
+  return { tokens: addresses, loading }
 }
 
 function useVesting(address: string | undefined) {
@@ -347,6 +384,100 @@ function ILORow({ address }: { address: string }) {
 
 // ── Tab panels ──────────────────────────────────────────────────────────────
 
+// ── Overview panel ───────────────────────────────────────────────────────────
+
+function OverviewPanel({ address }: { address: string }) {
+  const addr = address as `0x${string}`
+  const { data: ethBalance, isLoading: ethLoading } = useBalance({ address: addr })
+
+  const { tokens,    loading: tLoading } = useTokens(address)
+  const { presales,  loading: pLoading } = usePresales(address)
+  const { vestings, loading: vLoading } = useVesting(address)
+  const { locks,    loading: lLoading } = useLocks(address)
+
+  const totalPositions = tokens.length + presales.length + vestings.length + locks.length
+
+  const fmtEth = (val: bigint | undefined) => {
+    if (!val) return '—'
+    const eth = Number(val) / 1e18
+    if (eth === 0) return '0 ETH'
+    return `${eth.toLocaleString(undefined, { maximumFractionDigits: 6 })} ETH`
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* ETH Balance card */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(107,79,255,0.15) 0%, rgba(52,211,153,0.08) 100%)',
+        border: '1px solid rgba(107,79,255,0.25)',
+        borderRadius: 16,
+        padding: '24px 28px',
+      }}>
+        <div style={{ fontSize: 11, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase' }}>
+          Native Balance
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          {ethLoading ? <span style={{ opacity: 0.4 }}>Loading…</span> : fmtEth(ethBalance?.value)}
+        </div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+          LitVM — USD conversion requires price oracle
+        </div>
+      </div>
+
+      {/* LL Positions summary */}
+      <div>
+        <div style={{ fontSize: 11, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', marginBottom: 12, textTransform: 'uppercase' }}>
+          Lester Labs Positions
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          {[
+            { label: 'Tokens',    count: tokens.length,    loading: tLoading, tab: 'tokens'    as Tab },
+            { label: 'Presales',  count: presales.length,  loading: pLoading, tab: 'presales'  as Tab },
+            { label: 'Vesting',   count: vestings.length,  loading: vLoading, tab: 'vesting'   as Tab },
+            { label: 'Locks',     count: locks.length,     loading: lLoading, tab: 'locks'     as Tab },
+          ].map(({ label, count, loading, tab }) => (
+            <button
+              key={tab}
+              onClick={() => {/* tab switching handled by parent */}}
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 12,
+                padding: '16px 14px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'border-color 0.2s',
+              }}
+            >
+              <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                {loading ? <span style={{ opacity: 0.4 }}>—</span> : count}
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>{label}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Total portfolio value — bottom */}
+      <div style={{
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.05)',
+        borderRadius: 12,
+        padding: '16px 20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>Total Portfolio Value</div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
+          {totalPositions === 0 && !tLoading ? 'No positions' : `${totalPositions} position${totalPositions !== 1 ? 's' : ''} across LL`}
+          <span style={{ marginLeft: 8, fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>· USD requires oracle</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TokensPanel({ address }: { address: string }) {
   const { addresses, loading } = useTokenAddresses(address)
   if (loading) return <LoadingSkeleton />
@@ -439,7 +570,8 @@ function LocksPanel({ address }: { address: string }) {
 // ── Page ──────────────────────────────────────────────────────────────────
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'tokens',    label: 'TOKENS' },
+  { key: 'overview',  label: 'OVERVIEW' },
+  { key: 'tokens',   label: 'TOKENS' },
   { key: 'presales', label: 'PRESALES' },
   { key: 'vesting',  label: 'VESTING' },
   { key: 'locks',    label: 'LOCKS' },
@@ -447,7 +579,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount()
-  const [activeTab, setActiveTab] = useState<Tab>('tokens')
+  const [activeTab, setActiveTab] = useState<Tab>('overview')
 
   if (!isConnected) {
     return (
@@ -517,6 +649,7 @@ export default function PortfolioPage() {
         </div>
 
         {/* Tab content */}
+        {activeTab === 'overview'  && <OverviewPanel  address={address!} />}
         {activeTab === 'tokens'    && <TokensPanel   address={address!} />}
         {activeTab === 'presales' && <PresalesPanel address={address!} />}
         {activeTab === 'vesting'  && <VestingPanel  address={address!} />}
