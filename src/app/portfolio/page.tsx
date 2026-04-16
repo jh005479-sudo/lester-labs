@@ -95,7 +95,7 @@ const LOCK_EVENT_SIG    = '0xc841d5bbfd6bbee5b5afbcdd70a52778ca1aaa260339f7307f2
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 // ── Token creator scan (creator is topic 1 for TokenCreated) ────────────────
-async function fetchTokensByCreator(creator: string): Promise<string[]> {
+async function fetchTokensByCreator(creator: string): Promise<{ address: string; name: string; symbol: string }[]> {
   try {
     const resp = await fetch(RPC_URL, {
       method: 'POST',
@@ -113,28 +113,117 @@ async function fetchTokensByCreator(creator: string): Promise<string[]> {
       }),
     })
     const json = await resp.json()
-    return Array.isArray(json.result)
-      ? json.result.map((l: any) => '0x' + l.topics[2].slice(26))
-      : []
+    if (!Array.isArray(json.result)) return []
+    return json.result.map((l: any) => {
+      const address = '0x' + l.topics[2].slice(26)
+      const { name, symbol } = decodeTokenEventData(l.data || '0x')
+      return { address, name, symbol }
+    })
   } catch {
     return []
   }
 }
 
-// Fetch token addresses created by `address` from TokenFactory events
+// Decode name/symbol from TokenCreated event data field
+// Verified layout (192 bytes, token address is indexed in topics[2]):
+//   bytes 0-63:   offset table (nameOffset=64, symOffset=128)
+//   bytes 64-95:  name length [uint256, 5 chars of name]
+//   bytes 96-127: name string content
+//   bytes 128-159: symbol length [uint256, 2-5 chars of symbol]
+//   bytes 160-191: symbol string content
+function decodeTokenEventData(dataHex: string): { name: string; symbol: string } {
+  try {
+    const data = dataHex.slice(2)
+    if (data.length < 384) return { name: '—', symbol: '—' }
+
+    const readStr = (lenOffset: number): string => {
+      const len = parseInt('0x' + data.slice(lenOffset * 2, lenOffset * 2 + 64), 16)
+      if (!len || len > 256) return '—'
+      const strHex = data.slice((lenOffset + 32) * 2, (lenOffset + 32) * 2 + len * 2)
+      return Buffer.from(strHex, 'hex').toString('utf8').replace(/\0+$/, '') || '—'
+    }
+
+    return { name: readStr(64), symbol: readStr(128) }
+  } catch {
+    return { name: '—', symbol: '—' }
+  }
+}
+
+// ── Transfer event scan (fallback for tokens from old factory deployments) ───
+// Transfer(address(0), to, amount) — detects mints to `to` address
+const TRANSFER_SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
+
+async function fetchTokensByMints(wallet: string): Promise<string[]> {
+  try {
+    const resp = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getLogs',
+        params: [{
+          // Transfer(address(0), indexed to, indexed value) — topics[1] = from(0), topics[2] = to
+          topics: [
+            TRANSFER_SIG,
+            '0x' + ZERO_ADDR.slice(2).padStart(64, '0'),   // topic1: from == address(0)
+            '0x' + wallet.slice(2).padStart(64, '0'),       // topic2: to == wallet
+          ],
+          fromBlock: '0x1',
+          toBlock: 'latest',
+        },],
+        id: 1,
+      }),
+    })
+    const json = await resp.json()
+    if (!Array.isArray(json.result)) return []
+    // Deduplicate by contract address (topic2 is the token for Transfer from address(0))
+    const seen = new Set<string>()
+    const addrs: string[] = []
+    for (const l of json.result) {
+      // For Transfer from zero address, the token is the `address` field of the log
+      const tokenAddr = (l.address || '').toLowerCase()
+      if (tokenAddr && !seen.has(tokenAddr)) {
+        seen.add(tokenAddr)
+        addrs.push(tokenAddr)
+      }
+    }
+    return addrs
+  } catch {
+    return []
+  }
+}
+
+// Fetch token addresses for `address` — merges TokenFactory-created tokens
+// AND tokens received via mint Transfer events from address(0)
 function useTokenAddresses(address: string | undefined) {
-  const [addresses, setAddresses] = useState<string[]>([])
+  const [tokens, setTokens] = useState<{ address: string; name: string; symbol: string }[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!address) { setLoading(false); return }
-    fetchTokensByCreator(address).then((addrs) => {
-      setAddresses(addrs)
+    Promise.all([
+      fetchTokensByCreator(address),
+      fetchTokensByMints(address),
+    ]).then(([fromFactory, fromMints]) => {
+      // Deduplicate by address
+      const seen = new Map<string, { name: string; symbol: string }>()
+      for (const t of fromFactory) seen.set(t.address.toLowerCase(), { name: t.name, symbol: t.symbol })
+      for (const addr of fromMints) {
+        const l = addr.toLowerCase()
+        if (!seen.has(l)) seen.set(l, { name: '—', symbol: '—' })
+      }
+      const merged = Array.from(seen.entries()).map(([addr, meta]) => ({
+        address: addr,
+        name: meta.name,
+        symbol: meta.symbol,
+      }))
+      setTokens(merged)
       setLoading(false)
     })
   }, [address])
 
-  return { addresses, loading }
+  return { tokens, loading }
 }
 
 // Fetch ILO addresses owned by `address` from ILOFactory via wagmi
@@ -157,8 +246,8 @@ function usePresales(address: string | undefined) {
 
 // useTokens — returns token count for Overview
 function useTokens(address: string | undefined) {
-  const { addresses, loading } = useTokenAddresses(address)
-  return { tokens: addresses, loading }
+  const { tokens, loading } = useTokenAddresses(address)
+  return { tokens, loading }
 }
 
 function useVesting(address: string | undefined) {
@@ -331,12 +420,13 @@ function AddressChip({ address, href }: { address: string; href?: string }) {
 
 // ── Row components (wagmi hooks at top level) ──────────────────────────────────
 
-function TokenRow({ address }: { address: string }) {
+function TokenRow({ address, name: eventName, symbol: eventSymbol }: { address: string; name?: string; symbol?: string }) {
   const tokenAddr = address as `0x${string}`
-  const name    = useReadContract({ address: tokenAddr, abi: ERC20_ABI, functionName: 'name' })
-  const symbol  = useReadContract({ address: tokenAddr, abi: ERC20_ABI, functionName: 'symbol' })
-  const n = (name.data as string) ?? '—'
-  const s = (symbol.data as string) ?? '—'
+  const nameRead  = useReadContract({ address: tokenAddr, abi: ERC20_ABI, functionName: 'name' })
+  const symbolRead = useReadContract({ address: tokenAddr, abi: ERC20_ABI, functionName: 'symbol' })
+  // Prefer on-chain read; fall back to event metadata (useful when contract is empty)
+  const n = (nameRead.data as string) ?? eventName ?? '—'
+  const s = (symbolRead.data as string) ?? eventSymbol ?? '—'
   return (
     <div style={{
       background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
@@ -481,12 +571,12 @@ function OverviewPanel({ address }: { address: string }) {
 }
 
 function TokensPanel({ address }: { address: string }) {
-  const { addresses, loading } = useTokenAddresses(address)
+  const { tokens, loading } = useTokenAddresses(address)
   if (loading) return <LoadingSkeleton />
-  if (addresses.length === 0) return <EmptyState message="No tokens created by this wallet" />
+  if (tokens.length === 0) return <EmptyState message="No tokens created by this wallet" />
   return (
     <div className="space-y-3">
-      {addresses.map((addr) => <TokenRow key={addr} address={addr} />)}
+      {tokens.map((t) => <TokenRow key={t.address} address={t.address} name={t.name} symbol={t.symbol} />)}
     </div>
   )
 }
