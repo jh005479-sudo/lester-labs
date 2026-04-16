@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { ToolHero } from '@/components/shared/ToolHero'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useReadContracts } from 'wagmi'
 import { parseEther, parseUnits, isAddress, formatEther } from 'viem'
 import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
-import { ILO_FACTORY_ABI } from '@/config/abis'
+import { ILO_FACTORY_ABI, ILO_ABI } from '@/config/abis'
 
 // ABI for fetching token decimals (RP-001)
 const ERC20_DECIMALS_ABI = [
@@ -23,27 +23,66 @@ const ERC20_DECIMALS_ABI = [
 
 type Tab = 'browse' | 'create'
 
-// TODO: Replace with live contract reads once ILOFactory is deployed
-// This data is for UI demonstration only — testnet placeholder
-const MOCK_PRESALES = [
-  {
-    address: '0x0000000000000000000000000000000000000001',
-    name: 'DemoToken',
-    symbol: 'DEMO',
-    softCap: '10',
-    hardCap: '50',
-    raised: '23.4',
-    startTime: Date.now() - 86400000,
-    endTime: Date.now() + 5 * 86400000,
-    finalized: false,
-    cancelled: false,
-    liquidityBps: 6000,
-    lpLockDuration: 180 * 86400,
-    contributorCount: 47,
-  },
-]
+// Fetches all ILO addresses by count then batch-reading them
+function useAllILOAddresses(count: number) {
+  // Build array of calls: allILOs(0), allILOs(1), ..., allILOs(count-1)
+  const calls = Array.from({ length: count }, (_, i) => ({
+    address: ILO_FACTORY_ADDRESS,
+    abi: ILO_FACTORY_ABI,
+    functionName: 'allILOs',
+    args: [BigInt(i)],
+  }))
 
-type MockPresale = (typeof MOCK_PRESALES)[0]
+  const { data: results, isLoading } = useReadContracts({
+    contracts: calls,
+    query: { enabled: isValidContractAddress(ILO_FACTORY_ADDRESS) && count > 0 },
+  })
+
+  const addresses = (results ?? [])
+    .map((r) => (r.status === 'success' ? (r.result as unknown as `0x${string}`) : null))
+    .filter(Boolean) as `0x${string}`[]
+
+  return { addresses, isLoading }
+}
+
+// Live ILO card — reads ILO state from the contract and renders a PresaleCard
+function LiveILOCard({ address }: { address: `0x${string}` }) {
+  const tokenAddr = useReadContract({ address, abi: ILO_ABI, functionName: 'token' })
+  const raised = useReadContract({ address, abi: ILO_ABI, functionName: 'totalRaised' })
+  const softCap = useReadContract({ address, abi: ILO_ABI, functionName: 'softCap' })
+  const hardCap = useReadContract({ address, abi: ILO_ABI, functionName: 'hardCap' })
+  const startTime = useReadContract({ address, abi: ILO_ABI, functionName: 'startTime' })
+  const endTime = useReadContract({ address, abi: ILO_ABI, functionName: 'endTime' })
+  const liquidityBps = useReadContract({ address, abi: ILO_ABI, functionName: 'liquidityBps' })
+  const lpLockDuration = useReadContract({ address, abi: ILO_ABI, functionName: 'lpLockDuration' })
+  const finalized = useReadContract({ address, abi: ILO_ABI, functionName: 'finalized' })
+  const cancelled = useReadContract({ address, abi: ILO_ABI, functionName: 'cancelled' })
+
+  // Synthesise a PresaleCard-compatible object from live contract data
+  const livePresale = {
+    address,
+    name: tokenAddr.data ? `${(tokenAddr.data as string).slice(0, 6)}…` : 'Loading…',
+    symbol: raised.data !== undefined ? 'ILO' : '…',
+    softCap: softCap.data ? formatEther(softCap.data) : '0',
+    hardCap: hardCap.data ? formatEther(hardCap.data) : '0',
+    raised: raised.data ? formatEther(raised.data) : '0',
+    startTime: startTime.data ? Number(startTime.data) * 1000 : Date.now(),
+    endTime: endTime.data ? Number(endTime.data) * 1000 : Date.now(),
+    finalized: finalized.data ?? false,
+    cancelled: cancelled.data ?? false,
+    liquidityBps: Number(liquidityBps.data ?? 0),
+    lpLockDuration: Number(lpLockDuration.data ?? 0),
+    contributorCount: '—',
+  }
+
+  return <PresaleCard presale={livePresale as unknown as MockPresale} />
+}
+
+type MockPresale = {
+  address: string; name: string; symbol: string; softCap: string; hardCap: string;
+  raised: string; startTime: number; endTime: number; finalized: boolean;
+  cancelled: boolean; liquidityBps: number; lpLockDuration: number; contributorCount: string | number;
+}
 
 function CreatePresaleForm() {
   const { isConnected } = useAccount()
@@ -666,6 +705,17 @@ function PresaleCard({ presale }: { presale: MockPresale }) {
 export default function LaunchpadPage() {
   const [tab, setTab] = useState<Tab>('browse')
 
+  const iloCount = useReadContract({
+    address: ILO_FACTORY_ADDRESS,
+    abi: ILO_FACTORY_ABI,
+    functionName: 'getILOCount',
+    query: { enabled: isValidContractAddress(ILO_FACTORY_ADDRESS) },
+  })
+  const liveCount = Number(iloCount.data ?? 0)
+  const { addresses: liveAddresses, isLoading: iloLoading } = useAllILOAddresses(liveCount)
+
+  const totalRaised = '—' // live sum requires per-ILO reads; show '—' to avoid blocking UI
+
   return (
     <div
       className="min-h-screen"
@@ -704,8 +754,8 @@ export default function LaunchpadPage() {
         >
           {(
             [
-              ['Total Presales', '0'],
-              ['Total Raised', '0'],
+              ['Total Presales', iloLoading ? '…' : liveCount.toString()],
+              ['Total Raised', iloLoading ? '…' : totalRaised],
               ['Platform Fee', '2%'],
             ] as [string, string][]
           ).map(([label, value], i, arr) => (
@@ -801,7 +851,11 @@ export default function LaunchpadPage() {
         {/* Content */}
         {tab === 'browse' ? (
           <div>
-            {MOCK_PRESALES.length === 0 ? (
+            {iloLoading ? (
+              <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
+                Loading presales from contract…
+              </div>
+            ) : liveAddresses.length === 0 ? (
               <div
                 style={{
                   textAlign: 'center',
@@ -834,8 +888,8 @@ export default function LaunchpadPage() {
                   gap: '20px',
                 }}
               >
-                {MOCK_PRESALES.map((p) => (
-                  <PresaleCard key={p.address} presale={p} />
+                {liveAddresses.map((addr) => (
+                  <LiveILOCard key={addr} address={addr} />
                 ))}
               </div>
             )}
