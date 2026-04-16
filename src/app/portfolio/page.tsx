@@ -105,7 +105,7 @@ async function fetchTokensByCreator(creator: string): Promise<string[]> {
         method: 'eth_getLogs',
         params: [{
           address: TOKEN_FACTORY_ADDRESS,
-          topics: [TOKEN_EVENT_SIG, creator.startsWith('0x') ? creator : `0x${creator}`, null],
+          topics: [TOKEN_EVENT_SIG, '0x' + creator.slice(2).padStart(64, '0'), null],
           fromBlock: '0x1',
           toBlock: 'latest',
         },],
@@ -371,7 +371,7 @@ function ILORow({ address }: { address: string }) {
       <div>
         <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>ILO Presale</div>
         <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-          Raised: {tr} ETH · Soft Cap: {sc} ETH
+          Raised: {tr} zkLTC · Soft Cap: {sc} zkLTC
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -400,8 +400,8 @@ function OverviewPanel({ address }: { address: string }) {
   const fmtEth = (val: bigint | undefined) => {
     if (!val) return '—'
     const eth = Number(val) / 1e18
-    if (eth === 0) return '0 ETH'
-    return `${eth.toLocaleString(undefined, { maximumFractionDigits: 6 })} ETH`
+    if (eth === 0) return '0 zkLTC'
+    return `${eth.toLocaleString(undefined, { maximumFractionDigits: 6 })} zkLTC`
   }
 
   return (
@@ -414,7 +414,7 @@ function OverviewPanel({ address }: { address: string }) {
         padding: '24px 28px',
       }}>
         <div style={{ fontSize: 11, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase' }}>
-          Native Balance
+          zkLTC Balance
         </div>
         <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em' }}>
           {ethLoading ? <span style={{ opacity: 0.4 }}>Loading…</span> : fmtEth(ethBalance?.value)}
