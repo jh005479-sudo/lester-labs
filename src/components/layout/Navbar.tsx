@@ -13,6 +13,7 @@ const dappLinks = [
   { href: '/airdrop',    label: 'Airdrop' },
   { href: '/governance', label: 'Governance' },
   { href: '/launchpad',  label: 'Launchpad' },
+  { href: '/portfolio',  label: 'Portfolio' },
 ]
 
 const navLinks = [
