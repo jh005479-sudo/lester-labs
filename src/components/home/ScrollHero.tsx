@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { PlatformStats } from './PlatformStats'
 
 const VIDEO_URL  = '/lester-hero.mp4'
 const POSTER_IMG = '/lester-hero-poster.png'
@@ -400,6 +401,16 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
             >
               Explore Suite ↓
             </button>
+          </div>
+
+          {/* Live platform stats */}
+          <div style={{
+            opacity: ctaOn ? 1 : 0,
+            transform: ctaOn ? 'translateY(0)' : 'translateY(16px)',
+            transition: `opacity .6s ${tr} .15s, transform .6s ${tr} .15s`,
+            marginTop: 18,
+          }}>
+            <PlatformStats />
           </div>
         </div>
 
