@@ -38,6 +38,8 @@ interface VestingEntry {
   beneficiary: string
   token: string
   totalAmount: string
+  startTime: string
+  revocable: boolean
 }
 
 interface LockEntry {
@@ -248,13 +250,33 @@ function useVesting(address: string | undefined) {
   useEffect(() => {
     if (!address) { setLoading(false); return }
     fetchLogs(VESTING_FACTORY_ADDRESS, VESTING_EVENT_SIG, address).then((logs) => {
-      const entries: VestingEntry[] = logs.map((log: any) => ({
-        vestingId: BigInt(log.topics[1] || '0x0').toString(),
-        vestingWallet: '0x' + (log.topics[2] || '').slice(26),
-        beneficiary: '0x' + (log.topics[3] || '').slice(26),
-        token: '0x' + (log.data || '').slice(26, 90),
-        totalAmount: formatUnits(BigInt('0x' + (log.data || '').slice(90, 154)), 18),
-      }))
+      const entries: VestingEntry[] = logs.map((log: any) => {
+        const data = log.data || '0x'
+        // VestingCreated data layout (non-indexed fields):
+        // bytes 0-31:   address token   (right-padded, last 20 bytes = address)
+        // bytes 32-63:  uint256 totalAmount
+        // bytes 64-95:  uint256 startTime
+        // bytes 96-127: uint256 cliffDuration
+        // bytes 128-159: uint256 vestingDuration
+        // bytes 160-191: bool revocable
+        const token       = '0x' + data.slice(2 + 12, 2 + 32)   // bytes 12-32 of data (right-padded address)
+        const totalAmount = BigInt(data.slice(2 + 32, 2 + 64))
+        const startTime   = Number(BigInt(data.slice(2 + 64, 2 + 96)))
+        const cliff       = Number(BigInt(data.slice(2 + 96, 2 + 128)))
+        const vest        = Number(BigInt(data.slice(2 + 128, 2 + 160)))
+        const revocable   = data.slice(2 + 191, 2 + 192) === '01'
+        return {
+          vestingId:    BigInt(log.topics[1] || '0x0').toString(),
+          vestingWallet:'0x' + (log.topics[2] || '').slice(26),
+          beneficiary: '0x' + (log.topics[3] || '').slice(26),
+          token,
+          totalAmount: `${formatUnits(totalAmount, 18)} tokens`,
+          startTime: cliff > 0
+            ? `Cliff ${cliff}s · Vesting ${vest}s from ${new Date(startTime * 1000).toLocaleDateString()}`
+            : `Vesting ${vest}s from ${new Date(startTime * 1000).toLocaleDateString()}`,
+          revocable,
+        }
+      })
       setVestings(entries)
       setLoading(false)
     })
@@ -269,14 +291,47 @@ function useLocks(address: string | undefined) {
 
   useEffect(() => {
     if (!address) { setLoading(false); return }
-    fetchLogs(LIQUIDITY_LOCKER_ADDRESS, LOCK_EVENT_SIG, address).then((logs) => {
-      const entries: LockEntry[] = logs.map((log: any) => ({
-        lockId: BigInt(log.topics[1] || '0x0').toString(),
-        lpToken: '0x' + (log.topics[2] || '').slice(26),
-        amount: formatUnits(BigInt(log.topics[3] || '0x0'), 18),
-        unlockTime: new Date(Number(BigInt(log.topics[4] || '0x0')) * 1000).toLocaleDateString(),
-        withdrawn: false, // would need contract state to check
-      }))
+    fetchLogs(LIQUIDITY_LOCKER_ADDRESS, LOCK_EVENT_SIG, address).then(async (logs) => {
+      // Fetch withdrawn status for each lock via getLock
+      const entries: (LockEntry & { lpToken: string })[] = await Promise.all(
+        logs.map(async (log: any) => {
+          const lockId  = BigInt(log.topics[1] || '0x0').toString()
+          const lpToken = '0x' + (log.topics[2] || '').slice(26)
+          const amount  = BigInt(log.topics[3] || '0x0')
+          const unlockTime = Number(BigInt(log.topics[4] || '0x0'))
+
+          // Fetch getLock(lockId) to get withdrawn status
+          let withdrawn = false
+          try {
+            const resp = await fetch(RPC_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jsonrpc: '2.0', method: 'eth_call',
+                params: [{
+                  to: LIQUIDITY_LOCKER_ADDRESS,
+                  data: '0x' + '0'.repeat(8) + BigInt(lockId).toString(16).padStart(64, '0'),
+                }, 'latest'],
+                id: 1,
+              }),
+            })
+            const json = await resp.json()
+            const result = json.result || '0x'
+            // getLock returns (lpToken, amount, unlockTime, withdrawer, withdrawn)
+            // withdrawn is last byte of the 5th 32-byte word
+            const withdrawnHex = result.slice(2 + 32 * 4 + 62, 2 + 32 * 4 + 64)
+            withdrawn = withdrawnHex === '01'
+          } catch { /* keep withdrawn = false */ }
+
+          return {
+            lockId,
+            lpToken,
+            amount: formatUnits(amount, 18),
+            unlockTime: new Date(unlockTime * 1000).toLocaleDateString(),
+            withdrawn,
+          }
+        })
+      )
       setLocks(entries)
       setLoading(false)
     })
