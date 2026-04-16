@@ -1,7 +1,9 @@
 // Contract addresses loaded from environment variables
 // All addresses default to zero address if not set - use isValidContractAddress() before interacting
 
-export const ILO_FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_ILO_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
+const DEFAULT_ILO_FACTORY_ADDRESS = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB'
+
+export const ILO_FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_ILO_FACTORY_ADDRESS || DEFAULT_ILO_FACTORY_ADDRESS) as `0x${string}`
 
 export const TOKEN_FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_TOKEN_FACTORY_ADDRESS || '0x0000000000000000000000000000000000000000') as `0x${string}`
 

@@ -33,6 +33,50 @@ export const VESTING_FACTORY_ABI = [
   },
 ] as const
 
+export const VESTING_CREATED_EVENT = {
+  type: 'event',
+  name: 'VestingCreated',
+  inputs: [
+    { name: 'vestingId', type: 'uint256', indexed: true },
+    { name: 'vestingWallet', type: 'address', indexed: true },
+    { name: 'beneficiary', type: 'address', indexed: true },
+  ],
+} as const
+
+export const VESTING_WALLET_ABI = [
+  {
+    name: 'owner',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
+    name: 'released',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'token', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+] as const
+
+export const ERC20_METADATA_ABI = [
+  {
+    name: 'decimals',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+  },
+  {
+    name: 'symbol',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'string' }],
+  },
+] as const
+
 export const ERC20_APPROVE_ABI = [
   {
     name: 'approve',

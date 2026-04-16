@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Navbar } from '@/components/layout/Navbar'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseEther, parseUnits, isAddress, formatEther } from 'viem'
 import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
-import { ILO_FACTORY_ABI } from '@/config/abis'
+import { ILO_FACTORY_ABI } from '@/lib/contracts/iloFactory'
 
 // ABI for fetching token decimals (RP-001)
 const ERC20_DECIMALS_ABI = [
@@ -23,8 +22,7 @@ const ERC20_DECIMALS_ABI = [
 
 type Tab = 'browse' | 'create'
 
-// TODO: Replace with live contract reads once ILOFactory is deployed
-// This data is for UI demonstration only — testnet placeholder
+// Browse tab data is still demo-only until presale indexing is wired in.
 const MOCK_PRESALES = [
   {
     address: '0x0000000000000000000000000000000000000001',
@@ -671,7 +669,6 @@ export default function LaunchpadPage() {
       className="min-h-screen"
       style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >
-      <Navbar />
       <ToolHero
         category="Presale Platform"
         title="Lester"
