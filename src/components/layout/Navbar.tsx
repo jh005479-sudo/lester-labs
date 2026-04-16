@@ -13,13 +13,13 @@ const dappLinks = [
   { href: '/airdrop',    label: 'Airdrop' },
   { href: '/governance', label: 'Governance' },
   { href: '/launchpad',  label: 'Launchpad' },
-  { href: '/portfolio',  label: 'Portfolio' },
 ]
 
 const navLinks = [
   { href: '/explorer',   label: 'Explorer' },
   { href: '/analytics',  label: 'Analytics' },
   { href: '/docs',       label: 'Docs' },
+  { href: '/portfolio',  label: 'Portfolio' },
 ]
 
 const MOBILE_MENU_HEIGHT = 'calc(100dvh - var(--mobile-header-stack))'
