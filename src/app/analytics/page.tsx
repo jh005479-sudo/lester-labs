@@ -9,9 +9,10 @@ import { HealthPanel } from '@/components/analytics/HealthPanel'
 
 import { DexPanel } from '@/components/analytics/DexPanel'
 import { BridgePanel } from '@/components/analytics/BridgePanel'
-import { SmartMoneyPanel } from '@/components/analytics/SmartMoneyPanel'
+import { WhaleWatcherPanel } from '@/components/analytics/WhaleWatcherPanel'
+import { GasAnalyticsPanel } from '@/components/analytics/GasAnalyticsPanel'
 
-type Tab = 'trending' | 'tokens' | 'health' | 'dex' | 'bridge' | 'smartmoney'
+type Tab = 'trending' | 'tokens' | 'health' | 'dex' | 'bridge' | 'whalewatcher' | 'gas'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'trending', label: '🔥 TRENDING' },
@@ -19,7 +20,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'health', label: 'HEALTH' },
   { key: 'dex', label: 'DEX' },
   { key: 'bridge', label: 'BRIDGE' },
-  { key: 'smartmoney', label: 'SMART MONEY' },
+  { key: 'whalewatcher', label: 'WHALE WATCHER' },
+  { key: 'gas', label: 'GAS' },
 ]
 
 export default function AnalyticsPage() {
@@ -66,7 +68,8 @@ export default function AnalyticsPage() {
         {activeTab === 'health' && <HealthPanel />}
         {activeTab === 'dex' && <DexPanel />}
         {activeTab === 'bridge' && <BridgePanel />}
-        {activeTab === 'smartmoney' && <SmartMoneyPanel />}
+        {activeTab === 'whalewatcher' && <WhaleWatcherPanel />}
+        {activeTab === 'gas' && <GasAnalyticsPanel />}
       </div>
     </main>
   )

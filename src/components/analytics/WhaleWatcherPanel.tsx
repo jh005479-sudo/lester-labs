@@ -59,11 +59,11 @@ const alertColor = (type: string) => {
   }
 }
 
-export function SmartMoneyPanel() {
+export function WhaleWatcherPanel() {
   return (
     <div>
       <div className="flex items-center mb-6">
-        <h2 className="text-xl font-bold text-white">Smart Money Tracker</h2>
+        <h2 className="text-xl font-bold text-white">Whale Watcher</h2>
         {DEMO_BADGE}
       </div>
 
@@ -123,7 +123,7 @@ export function SmartMoneyPanel() {
         {/* Smart money alerts */}
         <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-            <Bell className="h-4 w-4 text-yellow-400" /> Smart Money Alerts
+            <Bell className="h-4 w-4 text-yellow-400" /> Whale Activity Alerts
           </h3>
           <div className="space-y-3">
             {alerts.map((a, i) => (
@@ -141,7 +141,7 @@ export function SmartMoneyPanel() {
         {/* Token picks */}
         <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
           <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-green-400" /> Smart Money Token Picks
+            <TrendingUp className="h-4 w-4 text-green-400" /> Whale Token Picks
           </h3>
           <div className="space-y-3">
             {tokenPicks.map((t, i) => (
