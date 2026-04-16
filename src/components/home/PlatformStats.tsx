@@ -2,18 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useReadContract } from 'wagmi'
-import { ILO_FACTORY_ADDRESS, TOKEN_FACTORY_ADDRESS, DISPERSE_ADDRESS, isValidContractAddress } from '@/config/contracts'
+import { ILO_FACTORY_ADDRESS, DISPERSE_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI } from '@/config/abis'
-import { createPublicClient, http } from 'viem'
 import { RPC_URL } from '@/lib/rpcClient'
 
 const POLL_INTERVAL = 30_000 // 30s
-const TOKEN_EVENT = '0xd5d05a8421149c74fd223cfc823befb883babf9bf0b0e4d6bf9c8fdb70e59bb4'
-
-// ── Viem client for event log queries ───────────────────────────────────
-const publicClient = createPublicClient({
-  transport: http(RPC_URL, { retryCount: 2 }),
-})
+const TOKEN_FACTORY = '0x93acc61fcdc2e3407A0c03450Adfd8aE78964948' as const
+const TOKEN_EVENT_SIG = '0xd5d05a8421149c74fd223cfc823befb883babf9bf0b0e4d6bf9c8fdb70e59bb4'
 
 // ── Stat chip ───────────────────────────────────────────────────────────
 function StatChip({ label, value, accent }: { label: string; value: string; accent: string }) {
@@ -75,33 +70,29 @@ function useILOFactoryCounter(fn: ILOFactoryFn) {
 
 // ── Token count from event logs ─────────────────────────────────────────
 async function fetchTokenCount(): Promise<number> {
-  const SESSION_KEY = 'lester_token_count_v2'
-  const BLOCK_KEY  = 'lester_token_scan_block'
-
+  const CACHE_KEY = 'lester_cached_token_count'
   try {
-    // Read cached scan endpoint
-    const cachedCount = sessionStorage.getItem(SESSION_KEY)
-    const cachedBlock = sessionStorage.getItem(BLOCK_KEY)
-
-    const fromBlock = cachedBlock ? BigInt(cachedBlock) : BigInt(1)
-
-    const logs = await publicClient.getLogs({
-      address: TOKEN_FACTORY_ADDRESS,
-      event: { type: 'event', name: 'TokenCreated', inputs: [] },
-      fromBlock,
-      toBlock: 'latest',
+    const resp = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getLogs',
+        params: [{
+          address: TOKEN_FACTORY,
+          topics: [TOKEN_EVENT_SIG],
+          fromBlock: '0x1',
+          toBlock:   'latest',
+        }],
+        id: 1,
+      }),
     })
-
-    const newCount = logs.length
-
-    // Cache result + block
-    sessionStorage.setItem(SESSION_KEY, String(newCount))
-    sessionStorage.setItem(BLOCK_KEY, String(fromBlock))
-
-    return newCount
+    const json = await resp.json()
+    const count = Array.isArray(json.result) ? json.result.length : 0
+    sessionStorage.setItem(CACHE_KEY, String(count))
+    return count
   } catch {
-    // Fall back to cached value
-    const cached = sessionStorage.getItem('lester_token_count_v2')
+    const cached = sessionStorage.getItem(CACHE_KEY)
     return cached ? parseInt(cached) : 0
   }
 }
