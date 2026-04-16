@@ -113,7 +113,9 @@ async function fetchTokensByCreator(creator: string): Promise<string[]> {
       }),
     })
     const json = await resp.json()
-    return Array.isArray(json.result) ? json.result.map((l: any) => l.address) : []
+    return Array.isArray(json.result)
+      ? json.result.map((l: any) => '0x' + l.topics[2].slice(26))
+      : []
   } catch {
     return []
   }
