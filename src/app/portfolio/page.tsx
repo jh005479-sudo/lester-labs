@@ -100,15 +100,9 @@ async function fetchLogs(
   }
 }
 
-// Compute event signatures (Solidity keccak256)
-function keccak256(str: string) {
-  // keccak256 of the event signature string
-  // We compute these once and hardcode them to avoid importing a keccak library
-  // TokenCreated(address,address,string,string,uint8,bool,bool,bool)
-  // VestingCreated(uint256,address,address,address,uint256,uint256,uint256,uint256,bool)
-  // LockCreated(uint256,address,uint256,uint256,address)
-  return str
-}
+// Solidity keccak256 event signatures — verified against on-chain data
+const VESTING_EVENT_SIG = '0x56b1f9aa7211e7166f2a4d851623936f78b07f35e4ae47efa2299ba8e368ca56'
+const LOCK_EVENT_SIG    = '0xc841d5bbfd6bbee5b5afbcdd70a52778ca1aaa260339f7307f2db27865f162cc'
 
 // ── Hooks ─────────────────────────────────────────────────────────────────
 
@@ -253,9 +247,7 @@ function useVesting(address: string | undefined) {
 
   useEffect(() => {
     if (!address) { setLoading(false); return }
-    // VestingCreated(uint256,address,address,address,uint256,uint256,uint256,uint256,bool)
-    const topic = keccak256('VestingCreated(uint256,address,address,address,uint256,uint256,uint256,uint256,bool)')
-    fetchLogs(VESTING_FACTORY_ADDRESS, topic, address).then((logs) => {
+    fetchLogs(VESTING_FACTORY_ADDRESS, VESTING_EVENT_SIG, address).then((logs) => {
       const entries: VestingEntry[] = logs.map((log: any) => ({
         vestingId: BigInt(log.topics[1] || '0x0').toString(),
         vestingWallet: '0x' + (log.topics[2] || '').slice(26),
@@ -277,9 +269,7 @@ function useLocks(address: string | undefined) {
 
   useEffect(() => {
     if (!address) { setLoading(false); return }
-    // LockCreated(uint256,address,uint256,uint256,address)
-    const topic = keccak256('LockCreated(uint256,address,uint256,uint256,address)')
-    fetchLogs(LIQUIDITY_LOCKER_ADDRESS, topic, address).then((logs) => {
+    fetchLogs(LIQUIDITY_LOCKER_ADDRESS, LOCK_EVENT_SIG, address).then((logs) => {
       const entries: LockEntry[] = logs.map((log: any) => ({
         lockId: BigInt(log.topics[1] || '0x0').toString(),
         lpToken: '0x' + (log.topics[2] || '').slice(26),
