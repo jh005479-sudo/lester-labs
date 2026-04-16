@@ -16,8 +16,8 @@ function parseManualText(text: string): Recipient[] {
     .filter(Boolean)
     .map((line) => {
       // Support: "address, amount" or "address amount" or "address\tamount"
-      const parts = line.split(/[\s,\t]+/)
-      return { address: parts[0] ?? '', amount: parts[1] ?? '' }
+      const parts = line.split(/[\s,\tab]+/).map((p) => p.trim()).filter(Boolean)
+      return { address: (parts[0] ?? '').trim().toLowerCase(), amount: (parts[1] ?? '').trim() }
     })
 }
 
@@ -28,7 +28,7 @@ function parseCSVText(text: string): Recipient[] {
     lines[0] && !lines[0].startsWith('0x') ? 1 : 0
   return lines.slice(start).map((line) => {
     const [address = '', amount = ''] = line.split(',').map((s) => s.trim())
-    return { address, amount }
+    return { address: address.trim().toLowerCase(), amount }
   })
 }
 
