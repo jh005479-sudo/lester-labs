@@ -25,7 +25,6 @@ type Tab = 'browse' | 'create'
 
 // Fetches all ILO addresses by count then batch-reading them
 function useAllILOAddresses(count: number) {
-  // Build array of calls: allILOs(0), allILOs(1), ..., allILOs(count-1)
   const calls = Array.from({ length: count }, (_, i) => ({
     address: ILO_FACTORY_ADDRESS,
     abi: ILO_FACTORY_ABI,
@@ -45,33 +44,77 @@ function useAllILOAddresses(count: number) {
   return { addresses, isLoading }
 }
 
-// Live ILO card — reads ILO state from the contract and renders a PresaleCard
-function LiveILOCard({ address }: { address: `0x${string}` }) {
-  const tokenAddr = useReadContract({ address, abi: ILO_ABI, functionName: 'token' })
-  const raised = useReadContract({ address, abi: ILO_ABI, functionName: 'totalRaised' })
-  const softCap = useReadContract({ address, abi: ILO_ABI, functionName: 'softCap' })
-  const hardCap = useReadContract({ address, abi: ILO_ABI, functionName: 'hardCap' })
-  const startTime = useReadContract({ address, abi: ILO_ABI, functionName: 'startTime' })
-  const endTime = useReadContract({ address, abi: ILO_ABI, functionName: 'endTime' })
-  const liquidityBps = useReadContract({ address, abi: ILO_ABI, functionName: 'liquidityBps' })
-  const lpLockDuration = useReadContract({ address, abi: ILO_ABI, functionName: 'lpLockDuration' })
-  const finalized = useReadContract({ address, abi: ILO_ABI, functionName: 'finalized' })
-  const cancelled = useReadContract({ address, abi: ILO_ABI, functionName: 'cancelled' })
+// Single ILO read result shape
+type ILOData = {
+  token: `0x${string}` | null
+  totalRaised: bigint | null
+  softCap: bigint | null
+  hardCap: bigint | null
+  startTime: bigint | null
+  endTime: bigint | null
+  liquidityBps: bigint | null
+  lpLockDuration: bigint | null
+  finalized: boolean | null
+  cancelled: boolean | null
+}
 
-  // Synthesise a PresaleCard-compatible object from live contract data
+// Batch-fetch ALL data for all ILOs in ONE multicall request (9 calls × N ILOs → 1 request)
+function useAllILOData(addresses: `0x${string}`[]) {
+  const calls = addresses.flatMap((addr) => [
+    { address: addr, abi: ILO_ABI, functionName: 'token' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'totalRaised' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'softCap' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'hardCap' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'startTime' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'endTime' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'liquidityBps' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'lpLockDuration' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'finalized' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'cancelled' as const },
+  ])
+
+  const { data: results, isLoading } = useReadContracts({
+    contracts: calls,
+    query: { enabled: addresses.length > 0 },
+  })
+
+  const iloMap = new Map<`0x${string}`, ILOData>()
+  for (let i = 0; i < addresses.length; i++) {
+    const base = i * 10
+    const [token, totalRaised, softCap, hardCap, startTime, endTime, liquidityBps, lpLockDuration, finalized, cancelled] =
+      results?.slice(base, base + 10) ?? []
+    iloMap.set(addresses[i], {
+      token: token?.status === 'success' ? (token.result as `0x${string}`) : null,
+      totalRaised: totalRaised?.status === 'success' ? (totalRaised.result as bigint) : null,
+      softCap: softCap?.status === 'success' ? (softCap.result as bigint) : null,
+      hardCap: hardCap?.status === 'success' ? (hardCap.result as bigint) : null,
+      startTime: startTime?.status === 'success' ? (startTime.result as bigint) : null,
+      endTime: endTime?.status === 'success' ? (endTime.result as bigint) : null,
+      liquidityBps: liquidityBps?.status === 'success' ? (liquidityBps.result as bigint) : null,
+      lpLockDuration: lpLockDuration?.status === 'success' ? (lpLockDuration.result as bigint) : null,
+      finalized: finalized?.status === 'success' ? (finalized.result as boolean) : null,
+      cancelled: cancelled?.status === 'success' ? (cancelled.result as boolean) : null,
+    })
+  }
+
+  return { iloMap, isLoading }
+}
+
+// Live ILO card — receives pre-fetched data as props (no individual contract reads)
+function LiveILOCard({ address, data: d }: { address: `0x${string}`; data: ILOData }) {
   const livePresale = {
     address,
-    name: tokenAddr.data ? `${(tokenAddr.data as string).slice(0, 6)}…` : 'Loading…',
-    symbol: raised.data !== undefined ? 'ILO' : '…',
-    softCap: softCap.data ? formatEther(softCap.data) : '0',
-    hardCap: hardCap.data ? formatEther(hardCap.data) : '0',
-    raised: raised.data ? formatEther(raised.data) : '0',
-    startTime: startTime.data ? Number(startTime.data) * 1000 : Date.now(),
-    endTime: endTime.data ? Number(endTime.data) * 1000 : Date.now(),
-    finalized: finalized.data ?? false,
-    cancelled: cancelled.data ?? false,
-    liquidityBps: Number(liquidityBps.data ?? 0),
-    lpLockDuration: Number(lpLockDuration.data ?? 0),
+    name: d.token ? `${d.token.slice(0, 6)}…` : 'Loading…',
+    symbol: d.totalRaised !== null ? 'ILO' : '…',
+    softCap: d.softCap ? formatEther(d.softCap) : '0',
+    hardCap: d.hardCap ? formatEther(d.hardCap) : '0',
+    raised: d.totalRaised ? formatEther(d.totalRaised) : '0',
+    startTime: d.startTime ? Number(d.startTime) * 1000 : Date.now(),
+    endTime: d.endTime ? Number(d.endTime) * 1000 : Date.now(),
+    finalized: d.finalized ?? false,
+    cancelled: d.cancelled ?? false,
+    liquidityBps: Number(d.liquidityBps ?? 0n),
+    lpLockDuration: Number(d.lpLockDuration ?? 0n),
     contributorCount: '—',
   }
 
@@ -714,7 +757,15 @@ export default function LaunchpadPage() {
   const liveCount = Number(iloCount.data ?? 0)
   const { addresses: liveAddresses, isLoading: iloLoading } = useAllILOAddresses(liveCount)
 
-  const totalRaised = '—' // live sum requires per-ILO reads; show '—' to avoid blocking UI
+  // Batch-fetch all ILO data in ONE multicall (replaces per-card individual reads)
+  const { iloMap, isLoading: iloDataLoading } = useAllILOData(liveAddresses)
+
+  // Compute total raised from batch-fetched data (no additional requests)
+  const totalRaisedBigint = Array.from(iloMap.values()).reduce<bigint>(
+    (sum, d) => sum + (d.totalRaised ?? 0n),
+    0n,
+  )
+  const totalRaised = totalRaisedBigint > 0n ? formatEther(totalRaisedBigint) : '—'
 
   return (
     <div
@@ -851,7 +902,7 @@ export default function LaunchpadPage() {
         {/* Content */}
         {tab === 'browse' ? (
           <div>
-            {iloLoading ? (
+            {iloLoading || iloDataLoading ? (
               <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
                 Loading presales from contract…
               </div>
@@ -889,7 +940,7 @@ export default function LaunchpadPage() {
                 }}
               >
                 {liveAddresses.map((addr) => (
-                  <LiveILOCard key={addr} address={addr} />
+                  <LiveILOCard key={addr} address={addr} data={iloMap.get(addr)!} />
                 ))}
               </div>
             )}
