@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useAccount, useConnect } from 'wagmi'
+import { useAccount, useReadContract } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Wallet, Copy, Check, ExternalLink } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
@@ -12,25 +12,10 @@ import {
   VESTING_FACTORY_ADDRESS,
   LIQUIDITY_LOCKER_ADDRESS,
 } from '@/config/contracts'
-import { ILO_FACTORY_ABI } from '@/config/abis'
+import { ILO_FACTORY_ABI, ILO_ABI, ERC20_ABI } from '@/config/abis'
 import { RPC_URL } from '@/lib/rpcClient'
 
 // ── Types ──────────────────────────────────────────────────────────────────
-
-interface TokenEntry {
-  tokenAddress: string
-  name: string
-  symbol: string
-}
-
-interface PresaleEntry {
-  address: string
-  token: string
-  softCap: bigint
-  totalRaised: bigint
-  finalized: boolean
-  cancelled: boolean
-}
 
 interface VestingEntry {
   vestingId: string
@@ -103,144 +88,38 @@ async function fetchLogs(
 }
 
 // Solidity keccak256 event signatures — verified against on-chain data
+const TOKEN_EVENT_SIG  = '0xd5d05a8421149c74fd223cfc823befb883babf9bf0b0e4d6bf9c8fdb70e59bb4'
 const VESTING_EVENT_SIG = '0x56b1f9aa7211e7166f2a4d851623936f78b07f35e4ae47efa2299ba8e368ca56'
 const LOCK_EVENT_SIG    = '0xc841d5bbfd6bbee5b5afbcdd70a52778ca1aaa260339f7307f2db27865f162cc'
 
-// ── Hooks ─────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────
 
-function useTokens(address: string | undefined) {
-  const [tokens, setTokens] = useState<TokenEntry[]>([])
+// Fetch token addresses created by `address` from TokenFactory events
+function useTokenAddresses(address: string | undefined) {
+  const [addresses, setAddresses] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!address) { setLoading(false); return }
-    const topic = '0xd5d05a8421149c74fd223cfc823befb883babf9bf0b0e4d6bf9c8fdb70e59bb4'
-    fetchLogs(TOKEN_FACTORY_ADDRESS, topic, address).then((logs) => {
-      const entries: TokenEntry[] = logs.map((log: any) => ({
-        tokenAddress: log.address,
-        name: log.topics[3] ? web3DecodeString(log.topics[3]) : 'Unknown', // indexed topics start at 1
-        symbol: web3DecodeString(log.topics[4] || '0x'),
-      }))
-      setTokens(entries)
+    fetchLogs(TOKEN_FACTORY_ADDRESS, TOKEN_EVENT_SIG, address).then((logs) => {
+      setAddresses(logs.map((l: any) => l.address))
       setLoading(false)
     })
   }, [address])
 
-  return { tokens, loading }
+  return { addresses, loading }
 }
 
-function web3DecodeString(topic: string) {
-  // ABI decode a string from a bytes32 topic
-  // For simplicity, decode as UTF-8 from the bytes32 hex
-  try {
-    const hex = topic.slice(2)
-    // Remove trailing zeros (padding)
-    const stripped = hex.replace(/0+$/, '')
-    if (!stripped) return ''
-    const raw = stripped.length % 2 ? '0' + stripped : stripped
-    const buf = Buffer.from(raw, 'hex')
-    return buf.toString('utf8').replace(/\0+$/, '')
-  } catch {
-    return topic.slice(0, 10)
-  }
-}
-
-function usePresales(address: string | undefined) {
-  const [presales, setPresales] = useState<PresaleEntry[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const fetch_ = useCallback(async () => {
-    if (!address) { setLoading(false); return }
-    setLoading(true)
-    try {
-      const resp = await fetch(RPC_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_call',
-          params: [
-            {
-              to: ILO_FACTORY_ADDRESS,
-              data: encodeGetOwnerILOs(address),
-            },
-            'latest',
-          ],
-          id: 1,
-        }),
-      })
-      const json = await resp.json()
-      const raw = json.result
-      if (!raw || raw === '0x') { setPresales([]); setLoading(false); return }
-
-      const count = parseInt(raw.slice(2, 66), 16) || 0
-      const iloAddresses: string[] = []
-      for (let i = 0; i < count; i++) {
-        const offset = 64 + i * 32
-        const addr = '0x' + raw.slice(offset + 24, offset + 64)
-        iloAddresses.push(addr)
-      }
-
-      // Fetch metadata for each ILO in parallel
-      const metas = await Promise.allSettled(
-        iloAddresses.map((addr) => fetchILOMeta(addr)),
-      )
-      const entries = metas
-        .filter((r) => r.status === 'fulfilled')
-        .map((r) => (r as PromiseFulfilledResult<PresaleEntry>).value)
-      setPresales(entries)
-    } catch {
-      setPresales([])
-    }
-    setLoading(false)
-  }, [address])
-
-  useEffect(() => { fetch_() }, [fetch_])
-
-  return { presales, loading }
-}
-
-function encodeGetOwnerILOs(address: string) {
-  // function selector for getOwnerILOs(address) = 0x[4 bytes]
-  // keccak256('getOwnerILOs(address)')[:4] = 0xb5b60d0b
-  return '0xb5b60d0b' + address.slice(2).padStart(64, '0')
-}
-
-async function fetchILOMeta(address: string): Promise<PresaleEntry> {
-  const fields = [
-    { name: 'token',        offset: 0 },
-    { name: 'softCap',      offset: 1 },
-    { name: 'totalRaised',  offset: 2 },
-    { name: 'finalized',    offset: 3 },
-    { name: 'cancelled',    offset: 4 },
-  ]
-
-  const reads = await Promise.all(
-    fields.map(({ name, offset }) =>
-      fetch(RPC_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_call',
-          params: [{
-            to: address,
-            data: '0x' + '0'.repeat(8 + offset * 32),
-          }, 'latest'],
-          id: 1,
-        }),
-      }).then((r) => r.json())
-    ),
-  )
-
-  return {
-    address,
-    token: '0x' + (reads[0].result || '').slice(26),
-    softCap: BigInt(reads[1].result || '0x0'),
-    totalRaised: BigInt(reads[2].result || '0x0'),
-    finalized: (reads[3].result || '0x0') !== '0x0',
-    cancelled: (reads[4].result || '0x0') !== '0x0',
-  }
+// Fetch ILO addresses owned by `address` from ILOFactory via wagmi
+function useILOAddresses(address: string | undefined) {
+  const { data, isLoading } = useReadContract({
+    address: ILO_FACTORY_ADDRESS,
+    abi: ILO_FACTORY_ABI,
+    functionName: 'getOwnerILOs',
+    args: [address as `0x${string}`],
+    query: { enabled: !!address },
+  })
+  return { addresses: (data as `0x${string}`[]) || [], loading: isLoading }
 }
 
 function useVesting(address: string | undefined) {
@@ -411,79 +290,81 @@ function AddressChip({ address, href }: { address: string; href?: string }) {
   )
 }
 
-// ── Tab panels ─────────────────────────────────────────────────────────────
+// ── Row components (wagmi hooks at top level) ──────────────────────────────────
+
+function TokenRow({ address }: { address: string }) {
+  const tokenAddr = address as `0x${string}`
+  const name    = useReadContract({ address: tokenAddr, abi: ERC20_ABI, functionName: 'name' })
+  const symbol  = useReadContract({ address: tokenAddr, abi: ERC20_ABI, functionName: 'symbol' })
+  const n = (name.data as string) ?? '—'
+  const s = (symbol.data as string) ?? '—'
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: 12, padding: '14px 18px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    }}>
+      <div>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>{n}</div>
+        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>{s}</div>
+      </div>
+      <AddressChip address={address} href={`/explorer/token/${address}`} />
+    </div>
+  )
+}
+
+function ILORow({ address }: { address: string }) {
+  const iloAddr = address as `0x${string}`
+  const softCap     = useReadContract({ address: iloAddr, abi: ILO_ABI, functionName: 'softCap' })
+  const totalRaised = useReadContract({ address: iloAddr, abi: ILO_ABI, functionName: 'totalRaised' })
+  const finalized   = useReadContract({ address: iloAddr, abi: ILO_ABI, functionName: 'finalized' })
+  const cancelled   = useReadContract({ address: iloAddr, abi: ILO_ABI, functionName: 'cancelled' })
+
+  const sc = softCap.data !== undefined ? softCap.data.toString() : '—'
+  const tr = totalRaised.data !== undefined ? totalRaised.data.toString() : '—'
+  const status: 'active' | 'finalized' | 'cancelled' =
+    cancelled.data ? 'cancelled' : finalized.data ? 'finalized' : 'active'
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: 12, padding: '14px 18px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    }}>
+      <div>
+        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>ILO Presale</div>
+        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+          Raised: {tr} ETH · Soft Cap: {sc} ETH
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <StatusBadge status={status} />
+        <AddressChip address={address} />
+      </div>
+    </div>
+  )
+}
+
+// ── Tab panels ──────────────────────────────────────────────────────────────
 
 function TokensPanel({ address }: { address: string }) {
-  const { tokens, loading } = useTokens(address)
+  const { addresses, loading } = useTokenAddresses(address)
   if (loading) return <LoadingSkeleton />
-  if (tokens.length === 0) return <EmptyState message="No tokens created by this wallet" />
+  if (addresses.length === 0) return <EmptyState message="No tokens created by this wallet" />
   return (
     <div className="space-y-3">
-      {tokens.map((t) => (
-        <div
-          key={t.tokenAddress}
-          style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: 12,
-            padding: '14px 18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</div>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>{t.symbol}</div>
-          </div>
-          <AddressChip
-            address={t.tokenAddress}
-            href={`/explorer/token/${t.tokenAddress}`}
-          />
-        </div>
-      ))}
+      {addresses.map((addr) => <TokenRow key={addr} address={addr} />)}
     </div>
   )
 }
 
 function PresalesPanel({ address }: { address: string }) {
-  const { presales, loading } = usePresales(address)
+  const { addresses, loading } = useILOAddresses(address)
   if (loading) return <LoadingSkeleton />
-  if (presales.length === 0) return <EmptyState message="No presales launched by this wallet" />
-
-  const getStatus = (p: PresaleEntry): 'active' | 'finalized' | 'cancelled' => {
-    if (p.cancelled) return 'cancelled'
-    if (p.finalized) return 'finalized'
-    return 'active'
-  }
-
+  if (addresses.length === 0) return <EmptyState message="No presales launched by this wallet" />
   return (
     <div className="space-y-3">
-      {presales.map((p) => (
-        <div
-          key={p.address}
-          style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: 12,
-            padding: '14px 18px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>ILO Presale</div>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-              Raised: {p.totalRaised.toString()} ETH · Soft Cap: {p.softCap.toString()} ETH
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <StatusBadge status={getStatus(p)} />
-            <AddressChip address={p.address} />
-          </div>
-        </div>
-      ))}
+      {addresses.map((addr) => <ILORow key={addr} address={addr} />)}
     </div>
   )
 }

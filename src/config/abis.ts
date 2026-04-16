@@ -1,3 +1,11 @@
+export const ERC20_ABI = [
+  { name: 'name',    outputs: [{ type: 'string' }],  stateMutability: 'view', type: 'function', inputs: [] },
+  { name: 'symbol',  outputs: [{ type: 'string' }],  stateMutability: 'view', type: 'function', inputs: [] },
+  { name: 'decimals', outputs: [{ type: 'uint8' }],  stateMutability: 'view', type: 'function', inputs: [] },
+  { name: 'totalSupply', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function', inputs: [] },
+  { name: 'balanceOf', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function', inputs: [{ name: 'account', type: 'address' }] },
+] as const
+
 export const ILO_FACTORY_ABI = [
   {
     inputs: [
