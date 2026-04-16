@@ -1,15 +1,21 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useReadContract } from 'wagmi'
-import { ILO_FACTORY_ADDRESS, DISPERSE_ADDRESS, isValidContractAddress } from '@/config/contracts'
+import { ILO_FACTORY_ADDRESS, TOKEN_FACTORY_ADDRESS, DISPERSE_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI } from '@/config/abis'
-
-type ILOFactoryFn = 'creationFee' | 'allILOs' | 'getILOCount' | 'getOwnerILOs'
+import { createPublicClient, http } from 'viem'
+import { RPC_URL } from '@/lib/rpcClient'
 
 const POLL_INTERVAL = 30_000 // 30s
+const TOKEN_EVENT = '0xd5d05a8421149c74fd223cfc823befb883babf9bf0b0e4d6bf9c8fdb70e59bb4'
 
-// Counters rendered as horizontal pill chips
+// ── Viem client for event log queries ───────────────────────────────────
+const publicClient = createPublicClient({
+  transport: http(RPC_URL, { retryCount: 2 }),
+})
+
+// ── Stat chip ───────────────────────────────────────────────────────────
 function StatChip({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <div style={{
@@ -19,7 +25,7 @@ function StatChip({ label, value, accent }: { label: string; value: string; acce
       gap: 4,
       padding: '10px 20px',
       background: 'rgba(255,255,255,0.04)',
-      border: `1px solid rgba(255,255,255,0.08)`,
+      border: '1px solid rgba(255,255,255,0.08)',
       borderRadius: 12,
       minWidth: 110,
     }}>
@@ -47,53 +53,99 @@ function StatChip({ label, value, accent }: { label: string; value: string; acce
   )
 }
 
-function useCounter(address: `0x${string}` | undefined, functionName: ILOFactoryFn, transform: (v: bigint) => string, pollMs = POLL_INTERVAL) {
+// ── ILO count hook ──────────────────────────────────────────────────────
+type ILOFactoryFn = 'creationFee' | 'allILOs' | 'getILOCount' | 'getOwnerILOs'
+
+function useILOFactoryCounter(fn: ILOFactoryFn) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { data, refetch } = useReadContract({
-    address: address as `0x${string}`,
+    address: ILO_FACTORY_ADDRESS as `0x${string}`,
     abi: ILO_FACTORY_ABI as any,
-    functionName: functionName as any,
-    query: { enabled: isValidContractAddress(address) },
+    functionName: fn as any,
+    query: { enabled: isValidContractAddress(ILO_FACTORY_ADDRESS) },
   })
 
   useEffect(() => {
-    intervalRef.current = setInterval(() => { refetch() }, pollMs)
+    intervalRef.current = setInterval(() => { refetch() }, POLL_INTERVAL)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [refetch, pollMs])
+  }, [refetch])
 
-  return data !== undefined && data !== null ? transform(Number(data) as unknown as bigint) : '—'
+  return data !== undefined && data !== null ? String(data) : '—'
+}
+
+// ── Token count from event logs ─────────────────────────────────────────
+async function fetchTokenCount(): Promise<number> {
+  const SESSION_KEY = 'lester_token_count_v2'
+  const BLOCK_KEY  = 'lester_token_scan_block'
+
+  try {
+    // Read cached scan endpoint
+    const cachedCount = sessionStorage.getItem(SESSION_KEY)
+    const cachedBlock = sessionStorage.getItem(BLOCK_KEY)
+
+    const fromBlock = cachedBlock ? BigInt(cachedBlock) : BigInt(1)
+
+    const logs = await publicClient.getLogs({
+      address: TOKEN_FACTORY_ADDRESS,
+      event: { type: 'event', name: 'TokenCreated', inputs: [] },
+      fromBlock,
+      toBlock: 'latest',
+    })
+
+    const newCount = logs.length
+
+    // Cache result + block
+    sessionStorage.setItem(SESSION_KEY, String(newCount))
+    sessionStorage.setItem(BLOCK_KEY, String(fromBlock))
+
+    return newCount
+  } catch {
+    // Fall back to cached value
+    const cached = sessionStorage.getItem('lester_token_count_v2')
+    return cached ? parseInt(cached) : 0
+  }
 }
 
 export function PlatformStats() {
-  // Tokens minted — hardcoded to last known live count to avoid expensive event scans on every poll
-  // In production this would be a view function on the factory contract
-  const iloCount = useCounter(ILO_FACTORY_ADDRESS, 'getILOCount', (v) => v.toString())
-  const presaleCount = iloCount
-  const tokenCount = '703' // cumulative; update when token count view function is added
+  const iloCount  = useILOFactoryCounter('getILOCount')
+  const [tokenCount, setTokenCount] = useState<string>('—')
+  const [loading, setLoading] = useState(true)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Airdrop count — require contract address to be set
-  const airdropAddr = DISPERSE_ADDRESS
-  const hasAirdrop = isValidContractAddress(airdropAddr)
+  // Initial fetch + 30s polling
+  useEffect(() => {
+    fetchTokenCount().then(c => {
+      setTokenCount(String(c))
+      setLoading(false)
+    })
+
+    intervalRef.current = setInterval(async () => {
+      const c = await fetchTokenCount()
+      setTokenCount(String(c))
+    }, POLL_INTERVAL)
+
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [])
+
+  // Disperse address tells us if airdrop is configured
+  const hasAirdrop = isValidContractAddress(DISPERSE_ADDRESS)
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        marginTop: 20,
-      }}
-    >
+    <div style={{
+      display: 'flex',
+      gap: 10,
+      justifyContent: 'center',
+      flexWrap: 'wrap',
+      marginTop: 20,
+    }}>
       <StatChip
         label="Tokens Minted"
-        value={tokenCount}
+        value={loading ? '—' : tokenCount}
         accent="#6B4FFF"
       />
       <StatChip
-        label="Presales Created"
-        value={presaleCount}
+        label="Pre-sales Created"
+        value={iloCount}
         accent="#5E6AD2"
       />
       <StatChip
