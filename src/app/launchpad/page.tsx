@@ -827,8 +827,15 @@ export default function LaunchpadPage() {
   // Batch-fetch all ILO data in ONE multicall (replaces per-card individual reads)
   const { iloMap, isLoading: iloDataLoading } = useAllILOData(liveAddresses)
 
-  // Fetch token name/symbol from TokenFactory events
-  const { metaMap: tokenMetaMap } = useTokenMetadata(liveAddresses)
+  // Extract token addresses from ILO data for metadata lookup
+  const tokenAddresses = Array.from(new Set(
+    Array.from(iloMap.values())
+      .map(d => d.token)
+      .filter((t): t is `0x${string}` => t !== null)
+  ))
+
+  // Fetch token name/symbol from TokenFactory events (keyed by token address)
+  const { metaMap: tokenMetaMap } = useTokenMetadata(tokenAddresses)
 
   // Load user-uploaded token logos from IndexedDB
   const tokenImageUrls = useTokenImageUrls()
