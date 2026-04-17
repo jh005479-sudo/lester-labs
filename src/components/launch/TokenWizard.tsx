@@ -21,11 +21,14 @@ const STEPS = [
   { id: 3, label: 'Review & Deploy' },
 ]
 
+import { setTokenImageUrl } from '@/lib/tokenImageStore'
+
 const DEFAULT_BASICS: TokenBasics = {
   name: '',
   symbol: '',
   totalSupply: '',
   decimals: 18,
+  logoUrl: '',
 }
 
 const DEFAULT_FEATURES: TokenFeatures = {
@@ -167,7 +170,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
 }
 
 interface TokenWizardProps {
-  onStateChange?: (state: { name: string; symbol: string; supply: string; decimals: number; mintable: boolean; burnable: boolean; pausable: boolean }) => void
+  onStateChange?: (state: { name: string; symbol: string; supply: string; decimals: number; mintable: boolean; burnable: boolean; pausable: boolean; logoUrl?: string }) => void
 }
 
 export function TokenWizard({ onStateChange }: TokenWizardProps) {
@@ -175,6 +178,7 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
   const [basics, setBasics] = useState<TokenBasics>(DEFAULT_BASICS)
   const [features, setFeatures] = useState<TokenFeatures>(DEFAULT_FEATURES)
 
+  // Sync wizard state up to parent (for navbar preview, etc.)
   useEffect(() => {
     onStateChange?.({
       name: basics.name,
@@ -184,8 +188,26 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
       mintable: features.mintable,
       burnable: features.burnable,
       pausable: features.pausable,
+      logoUrl: basics.logoUrl,
     })
   }, [basics, features, onStateChange])
+
+  // Save token logo to IndexedDB after successful deployment
+  const handleReceipt = useCallback(
+    async (hash: `0x${string}`, contractAddress: string) => {
+      if (basics.logoUrl) {
+        await setTokenImageUrl(contractAddress, basics.logoUrl)
+      }
+      setTxStatus('success')
+      setSuccessResult({
+        tokenAddress: contractAddress,
+        name: basics.name,
+        symbol: basics.symbol,
+        txHash: hash,
+      })
+    },
+    [basics.name, basics.symbol, basics.logoUrl],
+  )
   const [modalOpen, setModalOpen] = useState(false)
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
@@ -210,20 +232,6 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
   const { data: receipt } = useWaitForTransactionReceipt({
     hash: currentTxHash,
   })
-
-  // Process receipt when it arrives
-  const handleReceipt = useCallback(
-    (hash: `0x${string}`, contractAddress: string) => {
-      setTxStatus('success')
-      setSuccessResult({
-        tokenAddress: contractAddress,
-        name: basics.name,
-        symbol: basics.symbol,
-        txHash: hash,
-      })
-    },
-    [basics.name, basics.symbol],
-  )
 
   // Watch for receipt — parse logs for the deployed token address using ABI-based decoding (F-010)
   // RP-007: Filter logs by factory address before decode, set error if event not found

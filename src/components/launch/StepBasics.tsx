@@ -1,10 +1,13 @@
 'use client'
 
+import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
+
 export interface TokenBasics {
   name: string
   symbol: string
   totalSupply: string
   decimals: 6 | 8 | 18
+  logoUrl?: string
 }
 
 interface StepBasicsProps {
@@ -86,6 +89,12 @@ export function StepBasics({ values, onChange }: StepBasicsProps) {
         </select>
         <p className="text-xs text-white/40">18 decimals is standard for most tokens</p>
       </div>
+
+      {/* Token Logo */}
+      <TokenLogoUpload
+        currentUrl={values.logoUrl}
+        onUrlChange={(url) => set('logoUrl', url)}
+      />
     </div>
   )
 }

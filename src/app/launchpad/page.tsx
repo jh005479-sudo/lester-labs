@@ -10,6 +10,7 @@ import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI, ILO_ABI } from '@/config/abis'
 import { useTokenMetadata, getTokenLogoUrl } from '@/hooks/useTokenMetadata'
+import { useTokenImageUrls } from '@/hooks/useTokenImageUrls'
 
 // ABI for fetching token decimals (RP-001)
 const ERC20_DECIMALS_ABI = [
@@ -102,8 +103,8 @@ function useAllILOData(addresses: `0x${string}`[]) {
 }
 
 // Live ILO card — receives pre-fetched data as props (no individual contract reads)
-function LiveILOCard({ address, data: d, meta }: { address: `0x${string}`; data: ILOData; meta?: { name: string; symbol: string } }) {
-  const logoUrl = getTokenLogoUrl(address)
+function LiveILOCard({ address, data: d, meta, imageUrl }: { address: `0x${string}`; data: ILOData; meta?: { name: string; symbol: string }; imageUrl?: string | null }) {
+  const logoUrl = imageUrl ?? getTokenLogoUrl(address)
   const livePresale = {
     address,
     name: meta?.name ?? (d.token ? `${d.token.slice(0, 6)}…` : 'Loading…'),
@@ -814,6 +815,9 @@ export default function LaunchpadPage() {
   // Fetch token name/symbol from TokenFactory events
   const { metaMap: tokenMetaMap } = useTokenMetadata(liveAddresses)
 
+  // Load user-uploaded token logos from IndexedDB
+  const tokenImageUrls = useTokenImageUrls()
+
   // Compute total raised from batch-fetched data (no additional requests)
   const totalRaisedBigint = Array.from(iloMap.values()).reduce<bigint>(
     (sum, d) => sum + (d.totalRaised ?? 0n),
@@ -994,7 +998,7 @@ export default function LaunchpadPage() {
                 }}
               >
                 {liveAddresses.map((addr) => (
-                  <LiveILOCard key={addr} address={addr} data={iloMap.get(addr)!} meta={tokenMetaMap.get(addr.toLowerCase())} />
+                  <LiveILOCard key={addr} address={addr} data={iloMap.get(addr)!} meta={tokenMetaMap.get(addr.toLowerCase())} imageUrl={tokenImageUrls.get(addr.toLowerCase()) ?? null} />
                 ))}
               </div>
             )}
