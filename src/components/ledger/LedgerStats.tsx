@@ -1,13 +1,10 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { formatEther } from 'viem'
-import { Coins, Landmark, ScrollText } from 'lucide-react'
-import { estimateLedgerTreasuryTotal } from '@/lib/contracts/ledger'
+import { Coins, ScrollText } from 'lucide-react'
 
 interface LedgerStatsProps {
   messageCount?: bigint
-  minFee?: bigint
   userPostCount: number | null
 }
 
@@ -48,23 +45,16 @@ function StatCard({
   )
 }
 
-export function LedgerStats({ messageCount, minFee, userPostCount }: LedgerStatsProps) {
+export function LedgerStats({ messageCount, userPostCount }: LedgerStatsProps) {
   const totalMessages = messageCount ?? 0n
-  const treasuryEstimate = estimateLedgerTreasuryTotal(totalMessages, minFee)
 
   return (
-    <section className="grid gap-4 sm:grid-cols-3">
+    <section className="grid gap-4 sm:grid-cols-2">
       <StatCard
         icon={<ScrollText size={20} />}
         label="Total messages"
         value={totalMessages.toLocaleString()}
         accent="94,106,210"
-      />
-      <StatCard
-        icon={<Landmark size={20} />}
-        label="Estimated treasury"
-        value={`${formatEther(treasuryEstimate)} zkLTC`}
-        accent="74,222,128"
       />
       <StatCard
         icon={<Coins size={20} />}
