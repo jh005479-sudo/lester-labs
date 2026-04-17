@@ -2,8 +2,37 @@
 
 import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, MessageSquare } from 'lucide-react'
 import { formatAddress, formatEtherFromHex, getTransactionByHash, getTransactionReceipt, hexToBigInt, hexToNumber, LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
+import { LEDGER_ADDRESS } from '@/config/contracts'
+
+// TheLedger post(bytes) function selector
+const LEDGER_POST_SEL = '0xbaf9b369'
+
+/** Decode a TheLedger post() calldata bytes parameter */
+function decodeLedgerMessage(inputHex: string): string | null {
+  if (!inputHex || inputHex === '0x' || inputHex.length < 140) return null
+  const sel = inputHex.slice(0, 10).toLowerCase()
+  if (sel !== LEDGER_POST_SEL) return null
+
+  try {
+    const data = inputHex.slice(2)
+    // bytes 4-68 = offset to bytes data (always 0x20 for first dynamic param)
+    const offset = parseInt(data.slice(8, 72), 16)
+    // bytes 36-68 = length of bytes
+    const byteLen = parseInt(data.slice(72, 136), 16)
+    // Sanity check: reasonable bounds
+    if (byteLen === 0 || byteLen > 1024) return null
+    // bytes start at offset 68 (after 4-byte sel + 32-byte offset + 32-byte length)
+    // In practice offset == 32 (0x20), meaning bytes data starts at byte 68
+    const byteStart = offset === 32 ? 136 : 136 + (offset - 32) * 2
+    const byteHex = data.slice(byteStart, byteStart + byteLen * 2)
+    const bytes = Buffer.from(byteHex, 'hex')
+    return bytes.toString('utf8').replace(/\0+$/, '')
+  } catch {
+    return null
+  }
+}
 
 export default function TransactionDetailsPage({ params }: { params: Promise<{ hash: string }> }) {
   const { hash } = use(params)
@@ -42,6 +71,7 @@ export default function TransactionDetailsPage({ params }: { params: Promise<{ h
   const txFeeWei = gasUsed * gasPrice
   const txFee = Number(txFeeWei) / 1e18
   const method = tx?.input && tx.input !== '0x' ? tx.input.slice(0, 10) : 'Transfer'
+  const ledgerMessage = tx?.to?.toLowerCase() === LEDGER_ADDRESS.toLowerCase() ? decodeLedgerMessage(tx.input) : null
 
   return (
     <div className="mx-auto max-w-5xl px-6 pt-28 pb-10 text-zinc-100">
@@ -77,6 +107,18 @@ export default function TransactionDetailsPage({ params }: { params: Promise<{ h
           <Link href={`${LITVM_EXPLORER_URL}/tx/${hash}`} target="_blank">Explorer tx page</Link>
         </div>
       </div>
+
+      {/* TheLedger message display */}
+      {ledgerMessage && (
+        <div className="mt-6 rounded-2xl border border-purple-500/30 bg-purple-500/5 p-6 text-sm">
+          <div className="mb-3 flex items-center gap-2 text-purple-400">
+            <MessageSquare className="h-4 w-4" />
+            <span className="font-medium uppercase tracking-wider">Ledger Message</span>
+          </div>
+          <p className="font-mono text-base leading-relaxed text-zinc-100">{ledgerMessage}</p>
+          <p className="mt-3 text-xs text-zinc-500">Inscribed permanently on-chain via lester-labs.com/ledger</p>
+        </div>
+      )}
     </div>
   )
 }
