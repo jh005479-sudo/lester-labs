@@ -10,6 +10,7 @@ const docList = [
   { slug: 'airdrop-tool', label: 'Airdrop Tool', file: 'airdrop-tool.md' },
   { slug: 'governance', label: 'Governance', file: 'governance.md' },
   { slug: 'launchpad', label: 'Launchpad', file: 'launchpad.md' },
+  { slug: 'ledger', label: 'The Ledger', file: 'ledger.md' },
 ]
 
 export default function DocsPage() {
