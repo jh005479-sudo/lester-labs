@@ -1,0 +1,467 @@
+// Tutorial articles content — one entry per article
+// Images: CSS gradient IDs from the article hero component
+
+// Section types — all fields optional, renderer narrows by type field
+export interface TutorialSection {
+  type: 'text' | 'step' | 'callout' | 'code' | 'image'
+  heading?: string
+  body?: string
+  steps?: { title: string; body: string }[]
+  callout?: { type: 'info' | 'warning' | 'tip'; text: string }
+  code?: { lang: string; content: string }
+  src?: string
+  alt?: string
+  caption?: string
+  // Allow extra fields per variant without TS errors
+  [key: string]: unknown
+}
+
+export interface TutorialArticle {
+  slug: string
+  title: string
+  subtitle: string
+  badge: string
+  badgeColor: string
+  readTime: string
+  category: string
+  heroGradient: string    // CSS gradient class
+  heroAccent: string       // hex color
+  sections: TutorialSection[]
+  related?: string[]       // slugs of related articles
+}
+
+export const TUTORIALS: TutorialArticle[] = [
+  {
+    slug: 'what-is-litvm',
+    title: 'What is LitVM?',
+    subtitle: 'ZK proofs meet Litecoin — a validity-proof Layer 2 that brings smart contracts and DeFi to the LTC ecosystem without compromising decentralization.',
+    badge: 'Ecosystem',
+    badgeColor: '#818cf8',
+    readTime: '6 min read',
+    category: 'Getting Started',
+    heroGradient: 'linear-gradient(135deg, #0f0c29 0%, #1a1a3e 50%, #242043 100%)',
+    heroAccent: '#818cf8',
+    sections: [
+      {
+        type: 'text',
+        heading: 'The problem with bringing smart contracts to Litecoin',
+        body: 'Bitcoin and Litecoin were designed as payment networks first. Adding programmability to BTC or LTC is hard because the base chains are UTXO-based, not account-based — and they prioritise security and simplicity over expressiveness.\n\nThe naive solution is a sidechain. But most sidechains rely on federation multisigs or trusted validators, which introduces a single point of failure. If the validator set is compromised or dishonest, funds can be stolen.\n\nLitVM takes a different approach: validity proofs.',
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'info',
+          text: 'LitVM is currently on testnet. The addresses, contracts, and tokens described here are on the LitVM test network (chain ID 4441), not the Litecoin mainnet.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'Validity proofs — trustless compression',
+        body: 'A validity proof is a cryptographic certificate produced by a prover (the sequencer) that proves every state transition on LitVM was computed correctly. Unlike fraud proofs (Optimism/Avalanche), validity proofs make invalid states mathematically impossible — not just economically disincentivised.\n\nThe proof is tiny: a few hundred bytes. Anyone can verify it against the Litecoin root, without re-executing all the transactions. This means:\n\n• Litecoin nodes don\'t need to process every LitVM transaction\n• Security inherits directly from Litecoin — no separate validator set\n• Finality is as fast as the next Litecoin block',
+      },
+      {
+        type: 'image',
+        src: '/images/tutorials/litvm-diagram.svg',
+        alt: 'LitVM architecture diagram showing validity proof generation',
+        caption: 'LitVM batches transactions, generates a ZK proof, and posts the proof + state diff to Litecoin. Verification is O(1) — independent of transaction count.',
+      },
+      {
+        type: 'text',
+        heading: 'EVM compatibility',
+        body: 'LitVM is EVM-equivalent — Solidity contracts, Hardhat, Foundry, and all standard Ethereum tooling work out of the box. This is a deliberate design choice: the hardest part of building a Layer 2 isn\'t consensus, it\'s getting developers to port their code.\n\nBy speaking EVM natively, LitVM can absorb the existing Ethereum developer ecosystem without requiring any code changes. Your Hardhat config works. Your OpenZeppelin contracts work. Your existing Web3.js or viem frontends work.',
+      },
+      {
+        type: 'step',
+        heading: 'How a transaction flows on LitVM',
+        steps: [
+          {
+            title: 'User sends a transaction',
+            body: 'A user interacts with a dApp — say, swapping tokens on a LitVM DEX. Their transaction goes to a sequencer, which orders it and executes it against the current state.',
+          },
+          {
+            title: 'The sequencer generates a proof',
+            body: 'After batching a set of transactions, the sequencer runs the execution trace through a ZK prover (Groth16) to generate a validity proof. This proof certifies that all state transitions in the batch were computed correctly.',
+          },
+          {
+            title: 'The proof is posted to Litecoin',
+            body: 'The proof (a few hundred bytes) plus a minimal state diff are posted as a single Litecoin transaction. Litecoin validators or full nodes verify the proof without re-running the transactions.',
+          },
+          {
+            title: 'State is finalized',
+            body: 'Once the proof is accepted on Litecoin, the corresponding LitVM state is considered final. There is no challenge period, no fraud window — just cryptographic truth.',
+          },
+        ],
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'tip',
+          text: 'Because LitVM state is secured by cryptographic proofs rather than economic games, it\'s safe to use with much shorter confirmation times than optimistic rollups. Always confirm against your own risk tolerance.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'What you can build on LitVM',
+        body: 'LitVM supports the full EVM instruction set, which means:\n\n• **DeFi protocols** — DEXs, lending markets, yield aggregators\n• **Token standards** — ERC-20, ERC-721 (NFTs), ERC-4626 (vaults)\n• **Cross-chain bridges** — trustless bridges using Litecoin as the settlement layer\n• **Gaming** — on-chain game state, asset ownership\n• **Identity** — ENS-style naming, credential systems\n\nThe gas fees are paid in zkLTC, and because the proof compresses the data published to Litecoin, costs stay low even when the chain is busy.',
+      },
+    ],
+    related: ['setting-up-litvm-wallet', 'understanding-zklktc'],
+  },
+
+  {
+    slug: 'setting-up-litvm-wallet',
+    title: 'Setting up your LitVM wallet in 5 minutes',
+    subtitle: 'MetaMask, Rabby, or any EVM-compatible wallet can connect to LitVM testnet. Here\'s the exact configuration to get it right first time.',
+    badge: 'Setup',
+    badgeColor: '#4ade80',
+    readTime: '5 min read',
+    category: 'Getting Started',
+    heroGradient: 'linear-gradient(135deg, #0d1f1a 0%, #1a3330 50%, #0f2922 100%)',
+    heroAccent: '#4ade80',
+    sections: [
+      {
+        type: 'text',
+        heading: 'What you\'ll need',
+        body: 'Before starting, make sure you have:\n\n• MetaMask (recommended), Rabby, or another EVM-compatible wallet\n• A small amount of LTC in your wallet (for bridging to zkLTC later)\n• Access to the LitVM testnet RPC endpoint\n\nNo custom wallet software is needed. LitVM\'s EVM compatibility means your existing wallet does everything required.',
+      },
+      {
+        type: 'step',
+        heading: 'Adding LitVM testnet to MetaMask',
+        steps: [
+          {
+            title: 'Open wallet settings',
+            body: 'Click the network selector at the top of MetaMask, then click "Add network". Scroll to the bottom and click "Add a network manually".',
+          },
+          {
+            title: 'Enter the LitVM testnet details',
+            body: 'Fill in the fields exactly as shown:\n\n• Network name: LitVM Testnet\n• New RPC URL: https://liteforge.rpc.caldera.xyz/infra-partner-http\n• Chain ID: 4441\n• Currency symbol: zkLTC\n• Block explorer URL: https://liteforge.blockscan.com\n\nThe RPC URL is provided by Caldera as a LitVM infrastructure partner. Using this endpoint gives you faster and more consistent responses than the public RPC.',
+          },
+          {
+            title: 'Click Save',
+            body: 'MetaMask will connect to LitVM testnet. You\'ll see "LitVM Testnet" appear in your network selector. You\'re now connected.',
+          },
+        ],
+      },
+      {
+        type: 'code',
+        lang: 'json',
+        content: `// LitVM Testnet configuration
+{
+  "chainId": "0x1159",          // 4441 in hex
+  "chainName": "LitVM Testnet",
+  "nativeCurrency": {
+    "name": "zkLTC",
+    "symbol": "zkLTC",
+    "decimals": 18
+  },
+  "rpcUrls": ["https://liteforge.rpc.caldera.xyz/infra-partner-http"],
+  "blockExplorerUrls": ["https://liteforge.blockscan.com"]
+}`,
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'warning',
+          text: 'Make sure you\'re on chain ID 4441 when transacting. If MetaMask connects to a different chain with the same Chain ID (extremely unlikely), you could send funds to the wrong place. Always verify the chain ID in network settings.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'Getting testnet zkLTC',
+        body: 'The LitVM testnet faucet distributes free zkLTC for testing. Visit the faucet (link in the Lester Labs nav), connect your wallet, and claim your test tokens. There\'s a per-wallet limit to prevent hoarding, but it\'s sufficient for development and testing.\n\nFor larger testnet amounts needed during active development, contact the LitVM team through their Discord or Telegram channels.',
+      },
+    ],
+    related: ['what-is-litvm', 'understanding-zklktc'],
+  },
+
+  {
+    slug: 'understanding-zklktc',
+    title: 'Understanding zkLTC — the fuel of LitVM',
+    subtitle: 'zkLTC is the native gas token of LitVM. Understanding how it\'s minted, bridged, and why it\'s more efficient than naively wrapping LTC.',
+    badge: 'Tokens',
+    badgeColor: '#fbbf24',
+    readTime: '7 min read',
+    category: 'Getting Started',
+    heroGradient: 'linear-gradient(135deg, #1a1500 0%, #2e2600 50%, #1f1a00 100%)',
+    heroAccent: '#fbbf24',
+    sections: [
+      {
+        type: 'text',
+        heading: 'Why not just use LTC?',
+        body: 'The short answer is efficiency. Litecoin\'s scripting language is limited, and the fee market for LTC transactions is competitive. Every LTC transfer costs real money and takes meaningful block space. Routing all LitVM gas fees through native LTC would mean thousands of LTC-level transactions per day just for gas.\n\nzkLTC solves this by existing as a first-class citizen on LitVM itself — a standard ERC-20 token that happens to represent LTC utility. Fees on LitVM are paid in zkLTC, and the economics are decoupled from LTC base chain congestion.',
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'info',
+          text: 'zkLTC on LitVM testnet is test tokens only and has no monetary value. The bridge to mint real zkLTC on mainnet will go live alongside the mainnet launch.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'The bridge mechanic',
+        body: 'To move value from Litecoin mainnet to LitVM, users send LTC to a bridge contract on the Litecoin chain. The bridge monitors this deposit, validates it through Litecoin\'s proof-of-work, and mints the equivalent zkLTC on LitVM.\n\nThe reverse works the same way: burn zkLTC on LitVM → the bridge releases LTC on mainnet. This is a trustless, non-custodial bridge because:\n\n• The bridge contract on Litecoin is a simple timelocked vault\n• LitVM posts validity proofs to Litecoin that include the canonical state of the bridge\n• If the bridge tries to cheat (release LTC without a valid burn), the validity proof would be invalid',
+      },
+      {
+        type: 'step',
+        heading: 'How to get zkLTC (testnet)',
+        steps: [
+          {
+            title: 'Visit the faucet',
+            body: 'Go to the LitVM faucet page from the navigation. Connect your MetaMask or Rabby wallet.',
+          },
+          {
+            title: 'Switch to LitVM testnet',
+            body: 'If you haven\'t added LitVM testnet yet, the faucet will prompt you to add it automatically. Approve the network addition in your wallet.',
+          },
+          {
+            title: 'Claim your test zkLTC',
+            body: 'Click "Claim" and confirm the transaction in your wallet. You\'ll receive a set amount of test zkLTC instantly. There\'s a cooldown between claims to prevent abuse.',
+          },
+          {
+            title: 'Bridge real LTC for mainnet',
+            body: 'On mainnet, the bridge UI allows you to send LTC from your wallet to the bridge contract. After the proof is validated (typically a few Litecoin blocks), zkLTC appears in your LitVM wallet.',
+          },
+        ],
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'tip',
+          text: 'Gas fees on LitVM are significantly lower than Ethereum L2s because the validity proofs mean Litecoin nodes don\'t need to process every transaction. A typical ERC-20 transfer on LitVM costs fractions of a cent at LTC\'s current price.',
+        },
+      },
+    ],
+    related: ['setting-up-litvm-wallet', 'what-is-litvm'],
+  },
+
+  {
+    slug: 'launchpad-how-it-works',
+    title: 'Launchpad — how to run a permissionless presale',
+    subtitle: 'A complete walkthrough of the Lester Labs Launchpad: configuring caps and timelines, the automatic LP creation mechanic, and how to give your community a fair shot.',
+    badge: 'Launchpad',
+    badgeColor: '#a78bfa',
+    readTime: '8 min read',
+    category: 'dApp Guides',
+    heroGradient: 'linear-gradient(135deg, #1a0f2e 0%, #2a1a4a 50%, #1a0f2e 100%)',
+    heroAccent: '#a78bfa',
+    sections: [
+      {
+        type: 'text',
+        heading: 'What makes the Launchpad different',
+        body: 'Most presale platforms require you to apply, get approved, and pay listing fees to a central team. The Lester Labs Launchpad is fully permissionless: if you have a token and a community, you can launch.\n\nThe ILO (Initial Liquidity Offering) factory deploys a new presale contract for every launch. The contract enforces the rules — caps, timelines, contribution limits — in Solidity, not in a backend server that can be shut down or modified mid-sale.',
+      },
+      {
+        type: 'step',
+        heading: 'Step-by-step: creating a presale',
+        steps: [
+          {
+            title: 'Have a deployed ERC-20 token',
+            body: 'You\'ll need your token\'s contract address ready. Use the Token Factory to deploy one if you don\'t have one yet — it takes under a minute and costs 0.05 zkLTC.',
+          },
+          {
+            title: 'Navigate to the Launchpad',
+            body: 'Go to lester-labs.com/launchpad and click the "Create" tab. Connect your wallet and switch to LitVM network.',
+          },
+          {
+            title: 'Enter your token address',
+            body: 'Paste your token contract address. The UI will fetch the token\'s decimals automatically and display the token name and symbol for confirmation.',
+          },
+          {
+            title: 'Set your caps',
+            body: 'Soft cap: the minimum amount required for the presale to proceed. If this isn\'t reached by the end time, contributors can withdraw. Hard cap: the maximum the presale can raise. Once reached, the sale ends immediately.',
+          },
+          {
+            title: 'Set the price',
+            body: 'Enter the number of tokens a contributor receives per 1 LTC. For example, if you want 1 LTC = 1,000,000 tokens, enter 1000000. The math handles the decimals automatically.',
+          },
+          {
+            title: 'Choose your timeline',
+            body: 'Select start and end dates. The presale goes live at the start time and closes automatically at the end time (or earlier if the hard cap is hit).',
+          },
+          {
+            title: 'Configure LP settings',
+            body: 'Set what percentage of raised LTC goes to the liquidity pool. Higher % = more LP depth = better trading experience. Also set the LP lock duration — how long your LP tokens are locked before you can withdraw.',
+          },
+          {
+            title: 'Deploy and deposit',
+            body: 'Pay the creation fee (shown live from the contract), confirm in your wallet. After deployment, transfer your full token allocation to the presale contract address — the exact amount is shown as "tokens required" in the confirmation screen.',
+          },
+        ],
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'warning',
+          text: 'Do not forget to deposit your tokens to the presale contract. If the presale ends without the tokens deposited, the raise is invalid and contributors can withdraw their LTC. Double-check the contract address matches the one displayed in the confirmation.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'How LP creation works',
+        body: 'When a presale finalizes (either after the end date or when the hard cap is hit), the contract calls the Liquidity Locker factory to create a new LP pair on the DEX and lock the LP tokens. This happens entirely on-chain — no admin key can redirect or unlock the LP early.\n\nThe platform takes a 2% fee on the total raise at finalization. The rest goes directly into the LP pool.',
+      },
+    ],
+    related: ['token-factory-guide', 'liquidity-locker-guide'],
+  },
+
+  {
+    slug: 'token-factory-guide',
+    title: 'Token Factory — launch an ERC-20 in 60 seconds',
+    subtitle: 'How to deploy a fully standard ERC-20 token on LitVM using the Token Factory. No Solidity knowledge required — just a few clicks and you\'re live.',
+    badge: 'Token Factory',
+    badgeColor: '#6366f1',
+    readTime: '4 min read',
+    category: 'dApp Guides',
+    heroGradient: 'linear-gradient(135deg, #0f0c29 0%, #1e1a4a 50%, #0f0c29 100%)',
+    heroAccent: '#6366f1',
+    sections: [
+      {
+        type: 'text',
+        heading: 'Why use the Token Factory?',
+        body: 'You could write your own Solidity ERC-20 contract, audit it, and deploy it manually. Or you could use the Token Factory: a factory contract that deploys a standard OpenZeppelin ERC-20 implementation in a single transaction.\n\nThe contracts are battle-tested OpenZeppelin code — the same library used by most DeFi protocols in production. The factory emits a TokenCreated event so explorers and dashboards can surface your token automatically.',
+      },
+      {
+        type: 'step',
+        heading: 'Deploying your token',
+        steps: [
+          {
+            title: 'Go to Token Factory',
+            body: 'Navigate to lester-labs.com/launch. Connect your wallet and ensure you\'re on LitVM testnet.',
+          },
+          {
+            title: 'Fill in the details',
+            body: 'Token name: e.g. "My Project Token"\nToken symbol: e.g. "MPT" (max 8 characters)\nInitial supply: total number of tokens to mint at deployment\nDecimals: 18 (the standard — only change if you have a specific reason)',
+          },
+          {
+            title: 'Choose options',
+            body: 'Mintable: allow the deployer to create more tokens after deployment (recommended for most projects)\nBurnable: allow any holder to burn their own tokens (useful for deflationary mechanics)',
+          },
+          {
+            title: 'Confirm and deploy',
+            body: 'Review the fee (0.05 zkLTC) and click Deploy. Sign the transaction in your wallet. Your token contract is deployed instantly — the contract address appears in the confirmation and is automatically indexed.',
+          },
+        ],
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'tip',
+          text: 'Once deployed, your token is permanent on LitVM. Make sure you\'ve verified the contract address is correct before sharing it. You can always find it again by searching your wallet address on the block explorer.',
+        },
+      },
+    ],
+    related: ['launchpad-how-it-works', 'liquidity-locker-guide'],
+  },
+
+  {
+    slug: 'liquidity-locker-guide',
+    title: 'Liquidity Locker — protecting your LP tokens',
+    subtitle: 'How LP token locking works, why it matters for credibility, and how to lock your liquidity so your community knows you can\'t rug the pool.',
+    badge: 'Locker',
+    badgeColor: '#f59e0b',
+    readTime: '5 min read',
+    category: 'dApp Guides',
+    heroGradient: 'linear-gradient(135deg, #1a1200 0%, #2e2000 50%, #1a1200 100%)',
+    heroAccent: '#f59e0b',
+    sections: [
+      {
+        type: 'text',
+        heading: 'What is an LP token lock and why does it matter?',
+        body: 'When you create a liquidity pool on a DEX, you receive LP tokens representing your share of the pool. These tokens are usually transferable — which means you can withdraw your liquidity at any time, even if it devastates the token\'s price.\n\nA liquidity lock renders those LP tokens non-transferable until the unlock date. The contract enforces this at the protocol level — no admin key can override it. Investors and communities can verify the lock on-chain before participating in a presale or token sale.',
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'info',
+          text: 'Not all locks are equal. A timelock that can be emergency-withdrawn by an admin is not a true lock. The Lester Labs Liquidity Locker is immutable after deployment — once locked, the LP cannot be moved until the timestamp is reached.',
+        },
+      },
+      {
+        type: 'step',
+        heading: 'Locking your LP tokens',
+        steps: [
+          {
+            title: 'Go to Liquidity Locker',
+            body: 'Navigate to lester-labs.com/locker. Connect your wallet holding the LP tokens you want to lock.',
+          },
+          {
+            title: 'Select the LP token',
+            body: 'The UI shows all LP tokens held by your connected wallet. Select the one you want to lock.',
+          },
+          {
+            title: 'Set the unlock date',
+            body: 'Choose when the LP becomes transferable. Common choices: 6 months, 1 year, or 2 years. The further in the future, the more credibility it signals to your community.',
+          },
+          {
+            title: 'Lock and verify',
+            body: 'Confirm the transaction. Once confirmed, the lock is permanent and immutably recorded on LitVM. Share the lock proof URL with your community.',
+          },
+        ],
+      },
+    ],
+    related: ['launchpad-how-it-works', 'token-factory-guide'],
+  },
+
+  {
+    slug: 'the-ledger-guide',
+    title: 'The Ledger — posting messages on-chain forever',
+    subtitle: 'How The Ledger works, why calldata is a legitimate storage layer, and how to post your first permanent message to the LitVM blockchain.',
+    badge: 'The Ledger',
+    badgeColor: '#22d3ee',
+    readTime: '5 min read',
+    category: 'dApp Guides',
+    heroGradient: 'linear-gradient(135deg, #001a1a 0%, #003333 50%, #001a1a 100%)',
+    heroAccent: '#22d3ee',
+    sections: [
+      {
+        type: 'text',
+        heading: 'Storing data in transaction calldata',
+        body: 'Every Ethereum Virtual Machine transaction includes a data field called "calldata." This is where function arguments, ABI-encoded parameters, and arbitrary bytes live. It\'s recorded permanently in the chain history — every full node, every archive node, every RPC provider stores it.\n\nThe Ledger puts human-readable UTF-8 text directly in this calldata field. When you call post("GM"), the bytes [0x47, 0x4d] are embedded in the transaction input data, which is permanently etched into the blockchain. There\'s no server, no database, no admin — just a contract that reads your calldata and emits an event.',
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'warning',
+          text: 'Messages are immutable and permanent once confirmed. There is no edit, no delete, no "undo." The on-chain record cannot be altered by anyone — including the Lester Labs team.',
+        },
+      },
+      {
+        type: 'step',
+        heading: 'Posting your first message',
+        steps: [
+          {
+            title: 'Go to The Ledger',
+            body: 'Navigate to lester-labs.com/ledger. Connect your wallet. No token purchase needed — you pay in native zkLTC.',
+          },
+          {
+            title: 'Write your message',
+            body: 'Type up to 1,024 characters. The character counter shows how much space you have. Messages can be plain text, unicode characters, or emojis.',
+          },
+          {
+            title: 'Post and confirm',
+            body: 'Click "Post to Ledger." The fee is shown before you confirm (0.01 LTC). Once the transaction confirms, your message is permanently stored on LitVM.',
+          },
+          {
+            title: 'Share your proof',
+            body: 'Click the transaction hash in the confirmation to view your message on the block explorer. Share the link as proof of your message and timestamp.',
+          },
+        ],
+      },
+      {
+        type: 'text',
+        heading: 'Reading The Ledger without a wallet',
+        body: 'You don\'t need to connect a wallet to read The Ledger. Just visit lester-labs.com/ledger — the feed loads publicly via LitVM RPC. Every message shows the wallet that posted it, the block number, and a link to the raw transaction.\n\nThis is what makes it genuinely different from a database-backed social layer: the data is available to anyone, forever, without relying on lester-labs.com being online.',
+      },
+    ],
+    related: ['what-is-litvm'],
+  },
+]
+
+export function getArticle(slug: string): TutorialArticle | undefined {
+  return TUTORIALS.find(a => a.slug === slug)
+}
+
+export function getRelatedArticles(slugs: string[]): TutorialArticle[] {
+  return slugs.map(s => TUTORIALS.find(a => a.slug === s)).filter(Boolean) as TutorialArticle[]
+}
