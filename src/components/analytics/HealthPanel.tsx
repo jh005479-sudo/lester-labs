@@ -63,12 +63,21 @@ export function HealthPanel() {
         // Only fetch blocks newer than what we have cached
         const fetchStart = latestCached >= 0 ? Math.max(latestCached + 1, latest - 100) : Math.max(0, latest - 100)
 
+        // Build all batch ranges, then fetch them all in parallel
+        const batchRanges: [number, number][] = []
         for (let i = fetchStart; i <= latest; i += 20) {
-          const batch = await Promise.all(
-            Array.from({ length: Math.min(20, latest - i + 1) }, (_, j) => i + j)
-              .filter(n => n >= 0)
-              .map(n => getBlockByNumber(n, false))
+          batchRanges.push([i, Math.min(i + 19, latest)])
+        }
+        const allBatches = await Promise.all(
+          batchRanges.map(([start, end]) =>
+            Promise.all(
+              Array.from({ length: end - start + 1 }, (_, j) => start + j)
+                .filter(n => n >= 0)
+                .map(n => getBlockByNumber(n, false))
+            )
           )
+        )
+        for (const batch of allBatches) {
           for (const b of batch) {
             if (!b) continue
             blocks.push({
