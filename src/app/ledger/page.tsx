@@ -114,7 +114,6 @@ export default function LedgerPage() {
             <div className="space-y-6">
               <LedgerStats
                 messageCount={totalMessages}
-                minFee={liveFee}
                 userPostCount={userPostCount}
               />
 

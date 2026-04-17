@@ -5,7 +5,14 @@ import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { ExternalLink, Loader2, PenLine, Wallet } from 'lucide-react'
 import { toHex, type Hex } from 'viem'
-import { LEDGER_ABI, LEDGER_DEFAULT_FEE, LEDGER_EXPLORER_BASE_URL, LEDGER_MAX_MESSAGE_BYTES, formatLedgerFee } from '@/lib/contracts/ledger'
+import {
+  LEDGER_ABI,
+  LEDGER_DEFAULT_FEE,
+  LEDGER_EXPLORER_BASE_URL,
+  LEDGER_MAX_MESSAGE_BYTES,
+  LEDGER_POST_GAS_LIMIT,
+  formatLedgerFee,
+} from '@/lib/contracts/ledger'
 
 interface MessageComposerProps {
   address: `0x${string}`
@@ -21,6 +28,10 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     if (error.message.includes('User rejected')) {
       return 'Transaction was rejected in your wallet.'
+    }
+
+    if (error.message.includes('Transfer failed')) {
+      return 'Posting is temporarily unavailable because the ledger treasury destination is rejecting payouts.'
     }
 
     return error.message
@@ -95,6 +106,7 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
         abi: LEDGER_ABI,
         functionName: 'post',
         args: [toHex(textEncoder.encode(draft))],
+        gas: LEDGER_POST_GAS_LIMIT,
         value: feeToPay,
       })
 

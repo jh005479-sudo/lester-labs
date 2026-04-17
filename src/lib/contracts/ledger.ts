@@ -11,6 +11,7 @@ export const LEDGER_POLL_INTERVAL_MS = 30_000
 export const LEDGER_RECONNECT_DELAY_MS = 5_000
 export const LEDGER_HISTORY_BLOCK_WINDOW = 20_000
 export const LEDGER_DEFAULT_FEE = 10_000_000_000_000_000n
+export const LEDGER_POST_GAS_LIMIT = 150_000n
 export const LEDGER_MESSAGE_POSTED_SIGNATURE = 'MessagePosted(address,uint256,uint256,bytes)'
 export const LEDGER_MESSAGE_POSTED_TOPIC = keccak256(stringToHex(LEDGER_MESSAGE_POSTED_SIGNATURE))
 export const LEDGER_EXPLORER_BASE_URL = litvm.blockExplorers.default.url
@@ -44,10 +45,6 @@ export type LedgerMessage = {
 
 export function formatLedgerFee(fee?: bigint | null): string {
   return formatEther(fee ?? LEDGER_DEFAULT_FEE)
-}
-
-export function estimateLedgerTreasuryTotal(messageCount: bigint, fee?: bigint | null): bigint {
-  return ((fee ?? LEDGER_DEFAULT_FEE) * messageCount) / 2n
 }
 
 export function padAddressTopic(address: Address): Hex {
