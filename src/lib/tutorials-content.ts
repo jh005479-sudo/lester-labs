@@ -57,7 +57,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Validity proofs — trustless compression',
-        body: 'A validity proof is a cryptographic certificate produced by a prover (the sequencer) that proves every state transition on LitVM was computed correctly. Unlike fraud proofs (Optimism/Avalanche), validity proofs make invalid states mathematically impossible — not just economically disincentivised.\n\nThe proof is tiny: a few hundred bytes. Anyone can verify it against the Litecoin root, without re-executing all the transactions. This means:\n\n• Litecoin nodes don\'t need to process every LitVM transaction\n• Security inherits directly from Litecoin — no separate validator set\n• Finality is as fast as the next Litecoin block',
+        body: 'A validity proof is a cryptographic certificate produced by a prover (the sequencer) that proves every state transition on LitVM was computed correctly. Unlike fraud proofs (Optimism/Avalanche), validity proofs make invalid states mathematically impossible — not just economically disincentivised.\n\nThe proof is tiny: a few hundred bytes. Anyone can verify it against the Litecoin root, without re-executing all the transactions. This means:\n\n• Litecoin nodes don’t need to process every LitVM transaction\n• Security inherits directly from Litecoin — no separate validator set\n• Finality is as fast as the next Litecoin block',
       },
       {
         type: 'image',
@@ -68,7 +68,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'EVM compatibility',
-        body: 'LitVM is EVM-equivalent — Solidity contracts, Hardhat, Foundry, and all standard Ethereum tooling work out of the box. This is a deliberate design choice: the hardest part of building a Layer 2 isn\'t consensus, it\'s getting developers to port their code.\n\nBy speaking EVM natively, LitVM can absorb the existing Ethereum developer ecosystem without requiring any code changes. Your Hardhat config works. Your OpenZeppelin contracts work. Your existing Web3.js or viem frontends work.',
+        body: 'LitVM is EVM-equivalent — Solidity contracts, Hardhat, Foundry, and all standard Ethereum tooling work out of the box. This is a deliberate design choice: the hardest part of building a Layer 2 isn’t consensus, it’s getting developers to port their code.\n\nBy speaking EVM natively, LitVM can absorb the existing Ethereum developer ecosystem without requiring any code changes. Your Hardhat config works. Your OpenZeppelin contracts work. Your existing Web3.js or viem frontends work.',
       },
       {
         type: 'step',
@@ -96,7 +96,7 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'tip',
-          text: 'Because LitVM state is secured by cryptographic proofs rather than economic games, it\'s safe to use with much shorter confirmation times than optimistic rollups. Always confirm against your own risk tolerance.',
+          text: 'Because LitVM state is secured by cryptographic proofs rather than economic games, it’s safe to use with much shorter confirmation times than optimistic rollups. Always confirm against your own risk tolerance.',
         },
       },
       {
@@ -111,7 +111,7 @@ export const TUTORIALS: TutorialArticle[] = [
   {
     slug: 'setting-up-litvm-wallet',
     title: 'Setting up your LitVM wallet in 5 minutes',
-    subtitle: 'MetaMask, Rabby, or any EVM-compatible wallet can connect to LitVM testnet. Here\'s the exact configuration to get it right first time.',
+    subtitle: 'MetaMask, Rabby, or any EVM-compatible wallet can connect to LitVM testnet. Here’s the exact configuration to get it right first time.',
     badge: 'Setup',
     badgeColor: '#4ade80',
     readTime: '5 min read',
@@ -121,8 +121,8 @@ export const TUTORIALS: TutorialArticle[] = [
     sections: [
       {
         type: 'text',
-        heading: 'What you\'ll need',
-        body: 'Before starting, make sure you have:\n\n• MetaMask (recommended), Rabby, or another EVM-compatible wallet\n• A small amount of LTC in your wallet (for bridging to zkLTC later)\n• Access to the LitVM testnet RPC endpoint\n\nNo custom wallet software is needed. LitVM\'s EVM compatibility means your existing wallet does everything required.',
+        heading: 'What you’ll need',
+        body: 'Before starting, make sure you have:\n\n• MetaMask (recommended), Rabby, or another EVM-compatible wallet\n• A small amount of LTC in your wallet (for bridging to zkLTC later)\n• Access to the LitVM testnet RPC endpoint\n\nNo custom wallet software is needed. LitVM’s EVM compatibility means your existing wallet does everything required.',
       },
       {
         type: 'step',
@@ -138,7 +138,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Click Save',
-            body: 'MetaMask will connect to LitVM testnet. You\'ll see "LitVM Testnet" appear in your network selector. You\'re now connected.',
+            body: 'MetaMask will connect to LitVM testnet. You’ll see "LitVM Testnet" appear in your network selector. You’re now connected.',
           },
         ],
       },
@@ -162,13 +162,13 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'warning',
-          text: 'Make sure you\'re on chain ID 4441 when transacting. If MetaMask connects to a different chain with the same Chain ID (extremely unlikely), you could send funds to the wrong place. Always verify the chain ID in network settings.',
+          text: 'Make sure you’re on chain ID 4441 when transacting. If MetaMask connects to a different chain with the same Chain ID (extremely unlikely), you could send funds to the wrong place. Always verify the chain ID in network settings.',
         },
       },
       {
         type: 'text',
         heading: 'Getting testnet zkLTC',
-        body: 'The LitVM testnet faucet distributes free zkLTC for testing. Visit the faucet (link in the Lester Labs nav), connect your wallet, and claim your test tokens. There\'s a per-wallet limit to prevent hoarding, but it\'s sufficient for development and testing.\n\nFor larger testnet amounts needed during active development, contact the LitVM team through their Discord or Telegram channels.',
+        body: 'The LitVM testnet faucet distributes free zkLTC for testing. Visit the faucet (link in the Lester Labs nav), connect your wallet, and claim your test tokens. There’s a per-wallet limit to prevent hoarding, but it’s sufficient for development and testing.\n\nFor larger testnet amounts needed during active development, contact the LitVM team through their Discord or Telegram channels.',
       },
     ],
     related: ['what-is-litvm', 'understanding-zklktc'],
@@ -177,7 +177,7 @@ export const TUTORIALS: TutorialArticle[] = [
   {
     slug: 'understanding-zklktc',
     title: 'Understanding zkLTC — the fuel of LitVM',
-    subtitle: 'zkLTC is the native gas token of LitVM. Understanding how it\'s minted, bridged, and why it\'s more efficient than naively wrapping LTC.',
+    subtitle: 'zkLTC is the native gas token of LitVM. Understanding how it’s minted, bridged, and why it’s more efficient than naively wrapping LTC.',
     badge: 'Tokens',
     badgeColor: '#fbbf24',
     readTime: '7 min read',
@@ -188,7 +188,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Why not just use LTC?',
-        body: 'The short answer is efficiency. Litecoin\'s scripting language is limited, and the fee market for LTC transactions is competitive. Every LTC transfer costs real money and takes meaningful block space. Routing all LitVM gas fees through native LTC would mean thousands of LTC-level transactions per day just for gas.\n\nzkLTC solves this by existing as a first-class citizen on LitVM itself — a standard ERC-20 token that happens to represent LTC utility. Fees on LitVM are paid in zkLTC, and the economics are decoupled from LTC base chain congestion.',
+        body: 'The short answer is efficiency. Litecoin’s scripting language is limited, and the fee market for LTC transactions is competitive. Every LTC transfer costs real money and takes meaningful block space. Routing all LitVM gas fees through native LTC would mean thousands of LTC-level transactions per day just for gas.\n\nzkLTC solves this by existing as a first-class citizen on LitVM itself — a standard ERC-20 token that happens to represent LTC utility. Fees on LitVM are paid in zkLTC, and the economics are decoupled from LTC base chain congestion.',
       },
       {
         type: 'callout',
@@ -200,7 +200,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'The bridge mechanic',
-        body: 'To move value from Litecoin mainnet to LitVM, users send LTC to a bridge contract on the Litecoin chain. The bridge monitors this deposit, validates it through Litecoin\'s proof-of-work, and mints the equivalent zkLTC on LitVM.\n\nThe reverse works the same way: burn zkLTC on LitVM → the bridge releases LTC on mainnet. This is a trustless, non-custodial bridge because:\n\n• The bridge contract on Litecoin is a simple timelocked vault\n• LitVM posts validity proofs to Litecoin that include the canonical state of the bridge\n• If the bridge tries to cheat (release LTC without a valid burn), the validity proof would be invalid',
+        body: 'To move value from Litecoin mainnet to LitVM, users send LTC to a bridge contract on the Litecoin chain. The bridge monitors this deposit, validates it through Litecoin’s proof-of-work, and mints the equivalent zkLTC on LitVM.\n\nThe reverse works the same way: burn zkLTC on LitVM → the bridge releases LTC on mainnet. This is a trustless, non-custodial bridge because:\n\n• The bridge contract on Litecoin is a simple timelocked vault\n• LitVM posts validity proofs to Litecoin that include the canonical state of the bridge\n• If the bridge tries to cheat (release LTC without a valid burn), the validity proof would be invalid',
       },
       {
         type: 'step',
@@ -212,11 +212,11 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Switch to LitVM testnet',
-            body: 'If you haven\'t added LitVM testnet yet, the faucet will prompt you to add it automatically. Approve the network addition in your wallet.',
+            body: 'If you haven’t added LitVM testnet yet, the faucet will prompt you to add it automatically. Approve the network addition in your wallet.',
           },
           {
             title: 'Claim your test zkLTC',
-            body: 'Click "Claim" and confirm the transaction in your wallet. You\'ll receive a set amount of test zkLTC instantly. There\'s a cooldown between claims to prevent abuse.',
+            body: 'Click "Claim" and confirm the transaction in your wallet. You’ll receive a set amount of test zkLTC instantly. There’s a cooldown between claims to prevent abuse.',
           },
           {
             title: 'Bridge real LTC for mainnet',
@@ -228,7 +228,7 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'tip',
-          text: 'Gas fees on LitVM are significantly lower than Ethereum L2s because the validity proofs mean Litecoin nodes don\'t need to process every transaction. A typical ERC-20 transfer on LitVM costs fractions of a cent at LTC\'s current price.',
+          text: 'Gas fees on LitVM are significantly lower than Ethereum L2s because the validity proofs mean Litecoin nodes don’t need to process every transaction. A typical ERC-20 transfer on LitVM costs fractions of a cent at LTC’s current price.',
         },
       },
     ],
@@ -257,7 +257,7 @@ export const TUTORIALS: TutorialArticle[] = [
         steps: [
           {
             title: 'Have a deployed ERC-20 token',
-            body: 'You\'ll need your token\'s contract address ready. Use the Token Factory to deploy one if you don\'t have one yet — it takes under a minute and costs 0.05 zkLTC.',
+            body: 'You’ll need your token’s contract address ready. Use the Token Factory to deploy one if you don’t have one yet — it takes under a minute and costs 0.05 zkLTC.',
           },
           {
             title: 'Navigate to the Launchpad',
@@ -265,11 +265,11 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Enter your token address',
-            body: 'Paste your token contract address. The UI will fetch the token\'s decimals automatically and display the token name and symbol for confirmation.',
+            body: 'Paste your token contract address. The UI will fetch the token’s decimals automatically and display the token name and symbol for confirmation.',
           },
           {
             title: 'Set your caps',
-            body: 'Soft cap: the minimum amount required for the presale to proceed. If this isn\'t reached by the end time, contributors can withdraw. Hard cap: the maximum the presale can raise. Once reached, the sale ends immediately.',
+            body: 'Soft cap: the minimum amount required for the presale to proceed. If this isn’t reached by the end time, contributors can withdraw. Hard cap: the maximum the presale can raise. Once reached, the sale ends immediately.',
           },
           {
             title: 'Set the price',
@@ -308,7 +308,7 @@ export const TUTORIALS: TutorialArticle[] = [
   {
     slug: 'token-factory-guide',
     title: 'Token Factory — launch an ERC-20 in 60 seconds',
-    subtitle: 'How to deploy a fully standard ERC-20 token on LitVM using the Token Factory. No Solidity knowledge required — just a few clicks and you\'re live.',
+    subtitle: 'How to deploy a fully standard ERC-20 token on LitVM using the Token Factory. No Solidity knowledge required — just a few clicks and you’re live.',
     badge: 'Token Factory',
     badgeColor: '#6366f1',
     readTime: '4 min read',
@@ -327,7 +327,7 @@ export const TUTORIALS: TutorialArticle[] = [
         steps: [
           {
             title: 'Go to Token Factory',
-            body: 'Navigate to lester-labs.com/launch. Connect your wallet and ensure you\'re on LitVM testnet.',
+            body: 'Navigate to lester-labs.com/launch. Connect your wallet and ensure you’re on LitVM testnet.',
           },
           {
             title: 'Fill in the details',
@@ -347,7 +347,7 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'tip',
-          text: 'Once deployed, your token is permanent on LitVM. Make sure you\'ve verified the contract address is correct before sharing it. You can always find it again by searching your wallet address on the block explorer.',
+          text: 'Once deployed, your token is permanent on LitVM. Make sure you’ve verified the contract address is correct before sharing it. You can always find it again by searching your wallet address on the block explorer.',
         },
       },
     ],
@@ -357,7 +357,7 @@ export const TUTORIALS: TutorialArticle[] = [
   {
     slug: 'liquidity-locker-guide',
     title: 'Liquidity Locker — protecting your LP tokens',
-    subtitle: 'How LP token locking works, why it matters for credibility, and how to lock your liquidity so your community knows you can\'t rug the pool.',
+    subtitle: 'How LP token locking works, why it matters for credibility, and how to lock your liquidity so your community knows you can’t rug the pool.',
     badge: 'Locker',
     badgeColor: '#f59e0b',
     readTime: '5 min read',
@@ -368,7 +368,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'What is an LP token lock and why does it matter?',
-        body: 'When you create a liquidity pool on a DEX, you receive LP tokens representing your share of the pool. These tokens are usually transferable — which means you can withdraw your liquidity at any time, even if it devastates the token\'s price.\n\nA liquidity lock renders those LP tokens non-transferable until the unlock date. The contract enforces this at the protocol level — no admin key can override it. Investors and communities can verify the lock on-chain before participating in a presale or token sale.',
+        body: 'When you create a liquidity pool on a DEX, you receive LP tokens representing your share of the pool. These tokens are usually transferable — which means you can withdraw your liquidity at any time, even if it devastates the token’s price.\n\nA liquidity lock renders those LP tokens non-transferable until the unlock date. The contract enforces this at the protocol level — no admin key can override it. Investors and communities can verify the lock on-chain before participating in a presale or token sale.',
       },
       {
         type: 'callout',
@@ -417,7 +417,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Storing data in transaction calldata',
-        body: 'Every Ethereum Virtual Machine transaction includes a data field called "calldata." This is where function arguments, ABI-encoded parameters, and arbitrary bytes live. It\'s recorded permanently in the chain history — every full node, every archive node, every RPC provider stores it.\n\nThe Ledger puts human-readable UTF-8 text directly in this calldata field. When you call post("GM"), the bytes [0x47, 0x4d] are embedded in the transaction input data, which is permanently etched into the blockchain. There\'s no server, no database, no admin — just a contract that reads your calldata and emits an event.',
+        body: 'Every Ethereum Virtual Machine transaction includes a data field called "calldata." This is where function arguments, ABI-encoded parameters, and arbitrary bytes live. It’s recorded permanently in the chain history — every full node, every archive node, every RPC provider stores it.\n\nThe Ledger puts human-readable UTF-8 text directly in this calldata field. When you call post("GM"), the bytes [0x47, 0x4d] are embedded in the transaction input data, which is permanently etched into the blockchain. There’s no server, no database, no admin — just a contract that reads your calldata and emits an event.',
       },
       {
         type: 'callout',
@@ -451,10 +451,149 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Reading The Ledger without a wallet',
-        body: 'You don\'t need to connect a wallet to read The Ledger. Just visit lester-labs.com/ledger — the feed loads publicly via LitVM RPC. Every message shows the wallet that posted it, the block number, and a link to the raw transaction.\n\nThis is what makes it genuinely different from a database-backed social layer: the data is available to anyone, forever, without relying on lester-labs.com being online.',
+        body: 'You don’t need to connect a wallet to read The Ledger. Just visit lester-labs.com/ledger — the feed loads publicly via LitVM RPC. Every message shows the wallet that posted it, the block number, and a link to the raw transaction.\n\nThis is what makes it genuinely different from a database-backed social layer: the data is available to anyone, forever, without relying on lester-labs.com being online.',
       },
     ],
     related: ['what-is-litvm'],
+  },
+
+  {
+    slug: 'airdrop-tool-guide',
+    title: 'Airdrop Tool — distribute tokens to thousands of wallets',
+    subtitle: 'How to use the batch airdrop tool to send tokens to thousands of recipients in a single transaction with CSV upload, snapshot support, and on-chain proof.',
+    badge: 'Airdrop',
+    badgeColor: '#f97316',
+    readTime: '6 min read',
+    category: 'dApp Guides',
+    heroGradient: 'linear-gradient(135deg, #1a0f00 0%, #2e1a00 50%, #1a0f00 100%)',
+    heroAccent: '#f97316',
+    sections: [
+      {
+        type: 'text',
+        heading: 'Why batch airdrops matter',
+        body: 'Airdrops are one of the most effective token distribution mechanisms in crypto. They reward early users, bootstrap liquidity, and drive network effects. But doing them manually — copying addresses, sending one transaction at a time — does not scale.\n\nThe Lester Labs Airdrop Tool lets you upload a CSV of recipient addresses and amounts, review everything before signing, and send to thousands of wallets in a single transaction. The contract handles the math and distribution atomically — if any transfer fails, the whole batch reverts.',
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'info',
+          text: 'The Airdrop Tool on LitVM testnet uses test tokens only. No real value is transferred. The flow is identical to mainnet — the only difference is the token you are distributing.',
+        },
+      },
+      {
+        type: 'step',
+        heading: 'Running your first airdrop',
+        steps: [
+          {
+            title: 'Navigate to the Airdrop Tool',
+            body: 'Go to lester-labs.com/airdrop. Connect your wallet and switch to LitVM network. Make sure you hold the tokens you want to distribute in your connected wallet.',
+          },
+          {
+            title: 'Prepare your recipient list',
+            body: 'Create a CSV file with two columns: recipient address and amount.\n\naddress,amount\n0x1234...abcd,1000\n0x5678...wxyz,2500\n\nMake sure addresses are valid Ethereum-format (42 characters starting with 0x) and amounts are in the smallest unit of your token.',
+          },
+          {
+            title: 'Upload your CSV',
+            body: 'Click Upload CSV and select your file. The tool parses it and shows a preview table: address, amount, and a validation status for each row. Invalid addresses are flagged in red — fix these before proceeding.',
+          },
+          {
+            title: 'Review the distribution summary',
+            body: 'The tool shows the total token amount you will be sending, the number of unique recipients, and an estimated gas cost. Review carefully — airdrops are irreversible once the transaction confirms.',
+          },
+          {
+            title: 'Set your parameters',
+            body: 'Choose between merkle root mode (for larger distributions where you want to save gas) or direct transfer mode (simpler, recommended for under 500 recipients). Set an optional start time if you want to schedule the airdrop.',
+          },
+          {
+            title: 'Sign and broadcast',
+            body: 'Click Distribute and confirm the transaction in your wallet. Once confirmed, tokens appear in each recipient wallet almost instantly. Share the transaction hash as proof of distribution.',
+          },
+        ],
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'tip',
+          text: 'For large airdrops (1000+ recipients), use merkle root mode. It posts one proof to the chain instead of thousands of individual transfers — saving significant gas. Recipients claim their tokens themselves, so there is no gas cost to you for the distribution itself.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'Verifying the airdrop on-chain',
+        body: 'After the transaction confirms, verify the distribution by searching your address on the LitVM block explorer. The Airdrop contract emits a Transfer event for each successful distribution, making it easy to audit exactly who received what.\n\nFor merkle root mode, the contract stores the merkle root on-chain. Share the merkle proof data with recipients so they can independently verify their inclusion in the tree.',
+      },
+    ],
+    related: ['token-factory-guide', 'token-vesting-guide'],
+  },
+
+  {
+    slug: 'token-vesting-guide',
+    title: 'Token Vesting — schedule releases for teams and investors',
+    subtitle: 'How vesting schedules protect your token economy, how the Lester Labs Vesting Factory works, and how to set up cliff and linear release for any wallet.',
+    badge: 'Vesting',
+    badgeColor: '#06b6d4',
+    readTime: '7 min read',
+    category: 'dApp Guides',
+    heroGradient: 'linear-gradient(135deg, #001a1e 0%, #002a33 50%, #001a1e 100%)',
+    heroAccent: '#06b6d4',
+    sections: [
+      {
+        type: 'text',
+        heading: 'Why vesting matters for token economies',
+        body: 'The biggest risk in any token launch is the VC dump. If your team or investors receive their entire token allocation at launch, there is immediate sell pressure from everyone who wants to realise their gains. This collapses the price and destroys confidence.\n\nVesting solves this by locking tokens and releasing them on a schedule. Team tokens vest linearly over 12 months. Investor tokens might have a 6-month cliff then linear release. This aligns incentives: the team and investors only profit if the token price stays up, which means they are working to build genuine value.',
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'warning',
+          text: 'Once a vesting schedule is created on-chain, it cannot be modified or cancelled. This is by design — the immutability is what makes vesting credible to investors. Choose your schedules carefully before deploying.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'Key vesting concepts',
+        body: 'Before setting up vesting, understand the two parameters that matter most:\n\nCliff: A period at the start where no tokens are released. If you set a 6-month cliff, beneficiaries receive nothing for the first 6 months, then all cliff tokens vest at once.\n\nLinear release: Tokens unlock continuously after the cliff. 12-month linear means 1/365th of the vested amount unlocks every day after the cliff ends.',
+      },
+      {
+        type: 'step',
+        heading: 'Setting up a vesting schedule',
+        steps: [
+          {
+            title: 'Go to the Vesting Factory',
+            body: 'Navigate to lester-labs.com/vesting. Connect your wallet and ensure you hold the token you want to use for vesting.',
+          },
+          {
+            title: 'Enter the beneficiary address',
+            body: 'Paste the wallet address that will receive the vested tokens. This cannot be changed after deployment — make sure the address is correct. Consider a multisig for team vesting to require multiple signatures for any changes.',
+          },
+          {
+            title: 'Set the total allocation',
+            body: 'Enter the total number of tokens to be allocated to this beneficiary. This is the full amount that will eventually vest — not the amount vesting per month.',
+          },
+          {
+            title: 'Configure the schedule',
+            body: 'Set the start date, cliff duration (0 for immediate release, or 3/6/12 months), and total vesting duration.\n\nCommon configurations:\nTeam: 12-month cliff, 24-month linear total\nAdvisors: 6-month cliff, 12-month linear\nPrivate investors: 0 cliff, 12-month linear',
+          },
+          {
+            title: 'Deploy and deposit',
+            body: 'Review the schedule summary and pay the deployment fee. After deployment, transfer the total vested allocation to the newly created vesting contract address. The contract holds the tokens and releases them automatically according to the schedule.',
+          },
+        ],
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'tip',
+          text: 'Use the same vesting schedule across all team members. This signals fairness to your community and prevents accusations of stealth allocations to favourite investors.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'How beneficiaries claim vested tokens',
+        body: 'Beneficiaries visit the Vesting Factory page, connect their wallet, and the UI shows their vesting schedule: total allocated, amount vested so far, amount claimed, and amount remaining. They click Claim and any vested-but-unclaimed tokens are transferred to their wallet instantly.\n\nNo admin can revoke or redirect tokens once the schedule is set. The contract is the authority.',
+      },
+    ],
+    related: ['token-factory-guide', 'launchpad-how-it-works'],
   },
 ]
 
@@ -463,5 +602,6 @@ export function getArticle(slug: string): TutorialArticle | undefined {
 }
 
 export function getRelatedArticles(slugs: string[]): TutorialArticle[] {
-  return slugs.map(s => TUTORIALS.find(a => a.slug === s)).filter(Boolean) as TutorialArticle[]
+  return slugs.map(getArticle).filter((a): a is TutorialArticle => a !== undefined)
 }
+
