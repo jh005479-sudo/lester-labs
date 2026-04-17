@@ -1019,9 +1019,19 @@ export default function LaunchpadPage() {
                   gap: '20px',
                 }}
               >
-                {liveAddresses.map((addr) => (
-                  <LiveILOCard key={addr} address={addr} data={iloMap.get(addr)!} meta={tokenMetaMap.get(addr.toLowerCase())} imageUrl={tokenImageUrls.get(addr.toLowerCase()) ?? null} />
-                ))}
+                {liveAddresses.map((addr) => {
+                  const iloData = iloMap.get(addr)
+                  if (!iloData || !iloData.token) return null
+                  return (
+                    <LiveILOCard
+                      key={addr}
+                      address={addr}
+                      data={iloData}
+                      meta={tokenMetaMap.get(iloData.token.toLowerCase())}
+                      imageUrl={tokenImageUrls.get(iloData.token.toLowerCase()) ?? null}
+                    />
+                  )
+                })}
               </div>
             )}
           </div>
