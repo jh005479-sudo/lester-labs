@@ -81,6 +81,7 @@ const erc20MetaCache = new Map<string, { name: string; symbol: string; decimals:
 let tokenCache: TokenInfo[] = []
 let lastScanBlock = 0
 let cachePopulated = false
+let scanLock = false  // Prevents concurrent cold scans (e.g., TrendingPanel + TokenTracker racing)
 
 // Block timestamp cache — reused across tokens
 const blockTsCache = new Map<number, number>()
@@ -160,15 +161,18 @@ async function getLogsPaginated(
   address: `0x${string}` | undefined,
   event: typeof TRANSFER_EVENT,
   fromBlock: number,
-  toBlock: number,
+  toBlock: number | "latest",
   args?: { from?: string },
 ): Promise<any[]> {
-  const BLOCKS_PER_BATCH = 3000   // ~50min of blocks per call — safe for Caldera
+  const BLOCKS_PER_BATCH = 3000
   const allLogs: any[] = []
+
+  // Resolve "latest" once — avoids calling getBlockNumber in every batch
+  const latestBlock = toBlock === "latest" ? Number(await client.getBlockNumber()) : toBlock
   let cursor = fromBlock
 
-  while (cursor <= toBlock) {
-    const batchEnd = Math.min(cursor + BLOCKS_PER_BATCH - 1, toBlock)
+  while (cursor <= latestBlock) {
+    const batchEnd = Math.min(cursor + BLOCKS_PER_BATCH - 1, latestBlock)
     try {
       const logs = await client.getLogs({
         address,
@@ -179,7 +183,6 @@ async function getLogsPaginated(
       }) as any[]
       allLogs.push(...logs)
     } catch (err) {
-      // Log and continue — partial data is better than total failure
       console.warn(`[token-indexer] getLogs batch ${cursor}-${batchEnd} failed, skipping:`, (err as Error).message)
     }
     cursor = batchEnd + 1
@@ -194,7 +197,7 @@ async function analyzeTokenTransfers(
   fromBlock: number,
 ): Promise<{ holders: number; txCount: number; hourly: number[] }> {
   try {
-    const logs = await getLogsPaginated(address, TRANSFER_EVENT, fromBlock, Number.MAX_SAFE_INTEGER)
+    const logs = await getLogsPaginated(address, TRANSFER_EVENT, fromBlock, "latest")
 
     // Cap to last 50k logs to prevent memory blowup on popular tokens
     const capped = logs.length > 50_000 ? logs.slice(-50_000) : logs
@@ -309,6 +312,10 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
 export async function getIndexedTokens(): Promise<TokenInfo[]> {
   // Stale-while-revalidate: load from sessionStorage immediately, backfill in background
   if (!cachePopulated) {
+    // Acquire scan lock — if another caller already has it, wait
+    while (scanLock) await new Promise(r => setTimeout(r, 500))
+    if (cachePopulated) return [...tokenCache].sort((a, b) => b.creationBlock - a.creationBlock)
+    scanLock = true
     // Try sessionStorage first — avoids serverless cold-start scan entirely
     if (typeof window !== 'undefined') {
       try {
@@ -330,11 +337,13 @@ export async function getIndexedTokens(): Promise<TokenInfo[]> {
     console.log(`[token-indexer] Cold scan: blocks ${from}–${latestNum}`)
     await scanForTokens(from, latestNum)
     persistCache()
+    scanLock = false
   }
   return [...tokenCache].sort((a, b) => b.creationBlock - a.creationBlock)
 }
 
 async function refreshInBackground() {
+  if (scanLock) return  // Another scan in progress
   try {
     const latest = await client.getBlockNumber()
     const latestNum = Number(latest)
