@@ -9,6 +9,7 @@ import { parseEther, parseUnits, isAddress, formatEther } from 'viem'
 import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI, ILO_ABI } from '@/config/abis'
+import { useTokenMetadata, getTokenLogoUrl } from '@/hooks/useTokenMetadata'
 
 // ABI for fetching token decimals (RP-001)
 const ERC20_DECIMALS_ABI = [
@@ -101,11 +102,12 @@ function useAllILOData(addresses: `0x${string}`[]) {
 }
 
 // Live ILO card — receives pre-fetched data as props (no individual contract reads)
-function LiveILOCard({ address, data: d }: { address: `0x${string}`; data: ILOData }) {
+function LiveILOCard({ address, data: d, meta }: { address: `0x${string}`; data: ILOData; meta?: { name: string; symbol: string } }) {
+  const logoUrl = getTokenLogoUrl(address)
   const livePresale = {
     address,
-    name: d.token ? `${d.token.slice(0, 6)}…` : 'Loading…',
-    symbol: d.totalRaised !== null ? 'ILO' : '…',
+    name: meta?.name ?? (d.token ? `${d.token.slice(0, 6)}…` : 'Loading…'),
+    symbol: meta?.symbol ?? '…',
     softCap: d.softCap ? formatEther(d.softCap) : '0',
     hardCap: d.hardCap ? formatEther(d.hardCap) : '0',
     raised: d.totalRaised ? formatEther(d.totalRaised) : '0',
@@ -116,6 +118,7 @@ function LiveILOCard({ address, data: d }: { address: `0x${string}`; data: ILODa
     liquidityBps: Number(d.liquidityBps ?? 0n),
     lpLockDuration: Number(d.lpLockDuration ?? 0n),
     contributorCount: '—',
+    logoUrl,
   }
 
   return <PresaleCard presale={livePresale as unknown as MockPresale} />
@@ -124,7 +127,8 @@ function LiveILOCard({ address, data: d }: { address: `0x${string}`; data: ILODa
 type MockPresale = {
   address: string; name: string; symbol: string; softCap: string; hardCap: string;
   raised: string; startTime: number; endTime: number; finalized: boolean;
-  cancelled: boolean; liquidityBps: number; lpLockDuration: number; contributorCount: string | number;
+  cancelled: boolean; liquidityBps: number; lpLockDuration: number;
+  contributorCount: string | number; logoUrl?: string;
 }
 
 function CreatePresaleForm() {
@@ -576,7 +580,8 @@ function CreatePresaleForm() {
 
 function PresaleCard({ presale }: { presale: MockPresale }) {
   const progress =
-    (parseFloat(presale.raised) / parseFloat(presale.hardCap)) * 100
+    parseFloat(presale.raised) / parseFloat(presale.hardCap)
+  const progressPct = Math.min(100, parseFloat((progress * 100).toFixed(2)))
   const timeLeft = presale.endTime - Date.now()
   const daysLeft = Math.max(0, Math.floor(timeLeft / 86400000))
   const hoursLeft = Math.max(
@@ -601,72 +606,114 @@ function PresaleCard({ presale }: { presale: MockPresale }) {
     <div
       className="analytics-card"
       style={{
-        background: 'var(--surface-1)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        background: '#12192e',
+        border: '1px solid #1e2a45',
         borderRadius: '12px',
-        padding: '24px',
+        padding: '16px 20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px',
+        gap: '12px',
+        cursor: 'pointer',
+        transition: 'border-color 0.2s',
       }}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = '#2d3a55')}
+      onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e2a45')}
     >
-      {/* Header */}
+      {/* Header row: PFP + Name/Symbol + zkLTC */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Token PFP */}
+        <div
+          style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            flexShrink: 0,
+            background: '#1a2040',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {presale.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={presale.logoUrl}
+              alt={presale.name}
+              width={44}
+              height={44}
+              style={{ objectFit: 'cover', borderRadius: '8px' }}
+              onError={e => {
+                ;(e.target as HTMLImageElement).style.display = 'none'
+              }}
+            />
+          ) : (
+            <span style={{ fontSize: '18px', fontWeight: 700, color: '#a78bfa' }}>
+              {presale.symbol.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+        </div>
+
+        {/* Name + Symbol */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: '15px',
+              fontWeight: 700,
+              color: '#fff',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {presale.name}
+          </div>
+          <div
+            style={{
+              fontSize: '13px',
+              color: '#a78bfa',
+              marginTop: '1px',
+            }}
+          >
+            {'$'}{presale.symbol}
+          </div>
+        </div>
+
+        {/* zkLTC badge */}
+        <span
+          style={{
+            fontSize: '11px',
+            color: '#6b7280',
+            background: 'rgba(255,255,255,0.05)',
+            padding: '3px 8px',
+            borderRadius: '20px',
+            flexShrink: 0,
+          }}
+        >
+          zkLTC
+        </span>
+      </div>
+
+      {/* Market cap row */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
+          fontSize: '12px',
         }}
       >
-        <div>
-          <div style={{ fontSize: '18px', fontWeight: 700 }}>{presale.name}</div>
-          <div
-            style={{
-              fontSize: '13px',
-              color: 'rgba(255,255,255,0.4)',
-              marginTop: '2px',
-            }}
-          >
-            ${presale.symbol}
-          </div>
-        </div>
-        <span
-          style={{
-            padding: '4px 10px',
-            background: `${statusColor}22`,
-            border: `1px solid ${statusColor}55`,
-            borderRadius: '20px',
-            fontSize: '12px',
-            color: statusColor,
-            fontWeight: 600,
-          }}
-        >
-          ● {status}
+        <span style={{ color: '#9ca3af' }}>Market Cap</span>
+        <span style={{ color: '#e5e7eb', fontWeight: 500 }}>
+          {'$'}{(parseFloat(presale.raised) * 50).toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </span>
       </div>
 
-      {/* Progress */}
+      {/* Multi-color gradient progress bar */}
       <div>
         <div
           style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontSize: '13px',
-            marginBottom: '8px',
-          }}
-        >
-          <span style={{ color: 'rgba(255,255,255,0.5)' }}>Raised</span>
-          <span>
-            <strong style={{ color: 'var(--foreground)' }}>
-              {presale.raised} LTC
-            </strong>{' '}
-            / {presale.hardCap} LTC
-          </span>
-        </div>
-        <div
-          style={{
             height: '6px',
-            background: 'rgba(255,255,255,0.08)',
+            background: '#1e2a45',
             borderRadius: '3px',
             overflow: 'hidden',
           }}
@@ -674,77 +721,81 @@ function PresaleCard({ presale }: { presale: MockPresale }) {
           <div
             style={{
               height: '100%',
-              width: `${Math.min(100, progress)}%`,
-              background: 'var(--accent)',
+              width: progressPct + '%',
+              background:
+                'linear-gradient(to right, #ff6eb4, #a855f7, #3b82f6, #06b6d4, #22c55e)',
               borderRadius: '3px',
-              transition: 'width 0.3s',
+              transition: 'width 0.4s ease',
             }}
           />
         </div>
         <div
           style={{
-            fontSize: '12px',
-            color: 'rgba(255,255,255,0.3)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '11px',
+            color: '#6b7280',
             marginTop: '4px',
           }}
         >
-          Soft cap: {presale.softCap} LTC · {presale.contributorCount}{' '}
-          contributors
+          <span>
+            {parseFloat(presale.raised).toFixed(2)} / {presale.hardCap} LTC
+          </span>
+          <span style={{ color: '#a78bfa', fontWeight: 600 }}>
+            {progressPct}%
+          </span>
         </div>
       </div>
 
-      {/* Details */}
+      {/* Footer: status + details + CTA */}
       <div
-        className="launchpad-card-details"
         style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '12px',
-          fontSize: '13px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '12px',
         }}
       >
-        {(
-          [
-            ['Time left', status === 'Live' ? `${daysLeft}d ${hoursLeft}h` : '—'],
-            ['Liquidity', `${presale.liquidityBps / 100}% locked`],
-            ['LP lock', `${Math.round(presale.lpLockDuration / 86400)}d`],
-          ] as [string, string][]
-        ).map(([k, v]) => (
-          <div key={k}>
-            <div
-              style={{ color: 'rgba(255,255,255,0.4)', marginBottom: '2px' }}
-            >
-              {k}
-            </div>
-            <div
-              style={{ color: 'var(--foreground)', fontWeight: 500 }}
-            >
-              {v}
-            </div>
-          </div>
-        ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span
+            style={{
+              padding: '3px 8px',
+              background: statusColor + '22',
+              border: '1px solid ' + statusColor + '44',
+              borderRadius: '20px',
+              fontSize: '11px',
+              color: statusColor,
+              fontWeight: 600,
+            }}
+          >
+            ● {status}
+          </span>
+          <span style={{ color: '#6b7280' }}>
+            {status === 'Live'
+              ? daysLeft + 'd ' + hoursLeft + 'h left'
+              : '—'}
+          </span>
+        </div>
+        <Link
+          href={'/launchpad/' + presale.address}
+          style={{
+            padding: '4px 12px',
+            background: 'transparent',
+            border: '1px solid #5E6AD2',
+            borderRadius: '6px',
+            color: '#5E6AD2',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            textDecoration: 'none',
+          }}
+        >
+          View →
+        </Link>
       </div>
-
-      {/* CTA */}
-      <Link href={`/launchpad/${presale.address}`} style={{
-        display: 'block',
-        padding: '10px',
-        background: 'transparent',
-        border: '1px solid var(--accent)',
-        borderRadius: '8px',
-        color: 'var(--accent)',
-        fontSize: '14px',
-        fontWeight: 600,
-        cursor: 'pointer',
-        textAlign: 'center',
-        textDecoration: 'none',
-      }}>
-        View Presale →
-      </Link>
     </div>
   )
 }
-
 export default function LaunchpadPage() {
   const [tab, setTab] = useState<Tab>('browse')
 
@@ -759,6 +810,9 @@ export default function LaunchpadPage() {
 
   // Batch-fetch all ILO data in ONE multicall (replaces per-card individual reads)
   const { iloMap, isLoading: iloDataLoading } = useAllILOData(liveAddresses)
+
+  // Fetch token name/symbol from TokenFactory events
+  const { metaMap: tokenMetaMap } = useTokenMetadata(liveAddresses)
 
   // Compute total raised from batch-fetched data (no additional requests)
   const totalRaisedBigint = Array.from(iloMap.values()).reduce<bigint>(
@@ -940,7 +994,7 @@ export default function LaunchpadPage() {
                 }}
               >
                 {liveAddresses.map((addr) => (
-                  <LiveILOCard key={addr} address={addr} data={iloMap.get(addr)!} />
+                  <LiveILOCard key={addr} address={addr} data={iloMap.get(addr)!} meta={tokenMetaMap.get(addr.toLowerCase())} />
                 ))}
               </div>
             )}
