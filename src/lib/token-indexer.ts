@@ -16,7 +16,6 @@ export interface TokenInfo {
   holderCount: number
   txCount24h: number
   txCountByHour: number[] // Last 24 hourly transfer counts
-  // Extended fields for trending/detail views
   priceChange?: { '10m'?: number; '1h'?: number; '4h'?: number; '24h'?: number; '7d'?: number }
   holderTrend?: 'up' | 'down' | 'stable'
   lpLocked?: boolean
@@ -45,7 +44,7 @@ export interface TokenTransfer {
   timestamp: number
 }
 
-// ── ERC-20 ABI fragments ──────────────────────────────────────────────────
+// ── ERC-20 ABI ─────────────────────────────────────────────────────────────
 
 const ERC20_ABI = [
   { name: 'name', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
@@ -64,36 +63,77 @@ const TRANSFER_EVENT = {
   ],
 }
 
-const transferTopic = `0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef`
-
 // ── Client ─────────────────────────────────────────────────────────────────
 
 const client = createPublicClient({
   transport: http(RPC_URL, {
-    retryCount: 3,
-    retryDelay: 1000,
+    retryCount: 2,
+    timeout: 30_000,       // 30s per call — generous for getLogs
   }),
 })
 
-// ── In-memory cache ────────────────────────────────────────────────────────
+// ── In-memory caches ───────────────────────────────────────────────────────
 
+// ERC20 metadata cache — survives across re-scans within same session
+const erc20MetaCache = new Map<string, { name: string; symbol: string; decimals: number; totalSupply: bigint }>()
+
+// Token list cache
 let tokenCache: TokenInfo[] = []
 let lastScanBlock = 0
 let cachePopulated = false
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// Block timestamp cache — reused across tokens
+const blockTsCache = new Map<number, number>()
+let latestKnownTs = 0
+let latestKnownBlock = 0
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as const
 
 function formatBigInt(val: bigint, decimals: number): string {
   if (decimals === 0) return val.toString()
-  const whole = val / BigInt(10 ** decimals)
-  return whole.toLocaleString()
+  return (val / BigInt(10 ** decimals)).toLocaleString()
 }
 
-// ── Core scanning ──────────────────────────────────────────────────────────
+// ── Block timestamp helper ─────────────────────────────────────────────────
+
+async function getBlockTimestamp(blockNumber: number): Promise<number> {
+  const cached = blockTsCache.get(blockNumber)
+  if (cached !== undefined) return cached
+
+  try {
+    const block = await client.getBlock({ blockNumber: BigInt(blockNumber) })
+    const ts = Number(block.timestamp)
+    blockTsCache.set(blockNumber, ts)
+    // Also update latest if newer
+    if (ts > latestKnownTs) {
+      latestKnownTs = ts
+      latestKnownBlock = blockNumber
+    }
+    return ts
+  } catch {
+    // Fallback: estimate from latest known + block delta
+    if (latestKnownBlock > 0 && latestKnownTs > 0) {
+      const delta = blockNumber - latestKnownBlock
+      return latestKnownTs + delta // ~1s per block on LitVM
+    }
+    return Math.floor(Date.now() / 1000)
+  }
+}
+
+// Batch-fetch block timestamps — one RPC call per block, but parallelized
+async function prefetchBlockTimestamps(blockNumbers: number[]): Promise<void> {
+  const uncached = blockNumbers.filter(n => !blockTsCache.has(n))
+  if (uncached.length === 0) return
+  // Fire all in parallel — viem batches them
+  await Promise.all(uncached.map(n => getBlockTimestamp(n)))
+}
+
+// ── ERC20 metadata (cached) ────────────────────────────────────────────────
 
 async function readErc20Meta(address: `0x${string}`): Promise<{ name: string; symbol: string; decimals: number; totalSupply: bigint } | null> {
+  const cached = erc20MetaCache.get(address.toLowerCase())
+  if (cached) return cached
+
   try {
     const [name, symbol, decimals, totalSupply] = await Promise.all([
       client.readContract({ address, abi: ERC20_ABI, functionName: 'name' }),
@@ -102,167 +142,163 @@ async function readErc20Meta(address: `0x${string}`): Promise<{ name: string; sy
       client.readContract({ address, abi: ERC20_ABI, functionName: 'totalSupply' }),
     ])
     if (!name || !symbol) return null
-    return { name: String(name), symbol: String(symbol), decimals: Number(decimals), totalSupply: totalSupply as bigint }
+    const meta = { name: String(name), symbol: String(symbol), decimals: Number(decimals), totalSupply: totalSupply as bigint }
+    erc20MetaCache.set(address.toLowerCase(), meta)
+    return meta
   } catch {
     return null
   }
 }
 
-async function getBlockTimestamp(blockNumber: number): Promise<number> {
-  try {
-    const block = await client.getBlock({ blockNumber: BigInt(blockNumber) })
-    return Number(block.timestamp)
-  } catch {
-    return Math.floor(Date.now() / 1000)
+// ── Paginated getLogs ──────────────────────────────────────────────────────
+
+/**
+ * Fetch Transfer event logs in paginated batches to avoid RPC timeouts.
+ * Returns all matching logs across the block range.
+ */
+async function getLogsPaginated(
+  address: `0x${string}` | undefined,
+  event: typeof TRANSFER_EVENT,
+  fromBlock: number,
+  toBlock: number,
+  args?: { from?: string },
+): Promise<any[]> {
+  const BLOCKS_PER_BATCH = 3000   // ~50min of blocks per call — safe for Caldera
+  const allLogs: any[] = []
+  let cursor = fromBlock
+
+  while (cursor <= toBlock) {
+    const batchEnd = Math.min(cursor + BLOCKS_PER_BATCH - 1, toBlock)
+    try {
+      const logs = await client.getLogs({
+        address,
+        event,
+        fromBlock: BigInt(cursor),
+        toBlock: BigInt(batchEnd),
+        args,
+      }) as any[]
+      allLogs.push(...logs)
+    } catch (err) {
+      // Log and continue — partial data is better than total failure
+      console.warn(`[token-indexer] getLogs batch ${cursor}-${batchEnd} failed, skipping:`, (err as Error).message)
+    }
+    cursor = batchEnd + 1
   }
+  return allLogs
 }
 
-async function getTxSender(txHash: string): Promise<string> {
-  try {
-    const tx = await client.getTransaction({ hash: txHash as `0x${string}` })
-    return tx.from
-  } catch {
-    return ZERO_ADDR
-  }
-}
+// ── Holder + hourly transfer analysis ─────────────────────────────────────
 
-async function countHoldersAndTx(address: `0x${string}`, sinceBlock: number): Promise<{ holders: number; txCount: number }> {
+async function analyzeTokenTransfers(
+  address: `0x${string}`,
+  fromBlock: number,
+): Promise<{ holders: number; txCount: number; hourly: number[] }> {
   try {
-    const logs = (await client.getLogs({
-      address,
-      event: TRANSFER_EVENT,
-      fromBlock: BigInt(sinceBlock),
-      toBlock: 'latest',
-    })) as any[]
+    const logs = await getLogsPaginated(address, TRANSFER_EVENT, fromBlock, Number.MAX_SAFE_INTEGER)
+
+    // Cap to last 50k logs to prevent memory blowup on popular tokens
+    const capped = logs.length > 50_000 ? logs.slice(-50_000) : logs
+
     const recipients = new Set<string>()
-    for (const log of logs) {
+    for (const log of capped) {
       const to = (log.args as any)?.to as string | undefined
       if (to && to !== ZERO_ADDR) recipients.add(to.toLowerCase())
     }
-    return { holders: recipients.size, txCount: logs.length }
-  } catch {
-    return { holders: 0, txCount: 0 }
-  }
-}
 
-async function getHourlyTransferCounts(
-  address: `0x${string}`,
-  sinceBlock: number,
-  latestBlockNumber?: number,
-  latestBlockTimestamp?: number,
-): Promise<number[]> {
-  try {
+    // Build hourly buckets from last 24h
     const now = Math.floor(Date.now() / 1000)
-    const logs = (await client.getLogs({
-      address,
-      event: TRANSFER_EVENT,
-      fromBlock: BigInt(sinceBlock),
-      toBlock: 'latest',
-    })) as any[]
-
-    // Use provided latest block info or fall back to current time estimate
-    // Estimate 1 second per block (LitVM ~1s block time) — avoids per-block RPC calls
-    const latestBlock = latestBlockNumber ?? sinceBlock
-    const latestTs = latestBlockTimestamp ?? now
-    const BLOCK_TIME_SECS = 1 // ~1s per block on LitVM
-
-    // Bucket by hour (last 24 hours)
     const buckets = new Array(24).fill(0)
-    for (const log of logs) {
+    const blocks = [...new Set(capped.map(l => Number(l.blockNumber)))]
+
+    // Prefetch timestamps for all relevant blocks in parallel
+    await prefetchBlockTimestamps(blocks)
+
+    for (const log of capped) {
       const blockNum = Number(log.blockNumber)
-      // Estimate timestamp from block number delta — no RPC needed
-      const estimatedTs = latestTs - (latestBlock - blockNum) * BLOCK_TIME_SECS
-      const hoursAgo = Math.floor((now - estimatedTs) / 3600)
+      const _cachedTs = blockTsCache.get(blockNum); const ts = _cachedTs !== undefined ? _cachedTs : now - ((blocks[blocks.length - 1] ?? blockNum) - blockNum)
+      const hoursAgo = Math.floor((now - ts) / 3600)
       if (hoursAgo >= 0 && hoursAgo < 24) {
-        buckets[23 - hoursAgo]++ // Index 0 = oldest (23h ago), 23 = current hour
+        buckets[23 - hoursAgo]++
       }
     }
-    return buckets
+
+    return { holders: recipients.size, txCount: capped.length, hourly: buckets }
   } catch {
-    return new Array(24).fill(0)
+    return { holders: 0, txCount: 0, hourly: new Array(24).fill(0) }
   }
 }
 
-// ── Public API ─────────────────────────────────────────────────────────────
+// ── Core scanning ──────────────────────────────────────────────────────────
+
+const INITIAL_SCAN_BLOCKS = 20_000  // ~5.5h on LitVM — testnet needs recent window
 
 export async function scanForTokens(fromBlock: number, toBlock: number): Promise<TokenInfo[]> {
   const newTokens: TokenInfo[] = []
 
-  // Get Transfer events from address(0) — mints indicating potential token creation
-  let logs: any[] = []
+  // Paginated log scan for Mint events (Transfer from zero)
+  let mintLogs: any[]
   try {
-    logs = await client.getLogs({
-      event: TRANSFER_EVENT,
-      fromBlock: BigInt(fromBlock),
-      toBlock: BigInt(toBlock),
-      args: { from: ZERO_ADDR },
-    }) as any
-  } catch {
-    // Range too large — try smaller batches
-    const BATCH = 1000
-    for (let start = fromBlock; start <= toBlock; start += BATCH) {
-      const end = Math.min(start + BATCH - 1, toBlock)
-      try {
-        const batch = (await client.getLogs({
-          event: TRANSFER_EVENT,
-          fromBlock: BigInt(start),
-          toBlock: BigInt(end),
-          args: { from: ZERO_ADDR },
-        })) as any[]
-        logs.push(...batch)
-      } catch { /* skip batch */ }
-    }
+    mintLogs = await getLogsPaginated(undefined, TRANSFER_EVENT, fromBlock, toBlock, { from: ZERO_ADDR })
+  } catch (err) {
+    console.error('[token-indexer] Mint log scan failed:', err)
+    return []
   }
 
   // Deduplicate by contract address
   const seen = new Set<string>()
-  const uniqueAddresses: { address: `0x${string}`; txHash: string; blockNumber: number }[] = []
+  const candidates: { address: `0x${string}`; txHash: string; blockNumber: number }[] = []
 
-  for (const log of logs) {
+  for (const log of mintLogs) {
     const addr = log.address?.toLowerCase()
     if (!addr || seen.has(addr)) continue
     seen.add(addr)
-    uniqueAddresses.push({
+    candidates.push({
       address: log.address as `0x${string}`,
       txHash: log.transactionHash,
       blockNumber: Number(log.blockNumber),
     })
   }
 
-  // Validate each as ERC-20
-  for (const { address, txHash, blockNumber } of uniqueAddresses) {
-    if (tokenCache.some(t => t.address.toLowerCase() === address.toLowerCase())) continue
+  console.log(`[token-indexer] Found ${candidates.length} candidate tokens in blocks ${fromBlock}–${toBlock}`)
 
-    const meta = await readErc20Meta(address)
-    if (!meta) continue
+  // Prefetch all block timestamps in one parallel batch
+  const uniqueBlocks = [...new Set(candidates.map(c => c.blockNumber))]
+  await prefetchBlockTimestamps(uniqueBlocks)
 
-    const [timestamp, deployer] = await Promise.all([
-      getBlockTimestamp(blockNumber),
-      getTxSender(txHash),
-    ])
+  // Parallel token validation — process in chunks of 8 to avoid RPC overload
+  const CHUNK = 8
+  for (let i = 0; i < candidates.length; i += CHUNK) {
+    const chunk = candidates.slice(i, i + CHUNK)
+    const results = await Promise.allSettled(
+      chunk.map(async (c) => {
+        if (tokenCache.some(t => t.address.toLowerCase() === c.address.toLowerCase())) return null
+        const meta = await readErc20Meta(c.address)
+        if (!meta) return null
+        const timestamp = blockTsCache.get(c.blockNumber) ?? Math.floor(Date.now() / 1000)
+        const { holders, txCount, hourly } = await analyzeTokenTransfers(c.address, c.blockNumber)
+        return {
+          address: c.address,
+          name: meta.name,
+          symbol: meta.symbol,
+          decimals: meta.decimals,
+          totalSupply: formatBigInt(meta.totalSupply, meta.decimals),
+          deployer: ((mintLogs.find(l => l.address?.toLowerCase() === c.address.toLowerCase())?.args as any)?.from ?? ZERO_ADDR),
+          creationTx: c.txHash,
+          creationBlock: c.blockNumber,
+          createdAt: timestamp,
+          holderCount: holders,
+          txCount24h: txCount,
+          txCountByHour: hourly,
+        } satisfies TokenInfo
+      })
+    )
 
-    const [{ holders, txCount }, hourly] = await Promise.all([
-      countHoldersAndTx(address, blockNumber),
-      getHourlyTransferCounts(address, blockNumber, toBlock, Math.floor(Date.now() / 1000)),
-    ])
-
-    const token: TokenInfo = {
-      address,
-      name: meta.name,
-      symbol: meta.symbol,
-      decimals: meta.decimals,
-      totalSupply: formatBigInt(meta.totalSupply, meta.decimals),
-      deployer,
-      creationTx: txHash,
-      creationBlock: blockNumber,
-      createdAt: timestamp,
-      holderCount: holders,
-      txCount24h: txCount,
-      txCountByHour: hourly,
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value) {
+        tokenCache.push(r.value)
+        newTokens.push(r.value)
+      }
     }
-
-    newTokens.push(token)
-    tokenCache.push(token)
   }
 
   lastScanBlock = toBlock
@@ -273,12 +309,15 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
 export async function getIndexedTokens(): Promise<TokenInfo[]> {
   if (!cachePopulated) {
     const latest = await client.getBlockNumber()
-    // Scan last 50000 blocks initially (~7 days at 1s blocks, less if faster)
-    const from = Math.max(0, Number(latest) - 50000)
-    await scanForTokens(from, Number(latest))
+    const latestNum = Number(latest)
+    const from = Math.max(0, latestNum - INITIAL_SCAN_BLOCKS)
+    console.log(`[token-indexer] Cold scan: blocks ${from}–${latestNum}`)
+    await scanForTokens(from, latestNum)
   }
   return [...tokenCache].sort((a, b) => b.creationBlock - a.creationBlock)
 }
+
+// ── Token details ───────────────────────────────────────────────────────────
 
 export async function getTokenDetails(contractAddress: string): Promise<TokenDetails> {
   const addr = contractAddress as `0x${string}`
@@ -288,11 +327,11 @@ export async function getTokenDetails(contractAddress: string): Promise<TokenDet
   if (!meta) throw new Error('Not a valid ERC-20 token')
 
   const latest = await client.getBlockNumber()
-  const fromBlock = cached ? cached.creationBlock : Math.max(0, Number(latest) - 50000)
+  const fromBlock = cached ? cached.creationBlock : Math.max(0, Number(latest) - INITIAL_SCAN_BLOCKS)
 
-  const [{ holders, txCount }, hourly] = await Promise.all([
-    countHoldersAndTx(addr, fromBlock),
-    getHourlyTransferCounts(addr, fromBlock, Number(latest), Math.floor(Date.now() / 1000)),
+  const [metaRefresh, transferData] = await Promise.all([
+    Promise.resolve(cached ?? null),
+    analyzeTokenTransfers(addr, fromBlock),
   ])
 
   const base: TokenInfo = cached ?? {
@@ -305,35 +344,28 @@ export async function getTokenDetails(contractAddress: string): Promise<TokenDet
     creationTx: '',
     creationBlock: fromBlock,
     createdAt: Math.floor(Date.now() / 1000),
-    holderCount: holders,
-    txCount24h: txCount,
-    txCountByHour: hourly,
+    holderCount: transferData.holders,
+    txCount24h: transferData.txCount,
+    txCountByHour: transferData.hourly,
   }
 
-  base.holderCount = holders
-  base.txCount24h = txCount
-  base.txCountByHour = hourly
-
-  return {
-    ...base,
-    priceUsd: undefined,
-    volume24h: undefined,
-    priceChange24h: undefined,
+  if (!cached) {
+    base.holderCount = transferData.holders
+    base.txCount24h = transferData.txCount
+    base.txCountByHour = transferData.hourly
   }
+
+  return { ...base }
 }
+
+// ── Token transfers ────────────────────────────────────────────────────────
 
 export async function getTokenTransfers(contractAddress: string, limit: number): Promise<TokenTransfer[]> {
   const addr = contractAddress as `0x${string}`
   const latest = Number(await client.getBlockNumber())
-  const from = Math.max(0, latest - 50000)
+  const from = Math.max(0, latest - INITIAL_SCAN_BLOCKS)
 
-  const logs = (await client.getLogs({
-    address: addr,
-    event: TRANSFER_EVENT,
-    fromBlock: BigInt(from),
-    toBlock: 'latest',
-  })) as any[]
-
+  const logs = await getLogsPaginated(addr, TRANSFER_EVENT, from, latest)
   const recent = logs.slice(-limit).reverse()
 
   const transfers: TokenTransfer[] = await Promise.all(
@@ -354,6 +386,8 @@ export async function getTokenTransfers(contractAddress: string, limit: number):
   return transfers
 }
 
+// ── Featured tokens ────────────────────────────────────────────────────────
+
 export interface FeaturedToken {
   symbol: string
   name: string
@@ -366,34 +400,34 @@ export interface FeaturedToken {
 
 export async function getFeaturedTokens(): Promise<FeaturedToken[]> {
   const tokens = await getIndexedTokens()
-  const featured: FeaturedToken[] = []
+  const find = (sym: string) => tokens.find(t => t.symbol.toUpperCase() === sym.toUpperCase())
 
-  // Find LTC (native bridge asset)
-  const ltc = tokens.find(t => t.symbol.toUpperCase() === 'LTC')
-  featured.push({
-    symbol: 'LTC',
-    name: 'Litecoin',
-    address: ltc?.address ?? '',
-    description: 'Native bridge asset — Litecoin on LitVM',
-    isEcosystem: false,
-    holderCount: ltc?.holderCount,
-    txCount24h: ltc?.txCount24h,
-  })
+  const ltc = find('LTC')
+  const litvm = find('LITVM')
 
-  // Find LITVM token (ecosystem token)
-  const litvm = tokens.find(t => t.symbol.toUpperCase() === 'LITVM')
-  featured.push({
-    symbol: 'LITVM',
-    name: 'LitVM Token',
-    address: litvm?.address ?? '',
-    description: 'Ecosystem governance and utility token',
-    isEcosystem: true,
-    holderCount: litvm?.holderCount,
-    txCount24h: litvm?.txCount24h,
-  })
-
-  return featured
+  return [
+    {
+      symbol: 'LTC',
+      name: 'Litecoin',
+      address: ltc?.address ?? '',
+      description: 'Native bridge asset — Litecoin on LitVM',
+      isEcosystem: false,
+      holderCount: ltc?.holderCount,
+      txCount24h: ltc?.txCount24h,
+    },
+    {
+      symbol: 'LITVM',
+      name: 'LitVM Token',
+      address: litvm?.address ?? '',
+      description: 'Ecosystem governance and utility token',
+      isEcosystem: true,
+      holderCount: litvm?.holderCount,
+      txCount24h: litvm?.txCount24h,
+    },
+  ]
 }
+
+// ── New token watcher ──────────────────────────────────────────────────────
 
 export async function watchForNewTokens(callback: (token: TokenInfo) => void): Promise<() => void> {
   let running = true
@@ -402,7 +436,7 @@ export async function watchForNewTokens(callback: (token: TokenInfo) => void): P
     while (running) {
       try {
         const latest = Number(await client.getBlockNumber())
-        const from = lastScanBlock > 0 ? lastScanBlock + 1 : Math.max(0, latest - 10)
+        const from = lastScanBlock > 0 ? lastScanBlock + 1 : Math.max(0, latest - 100)
         if (from <= latest) {
           const newTokens = await scanForTokens(from, latest)
           for (const t of newTokens) callback(t)
