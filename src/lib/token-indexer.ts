@@ -230,7 +230,7 @@ async function analyzeTokenTransfers(
 
 // ── Core scanning ──────────────────────────────────────────────────────────
 
-const INITIAL_SCAN_BLOCKS = 20_000  // ~5.5h on LitVM — testnet needs recent window
+const INITIAL_SCAN_BLOCKS = 2_000    // ~33min on LitVM — enough for testnet, fast on serverless cold start
 
 export async function scanForTokens(fromBlock: number, toBlock: number): Promise<TokenInfo[]> {
   const newTokens: TokenInfo[] = []
@@ -307,14 +307,51 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
 }
 
 export async function getIndexedTokens(): Promise<TokenInfo[]> {
+  // Stale-while-revalidate: load from sessionStorage immediately, backfill in background
   if (!cachePopulated) {
+    // Try sessionStorage first — avoids serverless cold-start scan entirely
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem('lester_tokens')
+        if (stored) {
+          const parsed = JSON.parse(stored) as TokenInfo[]
+          for (const t of parsed) tokenCache.push(t)
+          cachePopulated = true
+          // Still refresh in background — don't await
+          refreshInBackground()
+          return [...tokenCache].sort((a, b) => b.creationBlock - a.creationBlock)
+        }
+      } catch { /* ignore */ }
+    }
+    // No cache — do the cold scan
     const latest = await client.getBlockNumber()
     const latestNum = Number(latest)
     const from = Math.max(0, latestNum - INITIAL_SCAN_BLOCKS)
     console.log(`[token-indexer] Cold scan: blocks ${from}–${latestNum}`)
     await scanForTokens(from, latestNum)
+    persistCache()
   }
   return [...tokenCache].sort((a, b) => b.creationBlock - a.creationBlock)
+}
+
+async function refreshInBackground() {
+  try {
+    const latest = await client.getBlockNumber()
+    const latestNum = Number(latest)
+    const lastBlock = tokenCache.length > 0 ? Math.max(...tokenCache.map(t => t.creationBlock)) : 0
+    if (lastBlock < latestNum) {
+      await scanForTokens(lastBlock + 1, latestNum)
+      persistCache()
+    }
+  } catch { /* background refresh failed — not critical */ }
+}
+
+function persistCache() {
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem('lester_tokens', JSON.stringify(tokenCache.slice(0, 200)))
+    } catch { /* quota exceeded — ignore */ }
+  }
 }
 
 // ── Token details ───────────────────────────────────────────────────────────
