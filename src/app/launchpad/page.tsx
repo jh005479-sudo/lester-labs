@@ -7,6 +7,7 @@ import { ToolHero } from '@/components/shared/ToolHero'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useReadContracts } from 'wagmi'
 import { parseEther, parseUnits, isAddress, formatEther } from 'viem'
 import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
+import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI, ILO_ABI } from '@/config/abis'
 import { useTokenMetadata, getTokenLogoUrl } from '@/hooks/useTokenMetadata'
@@ -562,15 +563,29 @@ function CreatePresaleForm() {
                       : `Create Presale — ${feeDisplay} LTC`}
           </button>
 
-          {isSuccess && (
+          {isSuccess && hash && (
             <div style={{ padding: '16px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', fontSize: '14px', color: '#4ade80' }}>
-              <div style={{ fontWeight: 700, marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><CircleCheck size={16} /> Presale created successfully!</div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.8 }}>
-                <strong style={{ color: 'rgba(255,255,255,0.9)' }}>Next steps:</strong><br />
-                1. Find your new presale contract address in the transaction receipt<br />
-                2. Transfer your tokens to the presale contract address — use the <code>tokensRequired()</code> view function to get the exact amount needed<br />
-                3. Share your presale link with your community once tokens are deposited
+              <div style={{ fontWeight: 700, marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <CircleCheck size={16} /> Presale created successfully!
               </div>
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.8 }}>
+                <div style={{ marginBottom: '6px' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>Tx:</span>{' '}
+                  <a href={`${LITVM_EXPLORER_URL}/tx/${hash}`} target="_blank" rel="noopener noreferrer"
+                    style={{ color: 'var(--accent)', fontFamily: 'monospace', fontSize: '12px' }}>
+                    {hash.slice(0, 10)}…{hash.slice(-8)}
+                  </a>
+                </div>
+                <div style={{ marginTop: '8px', color: 'rgba(255,255,255,0.7)' }}>
+                  Your presale is live on-chain. Copy the address above and share your presale link with your community.
+                </div>
+              </div>
+              <button
+                onClick={() => { setForm({ tokenAddress: '', softCap: '', hardCap: '', tokensPerEth: '', startDate: '', endDate: '', liquidityPct: '60', lpLockDays: '180', whitelist: false }); }}
+                style={{ marginTop: '12px', padding: '8px 16px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: 'rgba(255,255,255,0.7)', fontSize: '13px', cursor: 'pointer' }}
+              >
+                Create another presale
+              </button>
             </div>
           )}
         </div>

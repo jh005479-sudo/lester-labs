@@ -20,6 +20,7 @@ const navLinks = [
   { href: '/explorer',   label: 'Explorer' },
   { href: '/analytics',  label: 'Analytics' },
   { href: '/docs',       label: 'Docs' },
+  { href: '/tutorials', label: 'Tutorials' },
   { href: '/portfolio',  label: 'Portfolio' },
 ]
 
