@@ -80,3 +80,44 @@ export const ILO_ABI = [
   { inputs: [], name: 'refund', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'claimLP', outputs: [], stateMutability: 'nonpayable', type: 'function' },
 ] as const
+
+export const LEDGER_ABI = [
+  {
+    name: 'post',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [{ name: 'message', type: 'bytes' }],
+    outputs: [],
+  },
+  {
+    name: 'messageCount',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'MIN_FEE',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'treasury',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
+    type: 'event',
+    name: 'MessagePosted',
+    inputs: [
+      { name: 'sender', type: 'address', indexed: true },
+      { name: 'index', type: 'uint256', indexed: true },
+      { name: 'timestamp', type: 'uint256', indexed: false },
+      { name: 'data', type: 'bytes', indexed: false },
+    ],
+  },
+] as const
