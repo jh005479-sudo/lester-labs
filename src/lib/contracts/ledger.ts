@@ -14,7 +14,7 @@ export const LEDGER_DEFAULT_FEE = 10_000_000_000_000_000n
 export const LEDGER_POST_GAS_LIMIT = 150_000n
 export const LEDGER_MESSAGE_POSTED_SIGNATURE = 'MessagePosted(address,uint256,uint256,bytes)'
 export const LEDGER_MESSAGE_POSTED_TOPIC = keccak256(stringToHex(LEDGER_MESSAGE_POSTED_SIGNATURE))
-export const LEDGER_EXPLORER_BASE_URL = litvm.blockExplorers.default.url
+export const LEDGER_EXPLORER_BASE_URL = '/explorer'
 export const LEDGER_WS_URL = litvm.rpcUrls.default.webSocket?.[0] ?? 'wss://liteforge.rpc.caldera.xyz/ws'
 
 const utf8Decoder = new TextDecoder()
