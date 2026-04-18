@@ -2,194 +2,177 @@
 
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { Plus, X } from 'lucide-react'
+import { Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
-import { GovernanceInfoModal } from './GovernanceInfoModal'
-
-const MAX_CHOICES = 5
-
-const VOTING_TYPES = [
-  { value: 'single', label: 'Single Choice' },
-  { value: 'approval', label: 'Approval Voting' },
-  { value: 'ranked', label: 'Ranked Choice' },
-]
+import { useGovernance, useGovernanceWrite } from '@/hooks/useGovernance'
+import { GOVERNANCE_CONFIG } from '@/config/governance'
+import { formatEther } from 'viem'
 
 export function CreateProposalTab() {
-  const { isConnected } = useAccount()
-  const [modalOpen, setModalOpen] = useState(false)
+  const { isConnected, hasEnoughTokens, tokenBalance, proposalCount } = useGovernance()
+  const { createProposal, isProposing, proposeWrite, proposeTx, SUPPORT_LABELS } = useGovernanceWrite()
 
-  const [spaceSlug, setSpaceSlug] = useState('')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [votingType, setVotingType] = useState('single')
-  const [choices, setChoices] = useState(['For', 'Against'])
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [discussion, setDiscussion] = useState('')
+  const [txHash, setTxHash] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
 
-  const addChoice = () => {
-    if (choices.length < MAX_CHOICES) {
-      setChoices((prev) => [...prev, ''])
-    }
+  if (!isConnected) return <ConnectWalletPrompt />
+
+  if (submitted && txHash) {
+    return (
+      <div className="max-w-xl mx-auto text-center py-12 space-y-4">
+        <CheckCircle size={48} className="mx-auto text-green-400" />
+        <h2 className="text-xl font-semibold text-white">Proposal Submitted!</h2>
+        <p className="text-sm text-gray-400">
+          Proposal #{proposalCount + 1} is now pending on LitVM. It will become active after the voting delay.
+        </p>
+        <p className="text-xs text-gray-500 font-mono mt-1 break-all">{txHash}</p>
+        <a
+          href={`${GOVERNANCE_CONFIG.governor.address}/tx/${txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-[#E44FB5] hover:underline"
+        >
+          View on explorer →
+        </a>
+        <button
+          onClick={() => { setSubmitted(false); setTitle(''); setBody(''); setDiscussion('') }}
+          className="mt-4 px-4 py-2 rounded-xl bg-[#E44FB5] text-white text-sm hover:bg-[#c9369e] transition-colors"
+        >
+          Create Another
+        </button>
+      </div>
+    )
   }
 
-  const removeChoice = (idx: number) => {
-    setChoices((prev) => prev.filter((_, i) => i !== idx))
+  const handleSubmit = () => {
+    if (!title.trim() || !body.trim()) return
+
+    const description = [title, body, discussion ? `Discussion: ${discussion}` : '']
+      .filter(Boolean)
+      .join('\n\n')
+
+    // No-op proposal — targets a safe address. In production: target real protocol actions
+    const targets = ['0x0000000000000000000000000000000000000001'] as `0x${string}`[]
+    const values = [0n]
+    const calldatas = ['0x'] as `0x${string}`[]
+
+    createProposal(targets, values, calldatas, description)
+    // Capture hash after next render cycle
+    setTimeout(() => setTxHash(proposeWrite.data ?? null), 500)
   }
 
-  const updateChoice = (idx: number, val: string) => {
-    setChoices((prev) => prev.map((c, i) => (i === idx ? val : c)))
-  }
-
-  const handlePublish = () => {
-    setModalOpen(true)
-  }
-
-  const canPublish = isConnected && title.trim().length > 0 && body.trim().length > 0
+  const canSubmit = title.trim().length > 0 && body.trim().length > 0 && !isProposing
 
   return (
-    <div className="space-y-6">
-      <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-6">
-        {/* Space Slug */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-white/70">Space Slug</label>
-          <input
-            type="text"
-            value={spaceSlug}
-            onChange={(e) => setSpaceSlug(e.target.value)}
-            placeholder="mytoken.ltc"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:border-[var(--accent)]/50 focus:outline-none transition-colors"
-          />
-          <p className="text-xs text-white/30">
-            Your project&apos;s unique identifier e.g. mytoken.ltc
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Threshold info */}
+      <div className="flex gap-3 p-4 rounded-2xl border border-blue-500/20 bg-blue-500/5">
+        <Info size={16} className="text-blue-400 shrink-0 mt-0.5" />
+        <div className="text-xs text-blue-300 space-y-1">
+          <p>
+            You need ≥100,000 delegated LGT to submit a proposal.{' '}
+            {hasEnoughTokens
+              ? <span className="text-green-400 ml-1">✓ Threshold met.</span>
+              : <span className="text-yellow-400 ml-1">⚠ Threshold not met — delegate more tokens.</span>
+            }
           </p>
+          <p className="text-blue-400/70">Your balance: {parseFloat(tokenBalance).toLocaleString()} LGT</p>
         </div>
+      </div>
 
-        {/* Proposal Title */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-white/70">
-            Proposal Title <span className="text-red-400">*</span>
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value.slice(0, 100))}
-            placeholder="e.g. Treasury Allocation Q2 2026"
-            maxLength={100}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:border-[var(--accent)]/50 focus:outline-none transition-colors"
-          />
-          <p className="text-right text-xs text-white/30">{title.length}/100</p>
+      {/* Space */}
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wider">Space</label>
+        <div className="p-3 rounded-xl border border-white/10 bg-white/5 text-sm text-white">
+          {GOVERNANCE_CONFIG.space.name}
         </div>
+      </div>
 
-        {/* Proposal Body */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-white/70">
-            Proposal Body <span className="text-red-400">*</span>
-          </label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Describe the proposal in full..."
-            rows={6}
-            className="w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:border-[var(--accent)]/50 focus:outline-none transition-colors"
-          />
-          <p className="text-xs text-white/30">Describe the proposal in detail — markdown supported</p>
-        </div>
+      {/* Title */}
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wider">Title</label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g. Allocate 500K LGT to ecosystem grants Q2 2026"
+          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-[#E44FB5]/50"
+        />
+      </div>
 
-        {/* Voting Type */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-white/70">Voting Type</label>
-          <select
-            value={votingType}
-            onChange={(e) => setVotingType(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-[#0f1117] px-3 py-2.5 text-sm text-white focus:border-[var(--accent)]/50 focus:outline-none transition-colors"
-          >
-            {VOTING_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Body */}
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wider">Body</label>
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={7}
+          placeholder="Describe your proposal. Include motivation, implementation plan, and expected outcomes..."
+          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-[#E44FB5]/50 resize-none font-mono"
+        />
+      </div>
 
-        {/* Choices */}
-        <div className="space-y-3">
-          <label className="text-sm font-medium text-white/70">Choices</label>
-          <div className="space-y-2">
-            {choices.map((choice, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-white/50">
-                  {idx + 1}
-                </span>
-                <input
-                  type="text"
-                  value={choice}
-                  onChange={(e) => updateChoice(idx, e.target.value)}
-                  placeholder={`Choice ${idx + 1}`}
-                  className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/20 focus:border-[var(--accent)]/50 focus:outline-none transition-colors"
-                />
-                {choices.length > 2 && (
-                  <button
-                    onClick={() => removeChoice(idx)}
-                    className="rounded-lg p-1.5 text-white/30 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          {choices.length < MAX_CHOICES && (
-            <button
-              onClick={addChoice}
-              className="flex items-center gap-1.5 text-sm font-medium text-[var(--accent)] hover:underline"
+      {/* Discussion */}
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wider">
+          Discussion <span className="text-gray-600 normal-case">(optional)</span>
+        </label>
+        <input
+          type="url"
+          value={discussion}
+          onChange={(e) => setDiscussion(e.target.value)}
+          placeholder="https://forum.litvm.io/proposals/..."
+          className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-[#E44FB5]/50"
+        />
+      </div>
+
+      {/* Standard choices */}
+      <div>
+        <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wider">Choices</label>
+        <div className="flex gap-3">
+          {['For', 'Against', 'Abstain'].map((choice) => (
+            <div
+              key={choice}
+              className="flex-1 p-3 rounded-xl border border-white/10 bg-white/5 text-center text-sm text-gray-300"
             >
-              <Plus size={14} />
-              Add Choice +
-            </button>
+              {choice}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Submit */}
+      <div className="pt-2 space-y-3">
+        <button
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+          className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+            canSubmit
+              ? 'bg-[#E44FB5] hover:bg-[#c9369e] text-white'
+              : 'bg-white/5 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          {isProposing ? (
+            <><Loader2 size={14} className="animate-spin" /> Submitting on-chain...</>
+          ) : (
+            'Submit Proposal On-Chain'
           )}
-        </div>
+        </button>
 
-        {/* Voting Period */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-white/70">Start Date</label>
-            <input
-              type="datetime-local"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-[var(--accent)]/50 focus:outline-none transition-colors [color-scheme:dark]"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-white/70">End Date</label>
-            <input
-              type="datetime-local"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-[var(--accent)]/50 focus:outline-none transition-colors [color-scheme:dark]"
-            />
-          </div>
-        </div>
-
-        {/* Wallet gate */}
-        {!isConnected && (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <ConnectWalletPrompt />
+        {proposeTx.isError && (
+          <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+            <AlertCircle size={14} />
+            Transaction failed. Ensure you have enough delegated tokens.
           </div>
         )}
 
-        {/* Publish */}
-        <button
-          onClick={handlePublish}
-          disabled={!canPublish}
-          className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
-        >
-          Publish Proposal
-        </button>
+        <p className="text-center text-xs text-gray-600">
+          Submits a live transaction to LitVM governance contract
+        </p>
       </div>
-
-      <GovernanceInfoModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </div>
   )
 }
-
