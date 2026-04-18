@@ -71,7 +71,7 @@ async function loadTokenMeta(): Promise<Map<string, TokenMeta>> {
     const metaMap = new Map<string, TokenMeta>()
     for (const log of logs) {
       const topics = log.topics as string[]
-      const tokenAddr = topics[2]?.replace('0x000000000000000000000000', '0x').toLowerCase()
+      const tokenAddr = topics[1]?.replace('0x000000000000000000000000', '0x').toLowerCase()
       if (!tokenAddr) continue
       const decoded = decodeTokenEvent(log.data)
       if (decoded) {
