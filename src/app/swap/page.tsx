@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useDeferredValue, useState, startTransition } from 'react'
-import { ArrowDownUp, ChevronDown, Droplets, Loader2, Settings2, ShieldCheck, Wallet, X } from 'lucide-react'
+import { ArrowDownUp, ChevronDown, Droplets, Loader2, Settings2, Wallet, X } from 'lucide-react'
 import { useAccount, useBalance, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { CurrencyAmount, Token } from '@uniswap/sdk-core'
 import { Pair, Route, Trade } from '@uniswap/v2-sdk'
@@ -379,8 +379,8 @@ export default function SwapPage() {
       ? (pairState.data[2].result as readonly [bigint, bigint, number])
       : null
 
-  let priceImpactText = '—'
-  let executionPriceText = '—'
+  let priceImpactText = '-'
+  let executionPriceText = '-'
 
   if (
     pairReserves &&
@@ -406,8 +406,8 @@ export default function SwapPage() {
       priceImpactText = `${trade.priceImpact.toFixed(2)}%`
       executionPriceText = trade.executionPrice.toSignificant(6)
     } catch {
-      priceImpactText = '—'
-      executionPriceText = '—'
+      priceImpactText = '-'
+      executionPriceText = '-'
     }
   }
 
@@ -430,7 +430,7 @@ export default function SwapPage() {
     if (!txHash) return
     if (isConfirming) {
       setTxStatus('pending')
-      setTxMessage(txAction === 'approve' ? 'Approval transaction pending…' : 'Swap transaction pending…')
+      setTxMessage(txAction === 'approve' ? 'Approval transaction pending...' : 'Swap transaction pending...')
     }
   }, [isConfirming, txAction, txHash])
 
@@ -570,7 +570,7 @@ export default function SwapPage() {
         category="Dex"
         title="Lester"
         titleHighlight="Swap"
-        subtitle="Direct token swaps on Lester Labs’ Uniswap V2 fork for LitVM. Quotes come from the live router, and every trade keeps 0.20% flowing to the Lester Labs treasury while LPs retain 0.10%."
+        subtitle="Direct token swaps on Lester Labs' Uniswap V2 fork for LitVM. Quotes come from the live router."
         color={ACCENT}
         image="/images/carousel/governance.png"
         imagePosition="center 46%"
@@ -673,17 +673,12 @@ export default function SwapPage() {
               <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price</p>
                 <p className="mt-2 text-lg font-semibold text-white">
-                  {resolvedOutput ? `1 ${resolvedInput.symbol} = ${executionPriceText} ${resolvedOutput.symbol}` : '—'}
+                  {resolvedOutput ? `1 ${resolvedInput.symbol} = ${executionPriceText} ${resolvedOutput.symbol}` : '-'}
                 </p>
               </div>
               <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price impact</p>
                 <p className="mt-2 text-lg font-semibold text-white">{priceImpactText}</p>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-white/35">Fee split</p>
-                <p className="mt-2 text-lg font-semibold text-white">0.30% total</p>
-                <p className="text-sm text-white/45">0.20% to Lester Labs treasury, 0.10% to LPs</p>
               </div>
               <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Liquidity</p>
@@ -705,15 +700,7 @@ export default function SwapPage() {
               <span>{primaryButtonText}</span>
             </button>
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white/50">
-              <div className="inline-flex items-center gap-2">
-                <ShieldCheck size={16} style={{ color: ACCENT }} />
-                <span>Treasury routing enforced on-chain via factory `feeTo` / `feeToSetter` checks.</span>
-              </div>
-              <Link href="/pool" className="text-white/70 transition hover:text-white">
-                Manage LP positions
-              </Link>
-            </div>
+
           </section>
 
           <aside className="space-y-4">
@@ -724,17 +711,15 @@ export default function SwapPage() {
                 Tokens are pulled from Lester Labs token factory events on LitVM, so the swap page stays local to the platform rather than depending on an external list.
               </p>
               <div className="mt-4 rounded-2xl border border-white/8 bg-[#120f1d] p-4 text-sm text-white/55">
-                {tokensLoading ? 'Loading token index…' : `${tokenOptions.length} swappable assets detected, including native zkLTC.`}
+                {tokensLoading ? 'Loading token index...' : `${tokenOptions.length} swappable assets detected, including native zkLTC.`}
               </div>
             </div>
 
             <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-xs uppercase tracking-[0.12em] text-white/35">How fees work</p>
-              <ul className="mt-3 space-y-3 text-sm text-white/55">
-                <li className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">Every swap is priced with the standard 0.30% V2 curve.</li>
-                <li className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">0.20% of the input token is transferred directly to the Lester Labs treasury on each trade.</li>
-                <li className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">The remaining 0.10% stays in the pool and accrues to LP positions.</li>
-              </ul>
+              <p className="text-xs uppercase tracking-[0.12em] text-white/35">Getting started</p>
+              <p className="mt-2 text-sm leading-6 text-white/45">
+                Connect your wallet, select a token pair, and swap. Add liquidity on the Pool page to earn from trades.
+              </p>
             </div>
 
             {!isConnected && (
@@ -751,7 +736,7 @@ export default function SwapPage() {
                     <Wallet size={18} className="text-white/70" />
                   </div>
                   <div>
-                    <p className="font-mono text-sm text-white">{address ? `${address.slice(0, 6)}…${address.slice(-4)}` : '—'}</p>
+                    <p className="font-mono text-sm text-white">{address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '-'}</p>
                     <p className="text-sm text-white/45">{formatTokenAmount(nativeBalance.data?.value ?? 0n, 18)} zkLTC</p>
                   </div>
                 </div>
