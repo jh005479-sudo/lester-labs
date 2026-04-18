@@ -75,7 +75,7 @@ export const GOVERNANCE_CONFIG = {
 
   // Governance token (ERC20Votes)
   token: {
-    address: '0x0000000000000000000000000000000000000001' as const, // TODO: update after deploy
+    address: '0xa5111cedc04554676DbCCA39F2268070008C7A8A' as const,
     symbol: 'LGT',
     name: 'Lit Governance Token',
     decimals: 18,
@@ -84,10 +84,10 @@ export const GOVERNANCE_CONFIG = {
 
   // Governor + Timelock
   governor: {
-    address: '0x0000000000000000000000000000000000000002' as const, // TODO: update after deploy
+    address: '0x5b0092996BA897617B46D3F108B253be9Ad3d' as const,
   },
   timelock: {
-    address: '0x0000000000000000000000000000000000000003' as const, // TODO: update after deploy
+    address: '0xd38ed693730Db3eB22bA6d6F0050FC45Ac9240ba' as const,
   },
 } as const
 

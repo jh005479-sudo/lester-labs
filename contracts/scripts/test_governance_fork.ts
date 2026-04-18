@@ -17,12 +17,22 @@ import * as path from "path";
 const ADDRESSES_FILE = path.join(__dirname, "../deployed-addresses.json");
 
 async function main() {
-  const [deployer, voter1, voter2, voter3] = await ethers.getSigners();
+  const [deployer] = await ethers.getSigners();
   console.log("Deployer:", deployer.address);
-  console.log("Test voters:", voter1.address, voter2.address, voter3.address);
+
+  // Derive test voter wallets — they'll be funded by deployer after deployment
+  const w1 = ethers.Wallet.createRandom().connect(ethers.provider);
+  const w2 = ethers.Wallet.createRandom().connect(ethers.provider);
+  const w3 = ethers.Wallet.createRandom().connect(ethers.provider);
+  console.log("Test voters (random):", w1.address, w2.address, w3.address);
   console.log("Network:", (await ethers.provider.getNetwork()).chainId.toString());
 
-  // ── 1. Deploy LitGovToken ────────────────────────────────────────────
+  // Fund voters with ETH for gas (using deployer balance on the fork)
+  const FUND_AMOUNT = ethers.parseEther("1.0");
+  await deployer.sendTransaction({ to: w1.address, value: FUND_AMOUNT });
+  await deployer.sendTransaction({ to: w2.address, value: FUND_AMOUNT });
+  await deployer.sendTransaction({ to: w3.address, value: FUND_AMOUNT });
+  console.log("  Funded voters with ETH for gas ✓");
   console.log("\n[1/4] Deploying LitGovToken...");
   const LitGovToken = await ethers.getContractFactory("LitGovToken");
   const token = await LitGovToken.deploy();
@@ -67,22 +77,29 @@ async function main() {
   // ── 4. Configure timelock ────────────────────────────────────────────
   console.log("\n[4/4] Configuring timelock...");
   const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
+  const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
   const grantProposerTx = await timelock.grantRole(PROPOSER_ROLE, governorAddress);
   await grantProposerTx.wait();
-  console.log("  PROPOSER_ROLE granted to governor ✓");
+  const grantExecutorTx = await timelock.grantRole(EXECUTOR_ROLE, governorAddress);
+  await grantExecutorTx.wait();
+  const revokeProposerTx = await timelock.revokeRole(PROPOSER_ROLE, deployer.address);
+  await revokeProposerTx.wait();
+  const revokeExecutorTx = await timelock.revokeRole(EXECUTOR_ROLE, deployer.address);
+  await revokeExecutorTx.wait();
+  console.log("  PROPOSER_ROLE + EXECUTOR_ROLE granted to governor, revoked from deployer ✓");
 
   // ── 5. Mint tokens + delegate ─────────────────────────────────────────
   console.log("\n[5/6] Minting and delegating...");
   const BOOTSTRAP_AMOUNT = ethers.parseUnits("5000000", 18); // 5M per wallet
   await token.batchMint(
-    [voter1.address, voter2.address, voter3.address],
+    [w1.address, w2.address, w3.address],
     [BOOTSTRAP_AMOUNT, BOOTSTRAP_AMOUNT, BOOTSTRAP_AMOUNT]
   );
   console.log("  Minted 5M LGT to 3 test voters ✓");
 
-  await token.connect(voter1).delegate(voter1.address);
-  await token.connect(voter2).delegate(voter2.address);
-  await token.connect(voter3).delegate(voter3.address);
+  await token.connect(w1).delegate(w1.address);
+  await token.connect(w2).delegate(w2.address);
+  await token.connect(w3).delegate(w3.address);
   console.log("  All voters self-delegated ✓");
 
   // ── 6. Create and vote on a test proposal ─────────────────────────────
@@ -99,7 +116,7 @@ async function main() {
 
   // Propose
   const proposeTx = await governor
-    .connect(voter1)
+    .connect(w1)
     .propose(targets, values, calldatas, description);
   const proposeReceipt = await proposeTx.wait();
   const proposalId = proposeReceipt.logs[0].args?.proposalId;
@@ -114,13 +131,13 @@ async function main() {
   console.log("  Proposal state:", state, "(1=Active expected)");
 
   // Cast votes
-  await governor.connect(voter1).castVoteWithReason(proposalId, 1, "Fully agree");
-  await governor.connect(voter2).castVoteWithReason(proposalId, 1, "Support");
-  await governor.connect(voter3).castVoteWithReason(proposalId, 0, "Against");
+  await governor.connect(w1).castVoteWithReason(proposalId, 1, "Fully agree");
+  await governor.connect(w2).castVoteWithReason(proposalId, 1, "Support");
+  await governor.connect(w3).castVoteWithReason(proposalId, 0, "Against");
   console.log("  All 3 votes cast ✓");
 
-  // Advance past voting period
-  await ethers.provider.send("evm_increaseTime", [VOTING_PERIOD * 7.5 + 10]);
+  // Advance past voting period (blocks × ~8 seconds/block)
+  await ethers.provider.send("evm_increaseTime", [Number(VOTING_PERIOD) * 8 + 10]);
   await ethers.provider.send("evm_mine", []);
 
   // Queue
