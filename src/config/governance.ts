@@ -70,7 +70,7 @@ export const GOVERNANCE_CONFIG = {
     slug: 'litvm.gov',
     description: 'On-chain governance for the LitVM ecosystem',
     icon: 'bolt' as const,
-    explorerUrl: 'https://liteforge.caldera.xyz',
+    explorerUrl: 'https://lester-labs.com/explorer',
   },
 
   // Governance token (ERC20Votes)
