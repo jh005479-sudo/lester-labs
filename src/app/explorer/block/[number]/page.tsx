@@ -46,7 +46,7 @@ export default function BlockDetailsPage({ params }: { params: Promise<{ number:
           <h1 className="mt-2 font-mono text-2xl">#{blockNumber.toLocaleString()}</h1>
         </div>
         <Link href={`${LITVM_EXPLORER_URL}/block/${blockNumber}`} target="_blank" className="inline-flex items-center gap-2 text-sm text-cyan-400">
-          Open in Caldera Explorer <ExternalLink className="h-4 w-4" />
+          Open in Lester Labs Explorer <ExternalLink className="h-4 w-4" />
         </Link>
       </div>
 
