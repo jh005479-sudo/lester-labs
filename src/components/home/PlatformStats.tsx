@@ -8,6 +8,7 @@ import { RPC_URL } from '@/lib/rpcClient'
 
 const POLL_INTERVAL = 30_000 // 30s
 const TOKEN_FACTORY = '0x93acc61fcdc2e3407A0c03450Adfd8aE78964948' as const
+const LEGACY_ILO_FACTORY = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB' as const
 const TOKEN_EVENT_SIG = '0xd5d05a8421149c74fd223cfc823befb883babf9bf0b0e4d6bf9c8fdb70e59bb4'
 const TRANSFER_SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 
@@ -49,11 +50,13 @@ function StatChip({ label, value, accent }: { label: string; value: string; acce
   )
 }
 
-// ── ILO count hook ──────────────────────────────────────────────────────
+// ── ILO count hook — sums new factory + legacy factory ──────────────────────
 type ILOFactoryFn = 'creationFee' | 'allILOs' | 'getILOCount' | 'getOwnerILOs'
 
 function useILOFactoryCounter(fn: ILOFactoryFn) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // New factory
   const { data, refetch } = useReadContract({
     address: ILO_FACTORY_ADDRESS as `0x${string}`,
     abi: ILO_FACTORY_ABI as any,
@@ -61,12 +64,22 @@ function useILOFactoryCounter(fn: ILOFactoryFn) {
     query: { enabled: isValidContractAddress(ILO_FACTORY_ADDRESS) },
   })
 
-  useEffect(() => {
-    intervalRef.current = setInterval(() => { refetch() }, POLL_INTERVAL)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [refetch])
+  // Legacy factory (for historical ILO count from previous deployment)
+  const { data: legacyData, refetch: legacyRefetch } = useReadContract({
+    address: LEGACY_ILO_FACTORY as `0x${string}`,
+    abi: ILO_FACTORY_ABI as any,
+    functionName: fn as any,
+    query: { enabled: isValidContractAddress(LEGACY_ILO_FACTORY) },
+  })
 
-  return data !== undefined && data !== null ? String(data) : '—'
+  useEffect(() => {
+    intervalRef.current = setInterval(() => { refetch(); legacyRefetch() }, POLL_INTERVAL)
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [refetch, legacyRefetch])
+
+  const newCount = data !== undefined && data !== null ? Number(data) : 0
+  const legacyCount = legacyData !== undefined && legacyData !== null ? Number(legacyData) : 0
+  return String(newCount + legacyCount)
 }
 
 // ── Token count from event logs ─────────────────────────────────────────
