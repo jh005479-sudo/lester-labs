@@ -17,7 +17,6 @@ import {
   UNISWAP_V2_ROUTER_ABI,
 } from '@/config/abis'
 import {
-  LESTER_TREASURY_ADDRESS,
   UNISWAP_V2_FACTORY_ADDRESS,
   UNISWAP_V2_ROUTER_ADDRESS,
   WRAPPED_ZKLTC_ADDRESS,
@@ -579,7 +578,6 @@ export default function SwapPage() {
         stats={[
           { label: 'Network', value: 'LitVM · 4441' },
           { label: 'Swap Fee', value: '0.30%' },
-          { label: 'Treasury', value: `${LESTER_TREASURY_ADDRESS.slice(0, 6)}…${LESTER_TREASURY_ADDRESS.slice(-4)}` },
         ]}
       />
 
@@ -734,7 +732,7 @@ export default function SwapPage() {
               <p className="text-xs uppercase tracking-[0.12em] text-white/35">How fees work</p>
               <ul className="mt-3 space-y-3 text-sm text-white/55">
                 <li className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">Every swap is priced with the standard 0.30% V2 curve.</li>
-                <li className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">0.20% of the input token is transferred directly to `{LESTER_TREASURY_ADDRESS.slice(0, 6)}…{LESTER_TREASURY_ADDRESS.slice(-4)}` on each trade.</li>
+                <li className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">0.20% of the input token is transferred directly to the Lester Labs treasury on each trade.</li>
                 <li className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">The remaining 0.10% stays in the pool and accrues to LP positions.</li>
               </ul>
             </div>

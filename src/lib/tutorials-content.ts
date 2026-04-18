@@ -373,7 +373,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Fee breakdown and treasury routing',
-        body: 'The Lester Labs V2 fork is configured so every live pair routes protocol fees to the Lester Labs treasury wallet `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`. The factory sets both `feeTo` and `feeToSetter` to that treasury, and the pair contract transfers 0.20% of each swap input directly to the treasury while leaving 0.10% inside the pool for LP earnings.',
+        body: 'The Lester Labs V2 fork is configured so every live pair routes protocol fees to the Lester Labs treasury. The factory sets both `feeTo` and `feeToSetter` to that treasury, and the pair contract transfers 0.20% of each swap input directly to the treasury while leaving 0.10% inside the pool for LP earnings.',
       },
     ],
     related: ['setting-up-litvm-wallet', 'launchpad-how-it-works', 'liquidity-locker-guide'],
