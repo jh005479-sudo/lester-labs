@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { Loader2, CheckCircle, AlertCircle, ThumbsUp, ThumbsDown, Minus, Search } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
@@ -33,6 +33,7 @@ export function VoteTab() {
   const [selectedSupport, setSelectedSupport] = useState<0 | 1 | 2>(1)
   const [reason, setReason] = useState('')
   const [voted, setVoted] = useState<Record<number, boolean>>({})
+  const [pendingVoteId, setPendingVoteId] = useState<number | null>(null) // capture at click time
 
   const activeProposals = proposals.filter(
     (p) =>
@@ -45,14 +46,20 @@ export function VoteTab() {
   if (!isConnected) return <ConnectWalletPrompt />
 
   const handleVote = (proposalId: number) => {
+    setPendingVoteId(proposalId)
     castVoteWithReason(proposalId, selectedSupport, reason)
-    // Optimistically mark as voted — wagmi receipt updates will confirm
-    setTimeout(() => {
-      setVoted((v) => ({ ...v, [proposalId]: true }))
+  }
+
+  // Watch for vote tx success and update voted state
+  useEffect(() => {
+    if (voteTx.isSuccess && pendingVoteId !== null) {
+      setVoted((v) => ({ ...v, [pendingVoteId]: true }))
       setSelectedProposal(null)
       setReason('')
-    }, 1000)
-  }
+      setPendingVoteId(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voteTx.isSuccess])
 
   return (
     <div className="space-y-6">

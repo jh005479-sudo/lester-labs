@@ -18,7 +18,7 @@ contract LitGovToken is ERC20, ERC20Votes {
     string private _name     = "Lit Governance Token";
     string private _symbol   = "LGT";
 
-    constructor() ERC20(_name, _symbol) EIP712("LitGovToken", "1") {
+    constructor() ERC20(_name, _symbol) EIP712(_name, "1") {
         owner = msg.sender;
     }
 
