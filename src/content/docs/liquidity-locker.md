@@ -12,7 +12,7 @@ You deposit LP tokens into the locker contract along with an unlock timestamp. T
 
 1. Connect your wallet and switch to LitVM network
 2. Navigate to Liquidity Locker
-3. Paste the LP token contract address (obtain from the DEX where you created the pair)
+3. Paste the LP token contract address (from the Lester Labs DEX, the Launchpad finalize flow, or another compatible V2 pair)
 4. Enter the amount of LP tokens to lock
 5. Select the unlock date
 6. Review the fee (0.03 zkLTC) and confirm
@@ -39,7 +39,7 @@ Fee is non-refundable. Sent to Lester-Labs treasury at lock time. Extending an e
 ## Smart contract
 
 - **Forked from:** Unicrypt UNCX Liquidity Locker
-- **Contract address:** `Pending deployment`
+- **Contract address:** `0x80d88C7F529D256e5e6A2CB0e0C30D82bC8827A9`
 
 **Key functions:**
 - `lockLPToken(token, amount, unlockDate, owner)` — creates a new lock

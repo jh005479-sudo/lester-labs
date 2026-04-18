@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://lester-labs.vercel.app'
+  const baseUrl = 'https://lester-labs.com'
 
   const routes = [
     '',
@@ -11,8 +11,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/airdrop',
     '/governance',
     '/launchpad',
+    '/swap',
+    '/pool',
+    '/ledger',
     '/explorer',
+    '/analytics',
     '/docs',
+    '/tutorials',
+    '/portfolio',
   ]
 
   return routes.map((route) => ({

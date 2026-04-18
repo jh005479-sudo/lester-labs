@@ -134,7 +134,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Enter the LitVM testnet details',
-            body: 'Fill in the fields exactly as shown:\n\n• Network name: LitVM Testnet\n• New RPC URL: https://liteforge.rpc.caldera.xyz/infra-partner-http\n• Chain ID: 4441\n• Currency symbol: zkLTC\n• Block explorer URL: https://liteforge.blockscan.com\n\nThe RPC URL is provided by Caldera as a LitVM infrastructure partner. Using this endpoint gives you faster and more consistent responses than the public RPC.',
+            body: 'Fill in the fields exactly as shown:\n\n• Network name: LitVM Testnet\n• New RPC URL: https://liteforge.rpc.caldera.xyz/infra-partner-http\n• Chain ID: 4441\n• Currency symbol: zkLTC\n• Block explorer URL: https://liteforge.caldera.xyz\n\nThe RPC URL is provided by Caldera as a LitVM infrastructure partner. Using this endpoint gives you faster and more consistent responses than the public RPC.',
           },
           {
             title: 'Click Save',
@@ -155,7 +155,7 @@ export const TUTORIALS: TutorialArticle[] = [
     "decimals": 18
   },
   "rpcUrls": ["https://liteforge.rpc.caldera.xyz/infra-partner-http"],
-  "blockExplorerUrls": ["https://liteforge.blockscan.com"]
+  "blockExplorerUrls": ["https://liteforge.caldera.xyz"]
 }`,
       },
       {
@@ -273,7 +273,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Set the price',
-            body: 'Enter the number of tokens a contributor receives per 1 LTC. For example, if you want 1 LTC = 1,000,000 tokens, enter 1000000. The math handles the decimals automatically.',
+            body: 'Enter the number of tokens a contributor receives per 1 zkLTC. For example, if you want 1 zkLTC = 1,000,000 tokens, enter 1000000. The math handles the decimals automatically.',
           },
           {
             title: 'Choose your timeline',
@@ -281,7 +281,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Configure LP settings',
-            body: 'Set what percentage of raised LTC goes to the liquidity pool. Higher % = more LP depth = better trading experience. Also set the LP lock duration — how long your LP tokens are locked before you can withdraw.',
+            body: 'Set what percentage of raised zkLTC goes to the liquidity pool. Higher % = more LP depth = better trading experience. Also set the LP lock duration — how long your LP tokens are locked before you can withdraw.',
           },
           {
             title: 'Deploy and deposit',
@@ -293,16 +293,90 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'warning',
-          text: 'Do not forget to deposit your tokens to the presale contract. If the presale ends without the tokens deposited, the raise is invalid and contributors can withdraw their LTC. Double-check the contract address matches the one displayed in the confirmation.',
+          text: 'Do not forget to deposit your tokens to the presale contract. If the presale ends without the tokens deposited, the raise is invalid and contributors can withdraw their zkLTC. Double-check the contract address matches the one displayed in the confirmation.',
         },
       },
       {
         type: 'text',
         heading: 'How LP creation works',
-        body: 'When a presale finalizes (either after the end date or when the hard cap is hit), the contract calls the Liquidity Locker factory to create a new LP pair on the DEX and lock the LP tokens. This happens entirely on-chain — no admin key can redirect or unlock the LP early.\n\nThe platform takes a 2% fee on the total raise at finalization. The rest goes directly into the LP pool.',
+        body: 'When a presale finalizes (either after the end date or when the hard cap is hit), the ILO hands the launch liquidity to Lester Labs\' `UniSwapConnector`, which verifies the local Uniswap V2 factory still points both `feeTo` and `feeToSetter` at the Lester treasury before seeding the pair through the Lester Labs router. The resulting LP tokens stay locked as part of the launch flow — no external DEX or admin handoff is required.\n\nThe platform still takes a 2% fee on the total raise at finalization. Once the pair is live, trades on that pair pay 0.30% total: 0.20% to the Lester Labs treasury and 0.10% retained by LPs.',
       },
     ],
     related: ['token-factory-guide', 'liquidity-locker-guide'],
+  },
+
+  {
+    slug: 'how-to-use-dex-swap',
+    title: 'How to Use the DEX Swap',
+    subtitle: 'Connect to LitVM, approve tokens, execute a swap on Lester Labs\' Uniswap V2 router, add liquidity, and track your LP positions from the pool page.',
+    badge: 'DEX',
+    badgeColor: '#E44FB5',
+    readTime: '6 min read',
+    category: 'dApp Guides',
+    heroGradient: 'linear-gradient(135deg, #140811 0%, #26111f 50%, #140811 100%)',
+    heroAccent: '#E44FB5',
+    sections: [
+      {
+        type: 'text',
+        heading: 'What you need before swapping',
+        body: 'The Lester Labs DEX runs on LitVM testnet and uses zkLTC as the native gas asset. Before you trade, make sure your wallet is connected to LitVM, you hold a little zkLTC for gas, and the token you want to swap is already deployed on LitVM.\n\nThe swap page uses Lester Labs\' own Uniswap V2 router and factory. Quotes come directly from the on-chain router, and the fee split is fixed at the pair level: 0.20% to the Lester Labs treasury and 0.10% retained by liquidity providers.',
+      },
+      {
+        type: 'step',
+        heading: 'Five-step swap flow',
+        steps: [
+          {
+            title: 'Connect your wallet to LitVM',
+            body: 'Open lester-labs.com/swap and connect your wallet. If LitVM is not already configured, add it with Chain ID 4441, RPC https://liteforge.rpc.caldera.xyz/infra-partner-http, native currency zkLTC, and explorer https://liteforge.caldera.xyz.',
+          },
+          {
+            title: 'Approve tokens for trading',
+            body: 'If your input asset is an ERC-20 token rather than native zkLTC, the swap page will prompt you to approve the Lester Labs router first. This is a standard one-time allowance transaction that lets the router move only that token on your behalf.',
+          },
+          {
+            title: 'Make the swap',
+            body: 'Choose your input token, output token, and amount. The interface fetches a live quote via `getAmountsOut`, shows your expected output, and applies the displayed slippage tolerance before building the transaction. Review the fee line carefully: every trade pays 0.30% total.',
+          },
+          {
+            title: 'Add liquidity to a pool',
+            body: 'At launch, liquidity is typically seeded either through Lester Labs Launchpad finalization or through direct router interactions by integrators. In both cases the liquidity lands on the same Lester Labs Uniswap V2 deployment, and the resulting LP balance becomes visible on `/pool` once the position is live.',
+          },
+          {
+            title: 'View your positions',
+            body: 'Visit lester-labs.com/pool to scan your connected wallet for LP balances. The pool page shows your LP token balance, your percentage share of each pool, and the underlying token exposure represented by that position.',
+          },
+        ],
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'tip',
+          text: 'The router handles native zkLTC through a wrapped zkLTC contract under the hood. In the UI you continue to think in native zkLTC, but under the hood the DEX can still support standard Uniswap V2 pair mechanics.',
+        },
+      },
+      {
+        type: 'code',
+        lang: 'json',
+        content: `// LitVM Testnet configuration
+{
+  "chainId": "0x1159",
+  "chainName": "LitVM Testnet",
+  "nativeCurrency": {
+    "name": "zkLTC",
+    "symbol": "zkLTC",
+    "decimals": 18
+  },
+  "rpcUrls": ["https://liteforge.rpc.caldera.xyz/infra-partner-http"],
+  "blockExplorerUrls": ["https://liteforge.caldera.xyz"]
+}`,
+      },
+      {
+        type: 'text',
+        heading: 'Fee breakdown and treasury routing',
+        body: 'The Lester Labs V2 fork is configured so every live pair routes protocol fees to the Lester Labs treasury wallet `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`. The factory sets both `feeTo` and `feeToSetter` to that treasury, and the pair contract transfers 0.20% of each swap input directly to the treasury while leaving 0.10% inside the pool for LP earnings.',
+      },
+    ],
+    related: ['setting-up-litvm-wallet', 'launchpad-how-it-works', 'liquidity-locker-guide'],
   },
 
   {
@@ -604,4 +678,3 @@ export function getArticle(slug: string): TutorialArticle | undefined {
 export function getRelatedArticles(slugs: string[]): TutorialArticle[] {
   return slugs.map(getArticle).filter((a): a is TutorialArticle => a !== undefined)
 }
-

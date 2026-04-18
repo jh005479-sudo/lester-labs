@@ -7,7 +7,8 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:arbitrum-sepolia": "hardhat run scripts/deploy.ts --network arbitrumSepolia",
-    "deploy:litvm": "hardhat run scripts/deploy.ts --network litvm"
+    "deploy:litvm": "hardhat run scripts/deploy.ts --network litvm",
+    "deploy:uniswap:litvm": "hardhat run scripts/deploy_uniswap_v2.ts --network litvm"
   },
   "keywords": [],
   "author": "",
@@ -21,5 +22,9 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "@uniswap/v2-core": "^1.0.1",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0"
+  }
 }
