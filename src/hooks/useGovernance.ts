@@ -52,10 +52,11 @@ export function useGovernance() {
     query: { refetchInterval: 60_000 },
   })
 
+  // Use getVotes (delegated power), NOT balanceOf — the contract requires voting power, not raw balance
   const tokenBalanceRead = useReadContract({
     address: tokenConfig.address,
     abi: tokenConfig.abi,
-    functionName: 'balanceOf',
+    functionName: 'getVotes',
     args: address ? [address] : undefined,
     query: { enabled: isConnected && !!address },
   })
@@ -146,7 +147,17 @@ export function useGovernance() {
   }
 
   // ── Token balance ────────────────────────────────────────────────────
+  // For display: also fetch raw balance so the UI can show both
+  const rawBalanceRead = useReadContract({
+    address: tokenConfig.address,
+    abi: tokenConfig.abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: isConnected && !!address },
+  })
+
   const tokenBalance = tokenBalanceRead.data ? formatEther(tokenBalanceRead.data as bigint) : '0'
+  const rawBalance = rawBalanceRead.data ? formatEther(rawBalanceRead.data as bigint) : '0'
   const hasEnoughTokens = tokenBalanceRead.data
     ? (tokenBalanceRead.data as bigint) >= (proposalThresholdRead.data as bigint ?? 0n)
     : false
@@ -156,7 +167,8 @@ export function useGovernance() {
     spaces: [currentSpace],
     proposals: proposals.reverse(), // newest first
     proposalCount,
-    tokenBalance,
+    tokenBalance,          // voting power (delegated)
+    rawBalance,            // raw token balance
     tokenBalanceRaw: tokenBalanceRead.data as bigint | undefined,
     hasEnoughTokens,
     isConnected,
