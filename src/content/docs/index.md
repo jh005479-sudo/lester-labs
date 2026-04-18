@@ -1,6 +1,6 @@
 # Lester-Labs Documentation
 
-Lester-Labs is a self-service DeFi utility suite built natively for LitVM — a ZK-SNARK verified Litecoin L2 with zkLTC as its native token. Six permissionless tools covering the full project lifecycle, from token creation through community launches. No sign-ups, no admin approvals, no custom contract logic.
+Lester Labs is a self-serve DeFi suite built natively for LitVM, the Liteforge testnet (chain ID `4441`). The platform covers token deployment, community launches, treasury-routed swapping, liquidity visibility, governance, and analytics without relying on an external DEX at runtime.
 
 ## Utilities
 
@@ -8,80 +8,56 @@ Lester-Labs is a self-service DeFi utility suite built natively for LitVM — a 
 |---|---|---|
 | [Token Factory](./token-factory.md) | Deploy ERC-20 tokens | 0.05 zkLTC |
 | [Liquidity Locker](./liquidity-locker.md) | Lock LP tokens | 0.03 zkLTC |
-| [Token Vesting](./token-vesting.md) | Vesting schedules for teams & investors | 0.03 zkLTC |
-| [Airdrop Tool](./airdrop-tool.md) | Bulk token distribution | 0.01 zkLTC/batch |
-| [Governance](./governance.md) | Off-chain proposals and voting | Free |
-| [Launchpad](./launchpad.md) | Community presales with automatic LP | 0.03 zkLTC + 2% of raise |
+| [Token Vesting](./token-vesting.md) | Vesting schedules for teams and investors | 0.03 zkLTC |
+| [Airdrop Tool](./airdrop-tool.md) | Bulk token or native-asset distribution | 0.01 zkLTC / batch |
+| [Governance](./governance.md) | Proposal and voting infrastructure | Varies by action |
+| [Launchpad](./launchpad.md) | Community presales with automatic LP seeding | 0.03 zkLTC + 2% of raise |
+| [DEX Swap & Pool](./dex-swap.md) | Swap assets and inspect LP positions on Lester Labs V2 | 0.30% per trade / gas only for viewing |
+| [The Ledger](./ledger.md) | Post permanent on-chain messages | Protocol-defined posting fee |
+
+## DEX and Launchpad Integration
+
+Lester Labs now ships its own Uniswap V2 deployment for LitVM. The local factory and router power both the `/swap` trading flow and Launchpad finalization, so ILOs seed liquidity into Lester Labs-owned infrastructure instead of an external venue.
+
+The fee split is enforced on-chain in the pair contract:
+
+- Total fee per swap: `0.30%`
+- Treasury share: `0.20%`
+- LP share retained in-pool: `0.10%`
+- Treasury address: `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`
+
+Launchpad finalization uses `UniSwapConnector`, which re-checks that both factory `feeTo` and `feeToSetter` still point at the Lester Labs treasury before liquidity can be seeded.
 
 ## Analytics
 
-Lester-Labs aims to be the premier analytics platform for the LitVM ecosystem — providing real-time visibility into protocol activity, yield opportunities, and ecosystem health.
+The analytics dashboard is the visibility layer for the broader Lester Labs stack:
 
-The Analytics dashboard is organized into focused sub-tabs:
+- **Trending** tracks short-term token momentum and transfer activity
+- **Tokens** indexes deployed LitVM tokens and classifies pair contracts
+- **Health** surfaces chain throughput, block timing, and active-address trends
+- **DEX** summarizes pair-level volume, TVL, and recent swap activity
+- **Bridge** tracks capital moving into and out of LitVM
+- **Smart Money** highlights large wallets, LP activity, and notable moves
 
-- **Trending** — Real-time trending tokens ranked by price movement and tx activity. Timeframes: 10m / 1H / 4H / 24H / 7D. Useful for spotting early momentum in new tokens.
-- **Tokens** — Full token index for LitVM. Tracks all deployed tokens, their age, transfer counts, and classification (core vs LP pairs). The primary surface for new token discovery.
-- **Health** — Chain network health: latest block, avg block time, TPS, gas price, and active address trends over 24h / 7d / 30d. Status indicator (healthy / degraded / issues) for at-a-glance network state.
-- **Dex** — Trading activity across LitVM DEX pairs. Top pairs by TVL and volume, 24h change, recent swaps with size and price impact. Volume trend chart for the last 24 hours.
-- **Bridge** — Cross-chain bridge inflow and outflow activity over time. Source chain breakdown (Ethereum, Arbitrum, Optimism, Other). Useful for monitoring capital flow into and out of LitVM.
-- **Smart Money** — Whale wallet tracking on LitVM. Top wallets by holdings, recent activity alerts (accumulates, bridges, swaps, LP additions, staking claims). Signal layer for following sophisticated capital moves.
-
-Live at [lester-labs.com/analytics](https://www.lester-labs.com/analytics).
+Live at [lester-labs.com/analytics](https://lester-labs.com/analytics).
 
 ## Network Configuration
 
-**Testnet (current):** LitVM testnet (Liteforge) is live. Connect using the parameters below.
-
-| Parameter | LitVM Testnet (Liteforge) | LitVM Mainnet |
-|---|---|---|
-| Chain ID | 4441 | TBA |
-| RPC URL | https://liteforge.rpc.caldera.xyz/http | TBA |
-| Explorer | https://liteforge.caldera.xyz | TBA |
-| Native Token | zkLTC (testnet) | zkLTC |
-| Faucet | TBA | N/A |
-
-## Token Factory
-
-Deploy standard ERC-20 tokens to LitVM in a single transaction — no Solidity required. Configure name, symbol, supply, decimals, and optional mint/burn capabilities. The deployed token contract is identical to any OpenZeppelin ERC-20 — no custom logic, no surprises.
-
-- **Forked from:** [OpenZeppelin ERC-20](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol)
-
-## Liquidity Locker
-
-Lock LP tokens for a defined period to demonstrate long-term liquidity commitment to your community. Lock duration can be extended but never shortened — enforced at the contract level. All active locks are publicly queryable on-chain.
-
-- **Forked from:** [Unicrypt UNCX Locker](https://github.com/UNCLE-NC/UNCLE-NC-LOCKER/blob/main/contracts/UNCXLocker.sol)
-
-## Token Vesting
-
-Create on-chain vesting schedules for team allocations, investor distributions, and advisor grants. Linear or cliff+linear release schedules. Once funded, tokens vest according to the schedule regardless of the deployer's actions — no claw-back mechanism.
-
-- **Forked from:** [OpenZeppelin VestingWallet](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/finance/VestingWallet.sol)
-
-## Airdrop Tool
-
-Distribute tokens to hundreds of addresses in a single atomic transaction. Supports both ERC-20 tokens and native zkLTC. All transfers execute atomically — either every recipient gets their amount, or the entire batch reverts.
-
-- **Forked from:** [Disperse.app](https://github.com/Dispersao/disperse-contracts/blob/master/contracts/Disperse.sol)
-
-## Governance
-
-Off-chain proposal creation and token-weighted voting using the Snapshot protocol — entirely gas-free. Proposals use snapshot blocks to prevent last-minute vote manipulation. Results are stored on IPFS and publicly verifiable by anyone.
-
-- **Forked from:** [Snapshot](https://github.com/snapshot-labs/snapshot-strategies)
-
-## Launchpad
-
-Community presales (ILOs) with automatic LP creation and locking at finalization. Projects deposit tokens, accept zkLTC contributions, and launch with locked liquidity in a single finalize transaction. Soft cap protection ensures contributors can always refund if the raise doesn't meet its minimum.
-
-- **Forked from:** [Unicrypt ILO](https://www.unicrypt.network/ilo)
+| Parameter | LitVM Testnet (Liteforge) |
+|---|---|
+| Chain ID | `4441` |
+| RPC URL | `https://liteforge.rpc.caldera.xyz/infra-partner-http` |
+| Explorer | `https://liteforge.caldera.xyz` |
+| Native Token | `zkLTC` |
+| Wrapped Native | `Wrapped zkLTC` (deployed alongside the Lester Labs V2 router) |
 
 ## Quick Start
 
-1. Connect your wallet (MetaMask or any WalletConnect-compatible wallet)
-2. Switch to LitVM network using the testnet parameters above
-3. Choose a utility
-4. Configure parameters and confirm the transaction
+1. Connect your wallet to LitVM using the network configuration above.
+2. Deploy a token at `/launch`, or open `/swap` if you already hold tradable assets.
+3. Use `/launchpad` to run a raise that seeds LP on Lester Labs at finalization.
+4. Review LP balances and exposure on `/pool`.
+5. Use the docs and tutorials pages for walkthroughs and contract references.
 
 ## Contract Addresses
 
@@ -89,22 +65,24 @@ Community presales (ILOs) with automatic LP creation and locking at finalization
 |---|---|
 | Token Factory | `0x93acc61fcdc2e3407A0c03450Adfd8aE78964948` |
 | Liquidity Locker | `0x80d88C7F529D256e5e6A2CB0e0C30D82bC8827A9` |
-| Vesting Factory | Pending deployment |
-| Airdrop (Disperse) | Pending deployment |
-| ILO Factory (Launchpad) | `0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB` |
+| ILO Factory | `0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB` |
+| LitGovToken | `0xa5111cedc04554676DbCCA39F2268070008C7A8A` |
+| LitGovernor | `0x5b0092996BA897617B46D42B3F108B253be9Ad3d` |
+| LitTimelock | `0xd38ed693730Db3eB22bA6d6F0050FC45Ac9240ba` |
+| Uniswap V2 Factory | Pending deployment |
+| Uniswap V2 Router | Pending deployment |
+| Wrapped zkLTC | Pending deployment |
+| UniSwapConnector | Pending deployment |
 
-## Security
+## Security Notes
 
-All Lester-Labs contracts are forked 1:1 from industry-standard, battle-tested sources. No custom logic has been introduced. This design decision eliminates novel attack surface and inherits the security properties of contracts that have secured billions of dollars across multiple chains.
+Most Lester Labs contracts are based on battle-tested upstream implementations from OpenZeppelin, Unicrypt, Disperse, and Uniswap. Where Lester Labs adds custom behavior, the changes are intentionally narrow and tied to platform requirements:
 
-| Contract | Source |
-|---|---|
-| Token Factory | OpenZeppelin ERC-20 |
-| Liquidity Locker | Unicrypt UNCX Locker |
-| Token Vesting | OpenZeppelin VestingWallet |
-| Airdrop Tool | Disperse.app |
-| Governance | Snapshot / EIP-712 |
-| Launchpad | Unicrypt ILO |
+- the V2 pair contract routes `0.20%` of each trade input directly to the Lester Labs treasury
+- the factory constructor pins both `feeTo` and `feeToSetter` to the Lester Labs treasury
+- the Launchpad connector refuses to seed liquidity if treasury routing drifts away from `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`
+
+Always verify the chain, contract address, and token pair before transacting.
 
 ## Support
 

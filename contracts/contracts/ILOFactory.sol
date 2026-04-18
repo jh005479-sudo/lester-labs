@@ -6,6 +6,7 @@ import "./ILO.sol";
 
 contract ILOFactory is Ownable {
     address public router;
+    address public connector;
     address public treasury;
     uint256 public platformFeeBps;  // default 200 = 2%
     uint256 public creationFee;     // flat fee in native token to create an ILO
@@ -45,11 +46,15 @@ contract ILOFactory is Ownable {
         bool    whitelistEnabled
     ) external payable returns (address) {
         require(msg.value >= creationFee, "Insufficient creation fee");
+        require(router != address(0), "Router not configured");
+        require(connector != address(0), "Connector not configured");
+        require(treasury != address(0), "Treasury not configured");
 
         ILO ilo = new ILO(
             msg.sender,
             token,
             router,
+            connector,
             treasury,
             softCap,
             hardCap,
@@ -91,6 +96,7 @@ contract ILOFactory is Ownable {
 
     // Admin
     function setRouter(address _router)         external onlyOwner { router = _router; }
+    function setConnector(address _connector)   external onlyOwner { connector = _connector; }
     function setTreasury(address _treasury)     external onlyOwner { treasury = _treasury; }
     function setPlatformFee(uint256 _bps)       external onlyOwner { require(_bps <= 500, "Max 5%"); platformFeeBps = _bps; }
     function setCreationFee(uint256 _fee)       external onlyOwner { creationFee = _fee; }

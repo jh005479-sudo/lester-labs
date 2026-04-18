@@ -43,7 +43,7 @@ Fee is non-refundable. Sent to Lester-Labs treasury at deployment.
 ## Smart contract
 
 - **Forked from:** OpenZeppelin ERC-20 (v5.x)
-- **Contract address:** `Pending deployment`
+- **Contract address:** `0x93acc61fcdc2e3407A0c03450Adfd8aE78964948`
 
 **Key functions:**
 - `constructor(name, symbol, supply, decimals, mintable, burnable)` — deploys token with specified parameters

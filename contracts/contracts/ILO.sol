@@ -14,6 +14,7 @@ contract ILO is ReentrancyGuard {
     address public factory;
     IERC20  public token;
     address public router;
+    address public connector;
     address public treasury;
 
     uint256 public softCap;          // minimum raise in wei (ETH/LTC)
@@ -56,6 +57,7 @@ contract ILO is ReentrancyGuard {
         address _owner,
         address _token,
         address _router,
+        address _connector,
         address _treasury,
         uint256 _softCap,
         uint256 _hardCap,
@@ -72,11 +74,15 @@ contract ILO is ReentrancyGuard {
         require(_startTime < _endTime, "Invalid times");
         require(_liquidityBps >= 5000 && _liquidityBps <= 10000, "Liquidity 50-100%");
         require(_lpLockDuration >= 30 days, "Lock min 30 days");
+        require(_router != address(0), "Invalid router");
+        require(_connector != address(0), "Invalid connector");
+        require(_treasury != address(0), "Invalid treasury");
 
         owner          = _owner;
         factory        = msg.sender;
         token          = IERC20(_token);
         router         = _router;
+        connector      = _connector;
         treasury       = _treasury;
         softCap        = _softCap;
         hardCap        = _hardCap;
@@ -129,11 +135,11 @@ contract ILO is ReentrancyGuard {
         // Ensure contract has enough tokens (sale tokens + liquidity tokens)
         require(token.balanceOf(address(this)) >= tokensForSale + tokensForLiquidity, "Insufficient tokens");
 
-        // Approve router
-        token.approve(router, tokensForLiquidity);
+        // The connector verifies fee routing before touching the Lester Labs DEX.
+        token.forceApprove(connector, tokensForLiquidity);
 
-        // Add liquidity
-        (,, uint256 liquidity) = IUniswapV2Router02(router).addLiquidityETH{value: ethForLiquidity}(
+        // Add liquidity on the Lester Labs router, atomically creating the pair if needed.
+        (address pair, , , uint256 liquidity) = IUniSwapConnector(connector).addLiquidityETH{value: ethForLiquidity}(
             address(token),
             tokensForLiquidity,
             0,
@@ -143,9 +149,7 @@ contract ILO is ReentrancyGuard {
         );
 
         // Lock LP
-        address _factory = IUniswapV2Router02(router).factory();
-        address weth = IUniswapV2Router02(router).WETH();
-        lpToken = IUniswapV2Factory(_factory).getPair(address(token), weth);
+        lpToken = pair;
         lpTokensLocked = liquidity;
         lpUnlockTime = block.timestamp + lpLockDuration;
 
@@ -198,6 +202,7 @@ contract ILO is ReentrancyGuard {
         require(amount > 0, "Nothing to refund");
 
         contributions[msg.sender] = 0;
+        totalRaised -= amount;
         (bool ok,) = msg.sender.call{value: amount}("");
         require(ok, "Refund failed");
 

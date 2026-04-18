@@ -11,6 +11,8 @@ const dappLinks = [
   { href: '/locker',     label: 'Locker' },
   { href: '/vesting',    label: 'Vesting' },
   { href: '/airdrop',    label: 'Airdrop' },
+  { href: '/swap',       label: 'Swap' },
+  { href: '/pool',       label: 'Pool' },
   { href: '/governance', label: 'Governance' },
   { href: '/ledger',     label: 'The Ledger' },
   { href: '/launchpad',  label: 'Launchpad' },
