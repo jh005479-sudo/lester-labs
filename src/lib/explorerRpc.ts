@@ -15,4 +15,4 @@ export {
   clearCache,
 } from './rpcClient'
 
-export const LITVM_EXPLORER_URL = 'https://liteforge.explorer.caldera.xyz'
+export const LITVM_EXPLORER_URL = 'https://liteforge.caldera.xyz'
