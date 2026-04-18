@@ -43,6 +43,7 @@ contract LitGovToken is ERC20, ERC20Votes {
      */
     function batchMint(address[] calldata recipients, uint256[] calldata amounts) external onlyOwner {
         require(recipients.length == amounts.length, "Arrays must match");
+        require(recipients.length <= 200, "batchMint: max 200 recipients");
         for (uint256 i = 0; i < recipients.length; i++) {
             _mint(recipients[i], amounts[i]);
         }

@@ -64,8 +64,16 @@ async function main() {
   await grantProposerTx.wait();
   console.log("Granted PROPOSER_ROLE to governor");
 
-  // Revoke deployer's admin from timelock (timelock should manage itself)
-  // Actually keep admin for now so we can add more proposers — skip revoke
+  // ── 4b. Revoke deployer's timelock roles — governance must be trustless ─
+  // Deployer keeps admin (can add proposers) but no longer bypasses governance
+  const revokeExecutorTx = await timelock.revokeRole(EXECUTOR_ROLE, deployer.address);
+  await revokeExecutorTx.wait();
+  console.log("Revoked EXECUTOR_ROLE from deployer");
+
+  const revokeProposerTx = await timelock.revokeRole(PROPOSER_ROLE, deployer.address);
+  await revokeProposerTx.wait();
+  console.log("Revoked PROPOSER_ROLE from deployer");
+  console.log("(Deployer retains admin — can grant PROPOSER_ROLE to other addresses)");
 
   // ── 5. Batch mint tokens to bootstrap wallets ─────────────────────────
   console.log("\n[5] Minting tokens to bootstrap wallets...");
