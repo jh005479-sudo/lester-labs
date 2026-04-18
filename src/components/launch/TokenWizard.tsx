@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, decodeEventLog, formatEther } from 'viem'
+import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Copy, ExternalLink, ArrowRight, Calendar, Lock, PartyPopper, Send } from 'lucide-react'
 import Link from 'next/link'
 import { StepBasics, type TokenBasics } from './StepBasics'
@@ -125,7 +126,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
             {copied ? <CheckCircle2 size={16} className="text-green-400" /> : <Copy size={16} />}
           </button>
           <a
-            href={`https://liteforge.caldera.xyz/address/${result.tokenAddress}`}
+            href={`${LITVM_EXPLORER_URL}/address/${result.tokenAddress}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-shrink-0 rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white transition-colors"
@@ -138,7 +139,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
 
       {/* Explorer link */}
       <a
-        href={`https://liteforge.caldera.xyz/tx/${result.txHash}`}
+        href={`${LITVM_EXPLORER_URL}/tx/${result.txHash}`}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"

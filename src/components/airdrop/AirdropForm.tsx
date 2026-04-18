@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { isAddress, parseUnits } from 'viem'
+import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Coins, Download, ExternalLink, Loader2, Send, TriangleAlert, Zap } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
@@ -29,7 +30,6 @@ const ERC20_DECIMALS_ABI = [
 ] as const
 
 const BATCH_SIZE = 200
-const EXPLORER_BASE = 'https://liteforge.caldera.xyz'
 
 type Mode = 'token' | 'native'
 
@@ -95,7 +95,7 @@ function SuccessPanel({ success, onReset }: { success: SuccessState; onReset: ()
         {success.batches.map((batch, i) => (
           <a
             key={i}
-            href={`${EXPLORER_BASE}/tx/${batch.txHash}`}
+            href={`${LITVM_EXPLORER_URL}/tx/${batch.txHash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-1.5 text-sm text-[var(--accent)] hover:underline"

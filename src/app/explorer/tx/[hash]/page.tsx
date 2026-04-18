@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink, MessageSquare, Vote } from 'lucide-react'
+import { MessageSquare, Vote } from 'lucide-react'
 import {
   formatAddress,
   formatEtherFromHex,
@@ -10,7 +10,6 @@ import {
   getTransactionReceipt,
   hexToBigInt,
   hexToNumber,
-  LITVM_EXPLORER_EXTERNAL,
   LITVM_EXPLORER_URL,
 } from '@/lib/explorerRpc'
 import { LEDGER_ADDRESS } from '@/config/contracts'
@@ -136,14 +135,7 @@ export default function TransactionDetailsPage({ params }: { params: Promise<{ h
           <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Transaction</p>
           <h1 className="mt-2 break-all font-mono text-lg">{hash}</h1>
         </div>
-        <Link
-          href={`${LITVM_EXPLORER_EXTERNAL}/tx/${hash}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 inline-flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300"
-        >
-          View on Caldera <ExternalLink className="h-4 w-4" />
-        </Link>
+
       </div>
 
       {/* Governance transaction banner */}
@@ -195,7 +187,7 @@ export default function TransactionDetailsPage({ params }: { params: Promise<{ h
           <Link href={`${LITVM_EXPLORER_URL}/address/${tx.from}`} target="_blank">From: {formatAddress(tx.from)}</Link>
           {tx.to && <Link href={`${LITVM_EXPLORER_URL}/address/${tx.to}`} target="_blank">To: {formatAddress(tx.to)}</Link>}
           <Link href={`${LITVM_EXPLORER_URL}/block/${hexToNumber(tx.blockNumber)}`} target="_blank">Block: {hexToNumber(tx.blockNumber).toLocaleString()}</Link>
-          <Link href={`${LITVM_EXPLORER_EXTERNAL}/tx/${hash}`} target="_blank" rel="noopener noreferrer">View on Caldera Explorer →</Link>
+
         </div>
       </div>
 

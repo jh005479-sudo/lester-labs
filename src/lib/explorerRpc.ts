@@ -16,4 +16,3 @@ export {
 } from './rpcClient'
 
 export const LITVM_EXPLORER_URL = 'https://lester-labs.com/explorer'
-export const LITVM_EXPLORER_EXTERNAL = 'https://liteforge.caldera.xyz'

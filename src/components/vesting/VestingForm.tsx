@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
+import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Circle, CircleAlert, CircleDashed, Copy, ExternalLink, ArrowRight, Mail, PartyPopper, Send } from 'lucide-react'
 import Link from 'next/link'
 import { FeeDisplay } from '@/components/shared/FeeDisplay'
@@ -228,7 +229,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
 
       {/* Explorer */}
       <a
-        href={`https://liteforge.caldera.xyz/tx/${result.txHash}`}
+        href={`${LITVM_EXPLORER_URL}/tx/${result.txHash}`}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
