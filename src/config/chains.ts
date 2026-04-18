@@ -9,7 +9,7 @@ export const arbitrumSepolia = {
     default: { http: ['https://sepolia-rollup.arbitrum.io/rpc'] },
   },
   blockExplorers: {
-    default: { name: 'Liteforge Explorer', url: 'https://liteforge.caldera.xyz' },
+    default: { name: 'Liteforge Explorer', url: 'https://lester-labs.com/explorer' },
   },
   testnet: true,
 } as const
@@ -26,7 +26,7 @@ export const litvm = defineChain({
     },
   },
   blockExplorers: {
-    default: { name: 'Liteforge Explorer', url: 'https://liteforge.caldera.xyz' },
+    default: { name: 'Liteforge Explorer', url: 'https://lester-labs.com/explorer' },
   },
   testnet: true,
 })

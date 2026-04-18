@@ -394,7 +394,7 @@ export default function AddressPage() {
               </button>
               <a href={`${LITVM_EXPLORER_URL}/address/${address}`} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white hover:border-white/20 transition-colors">
-                <ExternalLink className="h-3.5 w-3.5" /> Caldera
+                <ExternalLink className="h-3.5 w-3.5" /> Lester Labs Explorer
               </a>
             </div>
           </div>
