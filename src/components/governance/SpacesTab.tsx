@@ -168,7 +168,7 @@ export function SpacesTab() {
                     by <span className="text-gray-400 font-mono">{proposal.proposer.slice(0, 8)}...</span>
                   </span>
                   <a
-                    href={`${GOVERNANCE_CONFIG.space.slug.includes('.') ? 'https://' : ''}${GOVERNANCE_CONFIG.space.slug}`}
+                    href={`${GOVERNANCE_CONFIG.space.explorerUrl}/address/${GOVERNANCE_CONFIG.governor.address}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-[#E44FB5] hover:text-[#c9369e] flex items-center gap-1 transition-colors"

@@ -109,7 +109,7 @@ export function useGovernance() {
   for (let i = 0; i < proposalCount; i++) {
     const stateResult = allProposalData.data?.[i * 3]?.result as number | undefined
     const proposalResult = allProposalData.data?.[i * 3 + 1]?.result as
-      | { snapshotBlock: bigint; startTime: bigint; endTime: bigint; proposer: string; canceled: boolean }
+      | { snapshotBlock: bigint; startBlock: bigint; endBlock: bigint; proposer: string; canceled: boolean }
       | undefined
     const detailResult = allProposalData.data?.[i * 3 + 2]?.result as
       | { targets: `0x${string}`[]; values: bigint[]; calldatas: `0x${string}`[]; description: string }
@@ -128,9 +128,9 @@ export function useGovernance() {
       forVotes: '—',
       againstVotes: '—',
       abstainVotes: '—',
-      quorumMet: false, // requires quorum() call — add if needed
+      quorumMet: false,
       startBlock: Number(proposalResult.snapshotBlock),
-      endBlock: Number(proposalResult.endTime),
+      endBlock: Number(proposalResult.endBlock),
       hasVoted: (userVotesData.data?.[i]?.result as unknown) as boolean ?? false,
       support: 0,
     })
