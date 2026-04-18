@@ -84,7 +84,7 @@ export const GOVERNANCE_CONFIG = {
 
   // Governor + Timelock
   governor: {
-    address: '0x5b0092996BA897617B46D3F108B253be9Ad3d' as const,
+    address: '0x5b0092996BA897617B46D42B3F108B253be9Ad3d' as const,
   },
   timelock: {
     address: '0xd38ed693730Db3eB22bA6d6F0050FC45Ac9240ba' as const,
