@@ -1,11 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useReadContract } from 'wagmi'
+import { useReadContract, usePublicClient } from 'wagmi'
 import { ILO_FACTORY_ADDRESS, DISPERSE_ADDRESS, UNISWAP_V2_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI } from '@/config/abis'
-import { RPC_URL } from '@/lib/rpcClient'
-import { UNISWAP_V2_FACTORY_ABI } from '@/config/abis'
 
 const POLL_INTERVAL = 30_000
 const TOKEN_FACTORY = '0x93acc61fcdc2e3407A0c03450Adfd8aE78964948' as const
@@ -13,15 +11,15 @@ const LEGACY_ILO_FACTORY = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB' as const
 const TOKEN_EVENT_SIG = '0xd5d05a8421149c74fd223cfc823befb883babf9bf0b0e4d6bf9c8fdb70e59bb4'
 const TRANSFER_SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 const SWAP_EVENT_SIG = '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822'
+const PAIR_CREATED_SIG = '0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9'
 
 const BATCH_SIZE = 50_000
 
-const SWAP_COUNT_KEY = 'lester_cached_swap_count'
-const TOKEN_COUNT_KEY = 'lester_cached_token_count'
-const AIRDROP_COUNT_KEY = 'lester_cached_airdrop_count'
-const PAIR_SCAN_DONE_KEY = 'lester_swap_scan_done'
+const SWAP_COUNT_KEY = 'lester_cached_swap_count_v3'
+const TOKEN_COUNT_KEY = 'lester_cached_token_count_v3'
+const AIRDROP_COUNT_KEY = 'lester_cached_airdrop_count_v3'
 
-// ── Stat chip ───────────────────────────────────────────────────────────
+// ── Stat chip ──────────────────────────────────────────────────────────────
 function StatChip({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <div style={{
@@ -59,7 +57,7 @@ function StatChip({ label, value, accent }: { label: string; value: string; acce
   )
 }
 
-// ── ILO count hook — sums new factory + legacy factory ──────────────────────
+// ── ILO count hook — sums new factory + legacy factory ─────────────────────
 type ILOFactoryFn = 'creationFee' | 'allILOs' | 'getILOCount' | 'getOwnerILOs'
 
 function useILOFactoryCounter(fn: ILOFactoryFn) {
@@ -89,201 +87,36 @@ function useILOFactoryCounter(fn: ILOFactoryFn) {
   return String(newCount + legacyCount)
 }
 
-// ── Discover factory pair addresses dynamically ───────────────────────
-async function fetchFactoryPairAddresses(): Promise<string[]> {
-  if (!isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS)) return []
-  try {
-    const lenResp = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_call',
-        params: [{
-          to:   UNISWAP_V2_FACTORY_ADDRESS,
-          data: '0x1c2c7c', // allPairsLength()
-        }, 'latest'],
-        id: 1,
-      }),
-    })
-    const lenJson = await lenResp.json()
-    if (!lenJson.result || lenJson.result === '0x') return []
-    const len = parseInt(lenJson.result, 16)
-    if (len === 0) return []
-
-    // Fetch all pair addresses in parallel batches of 10
-    const indices = Array.from({ length: len }, (_, i) => i)
-    const pairAddresses: string[] = []
-
-    for (let i = 0; i < indices.length; i += 10) {
-      const batch = indices.slice(i, i + 10)
-      const results = await Promise.all(
-        batch.map(async (idx) => {
-          try {
-            const resp = await fetch(RPC_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0',
-                method: 'eth_call',
-                params: [{
-                  to:   UNISWAP_V2_FACTORY_ADDRESS,
-                  data: '0x1c2c7c' + idx.toString(16).padStart(64, '0'),
-                }, 'latest'],
-                id: 1,
-              }),
-            })
-            const json = await resp.json()
-            return json.result && json.result !== '0x'
-              ? '0x' + json.result.slice(26).toLowerCase()
-              : null
-          } catch {
-            return null
-          }
-        })
-      )
-      for (const addr of results) {
-        if (addr) pairAddresses.push(addr)
-      }
-    }
-    return pairAddresses
-  } catch {
-    return []
-  }
+// ── Types for decoded events ─────────────────────────────────────────────
+interface DecodedPairCreated {
+  token0: string
+  token1: string
+  pair: string
+  param: bigint
 }
-
-// ── Token count from event logs ─────────────────────────────────────────
-async function fetchTokenCount(): Promise<number> {
-  const cached = sessionStorage.getItem(TOKEN_COUNT_KEY)
-  if (cached) return parseInt(cached)
-  try {
-    const resp = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getLogs',
-        params: [{
-          address: TOKEN_FACTORY,
-          topics: [TOKEN_EVENT_SIG],
-          fromBlock: '0x1',
-          toBlock:   'latest',
-        }],
-        id: 1,
-      }),
-    })
-    const json = await resp.json()
-    const count = Array.isArray(json.result) ? json.result.length : 0
-    sessionStorage.setItem(TOKEN_COUNT_KEY, String(count))
-    return count
-  } catch {
-    return 0
-  }
+interface DecodedTokenCreated {
+  creator: string
+  token: string
+  name: string
+  symbol: string
 }
-
-// ── Swap count — discovered pairs + bounded batch scan ─────────────────
-async function fetchSwapCount(pairAddresses: string[]): Promise<number> {
-  if (!pairAddresses.length) return 0
-  const cached = sessionStorage.getItem(SWAP_COUNT_KEY)
-  if (cached) return parseInt(cached)
-
-  let latest = 0
-  try {
-    const blockResp = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-    })
-    const blockJson = await blockResp.json()
-    latest = parseInt(blockJson.result, 16)
-  } catch {
-    return 0
-  }
-
-  let fromBlock = 0
-  let totalSwaps = 0
-
-  while (fromBlock <= latest) {
-    const toBlock = Math.min(fromBlock + BATCH_SIZE, latest)
-    const fromHex = '0x' + fromBlock.toString(16)
-    const toHex   = '0x' + toBlock.toString(16)
-
-    const results = await Promise.all(
-      pairAddresses.map(async (addr) => {
-        try {
-          const resp = await fetch(RPC_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              method: 'eth_getLogs',
-              params: [{
-                address: addr,
-                topics: [SWAP_EVENT_SIG],
-                fromBlock: fromHex,
-                toBlock:   toHex,
-              }],
-              id: 1,
-            }),
-          })
-          const json = await resp.json()
-          return Array.isArray(json.result) ? json.result.length : 0
-        } catch {
-          return 0
-        }
-      })
-    )
-
-    totalSwaps += results.reduce((a, b) => a + b, 0)
-    fromBlock = toBlock + 1
-  }
-
-  sessionStorage.setItem(SWAP_COUNT_KEY, String(totalSwaps))
-  return totalSwaps
+interface DecodedSwap {
+  sender: string
+  amount0In: bigint
+  amount1In: bigint
+  amount0Out: bigint
+  amount1Out: bigint
+  to: string
 }
-
-// ── Airdrop wallet count from Disperse contract Transfer events ───────────
-async function fetchAirdropWalletCount(): Promise<number> {
-  if (!isValidContractAddress(DISPERSE_ADDRESS)) return 0
-  const cached = sessionStorage.getItem(AIRDROP_COUNT_KEY)
-  if (cached) return parseInt(cached)
-  try {
-    const resp = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getLogs',
-        params: [{
-          topics: [
-            TRANSFER_SIG,
-            '0x' + DISPERSE_ADDRESS.slice(2).padStart(64, '0'),
-            null,
-          ],
-          fromBlock: '0x1',
-          toBlock:   'latest',
-        }],
-        id: 1,
-      }),
-    })
-    const json = await resp.json()
-    if (!Array.isArray(json.result)) return 0
-    const wallets = new Set<string>()
-    for (const ev of json.result) {
-      if (ev.topics[2]) {
-        wallets.add('0x' + ev.topics[2].slice(26).toLowerCase())
-      }
-    }
-    const count = wallets.size
-    sessionStorage.setItem(AIRDROP_COUNT_KEY, String(count))
-    return count
-  } catch {
-    return 0
-  }
+interface DecodedTransfer {
+  from: string
+  to: string
+  value: bigint
 }
 
 export function PlatformStats() {
-  const iloCount  = useILOFactoryCounter('getILOCount')
+  const publicClient = usePublicClient()
+  const iloCount = useILOFactoryCounter('getILOCount')
   const [tokenCount, setTokenCount] = useState<string>('—')
   const [airdropCount, setAirdropCount] = useState<string>('—')
   const [swapCount, setSwapCount] = useState<string>('—')
@@ -291,49 +124,236 @@ export function PlatformStats() {
   const [pairCount, setPairCount] = useState<string>('—')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const initialLoadDone = useRef(false)
-  const cachedPairs = useRef<string[]>([])
 
+  // ── Initial load ──────────────────────────────────────────────────────
   useEffect(() => {
+    if (!publicClient) return
     if (initialLoadDone.current) return
     initialLoadDone.current = true
 
     async function init() {
-      const [pairs, tokens, airdrop] = await Promise.all([
-        fetchFactoryPairAddresses(),
-        fetchTokenCount(),
-        fetchAirdropWalletCount(),
-      ])
+      if (!publicClient) return
+      try {
+        // 1. Discover all factory pair addresses via PairCreated events
+        const pairLogs = await publicClient.getLogs({
+          address: UNISWAP_V2_FACTORY_ADDRESS,
+          event: {
+            type: 'event' as const,
+            name: 'PairCreated',
+            inputs: [
+              { type: 'address', name: 'token0', indexed: true },
+              { type: 'address', name: 'token1', indexed: true },
+              { type: 'address', name: 'pair', indexed: false },
+              { type: 'uint256', name: 'param', indexed: false },
+            ],
+          },
+          fromBlock: 0n,
+          toBlock: 'latest',
+        })
+        const pairs: string[] = pairLogs.map(log => {
+          const args = log.args as unknown as DecodedPairCreated
+          return args.pair
+        }).filter(Boolean)
+        setPairCount(String(pairs.length))
 
-      cachedPairs.current = pairs
-      setPairCount(String(pairs.length))
-      setTokenCount(String(tokens))
-      setAirdropCount(String(airdrop))
+        // 2. Token count from factory logs
+        const tokenCached = sessionStorage.getItem(TOKEN_COUNT_KEY)
+        let tokenTotal = tokenCached ? parseInt(tokenCached) : 0
+        if (!tokenCached) {
+          const tokenLogs = await publicClient.getLogs({
+            address: TOKEN_FACTORY,
+            event: {
+              type: 'event' as const,
+              name: 'TokenCreated',
+              inputs: [
+                { type: 'address', name: 'creator' },
+                { type: 'address', name: 'token' },
+                { type: 'string',  name: 'name' },
+                { type: 'string',  name: 'symbol' },
+              ],
+            },
+            fromBlock: 0n,
+            toBlock: 'latest',
+          })
+          tokenTotal = tokenLogs.length
+          sessionStorage.setItem(TOKEN_COUNT_KEY, String(tokenTotal))
+        }
+        setTokenCount(String(tokenTotal))
 
-      const swaps = await fetchSwapCount(pairs)
-      setSwapCount(String(swaps))
-      setLoading(false)
+        // 3. Airdrop wallet count
+        const airdropCached = sessionStorage.getItem(AIRDROP_COUNT_KEY)
+        let airdropTotal = airdropCached ? parseInt(airdropCached) : 0
+        if (!airdropCached) {
+          // Use raw topic filter — split address into topic[1] position
+          const airdropLogs: any[] = await (publicClient as any).getLogs({
+            topics: [
+              TRANSFER_SIG,
+              '0x' + DISPERSE_ADDRESS.slice(2).padStart(64, '0'),
+              null,
+            ],
+            fromBlock: 0n,
+            toBlock: 'latest',
+          })
+          const wallets = new Set<string>()
+          for (const ev of airdropLogs) {
+            if (ev.topics?.[2]) {
+              wallets.add('0x' + ev.topics[2].slice(26).toLowerCase())
+            }
+          }
+          airdropTotal = wallets.size
+          sessionStorage.setItem(AIRDROP_COUNT_KEY, String(airdropTotal))
+        }
+        setAirdropCount(String(airdropTotal))
+
+        // 4. Swap count across all pairs (bounded batch scan)
+        const swapCached = sessionStorage.getItem(SWAP_COUNT_KEY)
+        let swapTotal = swapCached ? parseInt(swapCached) : 0
+        if (!swapCached && pairs.length > 0) {
+          const latestBlock = await publicClient.getBlockNumber()
+          let fromBlock = 0n
+          while (fromBlock <= latestBlock) {
+            const toBlock = fromBlock + BigInt(BATCH_SIZE) > latestBlock
+              ? latestBlock
+              : fromBlock + BigInt(BATCH_SIZE)
+
+            const batchResults = await Promise.all(
+              pairs.map(async (addr) => {
+                try {
+                  const logs = await publicClient.getLogs({
+                    address: addr as `0x${string}`,
+                    event: {
+                      type: 'event' as const,
+                      name: 'Swap',
+                      inputs: [
+                        { type: 'address', name: 'sender', indexed: true },
+                        { type: 'uint256', name: 'amount0In', indexed: false },
+                        { type: 'uint256', name: 'amount1In', indexed: false },
+                        { type: 'uint256', name: 'amount0Out', indexed: false },
+                        { type: 'uint256', name: 'amount1Out', indexed: false },
+                        { type: 'address', name: 'to', indexed: true },
+                      ],
+                    },
+                    fromBlock,
+                    toBlock,
+                  })
+                  return logs.length
+                } catch {
+                  return 0
+                }
+              })
+            )
+            swapTotal += batchResults.reduce((a, b) => a + b, 0)
+            fromBlock = toBlock + 1n
+          }
+          sessionStorage.setItem(SWAP_COUNT_KEY, String(swapTotal))
+        }
+        setSwapCount(String(swapTotal))
+      } catch (err) {
+        console.error('[PlatformStats] init error:', err)
+      } finally {
+        setLoading(false)
+      }
     }
 
     init()
-  }, [])
+  }, [publicClient])
 
+  // ── Polling ───────────────────────────────────────────────────────────
   useEffect(() => {
-    intervalRef.current = setInterval(async () => {
-      // Refresh pair list every poll (catches new factory pairs)
-      const pairs = await fetchFactoryPairAddresses()
-      cachedPairs.current = pairs
-      setPairCount(String(pairs.length))
+    if (!publicClient) return
 
-      const [tokens, swaps] = await Promise.all([
-        fetchTokenCount(),
-        fetchSwapCount(pairs),
-      ])
-      setTokenCount(String(tokens))
-      setSwapCount(String(swaps))
+    intervalRef.current = setInterval(async () => {
+      try {
+        const pairLogs = await publicClient.getLogs({
+          address: UNISWAP_V2_FACTORY_ADDRESS,
+          event: {
+            type: 'event' as const,
+            name: 'PairCreated',
+            inputs: [
+              { type: 'address', name: 'token0', indexed: true },
+              { type: 'address', name: 'token1', indexed: true },
+              { type: 'address', name: 'pair', indexed: false },
+              { type: 'uint256', name: 'param', indexed: false },
+            ],
+          },
+          fromBlock: 0n,
+          toBlock: 'latest',
+        })
+        const pairs: string[] = pairLogs.map(log => {
+          const args = log.args as unknown as DecodedPairCreated
+          return args.pair
+        }).filter(Boolean)
+        setPairCount(String(pairs.length))
+
+        const [tokenLogs, swapTotal] = await Promise.all([
+          publicClient.getLogs({
+            address: TOKEN_FACTORY,
+            event: {
+              type: 'event' as const,
+              name: 'TokenCreated',
+              inputs: [
+                { type: 'address', name: 'creator' },
+                { type: 'address', name: 'token' },
+                { type: 'string',  name: 'name' },
+                { type: 'string',  name: 'symbol' },
+              ],
+            },
+            fromBlock: 0n,
+            toBlock: 'latest',
+          }),
+          (async () => {
+            if (!pairs.length) return 0
+            const cached = sessionStorage.getItem(SWAP_COUNT_KEY)
+            let total = cached ? parseInt(cached) : 0
+            const latestBlock = await publicClient.getBlockNumber()
+            let fromBlock = 0n
+            while (fromBlock <= latestBlock) {
+              const toBlock = fromBlock + BigInt(BATCH_SIZE) > latestBlock
+                ? latestBlock
+                : fromBlock + BigInt(BATCH_SIZE)
+              const batchResults = await Promise.all(
+                pairs.map(async (addr) => {
+                  try {
+                    const logs = await publicClient.getLogs({
+                      address: addr as `0x${string}`,
+                      event: {
+                        type: 'event' as const,
+                        name: 'Swap',
+                        inputs: [
+                          { type: 'address', name: 'sender', indexed: true },
+                          { type: 'uint256', name: 'amount0In', indexed: false },
+                          { type: 'uint256', name: 'amount1In', indexed: false },
+                          { type: 'uint256', name: 'amount0Out', indexed: false },
+                          { type: 'uint256', name: 'amount1Out', indexed: false },
+                          { type: 'address', name: 'to', indexed: true },
+                        ],
+                      },
+                      fromBlock,
+                      toBlock,
+                    })
+                    return logs.length
+                  } catch {
+                    return 0
+                  }
+                })
+              )
+              total += batchResults.reduce((a, b) => a + b, 0)
+              fromBlock = toBlock + 1n
+            }
+            sessionStorage.setItem(SWAP_COUNT_KEY, String(total))
+            return total
+          })(),
+        ])
+
+        setTokenCount(String(tokenLogs.length))
+        setSwapCount(String(swapTotal))
+      } catch (err) {
+        console.error('[PlatformStats] poll error:', err)
+      }
     }, POLL_INTERVAL)
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [])
+  }, [publicClient])
 
   return (
     <div style={{
