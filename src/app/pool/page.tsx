@@ -1,14 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
-import { Droplets, ExternalLink, Layers3, Loader2, Plus, Wallet } from 'lucide-react'
-import { useAccount, useReadContract, useReadContracts } from 'wagmi'
+import { useEffect, useState } from 'react'
+import { Droplets, ExternalLink, Layers3, Loader2, Minus, Plus, Wallet, X } from 'lucide-react'
+import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
-import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI } from '@/config/abis'
-import { UNISWAP_V2_FACTORY_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
+import { TxStatusModal } from '@/components/shared/TxStatusModal'
+import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
+import { UNISWAP_V2_FACTORY_ADDRESS, UNISWAP_V2_ROUTER_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
 
 const ACCENT = '#E44FB5'
 const PAGE_SIZE = 10
@@ -124,7 +125,7 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
 }
 
 // ── LP position card for connected wallet view ──────────────────────────────
-function PositionCard({ position, onAddLiquidity }: {
+function PositionCard({ position, onAddLiquidity, onRemoveLiquidity }: {
   position: {
     pairAddress: `0x${string}`
     token0Meta: TokenMeta
@@ -137,6 +138,7 @@ function PositionCard({ position, onAddLiquidity }: {
     share: number
   }
   onAddLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`) => void
+  onRemoveLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`, lpBalance: bigint) => void
 }) {
   return (
     <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/25">
@@ -158,6 +160,13 @@ function PositionCard({ position, onAddLiquidity }: {
           >
             <Plus size={12} />
             Add Liquidity
+          </button>
+          <button
+            onClick={() => onRemoveLiquidity(position.pairAddress, position.token0Address, position.token1Address, position.lpBalance)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
+          >
+            <Minus size={12} />
+            Remove Liquidity
           </button>
           <a
             href={`https://liteforge.explorer.caldera.xyz/address/${position.pairAddress}`}
@@ -206,6 +215,326 @@ function PositionCard({ position, onAddLiquidity }: {
   )
 }
 
+// Extended ABI with removeLiquidity functions not in the main config
+const UNISWAP_V2_ROUTER_EXTENDED_ABI = [
+  ...UNISWAP_V2_ROUTER_ABI,
+  {
+    name: 'removeLiquidity',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'tokenA', type: 'address' },
+      { name: 'tokenB', type: 'address' },
+      { name: 'liquidity', type: 'uint256' },
+      { name: 'amountAMin', type: 'uint256' },
+      { name: 'amountBMin', type: 'uint256' },
+      { name: 'to', type: 'address' },
+      { name: 'deadline', type: 'uint256' },
+    ],
+    outputs: [
+      { name: 'amountA', type: 'uint256' },
+      { name: 'amountB', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'removeLiquidityETH',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'liquidity', type: 'uint256' },
+      { name: 'amountTokenMin', type: 'uint256' },
+      { name: 'amountETHMin', type: 'uint256' },
+      { name: 'to', type: 'address' },
+      { name: 'deadline', type: 'uint256' },
+    ],
+    outputs: [
+      { name: 'amountToken', type: 'uint256' },
+      { name: 'amountETH', type: 'uint256' },
+    ],
+  },
+] as const
+
+const DEFAULT_DEADLINE_SECONDS = 20 * 60
+
+// ── Remove Liquidity Panel ──────────────────────────────────────────────────
+function RemoveLiquidityPanel({
+  pairAddress,
+  token0,
+  token1,
+  lpBalance,
+  onClose,
+  onSuccess,
+}: {
+  pairAddress: `0x${string}`
+  token0: `0x${string}`
+  token1: `0x${string}`
+  lpBalance: bigint
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const { address, isConnected } = useAccount()
+  const { writeContractAsync } = useWriteContract()
+
+  const [removePercent, setRemovePercent] = useState('100')
+  const [removing, setRemoving] = useState(false)
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
+  const [txOpen, setTxOpen] = useState(false)
+  const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
+  const [txMessage, setTxMessage] = useState<string | undefined>()
+  const [approvalPending, setApprovalPending] = useState(false)
+
+  const isToken0Native = token0.toLowerCase() === ZERO_ADDRESS().toLowerCase()
+  const isToken1Native = token1.toLowerCase() === ZERO_ADDRESS().toLowerCase()
+  const isETHPair = isToken0Native || isToken1Native
+
+  const lpAmount = (BigInt(Math.floor(parseFloat(removePercent) * 100)) * lpBalance) / 10_000n
+
+  // Read reserves to calculate expected token amounts
+  const reservesRead = useReadContract({
+    address: pairAddress,
+    abi: UNISWAP_V2_PAIR_ABI,
+    functionName: 'getReserves',
+  })
+
+  const reserves = reservesRead.data as readonly [bigint, bigint, number] | undefined
+
+  // Read total supply to calculate expected amounts out
+  const totalSupplyRead = useReadContract({
+    address: pairAddress,
+    abi: UNISWAP_V2_PAIR_ABI,
+    functionName: 'totalSupply',
+  })
+
+  const totalSupply = totalSupplyRead.data as bigint | undefined
+
+  const expectedToken0 = reserves && totalSupply && totalSupply > 0n
+    ? (reserves[0] * lpAmount) / totalSupply
+    : 0n
+  const expectedToken1 = reserves && totalSupply && totalSupply > 0n
+    ? (reserves[1] * lpAmount) / totalSupply
+    : 0n
+  // LP token allowance check
+  const allowanceRead = useReadContract({
+    address: pairAddress,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: address ? [address, UNISWAP_V2_ROUTER_ADDRESS] : undefined,
+    query: { enabled: isConnected && Boolean(address) },
+  })
+
+  const allowance = (allowanceRead.data ?? 0n) as bigint
+  const needsApproval = isConnected && allowance < lpAmount && lpAmount > 0n
+
+  const { isLoading: isConfirming, isSuccess: txConfirmed, error: txError } = useWaitForTransactionReceipt({
+    hash: txHash,
+    query: { enabled: Boolean(txHash) },
+  })
+
+  useEffect(() => {
+    if (!txHash) return
+    if (isConfirming) {
+      setTxStatus('pending')
+      setTxMessage('Remove liquidity transaction pending...')
+    }
+  }, [isConfirming, txHash])
+
+  useEffect(() => {
+    if (!txHash || !txConfirmed) return
+    setTxStatus('success')
+    setTxMessage('Liquidity removed successfully on LitVM.')
+  }, [txConfirmed, txHash])
+
+  useEffect(() => {
+    if (!txHash || !txError) return
+    setTxStatus('error')
+    setTxMessage(txError.message.slice(0, 180))
+  }, [txError, txHash])
+
+  const canRemove = isConnected && parseFloat(removePercent) > 0 && lpAmount > 0n
+
+  async function handleApprove() {
+    if (!address) return
+    setApprovalPending(true)
+    try {
+      const hash = await writeContractAsync({
+        address: pairAddress,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [UNISWAP_V2_ROUTER_ADDRESS, lpAmount],
+      })
+      setTxHash(hash)
+      setTxOpen(true)
+      setTxStatus('pending')
+      setTxMessage('Approval transaction pending...')
+    } catch (err) {
+      setTxStatus('error')
+      setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Approval failed.')
+      setTxOpen(true)
+    } finally {
+      setApprovalPending(false)
+    }
+  }
+
+  async function handleRemoveLiquidity() {
+    if (!canRemove || !address) return
+    setRemoving(true)
+    try {
+      setTxOpen(true)
+      setTxStatus('pending')
+      setTxMessage(undefined)
+
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
+
+      let hash: `0x${string}`
+
+      if (isETHPair) {
+        // One of the tokens is zkLTC (native)
+        const tokenAddr = isToken0Native ? token1 : token0
+        hash = await writeContractAsync({
+          address: UNISWAP_V2_ROUTER_ADDRESS,
+          abi: UNISWAP_V2_ROUTER_EXTENDED_ABI,
+          functionName: 'removeLiquidityETH',
+          args: [tokenAddr, lpAmount, 0n, 0n, address, deadline],
+        })
+      } else {
+        // Both ERC20 — ensure tokenA < tokenB
+        const [tokenA, tokenB] = token0.toLowerCase() < token1.toLowerCase()
+          ? [token0, token1] as const
+          : [token1, token0] as const
+        hash = await writeContractAsync({
+          address: UNISWAP_V2_ROUTER_ADDRESS,
+          abi: UNISWAP_V2_ROUTER_EXTENDED_ABI,
+          functionName: 'removeLiquidity',
+          args: [tokenA, tokenB, lpAmount, 0n, 0n, address, deadline],
+        })
+      }
+
+      setTxHash(hash)
+    } catch (err) {
+      setTxStatus('error')
+      setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Remove liquidity failed.')
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-white">Remove Liquidity</h2>
+        <button
+          onClick={onClose}
+          className="rounded-full border border-white/10 bg-white/5 p-2 text-white/55 transition hover:border-white/20 hover:text-white"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {!isConnected && (
+        <div className="rounded-2xl border border-white/8 bg-white/3 p-6 text-center">
+          <p className="text-sm text-white/55">Connect your wallet to remove liquidity.</p>
+        </div>
+      )}
+
+      {isConnected && (
+        <>
+          {/* LP balance info */}
+          <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+            <p className="text-xs uppercase tracking-[0.12em] text-white/35">Your LP balance</p>
+            <p className="mt-2 text-lg font-semibold text-white">{formatAmount(lpBalance, 18)} LP</p>
+          </div>
+
+          {/* Remove percent slider */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-white/55">Amount to remove</span>
+              <span className="text-white font-medium">{removePercent}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={removePercent}
+              onChange={(e) => setRemovePercent(e.target.value)}
+              className="w-full cursor-pointer accent-pink-500"
+            />
+            <div className="flex gap-2 text-xs text-white/40">
+              {['25', '50', '75', '100'].map((pct) => (
+                <button
+                  key={pct}
+                  onClick={() => setRemovePercent(pct)}
+                  className={`flex-1 rounded-full border py-1 transition ${
+                    removePercent === pct
+                      ? 'border-white/20 bg-white/10 text-white'
+                      : 'border-white/10 text-white/40 hover:border-white/15'
+                  }`}
+                >
+                  {pct}%
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Expected amounts */}
+          {lpAmount > 0n && reserves && (
+            <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4 space-y-2">
+              <p className="text-xs uppercase tracking-[0.12em] text-white/35">You will receive (estimated)</p>
+              <div className="flex justify-between">
+                <span className="text-sm text-white/70">{formatAmount(expectedToken0, 18)}</span>
+                <span className="text-sm text-white/70">{formatAmount(expectedToken1, 18)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Approval needed */}
+          {needsApproval && (
+            <button
+              onClick={handleApprove}
+              disabled={approvalPending}
+              className="flex w-full items-center justify-center gap-2 rounded-[18px] border border-white/10 bg-white/5 px-5 py-4 text-base font-semibold text-white/70 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {approvalPending ? <Loader2 size={16} className="animate-spin" /> : null}
+              <span>{approvalPending ? 'Approving…' : 'Approve LP Token'}</span>
+            </button>
+          )}
+
+          {/* Remove button */}
+          <button
+            onClick={handleRemoveLiquidity}
+            disabled={!canRemove || removing || (needsApproval && allowance < lpAmount)}
+            className="flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              background: needsApproval && allowance < lpAmount
+                ? 'rgba(228,79,181,0.3)'
+                : `linear-gradient(135deg, #E44FB5 0%, #b43684 100%)`,
+              boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
+            }}
+          >
+            {removing || isConfirming ? <Loader2 size={16} className="animate-spin" /> : <Minus size={16} />}
+            <span>{removing ? 'Removing…' : isConfirming ? 'Confirming…' : 'Remove Liquidity'}</span>
+          </button>
+        </>
+      )}
+
+      <TxStatusModal
+        isOpen={txOpen}
+        onClose={() => {
+          if (txStatus === 'success') {
+            onSuccess()
+            onClose()
+          }
+          setTxOpen(false)
+        }}
+        status={txStatus}
+        txHash={txHash}
+        message={txMessage}
+      />
+    </div>
+  )
+}
+
 export default function PoolPage() {
   const { address, isConnected } = useAccount()
 
@@ -225,6 +554,15 @@ export default function PoolPage() {
   // ── Pagination state ─────────────────────────────────────────────────────
   const [loadedBatches, setLoadedBatches] = useState(2) // start with 2 batches (20 pairs)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+
+  // ── Remove liquidity modal state ────────────────────────────────────────
+  const [showRemoveLiq, setShowRemoveLiq] = useState(false)
+  const [removeLiqData, setRemoveLiqData] = useState<{
+    pairAddress: `0x${string}`
+    token0: `0x${string}`
+    token1: `0x${string}`
+    lpBalance: bigint
+  } | null>(null)
 
   const displayedCount = Math.min(loadedBatches * PAGE_SIZE, maxDisplay)
 
@@ -423,6 +761,16 @@ export default function PoolPage() {
     token1: `0x${string}`
   ) {
     window.location.href = `/swap?addLiquidity=${pairAddress}&token0=${token0}&token1=${token1}`
+  }
+
+  function handleRemoveLiquidity(
+    pairAddress: `0x${string}`,
+    token0: `0x${string}`,
+    token1: `0x${string}`,
+    lpBalance: bigint
+  ) {
+    setRemoveLiqData({ pairAddress, token0, token1, lpBalance })
+    setShowRemoveLiq(true)
   }
 
   async function handleLoadMore() {
@@ -635,12 +983,33 @@ export default function PoolPage() {
                     key={position.pairAddress}
                     position={position}
                     onAddLiquidity={handleAddLiquidity}
+                    onRemoveLiquidity={handleRemoveLiquidity}
                   />
                 ))}
               </div>
             )}
 
-            {/* ── Other pools (no LP position) ────────────────────────────── */}
+            {/* Remove liquidity panel */}
+            {showRemoveLiq && removeLiqData && (
+              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
+                <RemoveLiquidityPanel
+                  pairAddress={removeLiqData.pairAddress}
+                  token0={removeLiqData.token0}
+                  token1={removeLiqData.token1}
+                  lpBalance={removeLiqData.lpBalance}
+                  onClose={() => setShowRemoveLiq(false)}
+                  onSuccess={() => {
+                    setShowRemoveLiq(false)
+                    setRemoveLiqData(null)
+                    // Refresh data by re-triggering reads
+                    lpBalanceReads.refetch()
+                    pairStateReads.refetch()
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Other pools (no LP position) */}
             {visiblePools.length > 0 && (
               <>
                 <div className="mt-6 flex items-center gap-3">
