@@ -2,22 +2,25 @@
 
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
-import { BookOpen, Zap, Shield, Coins, ArrowRight, Layers, Clock } from 'lucide-react'
+import { Zap, Shield, ArrowRight, Layers, Clock } from 'lucide-react'
 import { TUTORIALS } from '@/lib/tutorials-content'
-
-const CATEGORY_META: Record<string, { icon: typeof Zap; color: string; gradient: string }> = {
-  'Getting Started': { icon: Zap, color: '#818cf8', gradient: 'linear-gradient(135deg, #0f0c29 0%, #1a1a3e 100%)' },
-  'dApp Guides': { icon: Layers, color: '#a78bfa', gradient: 'linear-gradient(135deg, #1a0f2e 0%, #2a1a4a 100%)' },
-  'Protocol Deep Dives': { icon: Shield, color: '#4ade80', gradient: 'linear-gradient(135deg, #0d1f1a 0%, #1a3330 100%)' },
-  'Ecosystem': { icon: Coins, color: '#fbbf24', gradient: 'linear-gradient(135deg, #1a1500 0%, #2e2600 100%)' },
-}
 
 function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
   return (
-    <Link href={`/tutorials/${article.slug}`} style={{ textDecoration: 'none' }}>
+    <Link href={`/tutorials/${article.slug}`} style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
+      <div
+        className="analytics-card"
+        style={{
+          borderRadius: '14px',
+          overflow: 'hidden',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
       {/* Hero image / gradient */}
       <div style={{
-        height: '140px', borderRadius: '14px 14px 0 0',
+        height: '140px',
         background: article.heroGradient,
         position: 'relative', overflow: 'hidden',
       }}>
@@ -53,10 +56,10 @@ function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
       <div style={{
         padding: '20px',
         background: 'var(--surface-1)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderTop: 'none',
-        borderRadius: '0 0 14px 14px',
-        transition: 'border-color 0.2s',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
       }}>
         <h3 style={{
           fontSize: '16px', fontWeight: 700, color: 'white',
@@ -69,6 +72,7 @@ function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
           lineHeight: 1.6, marginBottom: '14px',
           display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
+          flex: 1,
         }}>
           {article.subtitle}
         </p>
@@ -86,31 +90,21 @@ function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
           </span>
         </div>
       </div>
+      </div>
     </Link>
   )
 }
 
 export default function TutorialsPage() {
-  // Group articles by category, preserving defined order
-  const categories = [...new Set(TUTORIALS.map(a => a.category))]
-
   return (
     <div className="min-h-screen bg-[var(--background)] text-white">
       <Navbar />
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '120px 24px 80px' }}>
+      <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
 
         {/* Header */}
-        <div style={{ marginBottom: '56px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <BookOpen style={{ width: '28px', height: '28px', color: 'var(--accent)' }} />
-            <span style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
-              Documentation
-            </span>
-          </div>
-          <h1 style={{ fontSize: '42px', fontWeight: 800, marginBottom: '16px', letterSpacing: '-0.02em' }}>
-            Tutorials & Guides
-          </h1>
-          <p style={{ fontSize: '18px', color: 'rgba(255,255,255,0.5)', maxWidth: '580px', lineHeight: 1.6 }}>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold tracking-tight">Tutorials & Guides</h1>
+          <p className="text-white/50 text-sm mt-1">
             Step-by-step guides, protocol explainers, and ecosystem deep dives for LitVM and every Lester Labs dApp.
           </p>
         </div>
@@ -130,7 +124,7 @@ export default function TutorialsPage() {
           </div>
 
           {/* Featured hero card */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', gridAutoRows: '1fr' }}>
             {TUTORIALS.slice(0, 3).map(article => (
               <ArticleCard key={article.slug} article={article} />
             ))}
@@ -149,7 +143,7 @@ export default function TutorialsPage() {
             </div>
             <h2 style={{ fontSize: '18px', fontWeight: 700 }}>dApp Guides</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', gridAutoRows: '1fr' }}>
             {TUTORIALS.filter(a => a.category === 'dApp Guides').map(article => (
               <ArticleCard key={article.slug} article={article} />
             ))}
@@ -169,7 +163,7 @@ export default function TutorialsPage() {
               </div>
               <h2 style={{ fontSize: '18px', fontWeight: 700 }}>Deep Dives & Ecosystem</h2>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', gridAutoRows: '1fr' }}>
               {TUTORIALS.filter(a => a.category === 'Protocol Deep Dives' || a.category === 'Ecosystem').map(article => (
                 <ArticleCard key={article.slug} article={article} />
               ))}

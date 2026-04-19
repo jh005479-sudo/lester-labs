@@ -11,19 +11,22 @@ const dappLinks = [
   { href: '/locker',     label: 'Locker' },
   { href: '/vesting',    label: 'Vesting' },
   { href: '/airdrop',    label: 'Airdrop' },
-  { href: '/swap',       label: 'Swap' },
-  { href: '/pool',       label: 'Pool' },
   { href: '/governance', label: 'Governance' },
-  { href: '/ledger',     label: 'The Ledger' },
   { href: '/launchpad',  label: 'Launchpad' },
 ]
 
+const dexLinks = [
+  { href: '/swap', label: 'Swap' },
+  { href: '/pool', label: 'Pool' },
+]
+
 const navLinks = [
+  { href: '/ledger',     label: 'Ledger' },
   { href: '/explorer',   label: 'Explorer' },
   { href: '/analytics',  label: 'Analytics' },
-  { href: '/docs',       label: 'Docs' },
-  { href: '/tutorials', label: 'Tutorials' },
   { href: '/portfolio',  label: 'Portfolio' },
+  { href: '/tutorials', label: 'Tutorials' },
+  { href: '/docs',       label: 'Docs' },
 ]
 
 const MOBILE_MENU_HEIGHT = 'calc(100dvh - var(--mobile-header-stack))'
@@ -33,6 +36,7 @@ export function Navbar() {
   const isHome = pathname === '/'
   const [mobileOpen, setMobileOpen] = useState(false)
   const [dappsOpen, setDappsOpen] = useState(false)
+  const [dexOpen, setDexOpen] = useState(false)
 
   return (
     <nav
@@ -47,7 +51,7 @@ export function Navbar() {
       }}
     >
       <div className="mx-auto flex h-12 md:h-14 max-w-[1560px] items-center justify-between px-4 sm:px-8 lg:px-10">
-        <Link href="/" className="transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
+        <Link prefetch={false} href="/" className="transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
           <span className="text-sm font-bold tracking-widest uppercase" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
             Lester<span style={{ color: 'var(--accent)' }}>Labs</span>
           </span>
@@ -85,7 +89,55 @@ export function Navbar() {
                     <Link
                       key={href}
                       href={href}
+                      prefetch={false}
                       onClick={() => setDappsOpen(false)}
+                      className="block rounded-lg px-3 py-2 text-sm transition-colors"
+                      style={{
+                        color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
+                        background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
+                      }}
+                    >
+                      {label}
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="relative">
+            <button
+              onClick={() => setDexOpen(!dexOpen)}
+              className="relative flex items-center gap-1 text-[12px] tracking-wide transition-all duration-300"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                color: dexLinks.some(({ href }) => pathname === href || pathname.startsWith(href + '/'))
+                  ? 'var(--foreground)'
+                  : 'rgba(255,255,255,0.62)',
+                letterSpacing: '0.035em',
+              }}
+            >
+              DEX
+              <ChevronDown size={14} className={`transition-transform ${dexOpen ? 'rotate-180' : ''}`} />
+              {dexLinks.some(({ href }) => pathname === href || pathname.startsWith(href + '/')) && (
+                <span className="absolute -bottom-1 left-0 right-0 h-px" style={{ background: 'var(--accent)', opacity: 0.6 }} />
+              )}
+            </button>
+
+            {dexOpen && (
+              <div
+                className="absolute left-0 top-8 min-w-[180px] rounded-xl border border-white/10 p-2"
+                style={{ background: 'rgba(12, 10, 18, 0.96)', backdropFilter: 'blur(14px)' }}
+              >
+                {dexLinks.map(({ href, label }) => {
+                  const isActive = pathname === href || pathname.startsWith(href + '/')
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      prefetch={false}
+                      onClick={() => setDexOpen(false)}
                       className="block rounded-lg px-3 py-2 text-sm transition-colors"
                       style={{
                         color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
@@ -106,6 +158,7 @@ export function Navbar() {
               <Link
                 key={href}
                 href={href}
+                prefetch={false}
                 className="relative text-[12px] tracking-wide transition-all duration-300"
                 style={{
                   fontFamily: 'var(--font-body)',
@@ -238,6 +291,36 @@ export function Navbar() {
                   <Link
                     key={href}
                     href={href}
+                    prefetch={false}
+                    onClick={() => setMobileOpen(false)}
+                    className="py-2 text-lg font-light tracking-wide transition-colors duration-300"
+                    style={{
+                      color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
+                      fontFamily: 'var(--font-heading)',
+                    }}
+                  >
+                    {label}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <p
+              className="mb-2 text-xs uppercase tracking-[0.12em]"
+              style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-body)' }}
+            >
+              DEX
+            </p>
+            <div className="flex flex-col gap-1">
+              {dexLinks.map(({ href, label }) => {
+                const isActive = pathname === href || pathname.startsWith(href + '/')
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    prefetch={false}
                     onClick={() => setMobileOpen(false)}
                     className="py-2 text-lg font-light tracking-wide transition-colors duration-300"
                     style={{
@@ -258,6 +341,7 @@ export function Navbar() {
               <Link
                 key={href}
                 href={href}
+                prefetch={false}
                 onClick={() => setMobileOpen(false)}
                 className="py-3 text-xl font-light tracking-wide transition-colors duration-300"
                 style={{

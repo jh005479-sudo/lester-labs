@@ -124,11 +124,11 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
 
   return (
     <section
-      className="rounded-[28px] border p-6 sm:p-7"
+      className="analytics-card rounded-[28px] border p-6 sm:p-7"
       style={{
         background: 'linear-gradient(180deg, rgba(17,13,32,0.96) 0%, rgba(10,8,24,0.96) 100%)',
         borderColor: 'rgba(255,255,255,0.08)',
-        boxShadow: '0 24px 70px rgba(0,0,0,0.25)',
+
       }}
     >
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -151,7 +151,7 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
         </div>
 
         <div
-          className="rounded-2xl border px-4 py-3 text-right"
+          className="analytics-card rounded-2xl border px-4 py-3 text-right"
           style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}
         >
           <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: 'rgba(240,238,245,0.38)' }}>

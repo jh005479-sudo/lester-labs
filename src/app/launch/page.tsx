@@ -32,6 +32,7 @@ export default function LaunchPage() {
         subtitle="Deploy a custom ERC-20 token on LitVM in under a minute. No code required. No compromises."
         color={COLOR}
         image="/images/carousel/token-factory.png"
+        compact
         stats={[
           { label: 'Type', value: 'ERC-20' },
           { label: 'Speed', value: '< 1 min' },

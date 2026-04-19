@@ -65,6 +65,7 @@ export default function HomePage() {
   const [introComplete, setIntroComplete] = useState(false)
 
   useEffect(() => {
+    document.body.classList.add('home-page-active')
     // ─── Google Fonts ────────────────────────────────────
     const fontLink = document.createElement('link')
     fontLink.rel = 'stylesheet'
@@ -218,6 +219,7 @@ export default function HomePage() {
 
 
     return () => {
+      document.body.classList.remove('home-page-active')
       window.removeEventListener('scroll', updateProgress)
       window.removeEventListener('resize', () => goSlide(currentSlide))
       clearInterval(autoTimer)
@@ -569,7 +571,7 @@ export default function HomePage() {
               <h2 className="cta-title"><span className="grad">Start building</span><br />today.</h2>
               <p>Simply connect your wallet and start deploying on LitVM instantly, from anywhere. No sign-ups required.</p>
               <div className="cta-buttons">
-                <Link href="/launch" className="btn-primary magnetic">Launch a Token →</Link>
+                <Link prefetch={false} href="/launch" className="btn-primary magnetic">Launch a Token →</Link>
                 <a href="/docs" className="btn-ghost magnetic">Read the Docs ↗</a>
               </div>
               <p className="cta-fine">Lester Labs uses battle-tested contracts forked from industry standards. Supported across all major wallets. Testnet is live — mainnet launches with LitVM.</p>

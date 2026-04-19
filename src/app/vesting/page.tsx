@@ -29,6 +29,7 @@ export default function VestingPage() {
         subtitle="Create vesting schedules for teams, investors, and advisors. Auto-release, zero claims."
         color={COLOR}
         image="/images/carousel/token-vesting.png"
+        compact
         stats={[
           { label: 'Schedules', value: 'Linear + Cliff' },
           { label: 'Release', value: 'Automatic' },

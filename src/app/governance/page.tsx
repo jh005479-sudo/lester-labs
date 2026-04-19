@@ -29,6 +29,7 @@ export default function GovernancePage() {
         color={COLOR}
         image="/images/carousel/governance.png"
         imagePosition="center 30%"
+        compact
         stats={[
           { label: 'Gas', value: 'Zero' },
           { label: 'Style', value: 'Snapshot' },

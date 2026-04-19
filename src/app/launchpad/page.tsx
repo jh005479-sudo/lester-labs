@@ -863,6 +863,7 @@ export default function LaunchpadPage() {
         image="/images/carousel/launchpad.png"
         imagePosition="center 18%"
         imageTopFade={false}
+        compact
         stats={[
           { label: 'Mode', value: 'Permissionless' },
           { label: 'LP', value: 'Auto-created' },

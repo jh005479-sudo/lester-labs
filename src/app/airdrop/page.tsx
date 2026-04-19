@@ -15,6 +15,7 @@ export default function AirdropPage() {
         subtitle="Send tokens to hundreds of wallets in a single transaction. CSV import supported."
         color="#36D1DC"
         image="/images/carousel/airdrop.png"
+        compact
         stats={[
           { label: 'Wallets', value: 'Hundreds' },
           { label: 'Import', value: 'CSV' },

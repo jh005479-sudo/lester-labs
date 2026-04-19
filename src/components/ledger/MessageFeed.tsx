@@ -73,11 +73,11 @@ export function MessageFeed({
 
   return (
     <section
-      className="rounded-[28px] border p-6 sm:p-7"
+      className="analytics-card ledger-static-card rounded-[28px] border p-6 sm:p-7"
       style={{
         background: 'linear-gradient(180deg, rgba(14,10,28,0.96) 0%, rgba(10,8,24,0.96) 100%)',
         borderColor: 'rgba(255,255,255,0.08)',
-        boxShadow: '0 24px 70px rgba(0,0,0,0.25)',
+
       }}
     >
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">

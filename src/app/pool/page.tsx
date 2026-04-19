@@ -9,7 +9,7 @@ import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI } from '@/config/abis'
 import { UNISWAP_V2_FACTORY_ADDRESS, UNISWAP_V2_ROUTER_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
 
-const ACCENT = '#E44FB5'
+const ACCENT = '#6B4FFF'
 const MAX_PAIRS_TO_SCAN = 50
 
 // ── Pinned tokens always shown first in the dropdown ──────────────────────────
@@ -56,7 +56,7 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
   r1: bigint
 }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+    <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-medium text-white">
@@ -87,19 +87,19 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-3">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-3">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Reserve 0</p>
           <p className="mt-1.5 text-sm font-semibold text-white">
             {formatAmount(r0, token0Meta.decimals)} {token0Meta.symbol}
           </p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-3">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-3">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Reserve 1</p>
           <p className="mt-1.5 text-sm font-semibold text-white">
             {formatAmount(r1, token1Meta.decimals)} {token1Meta.symbol}
           </p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-3">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-3">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pair</p>
           <p className="mt-1.5 font-mono text-sm text-white/75">
             {pairAddress.slice(0, 6)}…{pairAddress.slice(-4)}
@@ -126,7 +126,7 @@ function PositionCard({ position, onAddLiquidity }: {
   onAddLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`) => void
 }) {
   return (
-    <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/25">
+    <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/25">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">LP position</p>
@@ -159,15 +159,15 @@ function PositionCard({ position, onAddLiquidity }: {
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">LP balance</p>
           <p className="mt-2 text-lg font-semibold text-white">{formatAmount(position.lpBalance, 18)}</p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pool share</p>
           <p className="mt-2 text-lg font-semibold text-white">{formatPercent(position.share)}</p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pair address</p>
           <p className="mt-2 font-mono text-sm text-white/75">
             {position.pairAddress.slice(0, 6)}…{position.pairAddress.slice(-4)}
@@ -384,8 +384,9 @@ export default function PoolPage() {
         titleHighlight="Pool"
         subtitle="Browse all factory pools, view reserves, and manage your LP positions."
         color={ACCENT}
-        image="/images/carousel/liquidity-locker.png"
-        imagePosition="center 45%"
+        image="/images/carousel/pool.png"
+        imagePosition="center 65px"
+        imageTopFade={false}
         compact
         stats={[
           { label: 'Factory pairs', value: totalPairs.toString() },
@@ -396,7 +397,14 @@ export default function PoolPage() {
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
         {!isDexConfigured && (
-          <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">
+          <div
+            className="rounded-[16px] border p-5 text-sm"
+            style={{
+              borderColor: 'rgba(212, 181, 95, 0.42)',
+              background: 'linear-gradient(135deg, rgba(39,62,84,0.38) 0%, rgba(46,42,62,0.46) 100%)',
+              color: 'rgba(245, 228, 176, 0.95)',
+            }}
+          >
             Configure factory and WZKLTC addresses before using the pool page.
           </div>
         )}
@@ -423,8 +431,8 @@ export default function PoolPage() {
               href="/swap?createPool=1"
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition"
               style={{
-                background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
-                boxShadow: '0 8px 24px rgba(228,79,181,0.25)',
+                background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
+                boxShadow: '0 8px 24px rgba(107,79,255,0.25)',
               }}
             >
               <Plus size={14} />
@@ -448,7 +456,7 @@ export default function PoolPage() {
                 href="/swap?createPool=1"
                 className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition"
                 style={{
-                  background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
+                  background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
                 }}
               >
                 <Plus size={14} />
@@ -475,7 +483,7 @@ export default function PoolPage() {
           <>
             {/* ── Connected: wallet positions + CTA ─────────────────────────── */}
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Wallet</p>
                 <div className="mt-3 flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5">
@@ -488,7 +496,7 @@ export default function PoolPage() {
                 </div>
               </div>
 
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pairs scanned</p>
                 <p className="mt-3 text-3xl font-semibold text-white">{scannedPairCount}</p>
                 <p className="mt-2 text-sm text-white/45">
@@ -498,7 +506,7 @@ export default function PoolPage() {
                 </p>
               </div>
 
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Next action</p>
                 <Link
                   href="/swap"
@@ -512,7 +520,7 @@ export default function PoolPage() {
 
             {/* ── LP positions ───────────────────────────────────────────── */}
             {positions.length === 0 ? (
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-10 text-center">
+              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-10 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5">
                   <Layers3 size={22} className="text-white/65" />
                 </div>
@@ -523,7 +531,7 @@ export default function PoolPage() {
                 <Link
                   href="/swap"
                   className="mt-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white"
-                  style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)` }}
+                  style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)` }}
                 >
                   <Droplets size={14} />
                   Go to Swap
