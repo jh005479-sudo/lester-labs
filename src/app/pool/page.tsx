@@ -290,7 +290,8 @@ function RemoveLiquidityPanel({
   const isToken1Native = token1.toLowerCase() === ZERO_ADDRESS().toLowerCase()
   const isETHPair = isToken0Native || isToken1Native
 
-  const lpAmount = parseFloat(removePercent) > 0
+  const maxLpReadable = Number(lpBalance) / 1e18
+  const lpAmount = parseFloat(removePercent) > 0 && parseFloat(removePercent) <= maxLpReadable
     ? BigInt(Math.floor(parseFloat(removePercent) * 1e18))
     : 0n
 
@@ -462,7 +463,6 @@ function RemoveLiquidityPanel({
               <input
                 type="number"
                 min="0"
-                max={formatAmount(lpBalance, 18)}
                 step="any"
                 value={removePercent}
                 onChange={(e) => setRemovePercent(e.target.value)}
