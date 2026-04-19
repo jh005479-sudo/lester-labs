@@ -446,7 +446,8 @@ export default function PoolPage() {
         subtitle="Browse all factory pools, view reserves, and manage your LP positions."
         color={ACCENT}
         image="/images/carousel/pool.png"
-        imagePosition="center 65px"`r`n        imageTopFade={false}
+        imagePosition="center 65px"
+        imageTopFade={false}
         compact
         stats={[
           { label: 'Factory pairs', value: totalPairs.toString() },
