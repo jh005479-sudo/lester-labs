@@ -158,10 +158,13 @@ function CreatePoolPanel({
   onClose,
   initialToken0,
   initialToken1,
+  existingPairAddress,
 }: {
   onClose: () => void
   initialToken0?: TokenOption | null
   initialToken1?: TokenOption | null
+  /** Pair address when adding to an existing pool (vs creating a new one) */
+  existingPairAddress?: `0x${string}`
 }) {
   const { address, isConnected } = useAccount()
   const { writeContractAsync } = useWriteContract()
@@ -170,12 +173,35 @@ function CreatePoolPanel({
   const [token1, setToken1] = useState<TokenOption | null>(initialToken1 ?? null)
   const [amount0, setAmount0] = useState('')
   const [amount1, setAmount1] = useState('')
+
+  // Detect existing pool and pre-fill amounts from reserves
+  const reservesRead = useReadContract({
+    address: isValidContractAddress(existingPairAddress ?? '') ? existingPairAddress : undefined,
+    abi: UNISWAP_V2_PAIR_ABI,
+    functionName: 'getReserves',
+    query: { enabled: Boolean(existingPairAddress && isValidContractAddress(existingPairAddress)) },
+  })
   const [pickerMode, setPickerMode] = useState<'token0' | 'token1' | null>(null)
   const [creating, setCreating] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
   const [txOpen, setTxOpen] = useState(false)
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
+
+  // Detect existing pool: if reserves > 0, pool already exists — pre-fill amounts from ratio
+  useEffect(() => {
+    if (!reservesRead.data || !reservesRead.isSuccess) return
+    const [r0, r1] = reservesRead.data
+    if (r0 === 0n && r1 === 0n) return
+    // Pre-fill amount0 as 1 token worth to give user a starting point
+    const defaultAmount0 = '1'
+    setAmount0(defaultAmount0)
+    // Calculate proportional amount1 using the reserve ratio
+    if (r1 > 0n && r0 > 0n) {
+      const proportional = (1 * Number(r1)) / Number(r0)
+      setAmount1(proportional.toFixed(4))
+    }
+  }, [reservesRead.data, reservesRead.isSuccess])
 
   const tokenOptions: TokenOption[] = [
     NATIVE_TOKEN,
@@ -238,32 +264,43 @@ function CreatePoolPanel({
 
       let hash: `0x${string}`
 
+      // Wrap wallet call with 60s timeout to prevent infinite spinner
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const walletCall = (cfg: any) =>
+        Promise.race([
+          writeContractAsync(cfg),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Wallet timed out. Please try again.')), 60_000)
+          ),
+        ])
+
+      const to: `0x${string}` = address as `0x${string}`
+
       if (isToken0Native) {
-        hash = await writeContractAsync({
+        hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidityETH',
-          args: [token1Addr, a1, a1, 0n, address, deadline],
+          args: [token1Addr, a1, a1, 0n, to, deadline],
           value: a0,
         })
       } else if (isToken1Native) {
-        hash = await writeContractAsync({
+        hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidityETH',
-          args: [token0Addr, a0, a0, 0n, address, deadline],
+          args: [token0Addr, a0, a0, 0n, to, deadline],
           value: a1,
         })
       } else {
-        // Both ERC20 — ensure tokenA < tokenB (factory requirement)
         const [tokenA, tokenB, amountA, amountB] = token0Addr.toLowerCase() < token1Addr.toLowerCase()
           ? [token0Addr, token1Addr, a0, a1] as const
           : [token1Addr, token0Addr, a1, a0] as const
-        hash = await writeContractAsync({
+        hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidity',
-          args: [tokenA, tokenB, amountA, amountB, 0n, 0n, address, deadline],
+          args: [tokenA, tokenB, amountA, amountB, 0n, 0n, to, deadline],
         })
       }
       setTxHash(hash)
@@ -360,8 +397,8 @@ function CreatePoolPanel({
               boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
             }}
           >
-            {creating || isConfirming ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-            <span>{creating ? 'Creating pool…' : 'Create Pool'}</span>
+            {creating || isConfirming ? <Loader2 size={16} className="animate-spin" /> : (reservesRead.isSuccess ? <Plus size={16} /> : <Plus size={16} />)}
+            <span>{creating ? reservesRead.isSuccess ? 'Adding liquidity…' : 'Creating pool…' : reservesRead.isSuccess ? 'Add Liquidity' : 'Create Pool'}</span>
           </button>
         </>
       )}
@@ -1177,6 +1214,7 @@ function SwapPageInner() {
                     onClose={() => setShowCreatePool(false)}
                     initialToken0={addLiqToken0}
                     initialToken1={addLiqToken1}
+                    existingPairAddress={(searchParams.get('addLiquidity') ?? undefined) as `0x${string}` | undefined}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center rounded-[30px] border border-white/10 bg-white/[0.03] p-8 text-center">
