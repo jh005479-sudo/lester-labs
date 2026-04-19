@@ -719,12 +719,9 @@ function SwapPageInner() {
   const [showSettlementPreview, setShowSettlementPreview] = useState(false)
   const [settlementConfirming, setSettlementConfirming] = useState(false)
 
-  // Resolve tokens from URL params into TokenOption objects — re-runs when discoveredTokens loads
-  const initRef = useRef(false)
   useEffect(() => {
     if (!searchParams.get('createPool') && !searchParams.get('addLiquidity')) return
-    if (initRef.current) return
-    initRef.current = true
+    if (discoveredTokens.length === 0) return // wait for tokens to load
 
     setShowCreatePool(true)
 
