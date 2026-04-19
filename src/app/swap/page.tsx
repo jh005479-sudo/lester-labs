@@ -597,38 +597,36 @@ function SwapPageInner() {
   const [addLiqToken0, setAddLiqToken0] = useState<TokenOption | null>(null)
   const [addLiqToken1, setAddLiqToken1] = useState<TokenOption | null>(null)
 
-  // Initialise create pool panel from URL param
+  // Initialise create pool panel from URL param — also resolves token addresses to TokenOption objects
   useEffect(() => {
-    if (searchParams.get('createPool') === '1' || searchParams.get('addLiquidity')) {
-      setShowCreatePool(true)
+    if (!searchParams.get('createPool') && !searchParams.get('addLiquidity')) return
+    setShowCreatePool(true)
 
-      // Pre-fill tokens from URL params (passed by pool page)
-      const token0Addr = searchParams.get('token0')?.toLowerCase()
-      const token1Addr = searchParams.get('token1')?.toLowerCase()
+    const token0Addr = searchParams.get('token0')?.toLowerCase()
+    const token1Addr = searchParams.get('token1')?.toLowerCase()
 
-      if (token0Addr) {
-        if (token0Addr === ZERO_ADDRESS.toLowerCase()) {
-          setAddLiqToken0(NATIVE_TOKEN)
-        } else {
-          const found = discoveredTokens.find((t) => t.address.toLowerCase() === token0Addr)
-          if (found) {
-            setAddLiqToken0({ address: found.address, name: found.name, symbol: found.symbol, isNative: false })
-          }
-        }
-      }
-
-      if (token1Addr) {
-        if (token1Addr === ZERO_ADDRESS.toLowerCase()) {
-          setAddLiqToken1(NATIVE_TOKEN)
-        } else {
-          const found = discoveredTokens.find((t) => t.address.toLowerCase() === token1Addr)
-          if (found) {
-            setAddLiqToken1({ address: found.address, name: found.name, symbol: found.symbol, isNative: false })
-          }
+    if (token0Addr) {
+      if (token0Addr === ZERO_ADDRESS.toLowerCase()) {
+        setAddLiqToken0(NATIVE_TOKEN)
+      } else {
+        const found = discoveredTokens.find((t) => t.address.toLowerCase() === token0Addr)
+        if (found) {
+          setAddLiqToken0({ address: found.address, name: found.name, symbol: found.symbol, isNative: false })
         }
       }
     }
-  }, [searchParams])
+
+    if (token1Addr) {
+      if (token1Addr === ZERO_ADDRESS.toLowerCase()) {
+        setAddLiqToken1(NATIVE_TOKEN)
+      } else {
+        const found = discoveredTokens.find((t) => t.address.toLowerCase() === token1Addr)
+        if (found) {
+          setAddLiqToken1({ address: found.address, name: found.name, symbol: found.symbol, isNative: false })
+        }
+      }
+    }
+  }, [searchParams, discoveredTokens])
 
   const isDexConfigured =
     isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) &&
@@ -1028,6 +1026,7 @@ function SwapPageInner() {
             {showCreatePool && (
               <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
                 <CreatePoolPanel
+                  key={`cp-${addLiqToken0?.address ?? 'e'}-${addLiqToken1?.address ?? 'e'}`}
                   onClose={() => setShowCreatePool(false)}
                   initialToken0={addLiqToken0}
                   initialToken1={addLiqToken1}
