@@ -1025,12 +1025,19 @@ function SwapPageInner() {
             {/* Create pool panel */}
             {showCreatePool && (
               <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
-                <CreatePoolPanel
-                  key={`cp-${addLiqToken0?.address ?? 'e'}-${addLiqToken1?.address ?? 'e'}`}
-                  onClose={() => setShowCreatePool(false)}
-                  initialToken0={addLiqToken0}
-                  initialToken1={addLiqToken1}
-                />
+                {addLiqToken0 !== null && addLiqToken1 !== null ? (
+                  <CreatePoolPanel
+                    key={`cp-${addLiqToken0.address}-${addLiqToken1.address}`}
+                    onClose={() => setShowCreatePool(false)}
+                    initialToken0={addLiqToken0}
+                    initialToken1={addLiqToken1}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-[30px] border border-white/10 bg-white/[0.03] p-8 text-center">
+                    <Loader2 size={24} className="animate-spin text-white/40" />
+                    <p className="mt-3 text-sm text-white/45">Loading pool tokens…</p>
+                  </div>
+                )}
               </div>
             )}
 
