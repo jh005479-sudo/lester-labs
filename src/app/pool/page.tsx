@@ -46,10 +46,12 @@ type TokenMeta = {
 }
 
 // ── Pool card for unauthenticated view ──────────────────────────────────────
-function PoolCard({ pairAddress, token0Meta, token1Meta, r0, r1 }: {
+function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Address, r0, r1 }: {
   pairAddress: `0x${string}`
   token0Meta: TokenMeta
   token1Meta: TokenMeta
+  token0Address: `0x${string}`
+  token1Address: `0x${string}`
   r0: bigint
   r1: bigint
 }) {
@@ -66,7 +68,7 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, r0, r1 }: {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={`/swap?addLiquidity=${pairAddress}`}
+            href={`/swap?addLiquidity=${pairAddress}&token0=${token0Address}&token1=${token1Address}`}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
           >
             <Plus size={12} />
@@ -114,12 +116,14 @@ function PositionCard({ position, onAddLiquidity }: {
     pairAddress: `0x${string}`
     token0Meta: TokenMeta
     token1Meta: TokenMeta
+    token0Address: `0x${string}`
+    token1Address: `0x${string}`
     lpBalance: bigint
     pooled0: bigint
     pooled1: bigint
     share: number
   }
-  onAddLiquidity: (pairAddress: `0x${string}`) => void
+  onAddLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`) => void
 }) {
   return (
     <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/25">
@@ -136,7 +140,7 @@ function PositionCard({ position, onAddLiquidity }: {
 
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => onAddLiquidity(position.pairAddress)}
+            onClick={() => onAddLiquidity(position.pairAddress, position.token0Address, position.token1Address)}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
           >
             <Plus size={12} />
@@ -355,6 +359,8 @@ export default function PoolPage() {
         pairAddress: p.pairAddress,
         token0Meta: p.token0Meta,
         token1Meta: p.token1Meta,
+        token0Address: p.token0Address,
+        token1Address: p.token1Address,
         lpBalance,
         pooled0,
         pooled1,
@@ -366,8 +372,8 @@ export default function PoolPage() {
     (p) => !(p.lpBalance > 0n && p.totalSupply > 0n) // exclude pools where user already has LP
   )
 
-  function handleAddLiquidity(pairAddress: `0x${string}`) {
-    window.location.href = `/swap?addLiquidity=${pairAddress}`
+  function handleAddLiquidity(pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`) {
+    window.location.href = `/swap?addLiquidity=${pairAddress}&token0=${token0}&token1=${token1}`
   }
 
   return (
@@ -457,6 +463,8 @@ export default function PoolPage() {
                   pairAddress={pool.pairAddress}
                   token0Meta={pool.token0Meta}
                   token1Meta={pool.token1Meta}
+                  token0Address={pool.token0Address}
+                  token1Address={pool.token1Address}
                   r0={pool.reserves[0]}
                   r1={pool.reserves[1]}
                 />
@@ -548,6 +556,8 @@ export default function PoolPage() {
                       pairAddress={pool.pairAddress}
                       token0Meta={pool.token0Meta}
                       token1Meta={pool.token1Meta}
+                      token0Address={pool.token0Address}
+                      token1Address={pool.token1Address}
                       r0={pool.reserves[0]}
                       r1={pool.reserves[1]}
                     />
