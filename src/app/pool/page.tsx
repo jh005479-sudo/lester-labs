@@ -1,26 +1,19 @@
 'use client'
 
 import Link from 'next/link'
-import { Droplets, ExternalLink, Layers3, Plus, Wallet } from 'lucide-react'
+import { useState } from 'react'
+import { Droplets, ExternalLink, Layers3, Loader2, Plus, Wallet } from 'lucide-react'
 import { useAccount, useReadContract, useReadContracts } from 'wagmi'
 import { formatUnits } from 'viem'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI } from '@/config/abis'
-import { UNISWAP_V2_FACTORY_ADDRESS, UNISWAP_V2_ROUTER_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
+import { UNISWAP_V2_FACTORY_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
 
-const ACCENT = '#6B4FFF'
-const MAX_PAIRS_TO_SCAN = 50
-
-// ── Pinned tokens always shown first in the dropdown ──────────────────────────
-export const PINNED_TOKENS: { address: string; symbol: string; name: string }[] = [
-  { address: ZERO_ADDRESS(), symbol: 'zkLTC', name: 'zkLTC (Native)' },
-  { address: WRAPPED_ZKLTC_ADDRESS, symbol: 'WZKLTC', name: 'Wrapped zkLTC' },
-  { address: '0xdaf8bdc2b197c2f0fab9d7359bdf482f8332b21f', symbol: 'WETH', name: 'LL wEth' },
-  { address: '0x3bce48a3b30414176e796af997bb1ed5e1dc5b22', symbol: 'WBTC', name: 'LL wBTC' },
-  { address: '0x4af16cfb61fe9a2c6d1452d85b25e7ca49748f16', symbol: 'USDT', name: 'LL USDT' },
-  { address: '0x7f837d1b20c6ff20d8c6f396760c4f1f1f17babf', symbol: 'USDC', name: 'LL USDC' },
-]
+const ACCENT = '#E44FB5'
+const PAGE_SIZE = 10
+const MAX_DISPLAY = 100
+const MAX_INITIAL = 20 // pre-load first 20 pairs (2 batches)
 
 function ZERO_ADDRESS(): string {
   return '0x0000000000000000000000000000000000000000'
@@ -45,6 +38,26 @@ type TokenMeta = {
   decimals: number
 }
 
+// ── Pool card skeleton ───────────────────────────────────────────────────────
+function PoolCardSkeleton() {
+  return (
+    <div className="animate-pulse rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="h-7 w-40 rounded-full bg-white/5" />
+        <div className="flex gap-2">
+          <div className="h-7 w-28 rounded-full bg-white/5" />
+          <div className="h-7 w-24 rounded-full bg-white/5" />
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-16 rounded-2xl border border-white/8 bg-[#120f1d]" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Pool card for unauthenticated view ──────────────────────────────────────
 function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Address, r0, r1 }: {
   pairAddress: `0x${string}`
@@ -56,7 +69,7 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
   r1: bigint
 }) {
   return (
-    <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+    <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-medium text-white">
@@ -87,19 +100,19 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-3">
+        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-3">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Reserve 0</p>
           <p className="mt-1.5 text-sm font-semibold text-white">
             {formatAmount(r0, token0Meta.decimals)} {token0Meta.symbol}
           </p>
         </div>
-        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-3">
+        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-3">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Reserve 1</p>
           <p className="mt-1.5 text-sm font-semibold text-white">
             {formatAmount(r1, token1Meta.decimals)} {token1Meta.symbol}
           </p>
         </div>
-        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-3">
+        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-3">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pair</p>
           <p className="mt-1.5 font-mono text-sm text-white/75">
             {pairAddress.slice(0, 6)}…{pairAddress.slice(-4)}
@@ -126,7 +139,7 @@ function PositionCard({ position, onAddLiquidity }: {
   onAddLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`) => void
 }) {
   return (
-    <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/25">
+    <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/25">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">LP position</p>
@@ -159,15 +172,15 @@ function PositionCard({ position, onAddLiquidity }: {
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">LP balance</p>
           <p className="mt-2 text-lg font-semibold text-white">{formatAmount(position.lpBalance, 18)}</p>
         </div>
-        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pool share</p>
           <p className="mt-2 text-lg font-semibold text-white">{formatPercent(position.share)}</p>
         </div>
-        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pair address</p>
           <p className="mt-2 font-mono text-sm text-white/75">
             {position.pairAddress.slice(0, 6)}…{position.pairAddress.slice(-4)}
@@ -198,7 +211,7 @@ export default function PoolPage() {
 
   const isDexConfigured = isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) && isValidContractAddress(WRAPPED_ZKLTC_ADDRESS)
 
-  // ── Always read all factory pairs (no auth required) ──────────────────────
+  // ── Total pair count ─────────────────────────────────────────────────────
   const allPairsLengthRead = useReadContract({
     address: UNISWAP_V2_FACTORY_ADDRESS,
     abi: UNISWAP_V2_FACTORY_ABI,
@@ -207,18 +220,25 @@ export default function PoolPage() {
   })
 
   const totalPairs = Number(allPairsLengthRead.data ?? 0n)
-  const scannedPairCount = Math.min(totalPairs, MAX_PAIRS_TO_SCAN)
+  const maxDisplay = Math.min(totalPairs, MAX_DISPLAY)
 
+  // ── Pagination state ─────────────────────────────────────────────────────
+  const [loadedBatches, setLoadedBatches] = useState(2) // start with 2 batches (20 pairs)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+
+  const displayedCount = Math.min(loadedBatches * PAGE_SIZE, maxDisplay)
+
+  // ── Batch-fetch pair addresses ───────────────────────────────────────────
   const pairAddressReads = useReadContracts({
     contracts: isDexConfigured
-      ? Array.from({ length: scannedPairCount }, (_, index) => ({
+      ? Array.from({ length: displayedCount }, (_, index) => ({
           address: UNISWAP_V2_FACTORY_ADDRESS,
           abi: UNISWAP_V2_FACTORY_ABI,
           functionName: 'allPairs' as const,
           args: [BigInt(index)],
         }))
       : [],
-    query: { enabled: isDexConfigured && scannedPairCount > 0 },
+    query: { enabled: isDexConfigured && displayedCount > 0 },
   })
 
   const pairAddresses =
@@ -226,7 +246,7 @@ export default function PoolPage() {
       ?.map((result) => (result.status === 'success' ? (result.result as `0x${string}`) : null))
       .filter((result): result is `0x${string}` => result !== null) ?? []
 
-  // ── Read pair metadata (no wallet required) ─────────────────────────────
+  // ── Read pair metadata ───────────────────────────────────────────────────
   const pairStateReads = useReadContracts({
     contracts: pairAddresses.flatMap((pairAddress) => [
       { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' as const },
@@ -237,7 +257,7 @@ export default function PoolPage() {
     query: { enabled: pairAddresses.length > 0 },
   })
 
-  // ── Only read LP balance when connected ─────────────────────────────────
+  // ── LP balance reads (connected wallet) ─────────────────────────────────
   const lpBalanceReads = useReadContracts({
     contracts:
       isConnected && address
@@ -260,9 +280,14 @@ export default function PoolPage() {
     }
   }
 
+  // ── Token metadata reads ─────────────────────────────────────────────────
   const tokenMetadataReads = useReadContracts({
     contracts: Array.from(tokenAddresses)
-      .filter((tokenAddress) => tokenAddress !== WRAPPED_ZKLTC_ADDRESS.toLowerCase() && tokenAddress !== ZERO_ADDRESS().toLowerCase())
+      .filter(
+        (tokenAddress) =>
+          tokenAddress !== WRAPPED_ZKLTC_ADDRESS.toLowerCase() &&
+          tokenAddress !== ZERO_ADDRESS().toLowerCase()
+      )
       .flatMap((tokenAddress) => [
         { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'name' as const },
         { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'symbol' as const },
@@ -284,7 +309,11 @@ export default function PoolPage() {
   })
 
   Array.from(tokenAddresses)
-    .filter((tokenAddress) => tokenAddress !== WRAPPED_ZKLTC_ADDRESS.toLowerCase() && tokenAddress !== ZERO_ADDRESS().toLowerCase())
+    .filter(
+      (tokenAddress) =>
+        tokenAddress !== WRAPPED_ZKLTC_ADDRESS.toLowerCase() &&
+        tokenAddress !== ZERO_ADDRESS().toLowerCase()
+    )
     .forEach((tokenAddress, index) => {
       const base = index * 3
       const nameResult = tokenMetadataReads.data?.[base]
@@ -308,8 +337,14 @@ export default function PoolPage() {
   const pools = pairAddresses
     .map((pairAddress, index) => {
       const base = index * 4
-      const token0Address = pairStateReads.data?.[base]?.status === 'success' ? (pairStateReads.data[base].result as `0x${string}`) : null
-      const token1Address = pairStateReads.data?.[base + 1]?.status === 'success' ? (pairStateReads.data[base + 1].result as `0x${string}`) : null
+      const token0Address =
+        pairStateReads.data?.[base]?.status === 'success'
+          ? (pairStateReads.data[base].result as `0x${string}`)
+          : null
+      const token1Address =
+        pairStateReads.data?.[base + 1]?.status === 'success'
+          ? (pairStateReads.data[base + 1].result as `0x${string}`)
+          : null
       const reservesResult = pairStateReads.data?.[base + 2]
       const totalSupplyResult = pairStateReads.data?.[base + 3]
 
@@ -325,8 +360,18 @@ export default function PoolPage() {
       const reserves = reservesResult.result as readonly [bigint, bigint, number]
       const totalSupply = totalSupplyResult.result as bigint
 
-      const token0Meta = tokenMetaMap.get(token0Address.toLowerCase()) ?? { name: 'Unknown', symbol: 'UNK', decimals: 18 }
-      const token1Meta = tokenMetaMap.get(token1Address.toLowerCase()) ?? { name: 'Unknown', symbol: 'UNK', decimals: 18 }
+      const token0Meta =
+        tokenMetaMap.get(token0Address.toLowerCase()) ?? {
+          name: 'Unknown',
+          symbol: 'UNK',
+          decimals: 18,
+        }
+      const token1Meta =
+        tokenMetaMap.get(token1Address.toLowerCase()) ?? {
+          name: 'Unknown',
+          symbol: 'UNK',
+          decimals: 18,
+        }
 
       return {
         pairAddress,
@@ -336,10 +381,10 @@ export default function PoolPage() {
         token1Meta,
         reserves,
         totalSupply,
-        // LP position data (only populated when connected)
-        lpBalance: lpBalanceReads.data?.[index]?.status === 'success'
-          ? (lpBalanceReads.data[index].result as bigint)
-          : 0n,
+        lpBalance:
+          lpBalanceReads.data?.[index]?.status === 'success'
+            ? (lpBalanceReads.data[index].result as bigint)
+            : 0n,
       }
     })
     .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -372,9 +417,25 @@ export default function PoolPage() {
     (p) => !(p.lpBalance > 0n && p.totalSupply > 0n) // exclude pools where user already has LP
   )
 
-  function handleAddLiquidity(pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`) {
+  function handleAddLiquidity(
+    pairAddress: `0x${string}`,
+    token0: `0x${string}`,
+    token1: `0x${string}`
+  ) {
     window.location.href = `/swap?addLiquidity=${pairAddress}&token0=${token0}&token1=${token1}`
   }
+
+  async function handleLoadMore() {
+    if (isLoadingMore) return
+    setIsLoadingMore(true)
+    // Wait for current reads to settle, then load next batch
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    setLoadedBatches((prev) => prev + 1)
+    setIsLoadingMore(false)
+  }
+
+  const hasMore = displayedCount < maxDisplay
+  const isInitialLoading = pairAddressReads.isLoading || pairStateReads.isLoading
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -384,27 +445,19 @@ export default function PoolPage() {
         titleHighlight="Pool"
         subtitle="Browse all factory pools, view reserves, and manage your LP positions."
         color={ACCENT}
-        image="/images/carousel/pool.png"
-        imagePosition="center 65px"
-        imageTopFade={false}
+        image="/images/carousel/liquidity-locker.png"
+        imagePosition="center 45%"
         compact
         stats={[
           { label: 'Factory pairs', value: totalPairs.toString() },
-          { label: 'Scanned', value: `${scannedPairCount}/${Math.max(totalPairs, scannedPairCount)}` },
+          { label: 'Displayed', value: `${displayedCount}/${maxDisplay}` },
           { label: 'Your positions', value: positions.length.toString() },
         ]}
       />
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
         {!isDexConfigured && (
-          <div
-            className="rounded-[16px] border p-5 text-sm"
-            style={{
-              borderColor: 'rgba(212, 181, 95, 0.42)',
-              background: 'linear-gradient(135deg, rgba(39,62,84,0.38) 0%, rgba(46,42,62,0.46) 100%)',
-              color: 'rgba(245, 228, 176, 0.95)',
-            }}
-          >
+          <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">
             Configure factory and WZKLTC addresses before using the pool page.
           </div>
         )}
@@ -431,8 +484,8 @@ export default function PoolPage() {
               href="/swap?createPool=1"
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition"
               style={{
-                background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
-                boxShadow: '0 8px 24px rgba(107,79,255,0.25)',
+                background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
+                boxShadow: '0 8px 24px rgba(228,79,181,0.25)',
               }}
             >
               <Plus size={14} />
@@ -456,7 +509,7 @@ export default function PoolPage() {
                 href="/swap?createPool=1"
                 className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition"
                 style={{
-                  background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
+                  background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
                 }}
               >
                 <Plus size={14} />
@@ -477,36 +530,73 @@ export default function PoolPage() {
                   r1={pool.reserves[1]}
                 />
               ))}
+
+              {/* Skeleton rows while loading more */}
+              {isInitialLoading &&
+                Array.from({ length: Math.min(PAGE_SIZE, maxDisplay - visiblePools.length) }, (_, i) => (
+                  <PoolCardSkeleton key={`sk-${i}`} />
+                ))}
+
+              {/* Load more button */}
+              {hasMore && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore || pairAddressReads.isLoading}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-medium text-white transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isLoadingMore || pairAddressReads.isLoading ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Loading…
+                      </>
+                    ) : (
+                      <>
+                        <Loader2 size={14} />
+                        Load more pools ({Math.min(totalPairs - displayedCount, PAGE_SIZE)} more)
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {maxDisplay < totalPairs && (
+                <p className="text-center text-xs text-white/30">
+                  Showing {maxDisplay} of {totalPairs} total pairs. Connect to view your positions.
+                </p>
+              )}
             </div>
           )
         ) : (
           <>
             {/* ── Connected: wallet positions + CTA ─────────────────────────── */}
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Wallet</p>
                 <div className="mt-3 flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5">
                     <Wallet size={18} className="text-white/70" />
                   </div>
                   <div>
-                    <p className="font-mono text-sm text-white">{address ? `${address.slice(0, 6)}…${address.slice(-4)}` : '—'}</p>
+                    <p className="font-mono text-sm text-white">
+                      {address ? `${address.slice(0, 6)}…${address.slice(-4)}` : '—'}
+                    </p>
                     <p className="text-sm text-white/45">Connected</p>
                   </div>
                 </div>
               </div>
 
-              <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pairs scanned</p>
-                <p className="mt-3 text-3xl font-semibold text-white">{scannedPairCount}</p>
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+                <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pairs loaded</p>
+                <p className="mt-3 text-3xl font-semibold text-white">{displayedCount}</p>
                 <p className="mt-2 text-sm text-white/45">
-                  {totalPairs > MAX_PAIRS_TO_SCAN
-                    ? `Showing first ${MAX_PAIRS_TO_SCAN} pools.`
-                    : 'All factory pools included.'}
+                  {totalPairs > MAX_DISPLAY
+                    ? `Displaying first ${MAX_DISPLAY} pools.`
+                    : `Showing ${displayedCount} of ${totalPairs} pools.`}
                 </p>
               </div>
 
-              <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Next action</p>
                 <Link
                   href="/swap"
@@ -520,7 +610,7 @@ export default function PoolPage() {
 
             {/* ── LP positions ───────────────────────────────────────────── */}
             {positions.length === 0 ? (
-              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-10 text-center">
+              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-10 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5">
                   <Layers3 size={22} className="text-white/65" />
                 </div>
@@ -530,8 +620,8 @@ export default function PoolPage() {
                 </p>
                 <Link
                   href="/swap"
-                  className="mt-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white"
-                  style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)` }}
+                  className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white"
+                  style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)` }}
                 >
                   <Droplets size={14} />
                   Go to Swap
@@ -570,6 +660,41 @@ export default function PoolPage() {
                       r1={pool.reserves[1]}
                     />
                   ))}
+
+                  {/* Skeleton rows while loading more */}
+                  {isInitialLoading &&
+                    Array.from({ length: Math.min(PAGE_SIZE, maxDisplay - visiblePools.length) }, (_, i) => (
+                      <PoolCardSkeleton key={`sk-${i}`} />
+                    ))}
+
+                  {/* Load more button */}
+                  {hasMore && (
+                    <div className="flex justify-center pt-2">
+                      <button
+                        onClick={handleLoadMore}
+                        disabled={isLoadingMore || pairAddressReads.isLoading}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-medium text-white transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isLoadingMore || pairAddressReads.isLoading ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Loading…
+                          </>
+                        ) : (
+                          <>
+                            <Loader2 size={14} />
+                            Load more pools ({Math.min(totalPairs - displayedCount, PAGE_SIZE)} more)
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {maxDisplay < totalPairs && (
+                    <p className="text-center text-xs text-white/30">
+                      Showing {maxDisplay} of {totalPairs} total pairs.
+                    </p>
+                  )}
                 </div>
               </>
             )}

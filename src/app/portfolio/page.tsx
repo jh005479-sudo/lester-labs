@@ -13,6 +13,8 @@ import {
   LIQUIDITY_LOCKER_ADDRESS,
 } from '@/config/contracts'
 import { ILO_FACTORY_ABI, ILO_ABI, ERC20_ABI } from '@/config/abis'
+import { LPPanel } from '@/components/portfolio/LPPanel'
+import { SwapHistoryPanel } from '@/components/portfolio/SwapHistoryPanel'
 import { RPC_URL } from '@/lib/rpcClient'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -35,7 +37,7 @@ interface LockEntry {
   withdrawn: boolean
 }
 
-type Tab = 'overview' | 'tokens' | 'presales' | 'vesting' | 'locks'
+type Tab = 'overview' | 'tokens' | 'presales' | 'vesting' | 'locks' | 'lp' | 'swaps'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -667,6 +669,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'presales', label: 'PRESALES' },
   { key: 'vesting',  label: 'VESTING' },
   { key: 'locks',    label: 'LOCKS' },
+  { key: 'lp',       label: 'LP' },
+  { key: 'swaps',    label: 'SWAPS' },
 ]
 
 export default function PortfolioPage() {
@@ -746,6 +750,8 @@ export default function PortfolioPage() {
         {activeTab === 'presales' && <PresalesPanel address={address!} />}
         {activeTab === 'vesting'  && <VestingPanel  address={address!} />}
         {activeTab === 'locks'    && <LocksPanel     address={address!} />}
+        {activeTab === 'lp'       && <LPPanel />}
+        {activeTab === 'swaps'    && <SwapHistoryPanel />}
       </div>
     </main>
   )

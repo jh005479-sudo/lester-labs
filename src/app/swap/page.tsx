@@ -1,15 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, useEffect, useDeferredValue, useState, useMemo, startTransition } from 'react'
-import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Settings2, Wallet, X } from 'lucide-react'
+import { Suspense, useEffect, useRef, useState, useMemo, startTransition } from 'react'
+import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Wallet, X } from 'lucide-react'
 import { useAccount, useBalance, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { CurrencyAmount, Token } from '@uniswap/sdk-core'
 import { Pair, Route, Trade } from '@uniswap/v2-sdk'
-import { formatUnits, maxUint256, parseUnits, zeroAddress } from 'viem'
+import { encodeFunctionData, formatUnits, maxUint256, parseUnits, zeroAddress } from 'viem'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
+import { SettlementPreview } from '@/components/shared/SettlementPreview'
 import {
   ERC20_ABI,
   UNISWAP_V2_FACTORY_ABI,
@@ -23,9 +24,11 @@ import {
   isValidContractAddress,
 } from '@/config/contracts'
 import { useAllTokenMetadata } from '@/hooks/useTokenMetadata'
+import type { TokenCacheStatus } from '@/hooks/useTokenMetadata'
+import { useRpcCallReadContract } from '@/hooks/useRpcCall'
 import { useSearchParams } from 'next/navigation'
 
-const ACCENT = '#6B4FFF'
+const ACCENT = '#E44FB5'
 const NATIVE_GAS_RESERVE = parseUnits('0.01', 18)
 const DEFAULT_DEADLINE_SECONDS = 20 * 60
 const ZERO_ADDRESS = zeroAddress as `0x${string}`
@@ -92,7 +95,6 @@ function SlippageSelector({
   valueBps: bigint
   onChange: (bps: bigint) => void
 }) {
-  const [open, setOpen] = useState(false)
   const [customValue, setCustomValue] = useState('')
   const displayPct = Number(valueBps) / 100
 
@@ -110,59 +112,42 @@ function SlippageSelector({
   }
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
-      >
-        <Settings2 size={11} />
-        {displayPct % 1 === 0 ? `${displayPct.toFixed(0)}%` : `${displayPct.toFixed(1)}%`} slippage
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-12 z-50 w-52 rounded-2xl border border-white/10 bg-[#120f1d] p-4 shadow-xl">
-            <p className="mb-3 text-xs uppercase tracking-[0.12em] text-white/35">Slippage tolerance</p>
-            <div className="mb-3 grid grid-cols-3 gap-2">
-              {[10n, 50n, 100n].map((bps) => {
-                const pct = Number(bps) / 100
-                return (
-                  <button
-                    key={bps}
-                    onClick={() => handlePreset(bps)}
-                    className="rounded-xl border py-2 text-center text-xs font-medium transition"
-                    style={{
-                      borderColor: valueBps === bps ? ACCENT : 'rgba(255,255,255,0.12)',
-                      background: valueBps === bps ? `${ACCENT}22` : 'rgba(255,255,255,0.04)',
-                      color: valueBps === bps ? '#fff' : 'rgba(255,255,255,0.65)',
-                    }}
-                  >
-                    {pct % 1 === 0 ? `${pct.toFixed(0)}%` : `${pct.toFixed(1)}%`}
-                  </button>
-                )
-              })}
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/4 p-2">
-              <input
-                value={customValue}
-                onChange={(e) => handleCustom(e.target.value)}
-                placeholder="Custom"
-                type="number"
-                min="0.01"
-                max="50"
-                step="0.1"
-                className="flex-1 bg-transparent text-right text-sm text-white outline-none placeholder:text-white/25"
-              />
-              <span className="text-sm text-white/45">%</span>
-            </div>
-            {Number(valueBps) > 500 && (
-              <p className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-2 py-1.5 text-xs text-yellow-200">
-                High slippage — only use if necessary.
-              </p>
-            )}
-          </div>
-        </>
+    <div className="flex items-center gap-2 flex-wrap">
+      {([10n, 50n, 100n] as const).map((bps) => {
+        const pct = Number(bps) / 100
+        const active = valueBps === bps
+        return (
+          <button
+            key={bps}
+            onClick={() => handlePreset(bps)}
+            className="rounded-full border px-3 py-1.5 text-xs font-medium transition"
+            style={{
+              borderColor: active ? ACCENT : 'rgba(255,255,255,0.12)',
+              background: active ? `${ACCENT}22` : 'rgba(255,255,255,0.04)',
+              color: active ? '#fff' : 'rgba(255,255,255,0.6)',
+            }}
+          >
+            {pct % 1 === 0 ? `${pct.toFixed(0)}%` : `${pct.toFixed(1)}%`}
+          </button>
+        )
+      })}
+      <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/4 px-2 py-1">
+        <input
+          value={customValue}
+          onChange={(e) => handleCustom(e.target.value)}
+          placeholder={displayPct % 1 === 0 ? `${displayPct.toFixed(0)}` : `${displayPct.toFixed(1)}`}
+          type="number"
+          min="0.01"
+          max="50"
+          step="0.1"
+          className="w-12 bg-transparent text-right text-xs text-white outline-none placeholder:text-white/30"
+        />
+        <span className="text-xs text-white/45">%</span>
+      </div>
+      {Number(valueBps) > 500 && (
+        <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2 py-0.5 text-xs text-yellow-200">
+          High slippage
+        </span>
       )}
     </div>
   )
@@ -371,8 +356,8 @@ function CreatePoolPanel({
             disabled={!canCreate || creating}
             className="flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
             style={{
-              background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
-              boxShadow: '0 16px 40px rgba(107,79,255,0.28)',
+              background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
+              boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
             }}
           >
             {creating || isConfirming ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
@@ -414,6 +399,9 @@ function CreatePoolPanel({
 }
 
 // ── Token picker ────────────────────────────────────────────────────────────
+const ROW_HEIGHT = 76
+const OVERSCAN = 5
+
 function TokenPicker({
   open,
   currentToken,
@@ -428,12 +416,55 @@ function TokenPicker({
   tokens: TokenOption[]
 }) {
   const [search, setSearch] = useState('')
-  const deferredSearch = useDeferredValue(search)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 })
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // 300ms debounce on search input
+  useEffect(() => {
+    if (!open) return
+    setIsSearching(true)
+    const timer = setTimeout(() => {
+      setDebouncedQuery(search)
+      setIsSearching(false)
+      // Reset scroll and visible range when query changes
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = 0
+      }
+      setVisibleRange({ start: 0, end: 20 })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search, open])
+
+  // Scroll handler — calculates visible window
+  function handleScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    const scrollTop = el.scrollTop
+    const viewportH = el.clientHeight
+    const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN)
+    const end = Math.min(totalNonPinnedCount, Math.ceil((scrollTop + viewportH) / ROW_HEIGHT) + OVERSCAN)
+    setVisibleRange({ start, end })
+  }
 
   if (!open) return null
 
-  const query = deferredSearch.trim().toLowerCase()
-  const filteredTokens = tokens.filter((token) => {
+  const query = debouncedQuery.trim().toLowerCase()
+
+  // Separate pinned vs. all tokens for filtering
+  const pinnedSet = new Set(
+    PINNED_TOKENS.map((p) => p.address.toLowerCase()),
+  )
+
+  const pinnedInList = query
+    ? []
+    : PINNED_TOKENS.filter((pt) =>
+        tokens.some((t) => t.address.toLowerCase() === pt.address.toLowerCase()),
+      )
+
+  const allFiltered = tokens.filter((token) => {
+    if (pinnedSet.has(token.address.toLowerCase()) && !query) return false
     if (!query) return true
     return (
       token.name.toLowerCase().includes(query) ||
@@ -441,6 +472,45 @@ function TokenPicker({
       token.address.toLowerCase().includes(query)
     )
   })
+
+  const totalNonPinnedCount = allFiltered.length
+
+  const visibleTokens = allFiltered.slice(visibleRange.start, visibleRange.end)
+  const topSpacerH = visibleRange.start * ROW_HEIGHT
+  const bottomSpacerH = Math.max(0, (totalNonPinnedCount - visibleRange.end) * ROW_HEIGHT)
+
+  function renderTokenRow(token: TokenOption) {
+    const isSelected = currentToken?.address.toLowerCase() === token.address.toLowerCase()
+    return (
+      <button
+        key={token.address}
+        onClick={() => {
+          startTransition(() => {
+            onSelect(token)
+            onClose()
+          })
+        }}
+        className="flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition"
+        style={{
+          borderColor: isSelected ? `${ACCENT}55` : 'rgba(255,255,255,0.08)',
+          background: isSelected ? 'rgba(228,79,181,0.08)' : 'rgba(255,255,255,0.03)',
+          height: ROW_HEIGHT,
+        }}
+      >
+        <div>
+          <p className="font-medium text-white">{token.symbol}</p>
+          <p className="text-sm text-white/45">{token.name}</p>
+        </div>
+        <div className="text-right">
+          {token.isNative ? (
+            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs uppercase tracking-[0.12em] text-white/45">Native</span>
+          ) : (
+            <p className="font-mono text-xs text-white/35">{`${token.address.slice(0, 6)}…${token.address.slice(-4)}`}</p>
+          )}
+        </div>
+      </button>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 px-4 backdrop-blur-md">
@@ -466,14 +536,17 @@ function TokenPicker({
           className="cin-input mb-4"
         />
 
-        <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1">
-          {!query && (
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="max-h-[380px] space-y-2 overflow-y-auto pr-1"
+        >
+          {/* Pinned tokens — always rendered, not virtualised */}
+          {!query && pinnedInList.length > 0 && (
             <div>
               <p className="mb-2 px-1 text-xs uppercase tracking-[0.12em] text-white/35">Pinned Assets</p>
               <div className="mb-3 space-y-1">
-                {PINNED_TOKENS.filter((pt) =>
-                  tokens.some((t) => t.address.toLowerCase() === pt.address.toLowerCase())
-                ).map((token) => {
+                {pinnedInList.map((token) => {
                   const isSelected = currentToken?.address.toLowerCase() === token.address.toLowerCase()
                   return (
                     <button
@@ -487,7 +560,7 @@ function TokenPicker({
                       className="flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition"
                       style={{
                         borderColor: isSelected ? `${ACCENT}55` : 'rgba(255,255,255,0.12)',
-                        background: isSelected ? 'rgba(107,79,255,0.1)' : 'rgba(255,255,255,0.04)',
+                        background: isSelected ? 'rgba(228,79,181,0.1)' : 'rgba(255,255,255,0.04)',
                       }}
                     >
                       <div>
@@ -505,46 +578,23 @@ function TokenPicker({
             </div>
           )}
 
+          {/* Search results header */}
           {query && (
-            <p className="mb-2 px-1 text-xs uppercase tracking-[0.12em] text-white/35">Search Results</p>
+            <p className="mb-2 px-1 text-xs uppercase tracking-[0.12em] text-white/35">
+              {isSearching ? 'Searching…' : `${totalNonPinnedCount} result${totalNonPinnedCount !== 1 ? 's' : ''}`}
+            </p>
           )}
 
-          {filteredTokens.map((token) => {
-            const isPinned = PINNED_TOKENS.some((p) => p.address.toLowerCase() === token.address.toLowerCase())
-            if (!query && isPinned) return null
+          {/* Virtualised non-pinned token list */}
+          {totalNonPinnedCount > 0 && (
+            <div>
+              {topSpacerH > 0 && <div style={{ height: topSpacerH }} />}
+              {visibleTokens.map(renderTokenRow)}
+              {bottomSpacerH > 0 && <div style={{ height: bottomSpacerH }} />}
+            </div>
+          )}
 
-            const isSelected = currentToken?.address.toLowerCase() === token.address.toLowerCase()
-            return (
-              <button
-                key={token.address}
-                onClick={() => {
-                  startTransition(() => {
-                    onSelect(token)
-                    onClose()
-                  })
-                }}
-                className="flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition"
-                style={{
-                  borderColor: isSelected ? `${ACCENT}55` : 'rgba(255,255,255,0.08)',
-                  background: isSelected ? 'rgba(107,79,255,0.08)' : 'rgba(255,255,255,0.03)',
-                }}
-              >
-                <div>
-                  <p className="font-medium text-white">{token.symbol}</p>
-                  <p className="text-sm text-white/45">{token.name}</p>
-                </div>
-                <div className="text-right">
-                  {token.isNative ? (
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs uppercase tracking-[0.12em] text-white/45">Native</span>
-                  ) : (
-                    <p className="font-mono text-xs text-white/35">{`${token.address.slice(0, 6)}…${token.address.slice(-4)}`}</p>
-                  )}
-                </div>
-              </button>
-            )
-          })}
-
-          {filteredTokens.length === 0 && (
+          {totalNonPinnedCount === 0 && !isSearching && (
             <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-8 text-center text-sm text-white/45">
               No matching tokens found.
             </div>
@@ -580,22 +630,48 @@ function TokenButton({
 function SwapPageInner() {
   const searchParams = useSearchParams()
   const { address, isConnected } = useAccount()
-  const { tokens: discoveredTokens, loading: tokensLoading } = useAllTokenMetadata()
+  const { tokens: discoveredTokens, loading: tokensLoading, cacheStatus } = useAllTokenMetadata()
   const { writeContractAsync } = useWriteContract()
 
-  const [inputToken, setInputToken] = useState<TokenOption>(NATIVE_TOKEN)
-  const [outputToken, setOutputToken] = useState<TokenOption | null>(null)
-  const [amountIn, setAmountIn] = useState('')
+  // Restore swap card state from sessionStorage (URL params override on first load)
+  const [savedState] = useState<{
+    inputToken: TokenOption
+    outputToken: TokenOption | null
+    amountIn: string
+    slippageBps: bigint
+  }>(() => {
+    try {
+      const raw = sessionStorage.getItem('lester_swap_v1')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        return {
+          inputToken: parsed.inputToken ?? NATIVE_TOKEN,
+          outputToken: parsed.outputToken ?? null,
+          amountIn: parsed.amountIn ?? '',
+          slippageBps: parsed.slippageBps ? BigInt(parsed.slippageBps) : 50n,
+        }
+      }
+    } catch {
+      // ignore corrupt sessionStorage
+    }
+    return { inputToken: NATIVE_TOKEN, outputToken: null, amountIn: '', slippageBps: 50n }
+  })
+
+  const [inputToken, setInputToken] = useState<TokenOption>(savedState.inputToken)
+  const [outputToken, setOutputToken] = useState<TokenOption | null>(savedState.outputToken)
+  const [amountIn, setAmountIn] = useState(savedState.amountIn)
   const [pickerMode, setPickerMode] = useState<'input' | 'output' | null>(null)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
   const [txOpen, setTxOpen] = useState(false)
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [txAction, setTxAction] = useState<'approve' | 'swap' | null>(null)
-  const [slippageBps, setSlippageBps] = useState<bigint>(50n) // default 0.5%
+  const [slippageBps, setSlippageBps] = useState<bigint>(savedState.slippageBps)
   const [showCreatePool, setShowCreatePool] = useState(false)
   const [addLiqToken0, setAddLiqToken0] = useState<TokenOption | null>(null)
   const [addLiqToken1, setAddLiqToken1] = useState<TokenOption | null>(null)
+  const [showSettlementPreview, setShowSettlementPreview] = useState(false)
+  const [settlementConfirming, setSettlementConfirming] = useState(false)
 
   // Initialise create pool panel from URL param — also resolves token addresses to TokenOption objects
   useEffect(() => {
@@ -627,6 +703,26 @@ function SwapPageInner() {
       }
     }
   }, [searchParams, discoveredTokens])
+
+  // Persist swap card state to sessionStorage (debounced 500ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        sessionStorage.setItem(
+          'lester_swap_v1',
+          JSON.stringify({
+            inputToken,
+            outputToken,
+            amountIn,
+            slippageBps: slippageBps.toString(),
+          }),
+        )
+      } catch {
+        // ignore quota errors
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [inputToken, outputToken, amountIn, slippageBps])
 
   const isDexConfigured =
     isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) &&
@@ -730,7 +826,7 @@ function SwapPageInner() {
     resolvedOutput !== null &&
     wrappedInputAddress.toLowerCase() !== wrappedOutputAddress.toLowerCase()
 
-  const pairAddressRead = useReadContract({
+  const pairAddressRead = useRpcCallReadContract({
     address: UNISWAP_V2_FACTORY_ADDRESS,
     abi: UNISWAP_V2_FACTORY_ABI,
     functionName: 'getPair',
@@ -738,10 +834,10 @@ function SwapPageInner() {
     query: { enabled: pairLookupEnabled },
   })
 
-  const pairAddress = (pairAddressRead.data ?? ZERO_ADDRESS) as `0x${string}`
+  const pairAddress = ((pairAddressRead as unknown as { data?: `0x${string}` }).data ?? ZERO_ADDRESS) as `0x${string}`
   const pairExists = isValidContractAddress(pairAddress)
 
-  const quoteRead = useReadContract({
+  const quoteRead = useRpcCallReadContract({
     address: UNISWAP_V2_ROUTER_ADDRESS,
     abi: UNISWAP_V2_ROUTER_ABI,
     functionName: 'getAmountsOut',
@@ -780,7 +876,7 @@ function SwapPageInner() {
     query: { enabled: Boolean(address && !resolvedInput.isNative && isDexConfigured) },
   })
 
-  const quoteAmounts = Array.isArray(quoteRead.data) ? quoteRead.data : null
+  const quoteAmounts: readonly bigint[] | null = Array.isArray((quoteRead as unknown as { data?: readonly bigint[] }).data) ? (quoteRead as unknown as { data?: readonly bigint[] }).data ?? null : null
   const quotedAmountOut = quoteAmounts && quoteAmounts.length > 1 ? quoteAmounts[quoteAmounts.length - 1] : null
   const quotedAmountOutText =
     resolvedOutput && quotedAmountOut !== null
@@ -863,6 +959,56 @@ function SwapPageInner() {
     setTxStatus('error')
     setTxMessage(txError.message.slice(0, 180))
   }, [txError, txHash])
+
+  async function handleSwapClick() {
+    // Show settlement preview before any wallet interaction
+    setShowSettlementPreview(true)
+  }
+
+  async function handleSettlementConfirm() {
+    setSettlementConfirming(true)
+    setShowSettlementPreview(false)
+    await handlePrimaryAction()
+    setSettlementConfirming(false)
+  }
+
+  // Build callData for the settlement preview
+  function buildSwapCallData(): { fn: string; data: string; target: string } {
+    if (resolvedOutput === null) return { fn: '', data: '0x', target: UNISWAP_V2_ROUTER_ADDRESS }
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
+    const path = [wrappedInputAddress, wrappedOutputAddress] as `0x${string}`[]
+    if (resolvedInput.isNative) {
+      return {
+        fn: 'swapExactETHForTokens',
+        target: UNISWAP_V2_ROUTER_ADDRESS,
+        data: encodeFunctionData({
+          abi: UNISWAP_V2_ROUTER_ABI,
+          functionName: 'swapExactETHForTokens',
+          args: [minimumAmountOut!, path, address!, deadline],
+        }),
+      }
+    }
+    if (resolvedOutput.isNative) {
+      return {
+        fn: 'swapExactTokensForETH',
+        target: UNISWAP_V2_ROUTER_ADDRESS,
+        data: encodeFunctionData({
+          abi: UNISWAP_V2_ROUTER_ABI,
+          functionName: 'swapExactTokensForETH',
+          args: [parsedAmountIn!, minimumAmountOut!, path, address!, deadline],
+        }),
+      }
+    }
+    return {
+      fn: 'swapExactTokensForTokens',
+      target: UNISWAP_V2_ROUTER_ADDRESS,
+      data: encodeFunctionData({
+        abi: UNISWAP_V2_ROUTER_ABI,
+        functionName: 'swapExactTokensForTokens',
+        args: [parsedAmountIn!, minimumAmountOut!, path, address!, deadline],
+      }),
+    }
+  }
 
   async function handlePrimaryAction() {
     if (!isConnected || !address || !resolvedOutput || parsedAmountIn === null || !isDexConfigured) return
@@ -978,7 +1124,7 @@ function SwapPageInner() {
         titleHighlight="Swap"
         subtitle="Direct token swaps on Lester Labs' Uniswap V2 fork for LitVM. Quotes come from the live router."
         color={ACCENT}
-        image="/images/carousel/swap.png"
+        image="/images/carousel/governance.png"
         imagePosition="center 46%"
         compact
         stats={[
@@ -989,14 +1135,7 @@ function SwapPageInner() {
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
         {!isDexConfigured && (
-          <div
-            className="rounded-[16px] border p-5 text-sm"
-            style={{
-              borderColor: 'rgba(212, 181, 95, 0.42)',
-              background: 'linear-gradient(135deg, rgba(39,62,84,0.38) 0%, rgba(46,42,62,0.46) 100%)',
-              color: 'rgba(245, 228, 176, 0.95)',
-            }}
-          >
+          <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">
             Configure factory and router addresses before using the swap page.
           </div>
         )}
@@ -1004,14 +1143,14 @@ function SwapPageInner() {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
           <section className="space-y-4">
             {/* Tab bar: Swap / Create Pool */}
-            <div className="analytics-card flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+            <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
               <button
                 onClick={() => setShowCreatePool(false)}
                 className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
                 style={{
-                  background: !showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #5A3EEE)` : 'transparent',
+                  background: !showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
                   color: !showCreatePool ? '#fff' : 'rgba(255,255,255,0.55)',
-                  boxShadow: !showCreatePool ? '0 4px 16px rgba(107,79,255,0.3)' : 'none',
+                  boxShadow: !showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
                 }}
               >
                 Swap
@@ -1020,9 +1159,9 @@ function SwapPageInner() {
                 onClick={() => setShowCreatePool(true)}
                 className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
                 style={{
-                  background: showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #5A3EEE)` : 'transparent',
+                  background: showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
                   color: showCreatePool ? '#fff' : 'rgba(255,255,255,0.55)',
-                  boxShadow: showCreatePool ? '0 4px 16px rgba(107,79,255,0.3)' : 'none',
+                  boxShadow: showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
                 }}
               >
                 Create Pool
@@ -1031,7 +1170,7 @@ function SwapPageInner() {
 
             {/* Create pool panel */}
             {showCreatePool && (
-              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
+              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
                 {addLiqToken0 !== null && addLiqToken1 !== null ? (
                   <CreatePoolPanel
                     key={`cp-${addLiqToken0.address}-${addLiqToken1.address}`}
@@ -1050,7 +1189,7 @@ function SwapPageInner() {
 
             {/* Swap card */}
             {!showCreatePool && (
-              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
+              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h1 className="text-2xl font-semibold text-white">Swap</h1>
@@ -1069,7 +1208,7 @@ function SwapPageInner() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="analytics-card rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
+                  <div className="rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <span className="text-xs uppercase tracking-[0.14em] text-white/35">You pay</span>
                       <TokenButton label="From" token={inputToken} onClick={() => setPickerMode('input')} />
@@ -1106,7 +1245,7 @@ function SwapPageInner() {
                     </button>
                   </div>
 
-                  <div className="analytics-card rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
+                  <div className="rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <span className="text-xs uppercase tracking-[0.14em] text-white/35">You receive</span>
                       <TokenButton label="To" token={outputToken} onClick={() => setPickerMode('output')} />
@@ -1125,36 +1264,50 @@ function SwapPageInner() {
                   </div>
                 </div>
 
+                {/* RPC rate-limit warning banner */}
+                {(pairAddressRead.rpcState.error || quoteRead.rpcState.error) && (
+                  <div className="flex items-center gap-3 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+                    <Loader2 size={14} className="animate-spin shrink-0" />
+                    <span>
+                      {pairAddressRead.rpcState.error === 'rate_limited' || quoteRead.rpcState.error === 'rate_limited'
+                        ? 'RPC rate limited — retrying…'
+                        : pairAddressRead.rpcState.error === 'network' || quoteRead.rpcState.error === 'network'
+                          ? 'Network error — check your connection.'
+                          : 'RPC error — retrying…'}
+                    </span>
+                  </div>
+                )}
+
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price</p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {resolvedOutput ? `1 ${resolvedInput.symbol} = ${executionPriceText} ${resolvedOutput.symbol}` : '-'}
                     </p>
                   </div>
-                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price impact</p>
                     <p className="mt-2 text-lg font-semibold text-white">{priceImpactText}</p>
                   </div>
-                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Slippage</p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {Number(slippageBps) / 100}% min. receive
                     </p>
                   </div>
-                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Liquidity</p>
                     <p className="mt-2 text-lg font-semibold text-white">{pairExists ? 'Pool available' : 'No direct pool'}</p>
                   </div>
                 </div>
 
                 <button
-                  onClick={handlePrimaryAction}
-                  disabled={primaryButtonDisabled || isConfirming}
+                  onClick={handleSwapClick}
+                  disabled={primaryButtonDisabled || isConfirming || settlementConfirming}
                   className="mt-6 flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                   style={{
-                    background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
-                    boxShadow: '0 16px 40px rgba(107,79,255,0.28)',
+                    background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
+                    boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
                   }}
                 >
                   {isConfirming ? <Loader2 size={18} className="animate-spin" /> : <ArrowDownUp size={18} />}
@@ -1165,18 +1318,41 @@ function SwapPageInner() {
           </section>
 
           <aside className="space-y-4">
-            <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
               <p className="text-xs uppercase tracking-[0.12em] text-white/35">Token discovery</p>
               <h2 className="mt-2 text-xl font-semibold text-white">Factory-backed list</h2>
               <p className="mt-2 text-sm leading-6 text-white/45">
                 Tokens are pulled from Lester Labs token factory events on LitVM, so the swap page stays local to the platform rather than depending on an external list.
               </p>
               <div className="mt-4 rounded-2xl border border-white/8 bg-[#120f1d] p-4 text-sm text-white/55">
-                {tokensLoading ? 'Loading token index...' : `${tokenOptions.length} swappable assets detected, including native zkLTC.`}
+                {tokensLoading && cacheStatus === 'scanning' && (
+                  <span className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ backgroundColor: ACCENT }} />
+                      <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: ACCENT }} />
+                    </span>
+                    Scanning chain…
+                  </span>
+                )}
+                {tokensLoading && cacheStatus === 'refreshing' && (
+                  <span className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ backgroundColor: ACCENT }} />
+                      <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: ACCENT }} />
+                    </span>
+                    Refreshing from chain…
+                  </span>
+                )}
+                {!tokensLoading && cacheStatus === 'cached' && (
+                  <span>Loaded from cache · {tokenOptions.length} tokens</span>
+                )}
+                {!tokensLoading && cacheStatus === 'idle' && (
+                  <span>{tokenOptions.length} swappable assets detected, including native zkLTC.</span>
+                )}
               </div>
             </div>
 
-            <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
               <p className="text-xs uppercase tracking-[0.12em] text-white/35">Getting started</p>
               <p className="mt-2 text-sm leading-6 text-white/45">
                 Connect your wallet, select a token pair, and swap. Add liquidity on the Pool page to earn from trades.
@@ -1190,7 +1366,7 @@ function SwapPageInner() {
             )}
 
             {isConnected && (
-              <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Connected wallet</p>
                 <div className="mt-3 flex items-center gap-3 rounded-2xl border border-white/8 bg-[#120f1d] p-4">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5">
@@ -1234,6 +1410,32 @@ function SwapPageInner() {
         txHash={txHash}
         message={txMessage}
       />
+
+      {(() => {
+        if (!showSettlementPreview || parsedAmountIn === null || minimumAmountOut === null || resolvedOutput === null) return null
+        const { fn, data, target } = buildSwapCallData()
+        return (
+          <SettlementPreview
+            isOpen={showSettlementPreview}
+            onClose={() => setShowSettlementPreview(false)}
+            onConfirm={handleSettlementConfirm}
+            confirming={settlementConfirming}
+            inputSymbol={resolvedInput.symbol}
+            inputAmount={normalizedAmountIn || '0'}
+            inputAmountRaw={parsedAmountIn.toString()}
+            outputSymbol={resolvedOutput.symbol}
+            outputAmount={formatTokenAmount(minimumAmountOut, resolvedOutput.decimals)}
+            outputAmountRaw={minimumAmountOut.toString()}
+            priceImpact={priceImpactText}
+            pairAddress={pairAddress}
+            route="Direct pair"
+            estimatedGas="≈ gas"
+            callData={data}
+            targetContract={target}
+            functionName={fn}
+          />
+        )
+      })()}
     </div>
   )
 }
@@ -1246,4 +1448,3 @@ export default function SwapPage() {
     </Suspense>
   )
 }
-

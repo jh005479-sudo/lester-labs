@@ -98,28 +98,71 @@ export function useTokenMetadata(addresses: `0x${string}`[]): {
   return { metaMap, loading }
 }
 
+export type TokenCacheStatus = 'idle' | 'scanning' | 'cached' | 'refreshing'
+
 export function useAllTokenMetadata(): {
   tokens: TokenMeta[]
   loading: boolean
+  cacheStatus: TokenCacheStatus
 } {
   const [tokens, setTokens] = useState<TokenMeta[]>([])
   const [loading, setLoading] = useState(true)
+  const [cacheStatus, setCacheStatus] = useState<TokenCacheStatus>('idle')
 
+  // First load — no cache exists yet
   useEffect(() => {
     let cancelled = false
 
-    fetchAllTokenMetadata().then((all) => {
-      if (cancelled) return
-      setTokens(all)
-      setLoading(false)
-    })
+    setCacheStatus('scanning')
+    fetchAllTokenMetadata()
+      .then((all) => {
+        if (cancelled) return
+        setTokens(all)
+        setCacheStatus('cached')
+        setLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setCacheStatus('cached')
+        setLoading(false)
+      })
 
     return () => {
       cancelled = true
     }
   }, [])
 
-  return { tokens, loading }
+  // Block-based refresh when cache already exists
+  useEffect(() => {
+    if (!_metaCache || _metaCache.size === 0) return
+
+    let cancelled = false
+    let refreshed = false
+
+    async function refresh() {
+      // Clear cache to force re-read from chain
+      _metaCache = null
+      if (!cancelled) setCacheStatus('refreshing')
+
+      const all = await fetchAllTokenMetadata()
+      if (cancelled) return
+
+      refreshed = true
+      setTokens(all)
+      setCacheStatus('cached')
+    }
+
+    const interval = setInterval(() => {
+      if (!cancelled) refresh()
+    }, 120_000) // refresh every 120 blocks (~2 min on LitVM)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
+
+  return { tokens, loading, cacheStatus }
 }
 
 // ── Logo URL helper ────────────────────────────────────────────────────────
