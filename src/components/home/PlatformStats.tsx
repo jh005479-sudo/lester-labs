@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useReadContract } from 'wagmi'
-import { ILO_FACTORY_ADDRESS, DISPERSE_ADDRESS, isValidContractAddress } from '@/config/contracts'
+import { ILO_FACTORY_ADDRESS, DISPERSE_ADDRESS, UNISWAP_V2_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI } from '@/config/abis'
 import { RPC_URL } from '@/lib/rpcClient'
 
@@ -12,7 +12,17 @@ const LEGACY_ILO_FACTORY = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB' as const
 const TOKEN_EVENT_SIG = '0xd5d05a8421149c74fd223cfc823befb883babf9bf0b0e4d6bf9c8fdb70e59bb4'
 const TRANSFER_SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 const SWAP_EVENT_SIG = '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822'
-const LATEST_BLOCK_KEY = 'lester_swap_scan_block'
+
+// Known factory pairs (from allPairsLength=4 on-chain check)
+const FACTORY_PAIR_ADDRESSES = [
+  '0x0c10b367247eB237D71F1784572CF1aC8a0F6938',
+  '0x619D80618C838a1fF636eD978FCCd6E412fce76D',
+  '0x606d4ec45Cf1B312CC36f050784062dBB16d793f',
+  '0x996bda55aAbbeD427e5b0fCd7d9E7FFb7947D764',
+] as const
+
+const BATCH_SIZE = 60_000 // blocks per scan batch
+
 const SWAP_COUNT_KEY = 'lester_cached_swap_count'
 const TOKEN_COUNT_KEY = 'lester_cached_token_count'
 const AIRDROP_COUNT_KEY = 'lester_cached_airdrop_count'
@@ -85,69 +95,10 @@ function useILOFactoryCounter(fn: ILOFactoryFn) {
   return String(newCount + legacyCount)
 }
 
-// ── Incremental swap count — scan in bounded windows using cached checkpoint ─
-async function fetchSwapCount(): Promise<number> {
-  const cachedTotal = sessionStorage.getItem(SWAP_COUNT_KEY)
-  const cachedLastBlock = sessionStorage.getItem(LATEST_BLOCK_KEY)
-  const prevCount = cachedTotal ? parseInt(cachedTotal) : 0
-  const lastScanned = cachedLastBlock ? parseInt(cachedLastBlock) : 0
-
-  const BATCH_SIZE = 60_000 // blocks per batch — safe for public RPCs
-
-  try {
-    const initialResp = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_blockNumber',
-        params: [],
-        id: 1,
-      }),
-    })
-    const initialJson = await initialResp.json()
-    const latestHex = initialJson.result
-    if (!latestHex) throw new Error('no latest block')
-    const latest = parseInt(latestHex, 16)
-
-    if (lastScanned >= latest) {
-      return prevCount
-    }
-
-    const fromBlock = lastScanned > 0 ? lastScanned + 1 : 0
-    const toBlock = Math.min(fromBlock + BATCH_SIZE, latest)
-
-    const resp = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getLogs',
-        params: [{
-          topics: [SWAP_EVENT_SIG],
-          fromBlock: '0x' + fromBlock.toString(16),
-          toBlock:   '0x' + toBlock.toString(16),
-        }],
-        id: 1,
-      }),
-    })
-    const json = await resp.json()
-    const newSwaps = Array.isArray(json.result) ? json.result.length : 0
-    const total = prevCount + newSwaps
-
-    sessionStorage.setItem(SWAP_COUNT_KEY, String(total))
-    sessionStorage.setItem(LATEST_BLOCK_KEY, String(toBlock))
-    return total
-  } catch {
-    return prevCount
-  }
-}
-
 // ── Token count from event logs ─────────────────────────────────────────
 async function fetchTokenCount(): Promise<number> {
-  if (sessionStorage.getItem(TOKEN_COUNT_KEY)) {
-    return parseInt(sessionStorage.getItem(TOKEN_COUNT_KEY)!)
-  }
+  const cached = sessionStorage.getItem(TOKEN_COUNT_KEY)
+  if (cached) return parseInt(cached)
   try {
     const resp = await fetch(RPC_URL, {
       method: 'POST',
@@ -173,12 +124,74 @@ async function fetchTokenCount(): Promise<number> {
   }
 }
 
+// ── Swap count — scoped to the 4 known factory pairs, scanned in batches ─
+async function fetchSwapCount(): Promise<number> {
+  const cached = sessionStorage.getItem(SWAP_COUNT_KEY)
+  if (cached) return parseInt(cached)
+
+  // Get latest block
+  let latest = 0
+  try {
+    const blockResp = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+    })
+    const blockJson = await blockResp.json()
+    latest = parseInt(blockJson.result, 16)
+  } catch {
+    return 0
+  }
+
+  // Scan from block 0 to latest in batches — sum across all 4 factory pairs
+  let fromBlock = 0
+  let totalSwaps = 0
+
+  while (fromBlock <= latest) {
+    const toBlock = Math.min(fromBlock + BATCH_SIZE, latest)
+    const fromHex = '0x' + fromBlock.toString(16)
+    const toHex   = '0x' + toBlock.toString(16)
+
+    // Query all 4 pairs in parallel
+    const results = await Promise.all(
+      FACTORY_PAIR_ADDRESSES.map(async (pairAddress) => {
+        try {
+          const resp = await fetch(RPC_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'eth_getLogs',
+              params: [{
+                address: pairAddress,
+                topics: [SWAP_EVENT_SIG],
+                fromBlock: fromHex,
+                toBlock:   toHex,
+              }],
+              id: 1,
+            }),
+          })
+          const json = await resp.json()
+          return Array.isArray(json.result) ? json.result.length : 0
+        } catch {
+          return 0
+        }
+      })
+    )
+
+    totalSwaps += results.reduce((a, b) => a + b, 0)
+    fromBlock = toBlock + 1
+  }
+
+  sessionStorage.setItem(SWAP_COUNT_KEY, String(totalSwaps))
+  return totalSwaps
+}
+
 // ── Airdrop wallet count from Disperse contract Transfer events ───────────
 async function fetchAirdropWalletCount(): Promise<number> {
   if (!isValidContractAddress(DISPERSE_ADDRESS)) return 0
-  if (sessionStorage.getItem(AIRDROP_COUNT_KEY)) {
-    return parseInt(sessionStorage.getItem(AIRDROP_COUNT_KEY)!)
-  }
+  const cached = sessionStorage.getItem(AIRDROP_COUNT_KEY)
+  if (cached) return parseInt(cached)
   try {
     const resp = await fetch(RPC_URL, {
       method: 'POST',
