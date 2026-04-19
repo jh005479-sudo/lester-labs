@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
 import { ShareModal } from '@/components/ShareModal'
-import { Search, Twitter } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { formatAddress, formatEtherFromHex, getLatestBlockNumber, getRecentBlocks, getTransactionReceipt, getTransactionByHash, hexToNumber, LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 
 interface Block {
@@ -126,10 +126,16 @@ export default function ExplorerPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <Navbar />
       <LTCBanner />
+      <Navbar />
 
-      <main className="mx-auto max-w-7xl px-4 pt-40 pb-20 sm:px-6 lg:px-8">
+      <main className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold tracking-tight">Explorer</h1>
+          <p className="text-white/50 text-sm mt-1">Live LitVM chain data — blocks, transactions, and network stats</p>
+        </div>
+
         {/* Network Stats Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
           {stats.map((stat) => (
@@ -271,7 +277,7 @@ export default function ExplorerPage() {
         onClick={() => setShareOpen(true)}
         className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] px-4 sm:px-5 py-3 text-sm font-medium text-white shadow-lg hover:opacity-90 transition-opacity"
       >
-        <Twitter className="h-4 w-4" />
+        <span className="text-sm font-semibold leading-none">𝕏</span>
         Share Stats
       </button>
     </div>

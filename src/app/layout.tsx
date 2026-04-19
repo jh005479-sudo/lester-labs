@@ -5,6 +5,7 @@ import { Providers } from './providers'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
 import { SiteFooter } from '@/components/layout/SiteFooter'
+import { PremiumBackdrop } from '@/components/layout/PremiumBackdrop'
 import './globals.css'
 
 const inter = Inter({
@@ -49,6 +50,7 @@ export default function RootLayout({
         }}
       >
         <Providers>
+          <PremiumBackdrop />
           <LTCBanner />
           <Navbar />
           {children}

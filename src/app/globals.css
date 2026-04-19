@@ -79,11 +79,24 @@ body {
 html { scroll-behavior: smooth; overflow-x: hidden; }
 
 body { overflow-x: hidden;
-  background: var(--background);
+  background-color: var(--background);
+  /* Premium background (B: balanced) for non-home pages */
+  background-image:
+    radial-gradient(1100px 700px at 14% 0%, rgba(107, 79, 255, 0.16) 0%, rgba(107, 79, 255, 0.04) 38%, transparent 72%),
+    radial-gradient(980px 620px at 86% 12%, rgba(79, 118, 255, 0.12) 0%, rgba(79, 118, 255, 0.03) 36%, transparent 70%),
+    radial-gradient(1200px 760px at 50% 110%, rgba(125, 88, 255, 0.09) 0%, rgba(125, 88, 255, 0.02) 40%, transparent 75%),
+    radial-gradient(150% 130% at 50% 50%, transparent 56%, rgba(0, 0, 0, 0.34) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='8' cy='14' r='1'/%3E%3Ccircle cx='76' cy='48' r='1'/%3E%3Ccircle cx='150' cy='30' r='1'/%3E%3Ccircle cx='40' cy='120' r='1'/%3E%3Ccircle cx='118' cy='146' r='1'/%3E%3Ccircle cx='168' cy='112' r='1'/%3E%3C/g%3E%3C/svg%3E");
+  background-attachment: fixed, fixed, fixed, fixed, fixed;
   color: var(--foreground);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Home page keeps its own bespoke background system */
+body.home-page-active {
+  background-image: none;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -491,6 +504,11 @@ h1, h2, h3, h4, h5, h6 {
 .analytics-card::before,.tool-form-card::before,.tool-preview-card::before{top:-1px;right:-1px;border-width:1px 1px 0 0;border-radius:0 16px 0 0}
 .analytics-card::after,.tool-form-card::after,.tool-preview-card::after{bottom:-1px;left:-1px;border-width:0 0 1px 1px;border-radius:0 0 0 16px}
 .analytics-card:hover,.tool-form-card:hover,.tool-preview-card:hover{border-color:rgba(139,116,255,.42);transform:translateY(-4px);box-shadow:0 0 52px rgba(107,79,255,.16),0 10px 30px rgba(0,0,0,.28)}
+
+/* Ledger: keep glow, disable hover lift/jump */
+.ledger-static-card:hover{transform:none !important;box-shadow:0 0 52px rgba(107,79,255,.16),0 10px 30px rgba(0,0,0,.28)}
+.ledger-message-card{box-shadow:0 0 24px rgba(107,79,255,.10),0 6px 20px rgba(0,0,0,.22)}
+.ledger-message-card:hover{transform:none !important;box-shadow:0 0 24px rgba(107,79,255,.10),0 6px 20px rgba(0,0,0,.22)}
 .analytics-card:hover::before,.analytics-card:hover::after,.tool-form-card:hover::before,.tool-form-card:hover::after,.tool-preview-card:hover::before,.tool-preview-card:hover::after{width:52px;height:52px;border-color:rgba(139,116,255,.44)}
 .trust-bg{position:absolute;inset:0;pointer-events:none}
 .trust-scanline{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(107,79,255,.3),transparent);animation:scanMove 6s linear infinite;opacity:.7}

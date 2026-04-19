@@ -29,6 +29,7 @@ export default function LockerPage() {
         subtitle="Lock LP tokens on-chain with time-based release and shareable lock certificates."
         color={COLOR}
         image="/images/carousel/liquidity-locker.png"
+        compact
         stats={[
           { label: 'Proof', value: 'On-chain' },
           { label: 'Certificate', value: 'Shareable' },

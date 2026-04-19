@@ -7,6 +7,7 @@ const VIDEO_URL  = '/lester-hero.mp4'
 const POSTER_IMG = '/lester-hero-poster.png'
 const VIDEO_HOLD = 5000   // ms of video before reveal starts
 const INTRO_SEEN_KEY = 'lesterlabs_intro_seen'
+const SKIP_INTRO_IN_DEV = process.env.NEXT_PUBLIC_SKIP_INTRO === '1'
 
 export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () => void }) {
   const videoRef      = useRef<HTMLVideoElement>(null)
@@ -38,7 +39,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
   // ─── First-visit intro gating ───────────────────────────
   useEffect(() => {
     const introSeen = typeof window !== 'undefined' && window.sessionStorage.getItem(INTRO_SEEN_KEY) === '1'
-    if (introSeen) {
+    if (SKIP_INTRO_IN_DEV || introSeen) {
       setSkipIntro(true)
       setVideoOut(true)
       setSkipGone(true)
