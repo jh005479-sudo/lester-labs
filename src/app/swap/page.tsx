@@ -25,7 +25,7 @@ import {
 import { useAllTokenMetadata } from '@/hooks/useTokenMetadata'
 import { useSearchParams } from 'next/navigation'
 
-const ACCENT = '#E44FB5'
+const ACCENT = '#6B4FFF'
 const NATIVE_GAS_RESERVE = parseUnits('0.01', 18)
 const DEFAULT_DEADLINE_SECONDS = 20 * 60
 const ZERO_ADDRESS = zeroAddress as `0x${string}`
@@ -371,8 +371,8 @@ function CreatePoolPanel({
             disabled={!canCreate || creating}
             className="flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
             style={{
-              background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
-              boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
+              background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
+              boxShadow: '0 16px 40px rgba(107,79,255,0.28)',
             }}
           >
             {creating || isConfirming ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
@@ -487,7 +487,7 @@ function TokenPicker({
                       className="flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition"
                       style={{
                         borderColor: isSelected ? `${ACCENT}55` : 'rgba(255,255,255,0.12)',
-                        background: isSelected ? 'rgba(228,79,181,0.1)' : 'rgba(255,255,255,0.04)',
+                        background: isSelected ? 'rgba(107,79,255,0.1)' : 'rgba(255,255,255,0.04)',
                       }}
                     >
                       <div>
@@ -526,7 +526,7 @@ function TokenPicker({
                 className="flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition"
                 style={{
                   borderColor: isSelected ? `${ACCENT}55` : 'rgba(255,255,255,0.08)',
-                  background: isSelected ? 'rgba(228,79,181,0.08)' : 'rgba(255,255,255,0.03)',
+                  background: isSelected ? 'rgba(107,79,255,0.08)' : 'rgba(255,255,255,0.03)',
                 }}
               >
                 <div>
@@ -978,7 +978,7 @@ function SwapPageInner() {
         titleHighlight="Swap"
         subtitle="Direct token swaps on Lester Labs' Uniswap V2 fork for LitVM. Quotes come from the live router."
         color={ACCENT}
-        image="/images/carousel/governance.png"
+        image="/images/carousel/swap.png"
         imagePosition="center 46%"
         compact
         stats={[
@@ -989,7 +989,14 @@ function SwapPageInner() {
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
         {!isDexConfigured && (
-          <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">
+          <div
+            className="rounded-[16px] border p-5 text-sm"
+            style={{
+              borderColor: 'rgba(212, 181, 95, 0.42)',
+              background: 'linear-gradient(135deg, rgba(39,62,84,0.38) 0%, rgba(46,42,62,0.46) 100%)',
+              color: 'rgba(245, 228, 176, 0.95)',
+            }}
+          >
             Configure factory and router addresses before using the swap page.
           </div>
         )}
@@ -997,14 +1004,14 @@ function SwapPageInner() {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
           <section className="space-y-4">
             {/* Tab bar: Swap / Create Pool */}
-            <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+            <div className="analytics-card flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
               <button
                 onClick={() => setShowCreatePool(false)}
                 className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
                 style={{
-                  background: !showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
+                  background: !showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #5A3EEE)` : 'transparent',
                   color: !showCreatePool ? '#fff' : 'rgba(255,255,255,0.55)',
-                  boxShadow: !showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
+                  boxShadow: !showCreatePool ? '0 4px 16px rgba(107,79,255,0.3)' : 'none',
                 }}
               >
                 Swap
@@ -1013,9 +1020,9 @@ function SwapPageInner() {
                 onClick={() => setShowCreatePool(true)}
                 className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
                 style={{
-                  background: showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
+                  background: showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #5A3EEE)` : 'transparent',
                   color: showCreatePool ? '#fff' : 'rgba(255,255,255,0.55)',
-                  boxShadow: showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
+                  boxShadow: showCreatePool ? '0 4px 16px rgba(107,79,255,0.3)' : 'none',
                 }}
               >
                 Create Pool
@@ -1024,7 +1031,7 @@ function SwapPageInner() {
 
             {/* Create pool panel */}
             {showCreatePool && (
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
+              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
                 {addLiqToken0 !== null && addLiqToken1 !== null ? (
                   <CreatePoolPanel
                     key={`cp-${addLiqToken0.address}-${addLiqToken1.address}`}
@@ -1043,7 +1050,7 @@ function SwapPageInner() {
 
             {/* Swap card */}
             {!showCreatePool && (
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
+              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h1 className="text-2xl font-semibold text-white">Swap</h1>
@@ -1062,7 +1069,7 @@ function SwapPageInner() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
+                  <div className="analytics-card rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <span className="text-xs uppercase tracking-[0.14em] text-white/35">You pay</span>
                       <TokenButton label="From" token={inputToken} onClick={() => setPickerMode('input')} />
@@ -1099,7 +1106,7 @@ function SwapPageInner() {
                     </button>
                   </div>
 
-                  <div className="rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
+                  <div className="analytics-card rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <span className="text-xs uppercase tracking-[0.14em] text-white/35">You receive</span>
                       <TokenButton label="To" token={outputToken} onClick={() => setPickerMode('output')} />
@@ -1119,23 +1126,23 @@ function SwapPageInner() {
                 </div>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price</p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {resolvedOutput ? `1 ${resolvedInput.symbol} = ${executionPriceText} ${resolvedOutput.symbol}` : '-'}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price impact</p>
                     <p className="mt-2 text-lg font-semibold text-white">{priceImpactText}</p>
                   </div>
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Slippage</p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {Number(slippageBps) / 100}% min. receive
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Liquidity</p>
                     <p className="mt-2 text-lg font-semibold text-white">{pairExists ? 'Pool available' : 'No direct pool'}</p>
                   </div>
@@ -1146,8 +1153,8 @@ function SwapPageInner() {
                   disabled={primaryButtonDisabled || isConfirming}
                   className="mt-6 flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                   style={{
-                    background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
-                    boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
+                    background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
+                    boxShadow: '0 16px 40px rgba(107,79,255,0.28)',
                   }}
                 >
                   {isConfirming ? <Loader2 size={18} className="animate-spin" /> : <ArrowDownUp size={18} />}
@@ -1158,7 +1165,7 @@ function SwapPageInner() {
           </section>
 
           <aside className="space-y-4">
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+            <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
               <p className="text-xs uppercase tracking-[0.12em] text-white/35">Token discovery</p>
               <h2 className="mt-2 text-xl font-semibold text-white">Factory-backed list</h2>
               <p className="mt-2 text-sm leading-6 text-white/45">
@@ -1169,7 +1176,7 @@ function SwapPageInner() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+            <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
               <p className="text-xs uppercase tracking-[0.12em] text-white/35">Getting started</p>
               <p className="mt-2 text-sm leading-6 text-white/45">
                 Connect your wallet, select a token pair, and swap. Add liquidity on the Pool page to earn from trades.
@@ -1183,7 +1190,7 @@ function SwapPageInner() {
             )}
 
             {isConnected && (
-              <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Connected wallet</p>
                 <div className="mt-3 flex items-center gap-3 rounded-2xl border border-white/8 bg-[#120f1d] p-4">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5">
@@ -1239,3 +1246,4 @@ export default function SwapPage() {
     </Suspense>
   )
 }
+

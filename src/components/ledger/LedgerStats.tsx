@@ -21,7 +21,7 @@ function StatCard({
 }) {
   return (
     <div
-      className="rounded-2xl border p-5"
+      className="analytics-card rounded-2xl border p-5"
       style={{
         background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
         borderColor: 'rgba(255,255,255,0.08)',

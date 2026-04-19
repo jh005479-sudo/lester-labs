@@ -6,14 +6,11 @@ import { LTCBanner } from '@/components/LTCBanner'
 import { LedgerStats } from '@/components/ledger/LedgerStats'
 import { MessageComposer } from '@/components/ledger/MessageComposer'
 import { MessageFeed } from '@/components/ledger/MessageFeed'
-import { ToolHero } from '@/components/shared/ToolHero'
 import { LEDGER_ABI } from '@/config/abis'
 import { LEDGER_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { useLedgerFeed } from '@/hooks/useLedgerFeed'
 import { LEDGER_DEFAULT_FEE, formatLedgerFee } from '@/lib/contracts/ledger'
 import { type Hex } from 'viem'
-
-const LEDGER_COLOR = '#5E6AD2'
 
 export default function LedgerPage() {
   const { address: connectedAddress } = useAccount()
@@ -75,31 +72,36 @@ export default function LedgerPage() {
       <LTCBanner />
       <Navbar />
 
-      <ToolHero
-        category="On-chain social"
-        title="The"
-        titleHighlight="Ledger"
-        subtitle="Leave your mark on the blockchain. Every message is fee-gated, permanent, and streamed back out of LitVM in real time."
-        color={LEDGER_COLOR}
-        compact
-        stats={[
-          { label: 'Current fee', value: `${formatLedgerFee(liveFee)} zkLTC` },
-          { label: 'Messages', value: totalMessages.toLocaleString() },
-          { label: 'Storage', value: 'Events only' },
-          { label: 'Limit', value: '1024 bytes' },
-        ]}
-      />
+      <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Ledger</h1>
+            <p className="text-white/50 text-sm mt-1">Leave your mark on the blockchain. Every message is fee-gated, permanent,<br />and streamed from LitVM in real time.</p>
+          </div>
 
-      <div className="relative overflow-hidden">
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-[520px]"
-          style={{ background: 'radial-gradient(circle at 15% 0%, rgba(94,106,210,0.16) 0%, transparent 55%)' }}
-        />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[560px]">
+            <div className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3">
+              <p className="text-xs text-white/40 uppercase tracking-wider">Current Fee</p>
+              <p className="text-sm font-semibold font-mono text-white mt-1">{formatLedgerFee(liveFee)} zkLTC</p>
+            </div>
+            <div className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3">
+              <p className="text-xs text-white/40 uppercase tracking-wider">Messages</p>
+              <p className="text-sm font-semibold font-mono text-white mt-1">{totalMessages.toLocaleString()}</p>
+            </div>
+            <div className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3">
+              <p className="text-xs text-white/40 uppercase tracking-wider">Storage</p>
+              <p className="text-sm font-semibold font-mono text-white mt-1">Events only</p>
+            </div>
+            <div className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3">
+              <p className="text-xs text-white/40 uppercase tracking-wider">Limit</p>
+              <p className="text-sm font-semibold font-mono text-white mt-1">1024 bytes</p>
+            </div>
+          </div>
+        </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8">
-          {!ledgerConfigured ? (
+        {!ledgerConfigured ? (
             <div
-              className="rounded-[28px] border p-8"
+              className="analytics-card rounded-[28px] border p-8"
               style={{
                 background: 'linear-gradient(180deg, rgba(17,13,32,0.96) 0%, rgba(10,8,24,0.96) 100%)',
                 borderColor: 'rgba(248,113,113,0.2)',
@@ -136,7 +138,6 @@ export default function LedgerPage() {
               </div>
             </div>
           )}
-        </div>
       </div>
     </main>
   )

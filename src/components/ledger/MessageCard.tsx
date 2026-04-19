@@ -27,13 +27,13 @@ export function MessageCard({ message, now }: MessageCardProps) {
 
   return (
     <article
-      className="rounded-2xl border p-5 transition-all duration-700"
+      className="ledger-message-card rounded-2xl border p-5 transition-all duration-500"
       style={{
         background: message.isHighlighted
           ? 'linear-gradient(180deg, rgba(94,106,210,0.12) 0%, rgba(255,255,255,0.03) 100%)'
           : 'var(--surface-1)',
         borderColor: message.isHighlighted ? 'rgba(94,106,210,0.52)' : 'rgba(255,255,255,0.08)',
-        boxShadow: message.isHighlighted ? '0 0 0 1px rgba(94,106,210,0.14), 0 18px 40px rgba(10, 8, 24, 0.34)' : 'none',
+
       }}
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
