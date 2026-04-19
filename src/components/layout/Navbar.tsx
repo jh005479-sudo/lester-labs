@@ -1,9 +1,9 @@
 'use client'
 
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useState } from 'react'
 import { ChevronDown, Menu, Wallet, X } from 'lucide-react'
 
 const dappLinks = [
@@ -37,6 +37,25 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [dappsOpen, setDappsOpen] = useState(false)
   const [dexOpen, setDexOpen] = useState(false)
+  const dappsRef = useRef<HTMLDivElement>(null)
+  const dexRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dappsRef.current && !dappsRef.current.contains(e.target as Node)) setDappsOpen(false)
+      if (dexRef.current && !dexRef.current.contains(e.target as Node)) setDexOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Close mobile menu on navigation
+  useEffect(() => {
+    setMobileOpen(false)
+    setDappsOpen(false)
+    setDexOpen(false)
+  }, [pathname])
 
   return (
     <nav
@@ -58,7 +77,7 @@ export function Navbar() {
         </Link>
 
         <div className="hidden md:flex items-center gap-6">
-          <div className="relative">
+          <div className="relative" ref={dappsRef}>
             <button
               onClick={() => setDappsOpen(!dappsOpen)}
               className="relative flex items-center gap-1 text-[12px] tracking-wide transition-all duration-300"
@@ -105,7 +124,7 @@ export function Navbar() {
             )}
           </div>
 
-          <div className="relative">
+          <div className="relative" ref={dexRef}>
             <button
               onClick={() => setDexOpen(!dexOpen)}
               className="relative flex items-center gap-1 text-[12px] tracking-wide transition-all duration-300"
