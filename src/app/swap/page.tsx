@@ -396,7 +396,7 @@ function CreatePoolPanel({
 
           <button
             onClick={handleCreate}
-            disabled={!canCreate || creating}
+            disabled={!canCreate || creating || isConfirming}
             className="flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
@@ -404,7 +404,7 @@ function CreatePoolPanel({
             }}
           >
             {creating || isConfirming ? <Loader2 size={16} className="animate-spin" /> : (reservesRead.isSuccess ? <Plus size={16} /> : <Plus size={16} />)}
-            <span>{creating ? reservesRead.isSuccess ? 'Adding liquidity…' : 'Creating pool…' : reservesRead.isSuccess ? 'Add Liquidity' : 'Create Pool'}</span>
+            <span>{creating ? 'Creating pool…' : isConfirming ? 'Confirming…' : reservesRead.isSuccess ? 'Add Liquidity' : 'Create Pool'}</span>
           </button>
         </>
       )}
@@ -716,35 +716,28 @@ function SwapPageInner() {
   const [showSettlementPreview, setShowSettlementPreview] = useState(false)
   const [settlementConfirming, setSettlementConfirming] = useState(false)
 
-  // Initialise create pool panel from URL param — also resolves token addresses to TokenOption objects
+  // Resolve tokens from URL params into TokenOption objects — re-runs when discoveredTokens loads
+  const initRef = useRef(false)
   useEffect(() => {
     if (!searchParams.get('createPool') && !searchParams.get('addLiquidity')) return
+    if (initRef.current) return
+    initRef.current = true
+
     setShowCreatePool(true)
 
     const token0Addr = searchParams.get('token0')?.toLowerCase()
     const token1Addr = searchParams.get('token1')?.toLowerCase()
 
-    if (token0Addr) {
-      if (token0Addr === ZERO_ADDRESS.toLowerCase()) {
-        setAddLiqToken0(NATIVE_TOKEN)
-      } else {
-        const found = discoveredTokens.find((t) => t.address.toLowerCase() === token0Addr)
-        if (found) {
-          setAddLiqToken0({ address: found.address, name: found.name, symbol: found.symbol, isNative: false })
-        }
-      }
+    function resolveToken(addr: string | null | undefined): TokenOption | null {
+      if (!addr) return null
+      if (addr === ZERO_ADDRESS.toLowerCase()) return NATIVE_TOKEN
+      const found = discoveredTokens.find((t) => t.address.toLowerCase() === addr)
+      if (found) return { address: found.address, name: found.name, symbol: found.symbol, isNative: false }
+      return null
     }
 
-    if (token1Addr) {
-      if (token1Addr === ZERO_ADDRESS.toLowerCase()) {
-        setAddLiqToken1(NATIVE_TOKEN)
-      } else {
-        const found = discoveredTokens.find((t) => t.address.toLowerCase() === token1Addr)
-        if (found) {
-          setAddLiqToken1({ address: found.address, name: found.name, symbol: found.symbol, isNative: false })
-        }
-      }
-    }
+    setAddLiqToken0(resolveToken(token0Addr))
+    setAddLiqToken1(resolveToken(token1Addr))
   }, [searchParams, discoveredTokens])
 
   // Persist swap card state to sessionStorage (debounced 500ms)
