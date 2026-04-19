@@ -28,7 +28,7 @@ import type { TokenCacheStatus } from '@/hooks/useTokenMetadata'
 import { useRpcCallReadContract } from '@/hooks/useRpcCall'
 import { useSearchParams } from 'next/navigation'
 
-const ACCENT = '#E44FB5'
+const ACCENT = '#6B4FFF'
 const NATIVE_GAS_RESERVE = parseUnits('0.01', 18)
 const DEFAULT_DEADLINE_SECONDS = 20 * 60
 const ZERO_ADDRESS = zeroAddress as `0x${string}`
@@ -356,8 +356,8 @@ function CreatePoolPanel({
             disabled={!canCreate || creating}
             className="flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
             style={{
-              background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
-              boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
+              background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
+              boxShadow: '0 16px 40px rgba(107,79,255,0.28)',
             }}
           >
             {creating || isConfirming ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
@@ -493,7 +493,7 @@ function TokenPicker({
         className="flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition"
         style={{
           borderColor: isSelected ? `${ACCENT}55` : 'rgba(255,255,255,0.08)',
-          background: isSelected ? 'rgba(228,79,181,0.08)' : 'rgba(255,255,255,0.03)',
+          background: isSelected ? 'rgba(107,79,255,0.08)' : 'rgba(255,255,255,0.03)',
           height: ROW_HEIGHT,
         }}
       >
@@ -560,7 +560,7 @@ function TokenPicker({
                       className="flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition"
                       style={{
                         borderColor: isSelected ? `${ACCENT}55` : 'rgba(255,255,255,0.12)',
-                        background: isSelected ? 'rgba(228,79,181,0.1)' : 'rgba(255,255,255,0.04)',
+                        background: isSelected ? 'rgba(107,79,255,0.1)' : 'rgba(255,255,255,0.04)',
                       }}
                     >
                       <div>
@@ -1135,7 +1135,7 @@ function SwapPageInner() {
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
         {!isDexConfigured && (
-          <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">
+          <div className="rounded-[16px] border p-5 text-sm" style={{ borderColor: 'rgba(212, 181, 95, 0.42)', background: 'linear-gradient(135deg, rgba(39,62,84,0.38) 0%, rgba(46,42,62,0.46) 100%)', color: 'rgba(245, 228, 176, 0.95)' }}>
             Configure factory and router addresses before using the swap page.
           </div>
         )}
@@ -1148,9 +1148,9 @@ function SwapPageInner() {
                 onClick={() => setShowCreatePool(false)}
                 className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
                 style={{
-                  background: !showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
+                  background: !showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #5A3EEE)` : 'transparent',
                   color: !showCreatePool ? '#fff' : 'rgba(255,255,255,0.55)',
-                  boxShadow: !showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
+                  boxShadow: !showCreatePool ? '0 4px 16px rgba(107,79,255,0.3)' : 'none',
                 }}
               >
                 Swap
@@ -1159,9 +1159,9 @@ function SwapPageInner() {
                 onClick={() => setShowCreatePool(true)}
                 className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
                 style={{
-                  background: showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
+                  background: showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #5A3EEE)` : 'transparent',
                   color: showCreatePool ? '#fff' : 'rgba(255,255,255,0.55)',
-                  boxShadow: showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
+                  boxShadow: showCreatePool ? '0 4px 16px rgba(107,79,255,0.3)' : 'none',
                 }}
               >
                 Create Pool
@@ -1306,8 +1306,8 @@ function SwapPageInner() {
                   disabled={primaryButtonDisabled || isConfirming || settlementConfirming}
                   className="mt-6 flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                   style={{
-                    background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
-                    boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
+                    background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
+                    boxShadow: '0 16px 40px rgba(107,79,255,0.28)',
                   }}
                 >
                   {isConfirming ? <Loader2 size={18} className="animate-spin" /> : <ArrowDownUp size={18} />}
@@ -1448,4 +1448,6 @@ export default function SwapPage() {
     </Suspense>
   )
 }
+
+
 
