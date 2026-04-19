@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Droplets, ExternalLink, Layers3, Loader2, Minus, Plus, Wallet, X } from 'lucide-react'
 import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { useQueryClient } from '@tanstack/react-query'
 import { formatUnits } from 'viem'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
@@ -275,6 +276,7 @@ function RemoveLiquidityPanel({
 }) {
   const { address, isConnected } = useAccount()
   const { writeContractAsync } = useWriteContract()
+  const queryClient = useQueryClient()
 
   const [removePercent, setRemovePercent] = useState('100')
   const [removing, setRemoving] = useState(false)
@@ -367,6 +369,9 @@ function RemoveLiquidityPanel({
       setTxOpen(true)
       setTxStatus('pending')
       setTxMessage('Approval transaction pending...')
+      // Invalidate allowance so needsApproval updates immediately after approval confirms
+      await queryClient.cancelQueries({ queryKey: allowanceRead.queryKey })
+      queryClient.invalidateQueries({ queryKey: allowanceRead.queryKey })
     } catch (err) {
       setTxStatus('error')
       setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Approval failed.')
