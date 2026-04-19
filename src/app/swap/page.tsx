@@ -169,14 +169,23 @@ function SlippageSelector({
 }
 
 // ── Create pool panel ────────────────────────────────────────────────────────
-function CreatePoolPanel({ onClose }: { onClose: () => void }) {
+function CreatePoolPanel({
+  onClose,
+  initialToken0,
+  initialToken1,
+}: {
+  onClose: () => void
+  initialToken0?: TokenOption | null
+  initialToken1?: TokenOption | null
+}) {
   const { address, isConnected } = useAccount()
   const { writeContractAsync } = useWriteContract()
   const { tokens: discoveredTokens } = useAllTokenMetadata()
-  const [token0, setToken0] = useState<TokenOption | null>(null)
-  const [token1, setToken1] = useState<TokenOption | null>(null)
+  const [token0, setToken0] = useState<TokenOption | null>(initialToken0 ?? null)
+  const [token1, setToken1] = useState<TokenOption | null>(initialToken1 ?? null)
   const [amount0, setAmount0] = useState('')
   const [amount1, setAmount1] = useState('')
+  const [pickerMode, setPickerMode] = useState<'token0' | 'token1' | null>(null)
   const [creating, setCreating] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
   const [txOpen, setTxOpen] = useState(false)
@@ -314,10 +323,7 @@ function CreatePoolPanel({ onClose }: { onClose: () => void }) {
                   className="flex-1 bg-transparent text-lg font-semibold text-white outline-none placeholder:text-white/20"
                 />
                 <button
-                  onClick={() => {
-                    const t = tokenOptions.find((t) => t.address.toLowerCase() === token1?.address.toLowerCase())
-                    setToken0(t ?? null)
-                  }}
+                  onClick={() => setPickerMode('token0')}
                   className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white"
                 >
                   {token0?.symbol ?? 'Select'}
@@ -344,10 +350,7 @@ function CreatePoolPanel({ onClose }: { onClose: () => void }) {
                   className="flex-1 bg-transparent text-lg font-semibold text-white outline-none placeholder:text-white/20"
                 />
                 <button
-                  onClick={() => {
-                    const t = tokenOptions.find((t) => t.address.toLowerCase() === token0?.address.toLowerCase())
-                    setToken1(t ?? null)
-                  }}
+                  onClick={() => setPickerMode('token1')}
                   className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white"
                 >
                   {token1?.symbol ?? 'Select'}
@@ -384,6 +387,27 @@ function CreatePoolPanel({ onClose }: { onClose: () => void }) {
         status={txStatus}
         txHash={txHash}
         message={txMessage}
+      />
+
+      <TokenPicker
+        open={pickerMode !== null}
+        currentToken={pickerMode === 'token0' ? token0 : token1}
+        onClose={() => setPickerMode(null)}
+        onSelect={(token) => {
+          if (pickerMode === 'token0') {
+            setToken0(token)
+            if (token1 && token1.address.toLowerCase() === token.address.toLowerCase()) {
+              setToken1(token0)
+            }
+          } else if (pickerMode === 'token1') {
+            setToken1(token)
+            if (token0 && token0.address.toLowerCase() === token.address.toLowerCase()) {
+              setToken0(token1)
+            }
+          }
+          setPickerMode(null)
+        }}
+        tokens={tokenOptions}
       />
     </div>
   )
@@ -570,11 +594,39 @@ function SwapPageInner() {
   const [txAction, setTxAction] = useState<'approve' | 'swap' | null>(null)
   const [slippageBps, setSlippageBps] = useState<bigint>(50n) // default 0.5%
   const [showCreatePool, setShowCreatePool] = useState(false)
+  const [addLiqToken0, setAddLiqToken0] = useState<TokenOption | null>(null)
+  const [addLiqToken1, setAddLiqToken1] = useState<TokenOption | null>(null)
 
   // Initialise create pool panel from URL param
   useEffect(() => {
-    if (searchParams.get('createPool') === '1') {
+    if (searchParams.get('createPool') === '1' || searchParams.get('addLiquidity')) {
       setShowCreatePool(true)
+
+      // Pre-fill tokens from URL params (passed by pool page)
+      const token0Addr = searchParams.get('token0')?.toLowerCase()
+      const token1Addr = searchParams.get('token1')?.toLowerCase()
+
+      if (token0Addr) {
+        if (token0Addr === ZERO_ADDRESS.toLowerCase()) {
+          setAddLiqToken0(NATIVE_TOKEN)
+        } else {
+          const found = discoveredTokens.find((t) => t.address.toLowerCase() === token0Addr)
+          if (found) {
+            setAddLiqToken0({ address: found.address, name: found.name, symbol: found.symbol, isNative: false })
+          }
+        }
+      }
+
+      if (token1Addr) {
+        if (token1Addr === ZERO_ADDRESS.toLowerCase()) {
+          setAddLiqToken1(NATIVE_TOKEN)
+        } else {
+          const found = discoveredTokens.find((t) => t.address.toLowerCase() === token1Addr)
+          if (found) {
+            setAddLiqToken1({ address: found.address, name: found.name, symbol: found.symbol, isNative: false })
+          }
+        }
+      }
     }
   }, [searchParams])
 
@@ -975,7 +1027,11 @@ function SwapPageInner() {
             {/* Create pool panel */}
             {showCreatePool && (
               <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
-                <CreatePoolPanel onClose={() => setShowCreatePool(false)} />
+                <CreatePoolPanel
+                  onClose={() => setShowCreatePool(false)}
+                  initialToken0={addLiqToken0}
+                  initialToken1={addLiqToken1}
+                />
               </div>
             )}
 
