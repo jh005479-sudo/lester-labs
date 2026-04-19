@@ -33,10 +33,6 @@ Native zkLTC is represented on the router side by a wrapped zkLTC contract, but 
 | Liquidity providers | `0.10%` retained in-pool |
 | **Total paid per trade** | **`0.30%`** |
 
-Treasury wallet:
-
-`0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`
-
 ## Contracts
 
 | Contract | Purpose | Status |
