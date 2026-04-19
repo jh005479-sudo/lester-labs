@@ -278,7 +278,7 @@ function RemoveLiquidityPanel({
   const { writeContractAsync } = useWriteContract()
   const queryClient = useQueryClient()
 
-  const [removePercent, setRemovePercent] = useState('100')
+  const [removePercent, setRemovePercent] = useState('100')  // percentage or 'max'
   const [removing, setRemoving] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
   const [txOpen, setTxOpen] = useState(false)
@@ -290,7 +290,9 @@ function RemoveLiquidityPanel({
   const isToken1Native = token1.toLowerCase() === ZERO_ADDRESS().toLowerCase()
   const isETHPair = isToken0Native || isToken1Native
 
-  const lpAmount = (BigInt(Math.floor(parseFloat(removePercent) * 100)) * lpBalance) / 10_000n
+  const lpAmount = parseFloat(removePercent) > 0
+    ? BigInt(Math.floor(parseFloat(removePercent) * 1e18))
+    : 0n
 
   // Read reserves to calculate expected token amounts
   const reservesRead = useReadContract({
@@ -450,26 +452,46 @@ function RemoveLiquidityPanel({
             <p className="mt-2 text-lg font-semibold text-white">{formatAmount(lpBalance, 18)} LP</p>
           </div>
 
-          {/* Remove percent slider */}
+          {/* LP amount input */}
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-white/55">Amount to remove</span>
-              <span className="text-white font-medium">{removePercent}%</span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/55">LP tokens to remove</span>
+              <span className="text-white/40">Balance: {formatAmount(lpBalance, 18)}</span>
             </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value={removePercent}
-              onChange={(e) => setRemovePercent(e.target.value)}
-              className="w-full cursor-pointer accent-pink-500"
-            />
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min="0"
+                max={formatAmount(lpBalance, 18)}
+                step="any"
+                value={removePercent}
+                onChange={(e) => setRemovePercent(e.target.value)}
+                placeholder="0.0"
+                className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-right font-mono text-lg text-white outline-none placeholder:text-white/20 focus:border-white/20"
+              />
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => setRemovePercent((Number(lpBalance) / 1e18).toFixed(8))}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:border-white/20 hover:text-white"
+                >
+                  Max
+                </button>
+                <button
+                  onClick={() => setRemovePercent('0')}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:border-white/20 hover:text-white"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
             <div className="flex gap-2 text-xs text-white/40">
-              {['25', '50', '75', '100'].map((pct) => (
+              {['25', '50', '75'].map((pct) => (
                 <button
                   key={pct}
-                  onClick={() => setRemovePercent(pct)}
+                  onClick={() => {
+                    const fraction = (Number(lpBalance) * Number(pct) / 100 / 1e18).toFixed(8)
+                    setRemovePercent(fraction)
+                  }}
                   className={`flex-1 rounded-full border py-1 transition ${
                     removePercent === pct
                       ? 'border-white/20 bg-white/10 text-white'
