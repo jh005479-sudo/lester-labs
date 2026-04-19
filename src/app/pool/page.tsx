@@ -10,7 +10,7 @@ import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI } from '@/config/abis'
 import { UNISWAP_V2_FACTORY_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
 
-const ACCENT = '#E44FB5'
+const ACCENT = '#6B4FFF'
 const PAGE_SIZE = 10
 const MAX_DISPLAY = 100
 const MAX_INITIAL = 20 // pre-load first 20 pairs (2 batches)
@@ -458,7 +458,7 @@ export default function PoolPage() {
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
         {!isDexConfigured && (
-          <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">
+          <div className="rounded-[16px] border p-5 text-sm" style={{ borderColor: 'rgba(212, 181, 95, 0.42)', background: 'linear-gradient(135deg, rgba(39,62,84,0.38) 0%, rgba(46,42,62,0.46) 100%)', color: 'rgba(245, 228, 176, 0.95)' }}>
             Configure factory and WZKLTC addresses before using the pool page.
           </div>
         )}
@@ -485,8 +485,8 @@ export default function PoolPage() {
               href="/swap?createPool=1"
               className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition"
               style={{
-                background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
-                boxShadow: '0 8px 24px rgba(228,79,181,0.25)',
+                background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
+                boxShadow: '0 8px 24px rgba(107,79,255,0.25)',
               }}
             >
               <Plus size={14} />
@@ -510,7 +510,7 @@ export default function PoolPage() {
                 href="/swap?createPool=1"
                 className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition"
                 style={{
-                  background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
+                  background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)`,
                 }}
               >
                 <Plus size={14} />
@@ -622,7 +622,7 @@ export default function PoolPage() {
                 <Link
                   href="/swap"
                   className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white"
-                  style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)` }}
+                  style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #5A3EEE 100%)` }}
                 >
                   <Droplets size={14} />
                   Go to Swap
@@ -705,4 +705,6 @@ export default function PoolPage() {
     </div>
   )
 }
+
+
 
