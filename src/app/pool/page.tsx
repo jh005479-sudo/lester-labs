@@ -291,8 +291,9 @@ function RemoveLiquidityPanel({
   const isETHPair = isToken0Native || isToken1Native
 
   const maxLpReadable = Number(lpBalance) / 1e18
-  const lpAmount = parseFloat(removePercent) > 0 && parseFloat(removePercent) <= maxLpReadable
-    ? BigInt(Math.floor(parseFloat(removePercent) * 1e18))
+  const inputValue = parseFloat(removePercent)
+  const lpAmount = inputValue > 0 && inputValue <= maxLpReadable
+    ? BigInt(Math.floor(inputValue * 1e18))
     : 0n
 
   // Read reserves to calculate expected token amounts
