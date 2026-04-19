@@ -24,7 +24,6 @@ The fee split is enforced on-chain in the pair contract:
 - Total fee per swap: `0.30%`
 - Treasury share: `0.20%`
 - LP share retained in-pool: `0.10%`
-- Treasury address: `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`
 
 Launchpad finalization uses `UniSwapConnector`, which re-checks that both factory `feeTo` and `feeToSetter` still point at the Lester Labs treasury before liquidity can be seeded.
 
@@ -80,7 +79,7 @@ Most Lester Labs contracts are based on battle-tested upstream implementations f
 
 - the V2 pair contract routes `0.20%` of each trade input directly to the Lester Labs treasury
 - the factory constructor pins both `feeTo` and `feeToSetter` to the Lester Labs treasury
-- the Launchpad connector refuses to seed liquidity if treasury routing drifts away from `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`
+- the Launchpad connector refuses to seed liquidity if treasury routing drifts from the configured treasury
 
 Always verify the chain, contract address, and token pair before transacting.
 

@@ -56,7 +56,7 @@ A project creates an ILO by depositing their tokens into the factory contract an
 | Platform fee | 2% of zkLTC raised | Deducted automatically at finalization |
 | DEX trading fee after launch | 0.30% total | Paid by traders on the live pair: 0.20% treasury / 0.10% LPs |
 
-**Example:** Project raises 100 zkLTC. At finalization, 2 zkLTC goes to the Lester Labs treasury and 98 zkLTC remains available for liquidity plus project allocations. Once the pair is trading, each swap on that pair pays 0.30% total, with 0.20% routed to the Lester Labs treasury wallet `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`.
+**Example:** Project raises 100 zkLTC. At finalization, 2 zkLTC goes to the Lester Labs treasury and 98 zkLTC remains available for liquidity plus project allocations. Once the pair is trading, each swap on that pair pays 0.30% total, with 0.20% routed to the Lester Labs treasury.
 
 ## Smart contract
 
