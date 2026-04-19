@@ -373,9 +373,10 @@ function RemoveLiquidityPanel({
       setTxOpen(true)
       setTxStatus('pending')
       setTxMessage('Approval transaction pending...')
-      // Invalidate allowance so needsApproval updates immediately after approval confirms
+      // Cancel any in-flight query then refetch to get updated allowance
       await queryClient.cancelQueries({ queryKey: allowanceRead.queryKey })
       queryClient.invalidateQueries({ queryKey: allowanceRead.queryKey })
+      allowanceRead.refetch()
     } catch (err) {
       setTxStatus('error')
       setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Approval failed.')
