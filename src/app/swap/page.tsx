@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useDeferredValue, useState, startTransition } from 'react'
-import { ArrowDownUp, ChevronDown, Droplets, Loader2, Settings2, Wallet, X } from 'lucide-react'
+import { Suspense, useEffect, useDeferredValue, useState, useMemo, startTransition } from 'react'
+import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Settings2, Wallet, X } from 'lucide-react'
 import { useAccount, useBalance, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { CurrencyAmount, Token } from '@uniswap/sdk-core'
 import { Pair, Route, Trade } from '@uniswap/v2-sdk'
@@ -23,13 +23,23 @@ import {
   isValidContractAddress,
 } from '@/config/contracts'
 import { useAllTokenMetadata } from '@/hooks/useTokenMetadata'
+import { useSearchParams } from 'next/navigation'
 
 const ACCENT = '#E44FB5'
-const DEFAULT_SLIPPAGE_BPS = 50n
-const NATIVE_GAS_RESERVE = parseUnits('0.01', 18) // 0.01 zkLTC gas buffer for native swaps
+const NATIVE_GAS_RESERVE = parseUnits('0.01', 18)
 const DEFAULT_DEADLINE_SECONDS = 20 * 60
 const ZERO_ADDRESS = zeroAddress as `0x${string}`
 const CHAIN_ID = 4441
+
+// ── Pinned tokens shown at the top of every dropdown ────────────────────────
+const PINNED_TOKENS: { address: `0x${string}`; symbol: string; name: string; isNative: boolean }[] = [
+  { address: ZERO_ADDRESS, symbol: 'zkLTC', name: 'zkLTC', isNative: true },
+  { address: WRAPPED_ZKLTC_ADDRESS, symbol: 'WZKLTC', name: 'Wrapped zkLTC', isNative: false },
+  { address: '0xdaf8bdc2b197c2f0fab9d7359bdf482f8332b21f' as `0x${string}`, symbol: 'WETH', name: 'LL wEth', isNative: false },
+  { address: '0x3bce48a3b30414176e796af997bb1ed5e1dc5b22' as `0x${string}`, symbol: 'WBTC', name: 'LL wBTC', isNative: false },
+  { address: '0x4af16cfb61fe9a2c6d1452d85b25e7ca49748f16' as `0x${string}`, symbol: 'USDT', name: 'LL USDT', isNative: false },
+  { address: '0x7f837d1b20c6ff20d8c6f396760c4f1f1f17babf' as `0x${string}`, symbol: 'USDC', name: 'LL USDC', isNative: false },
+]
 
 type TokenOption = {
   address: `0x${string}`
@@ -69,10 +79,317 @@ function buildSdkToken(token: ResolvedToken) {
   if (token.isNative) {
     return new Token(CHAIN_ID, WRAPPED_ZKLTC_ADDRESS, 18, 'wzkLTC', 'Wrapped zkLTC')
   }
-
   return new Token(CHAIN_ID, token.address, token.decimals, token.symbol, token.name)
 }
 
+// ── Slippage selector ───────────────────────────────────────────────────────
+const SLIPPAGE_PRESETS = [10n, 50n, 100n] // 0.1%, 0.5%, 1.0%
+
+function SlippageSelector({
+  valueBps,
+  onChange,
+}: {
+  valueBps: bigint
+  onChange: (bps: bigint) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [customValue, setCustomValue] = useState('')
+  const displayPct = Number(valueBps) / 100
+
+  function handlePreset(bps: bigint) {
+    onChange(bps)
+    setCustomValue('')
+  }
+
+  function handleCustom(raw: string) {
+    setCustomValue(raw)
+    const num = parseFloat(raw)
+    if (!isNaN(num) && num > 0 && num <= 50) {
+      onChange(BigInt(Math.round(num * 100)))
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
+      >
+        <Settings2 size={11} />
+        {displayPct % 1 === 0 ? `${displayPct.toFixed(0)}%` : `${displayPct.toFixed(1)}%`} slippage
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-12 z-50 w-52 rounded-2xl border border-white/10 bg-[#120f1d] p-4 shadow-xl">
+            <p className="mb-3 text-xs uppercase tracking-[0.12em] text-white/35">Slippage tolerance</p>
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              {[10n, 50n, 100n].map((bps) => {
+                const pct = Number(bps) / 100
+                return (
+                  <button
+                    key={bps}
+                    onClick={() => handlePreset(bps)}
+                    className="rounded-xl border py-2 text-center text-xs font-medium transition"
+                    style={{
+                      borderColor: valueBps === bps ? ACCENT : 'rgba(255,255,255,0.12)',
+                      background: valueBps === bps ? `${ACCENT}22` : 'rgba(255,255,255,0.04)',
+                      color: valueBps === bps ? '#fff' : 'rgba(255,255,255,0.65)',
+                    }}
+                  >
+                    {pct % 1 === 0 ? `${pct.toFixed(0)}%` : `${pct.toFixed(1)}%`}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/4 p-2">
+              <input
+                value={customValue}
+                onChange={(e) => handleCustom(e.target.value)}
+                placeholder="Custom"
+                type="number"
+                min="0.01"
+                max="50"
+                step="0.1"
+                className="flex-1 bg-transparent text-right text-sm text-white outline-none placeholder:text-white/25"
+              />
+              <span className="text-sm text-white/45">%</span>
+            </div>
+            {Number(valueBps) > 500 && (
+              <p className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-2 py-1.5 text-xs text-yellow-200">
+                High slippage — only use if necessary.
+              </p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Create pool panel ────────────────────────────────────────────────────────
+function CreatePoolPanel({ onClose }: { onClose: () => void }) {
+  const { address, isConnected } = useAccount()
+  const { writeContractAsync } = useWriteContract()
+  const { tokens: discoveredTokens } = useAllTokenMetadata()
+  const [token0, setToken0] = useState<TokenOption | null>(null)
+  const [token1, setToken1] = useState<TokenOption | null>(null)
+  const [amount0, setAmount0] = useState('')
+  const [amount1, setAmount1] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
+  const [txOpen, setTxOpen] = useState(false)
+  const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
+  const [txMessage, setTxMessage] = useState<string | undefined>()
+
+  const tokenOptions: TokenOption[] = [
+    NATIVE_TOKEN,
+    ...discoveredTokens.map((t) => ({ address: t.address, name: t.name, symbol: t.symbol, isNative: false })),
+  ]
+
+  const { isLoading: isConfirming, isSuccess: txConfirmed, error: txError } = useWaitForTransactionReceipt({
+    hash: txHash,
+    query: { enabled: Boolean(txHash) },
+  })
+
+  useEffect(() => {
+    if (!txHash) return
+    if (isConfirming) {
+      setTxStatus('pending')
+      setTxMessage('Creating pool transaction pending...')
+    }
+  }, [isConfirming, txHash])
+
+  useEffect(() => {
+    if (!txHash || !txConfirmed) return
+    setTxStatus('success')
+    setTxMessage('Pool created on LitVM.')
+    setAmount0('')
+    setAmount1('')
+  }, [txConfirmed, txHash])
+
+  useEffect(() => {
+    if (!txHash || !txError) return
+    setTxStatus('error')
+    setTxMessage(txError.message.slice(0, 180))
+  }, [txError, txHash])
+
+  const canCreate =
+    isConnected &&
+    token0 !== null &&
+    token1 !== null &&
+    token0.address.toLowerCase() !== token1.address.toLowerCase() &&
+    parseFloat(amount0) > 0 &&
+    parseFloat(amount1) > 0
+
+  async function handleCreate() {
+    if (!canCreate || !address) return
+    setCreating(true)
+    try {
+      setTxOpen(true)
+      setTxStatus('pending')
+      setTxMessage(undefined)
+
+      const t0Decimals = token0!.isNative ? 18 : 18
+      const t1Decimals = token1!.isNative ? 18 : 18
+      const a0 = parseUnits(amount0, t0Decimals)
+      const a1 = parseUnits(amount1, t1Decimals)
+
+      const isToken0Native = token0!.isNative
+      const isToken1Native = token1!.isNative
+      const token0Addr = isToken0Native ? WRAPPED_ZKLTC_ADDRESS : token0!.address
+      const token1Addr = isToken1Native ? WRAPPED_ZKLTC_ADDRESS : token1!.address
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
+
+      let hash: `0x${string}`
+
+      if (isToken0Native) {
+        hash = await writeContractAsync({
+          address: UNISWAP_V2_ROUTER_ADDRESS,
+          abi: UNISWAP_V2_ROUTER_ABI,
+          functionName: 'addLiquidityETH',
+          args: [token1Addr, a1, a1, 0n, address, deadline],
+          value: a0,
+        })
+      } else if (isToken1Native) {
+        hash = await writeContractAsync({
+          address: UNISWAP_V2_ROUTER_ADDRESS,
+          abi: UNISWAP_V2_ROUTER_ABI,
+          functionName: 'addLiquidityETH',
+          args: [token0Addr, a0, a0, 0n, address, deadline],
+          value: a1,
+        })
+      } else {
+        // Both ERC20 — ensure tokenA < tokenB (factory requirement)
+        const [tokenA, tokenB, amountA, amountB] = token0Addr.toLowerCase() < token1Addr.toLowerCase()
+          ? [token0Addr, token1Addr, a0, a1] as const
+          : [token1Addr, token0Addr, a1, a0] as const
+        hash = await writeContractAsync({
+          address: UNISWAP_V2_ROUTER_ADDRESS,
+          abi: UNISWAP_V2_ROUTER_ABI,
+          functionName: 'addLiquidity',
+          args: [tokenA, tokenB, amountA, amountB, 0n, 0n, address, deadline],
+        })
+      }
+      setTxHash(hash)
+    } catch (err) {
+      setTxStatus('error')
+      setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Pool creation failed.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-white">Create Pool</h2>
+        <button
+          onClick={onClose}
+          className="rounded-full border border-white/10 bg-white/5 p-2 text-white/55 transition hover:border-white/20 hover:text-white"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {!isConnected && (
+        <div className="rounded-2xl border border-white/8 bg-white/3 p-6 text-center">
+          <p className="text-sm text-white/55">Connect your wallet to create a pool.</p>
+        </div>
+      )}
+
+      {isConnected && (
+        <>
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+              <p className="mb-2 text-xs uppercase tracking-[0.12em] text-white/35">Token 1</p>
+              <div className="flex gap-2">
+                <input
+                  value={amount0}
+                  onChange={(e) => setAmount0(formatInputAmount(e.target.value))}
+                  placeholder="0.0"
+                  type="text"
+                  inputMode="decimal"
+                  className="flex-1 bg-transparent text-lg font-semibold text-white outline-none placeholder:text-white/20"
+                />
+                <button
+                  onClick={() => {
+                    const t = tokenOptions.find((t) => t.address.toLowerCase() === token1?.address.toLowerCase())
+                    setToken0(t ?? null)
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white"
+                >
+                  {token0?.symbol ?? 'Select'}
+                  <ChevronDown size={12} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5">
+                <Plus size={14} className="text-white/55" />
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+              <p className="mb-2 text-xs uppercase tracking-[0.12em] text-white/35">Token 2</p>
+              <div className="flex gap-2">
+                <input
+                  value={amount1}
+                  onChange={(e) => setAmount1(formatInputAmount(e.target.value))}
+                  placeholder="0.0"
+                  type="text"
+                  inputMode="decimal"
+                  className="flex-1 bg-transparent text-lg font-semibold text-white outline-none placeholder:text-white/20"
+                />
+                <button
+                  onClick={() => {
+                    const t = tokenOptions.find((t) => t.address.toLowerCase() === token0?.address.toLowerCase())
+                    setToken1(t ?? null)
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white"
+                >
+                  {token1?.symbol ?? 'Select'}
+                  <ChevronDown size={12} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {token0 && token1 && token0.address.toLowerCase() === token1.address.toLowerCase() && (
+            <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              Cannot create a pool with the same token.
+            </p>
+          )}
+
+          <button
+            onClick={handleCreate}
+            disabled={!canCreate || creating}
+            className="flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
+              boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
+            }}
+          >
+            {creating || isConfirming ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+            <span>{creating ? 'Creating pool…' : 'Create Pool'}</span>
+          </button>
+        </>
+      )}
+
+      <TxStatusModal
+        isOpen={txOpen}
+        onClose={() => setTxOpen(false)}
+        status={txStatus}
+        txHash={txHash}
+        message={txMessage}
+      />
+    </div>
+  )
+}
+
+// ── Token picker ────────────────────────────────────────────────────────────
 function TokenPicker({
   open,
   currentToken,
@@ -126,9 +443,53 @@ function TokenPicker({
         />
 
         <div className="max-h-[380px] space-y-2 overflow-y-auto pr-1">
-          {filteredTokens.map((token) => {
-            const isSelected = currentToken?.address.toLowerCase() === token.address.toLowerCase()
+          {!query && (
+            <div>
+              <p className="mb-2 px-1 text-xs uppercase tracking-[0.12em] text-white/35">Pinned Assets</p>
+              <div className="mb-3 space-y-1">
+                {PINNED_TOKENS.filter((pt) =>
+                  tokens.some((t) => t.address.toLowerCase() === pt.address.toLowerCase())
+                ).map((token) => {
+                  const isSelected = currentToken?.address.toLowerCase() === token.address.toLowerCase()
+                  return (
+                    <button
+                      key={token.address}
+                      onClick={() => {
+                        startTransition(() => {
+                          onSelect(token)
+                          onClose()
+                        })
+                      }}
+                      className="flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition"
+                      style={{
+                        borderColor: isSelected ? `${ACCENT}55` : 'rgba(255,255,255,0.12)',
+                        background: isSelected ? 'rgba(228,79,181,0.1)' : 'rgba(255,255,255,0.04)',
+                      }}
+                    >
+                      <div>
+                        <p className="font-semibold text-white">{token.symbol}</p>
+                        <p className="text-sm text-white/45">{token.name}</p>
+                      </div>
+                      {token.isNative && (
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/45">Native</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="mb-2 h-px bg-white/8" />
+            </div>
+          )}
 
+          {query && (
+            <p className="mb-2 px-1 text-xs uppercase tracking-[0.12em] text-white/35">Search Results</p>
+          )}
+
+          {filteredTokens.map((token) => {
+            const isPinned = PINNED_TOKENS.some((p) => p.address.toLowerCase() === token.address.toLowerCase())
+            if (!query && isPinned) return null
+
+            const isSelected = currentToken?.address.toLowerCase() === token.address.toLowerCase()
             return (
               <button
                 key={token.address}
@@ -150,9 +511,9 @@ function TokenPicker({
                 </div>
                 <div className="text-right">
                   {token.isNative ? (
-                    <p className="text-xs uppercase tracking-[0.12em] text-white/45">Native</p>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs uppercase tracking-[0.12em] text-white/45">Native</span>
                   ) : (
-                    <p className="font-mono text-xs text-white/35">{`${token.address.slice(0, 6)}...${token.address.slice(-4)}`}</p>
+                    <p className="font-mono text-xs text-white/35">{`${token.address.slice(0, 6)}…${token.address.slice(-4)}`}</p>
                   )}
                 </div>
               </button>
@@ -191,7 +552,9 @@ function TokenButton({
   )
 }
 
-export default function SwapPage() {
+// ── Main swap page (inner — uses useSearchParams) ────────────────────────────
+function SwapPageInner() {
+  const searchParams = useSearchParams()
   const { address, isConnected } = useAccount()
   const { tokens: discoveredTokens, loading: tokensLoading } = useAllTokenMetadata()
   const { writeContractAsync } = useWriteContract()
@@ -205,6 +568,15 @@ export default function SwapPage() {
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [txAction, setTxAction] = useState<'approve' | 'swap' | null>(null)
+  const [slippageBps, setSlippageBps] = useState<bigint>(50n) // default 0.5%
+  const [showCreatePool, setShowCreatePool] = useState(false)
+
+  // Initialise create pool panel from URL param
+  useEffect(() => {
+    if (searchParams.get('createPool') === '1') {
+      setShowCreatePool(true)
+    }
+  }, [searchParams])
 
   const isDexConfigured =
     isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) &&
@@ -213,14 +585,8 @@ export default function SwapPage() {
 
   useEffect(() => {
     if (outputToken || discoveredTokens.length === 0) return
-
     const firstToken = discoveredTokens[0]
-    setOutputToken({
-      address: firstToken.address,
-      name: firstToken.name,
-      symbol: firstToken.symbol,
-      isNative: false,
-    })
+    setOutputToken({ address: firstToken.address, name: firstToken.name, symbol: firstToken.symbol, isNative: false })
   }, [discoveredTokens, outputToken])
 
   const tokenOptions: TokenOption[] = [
@@ -294,7 +660,6 @@ export default function SwapPage() {
 
   const normalizedAmountIn = formatInputAmount(amountIn)
   let parsedAmountIn: bigint | null = null
-
   if (normalizedAmountIn && resolvedInput.decimals >= 0) {
     try {
       parsedAmountIn = parseUnits(normalizedAmountIn, resolvedInput.decimals)
@@ -418,8 +783,9 @@ export default function SwapPage() {
       ? nativeBalance.data?.value ?? 0n
       : ((inputTokenBalanceRead.data ?? 0n) as bigint)
 
+  // Use user-selected slippage (default 0.5%)
   const minimumAmountOut =
-    quotedAmountOut === null ? null : (quotedAmountOut * (10_000n - DEFAULT_SLIPPAGE_BPS)) / 10_000n
+    quotedAmountOut === null ? null : (quotedAmountOut * (10_000n - slippageBps)) / 10_000n
 
   const { isLoading: isConfirming, isSuccess: txConfirmed, error: txError } = useWaitForTransactionReceipt({
     hash: txHash,
@@ -436,23 +802,14 @@ export default function SwapPage() {
 
   useEffect(() => {
     if (!txHash || !txConfirmed) return
-
     setTxStatus('success')
     setTxMessage(txAction === 'approve' ? 'Approval confirmed.' : 'Swap confirmed on LitVM.')
-
-    if (txAction === 'swap') {
-      setAmountIn('')
-    }
-
-    // WARN-5 fix: refetch allowance after approval so needsApproval flips correctly
-    if (txAction === 'approve') {
-      allowanceRead.refetch()
-    }
+    if (txAction === 'swap') setAmountIn('')
+    if (txAction === 'approve') allowanceRead.refetch()
   }, [txAction, txConfirmed, txHash])
 
   useEffect(() => {
     if (!txHash || !txError) return
-
     setTxStatus('error')
     setTxMessage(txError.message.slice(0, 180))
   }, [txError, txHash])
@@ -529,7 +886,6 @@ export default function SwapPage() {
 
   function flipPair() {
     if (!outputToken) return
-
     const nextInput = outputToken
     const nextOutput = inputToken
     setInputToken(nextInput)
@@ -584,123 +940,159 @@ export default function SwapPage() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
         {!isDexConfigured && (
           <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">
-            Configure `NEXT_PUBLIC_UNISWAP_V2_FACTORY_ADDRESS`, `NEXT_PUBLIC_UNISWAP_V2_ROUTER_ADDRESS`, and `NEXT_PUBLIC_WRAPPED_ZKLTC_ADDRESS` before using the swap page.
+            Configure factory and router addresses before using the swap page.
           </div>
         )}
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <section className="rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
-            <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold text-white">Swap</h1>
-                <p className="mt-1 text-sm text-white/45">Direct pairs from the Lester Labs factory.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65">
-                  <Settings2 size={14} />
-                  <span>{(Number(DEFAULT_SLIPPAGE_BPS) / 100).toFixed(2)}% slippage</span>
-                </div>
-                <Link
-                  href="/pool"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65 transition hover:border-white/20 hover:text-white"
-                >
-                  <Droplets size={14} />
-                  Pool
-                </Link>
-              </div>
+          <section className="space-y-4">
+            {/* Tab bar: Swap / Create Pool */}
+            <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+              <button
+                onClick={() => setShowCreatePool(false)}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
+                style={{
+                  background: !showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
+                  color: !showCreatePool ? '#fff' : 'rgba(255,255,255,0.55)',
+                  boxShadow: !showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
+                }}
+              >
+                Swap
+              </button>
+              <button
+                onClick={() => setShowCreatePool(true)}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
+                style={{
+                  background: showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
+                  color: showCreatePool ? '#fff' : 'rgba(255,255,255,0.55)',
+                  boxShadow: showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
+                }}
+              >
+                Create Pool
+              </button>
             </div>
 
-            <div className="space-y-3">
-              <div className="rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-[0.14em] text-white/35">You pay</span>
-                  <TokenButton label="From" token={inputToken} onClick={() => setPickerMode('input')} />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            {/* Create pool panel */}
+            {showCreatePool && (
+              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
+                <CreatePoolPanel onClose={() => setShowCreatePool(false)} />
+              </div>
+            )}
+
+            {/* Swap card */}
+            {!showCreatePool && (
+              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
+                <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <input
-                      value={amountIn}
-                      onChange={(event) => setAmountIn(formatInputAmount(event.target.value))}
-                      placeholder="0.0"
-                      inputMode="decimal"
-                      className="w-full border-none bg-transparent px-0 text-[2rem] font-semibold text-white outline-none placeholder:text-white/20"
-                    />
-                    <p className="mt-2 text-sm text-white/40">
-                      Balance: {formatTokenAmount(inputBalance, resolvedInput.decimals)} {resolvedInput.symbol}
+                    <h1 className="text-2xl font-semibold text-white">Swap</h1>
+                    <p className="mt-1 text-sm text-white/45">Direct pairs from the Lester Labs factory.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <SlippageSelector valueBps={slippageBps} onChange={setSlippageBps} />
+                    <Link
+                      href="/pool"
+                      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65 transition hover:border-white/20 hover:text-white"
+                    >
+                      <Droplets size={14} />
+                      Pool
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-xs uppercase tracking-[0.14em] text-white/35">You pay</span>
+                      <TokenButton label="From" token={inputToken} onClick={() => setPickerMode('input')} />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                      <div>
+                        <input
+                          value={amountIn}
+                          onChange={(event) => setAmountIn(formatInputAmount(event.target.value))}
+                          placeholder="0.0"
+                          inputMode="decimal"
+                          className="w-full border-none bg-transparent px-0 text-[2rem] font-semibold text-white outline-none placeholder:text-white/20"
+                        />
+                        <p className="mt-2 text-sm text-white/40">
+                          Balance: {formatTokenAmount(inputBalance, resolvedInput.decimals)} {resolvedInput.symbol}
+                        </p>
+                      </div>
+                      <button
+                        onClick={setMaxBalance}
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/70 transition hover:border-white/20 hover:text-white"
+                      >
+                        Max
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <button
+                      onClick={flipPair}
+                      className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:border-white/20 hover:text-white"
+                      aria-label="Flip swap direction"
+                    >
+                      <ArrowDownUp size={18} />
+                    </button>
+                  </div>
+
+                  <div className="rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-xs uppercase tracking-[0.14em] text-white/35">You receive</span>
+                      <TokenButton label="To" token={outputToken} onClick={() => setPickerMode('output')} />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                      <div>
+                        <div className="text-[2rem] font-semibold text-white">
+                          {quotedAmountOutText || '0.0'}
+                        </div>
+                        <p className="mt-2 text-sm text-white/40">Live Quote</p>
+                      </div>
+                      <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/50">
+                        Direct route
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price</p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {resolvedOutput ? `1 ${resolvedInput.symbol} = ${executionPriceText} ${resolvedOutput.symbol}` : '-'}
                     </p>
                   </div>
-                  <button
-                    onClick={setMaxBalance}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/70 transition hover:border-white/20 hover:text-white"
-                  >
-                    Max
-                  </button>
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price impact</p>
+                    <p className="mt-2 text-lg font-semibold text-white">{priceImpactText}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.12em] text-white/35">Slippage</p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {Number(slippageBps) / 100}% min. receive
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.12em] text-white/35">Liquidity</p>
+                    <p className="mt-2 text-lg font-semibold text-white">{pairExists ? 'Pool available' : 'No direct pool'}</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex justify-center">
                 <button
-                  onClick={flipPair}
-                  className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:border-white/20 hover:text-white"
-                  aria-label="Flip swap direction"
+                  onClick={handlePrimaryAction}
+                  disabled={primaryButtonDisabled || isConfirming}
+                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{
+                    background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
+                    boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
+                  }}
                 >
-                  <ArrowDownUp size={18} />
+                  {isConfirming ? <Loader2 size={18} className="animate-spin" /> : <ArrowDownUp size={18} />}
+                  <span>{primaryButtonText}</span>
                 </button>
               </div>
-
-              <div className="rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-[0.14em] text-white/35">You receive</span>
-                  <TokenButton label="To" token={outputToken} onClick={() => setPickerMode('output')} />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                  <div>
-                    <div className="text-[2rem] font-semibold text-white">
-                      {quotedAmountOutText || '0.0'}
-                    </div>
-                    <p className="mt-2 text-sm text-white/40">
-                      Live quote via `getAmountsOut`
-                    </p>
-                  </div>
-                  <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/50">
-                    Direct route
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price</p>
-                <p className="mt-2 text-lg font-semibold text-white">
-                  {resolvedOutput ? `1 ${resolvedInput.symbol} = ${executionPriceText} ${resolvedOutput.symbol}` : '-'}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price impact</p>
-                <p className="mt-2 text-lg font-semibold text-white">{priceImpactText}</p>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-white/35">Liquidity</p>
-                <p className="mt-2 text-lg font-semibold text-white">{pairExists ? 'Pool available' : 'No direct pool'}</p>
-                <p className="text-sm text-white/45">Add liquidity on the Pool page if this pair is missing.</p>
-              </div>
-            </div>
-
-            <button
-              onClick={handlePrimaryAction}
-              disabled={primaryButtonDisabled || isConfirming}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
-              style={{
-                background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
-                boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
-              }}
-            >
-              {isConfirming ? <Loader2 size={18} className="animate-spin" /> : <ArrowDownUp size={18} />}
-              <span>{primaryButtonText}</span>
-            </button>
-
-
+            )}
           </section>
 
           <aside className="space-y-4">
@@ -758,7 +1150,6 @@ export default function SwapPage() {
             }
             return
           }
-
           setOutputToken(token)
           if (token.address.toLowerCase() === inputToken.address.toLowerCase()) {
             setInputToken(outputToken ?? NATIVE_TOKEN)
@@ -775,5 +1166,14 @@ export default function SwapPage() {
         message={txMessage}
       />
     </div>
+  )
+}
+
+// ── Wrap in Suspense for useSearchParams (Next.js 16 requirement) ───────────
+export default function SwapPage() {
+  return (
+    <Suspense>
+      <SwapPageInner />
+    </Suspense>
   )
 }
