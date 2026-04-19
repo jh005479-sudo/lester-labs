@@ -270,7 +270,7 @@ function CreatePoolPanel({
         Promise.race([
           writeContractAsync(cfg),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Wallet timed out. Please try again.')), 60_000)
+            setTimeout(() => reject(new Error('Transaction timed out. Please try again.')), 30_000)
           ),
         ])
 
@@ -304,9 +304,15 @@ function CreatePoolPanel({
         })
       }
       setTxHash(hash)
-    } catch (err) {
+    } catch (err: unknown) {
       setTxStatus('error')
-      setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Pool creation failed.')
+      const raw = err instanceof Error ? err.message : String(err)
+      // Extract revert reason from wagmi/viem error messages
+      const revertMatch = raw.match(/reverted with reason string:\s*(.+)/i)
+        || raw.match(/execution reverted:\s*(.+)/i)
+        || raw.match(/Transaction timed out/i)
+      const display = revertMatch ? revertMatch[0] : raw
+      setTxMessage(display.slice(0, 180) || 'Pool creation failed.')
     } finally {
       setCreating(false)
     }
