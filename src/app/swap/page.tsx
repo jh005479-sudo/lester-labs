@@ -244,6 +244,9 @@ function CreatePoolPanel({
     parseFloat(amount1) > 0
 
   async function handleCreate() {
+    // Debug: tell user if canCreate or address is false
+    if (!isConnected) { setTxMessage('Wallet not connected.'); setTxOpen(true); setTxStatus('error'); return }
+    if (!canCreate) { console.warn('[CreatePool] canCreate=false — token0:', token0?.symbol, 'token1:', token1?.symbol, 'amount0:', amount0, 'amount1:', amount1) }
     if (!canCreate || !address) return
     setCreating(true)
     try {
