@@ -69,7 +69,7 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
   r1: bigint
 }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+    <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm font-medium text-white">
@@ -100,19 +100,19 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-3">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-3">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Reserve 0</p>
           <p className="mt-1.5 text-sm font-semibold text-white">
             {formatAmount(r0, token0Meta.decimals)} {token0Meta.symbol}
           </p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-3">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-3">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Reserve 1</p>
           <p className="mt-1.5 text-sm font-semibold text-white">
             {formatAmount(r1, token1Meta.decimals)} {token1Meta.symbol}
           </p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-3">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-3">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pair</p>
           <p className="mt-1.5 font-mono text-sm text-white/75">
             {pairAddress.slice(0, 6)}…{pairAddress.slice(-4)}
@@ -139,7 +139,7 @@ function PositionCard({ position, onAddLiquidity }: {
   onAddLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`) => void
 }) {
   return (
-    <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/25">
+    <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/25">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">LP position</p>
@@ -172,15 +172,15 @@ function PositionCard({ position, onAddLiquidity }: {
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">LP balance</p>
           <p className="mt-2 text-lg font-semibold text-white">{formatAmount(position.lpBalance, 18)}</p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pool share</p>
           <p className="mt-2 text-lg font-semibold text-white">{formatPercent(position.share)}</p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-[#120f1d] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pair address</p>
           <p className="mt-2 font-mono text-sm text-white/75">
             {position.pairAddress.slice(0, 6)}…{position.pairAddress.slice(-4)}
@@ -189,13 +189,13 @@ function PositionCard({ position, onAddLiquidity }: {
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">{position.token0Meta.symbol} exposure</p>
           <p className="mt-2 text-lg font-semibold text-white">
             {formatAmount(position.pooled0, position.token0Meta.decimals)} {position.token0Meta.symbol}
           </p>
         </div>
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+        <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
           <p className="text-xs uppercase tracking-[0.12em] text-white/35">{position.token1Meta.symbol} exposure</p>
           <p className="mt-2 text-lg font-semibold text-white">
             {formatAmount(position.pooled1, position.token1Meta.decimals)} {position.token1Meta.symbol}
@@ -445,8 +445,8 @@ export default function PoolPage() {
         titleHighlight="Pool"
         subtitle="Browse all factory pools, view reserves, and manage your LP positions."
         color={ACCENT}
-        image="/images/carousel/liquidity-locker.png"
-        imagePosition="center 45%"
+        image="/images/carousel/pool.png"
+        imagePosition="center 65px"`r`n        imageTopFade={false}
         compact
         stats={[
           { label: 'Factory pairs', value: totalPairs.toString() },
@@ -497,7 +497,7 @@ export default function PoolPage() {
         {/* ── Not connected: show all pools ───────────────────────────────── */}
         {!isConnected ? (
           visiblePools.length === 0 ? (
-            <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-10 text-center">
+            <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-10 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5">
                 <Layers3 size={22} className="text-white/65" />
               </div>
@@ -571,7 +571,7 @@ export default function PoolPage() {
           <>
             {/* ── Connected: wallet positions + CTA ─────────────────────────── */}
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Wallet</p>
                 <div className="mt-3 flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5">
@@ -586,7 +586,7 @@ export default function PoolPage() {
                 </div>
               </div>
 
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Pairs loaded</p>
                 <p className="mt-3 text-3xl font-semibold text-white">{displayedCount}</p>
                 <p className="mt-2 text-sm text-white/45">
@@ -596,7 +596,7 @@ export default function PoolPage() {
                 </p>
               </div>
 
-              <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Next action</p>
                 <Link
                   href="/swap"
@@ -610,7 +610,7 @@ export default function PoolPage() {
 
             {/* ── LP positions ───────────────────────────────────────────── */}
             {positions.length === 0 ? (
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-10 text-center">
+              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-10 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5">
                   <Layers3 size={22} className="text-white/65" />
                 </div>
@@ -704,3 +704,4 @@ export default function PoolPage() {
     </div>
   )
 }
+

@@ -1124,7 +1124,7 @@ function SwapPageInner() {
         titleHighlight="Swap"
         subtitle="Direct token swaps on Lester Labs' Uniswap V2 fork for LitVM. Quotes come from the live router."
         color={ACCENT}
-        image="/images/carousel/governance.png"
+        image="/images/carousel/swap.png"
         imagePosition="center 46%"
         compact
         stats={[
@@ -1143,7 +1143,7 @@ function SwapPageInner() {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
           <section className="space-y-4">
             {/* Tab bar: Swap / Create Pool */}
-            <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+            <div className="analytics-card flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
               <button
                 onClick={() => setShowCreatePool(false)}
                 className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
@@ -1170,7 +1170,7 @@ function SwapPageInner() {
 
             {/* Create pool panel */}
             {showCreatePool && (
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
+              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
                 {addLiqToken0 !== null && addLiqToken1 !== null ? (
                   <CreatePoolPanel
                     key={`cp-${addLiqToken0.address}-${addLiqToken1.address}`}
@@ -1189,7 +1189,7 @@ function SwapPageInner() {
 
             {/* Swap card */}
             {!showCreatePool && (
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
+              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h1 className="text-2xl font-semibold text-white">Swap</h1>
@@ -1208,7 +1208,7 @@ function SwapPageInner() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
+                  <div className="analytics-card rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <span className="text-xs uppercase tracking-[0.14em] text-white/35">You pay</span>
                       <TokenButton label="From" token={inputToken} onClick={() => setPickerMode('input')} />
@@ -1245,7 +1245,7 @@ function SwapPageInner() {
                     </button>
                   </div>
 
-                  <div className="rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
+                  <div className="analytics-card rounded-[26px] border border-white/8 bg-[#120f1d] p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <span className="text-xs uppercase tracking-[0.14em] text-white/35">You receive</span>
                       <TokenButton label="To" token={outputToken} onClick={() => setPickerMode('output')} />
@@ -1279,23 +1279,23 @@ function SwapPageInner() {
                 )}
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price</p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {resolvedOutput ? `1 ${resolvedInput.symbol} = ${executionPriceText} ${resolvedOutput.symbol}` : '-'}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price impact</p>
                     <p className="mt-2 text-lg font-semibold text-white">{priceImpactText}</p>
                   </div>
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Slippage</p>
                     <p className="mt-2 text-lg font-semibold text-white">
                       {Number(slippageBps) / 100}% min. receive
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div className="analytics-card rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-white/35">Liquidity</p>
                     <p className="mt-2 text-lg font-semibold text-white">{pairExists ? 'Pool available' : 'No direct pool'}</p>
                   </div>
@@ -1318,7 +1318,7 @@ function SwapPageInner() {
           </section>
 
           <aside className="space-y-4">
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+            <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
               <p className="text-xs uppercase tracking-[0.12em] text-white/35">Token discovery</p>
               <h2 className="mt-2 text-xl font-semibold text-white">Factory-backed list</h2>
               <p className="mt-2 text-sm leading-6 text-white/45">
@@ -1352,7 +1352,7 @@ function SwapPageInner() {
               </div>
             </div>
 
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+            <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
               <p className="text-xs uppercase tracking-[0.12em] text-white/35">Getting started</p>
               <p className="mt-2 text-sm leading-6 text-white/45">
                 Connect your wallet, select a token pair, and swap. Add liquidity on the Pool page to earn from trades.
@@ -1366,7 +1366,7 @@ function SwapPageInner() {
             )}
 
             {isConnected && (
-              <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/35">Connected wallet</p>
                 <div className="mt-3 flex items-center gap-3 rounded-2xl border border-white/8 bg-[#120f1d] p-4">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5">
@@ -1448,3 +1448,4 @@ export default function SwapPage() {
     </Suspense>
   )
 }
+
