@@ -1,11 +1,11 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { formatEther } from 'viem'
+import { useAccount, useReadContract } from 'wagmi'
 import { Navbar } from '@/components/layout/Navbar'
-import { Rocket, Clock, Users, Shield, AlertTriangle, CircleCheck } from 'lucide-react'
+import { AlertTriangle, CircleCheck } from 'lucide-react'
 
 const ILO_ABI = [
   { name: 'token', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function', inputs: [] },
@@ -43,18 +43,19 @@ function StatRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function LoadingState({ message }: { message: string }) {
-  return (
-    <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
-      {message}
-    </div>
-  )
-}
-
 export default function PresalePage() {
   const { address } = useParams<{ address: string }>()
   const { address: user } = useAccount() ?? {}
   const iloAddress = (address || '') as `0x${string}`
+  const [now, setNow] = useState(() => Date.now() / 1000)
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(Date.now() / 1000)
+    }, 30000)
+
+    return () => window.clearInterval(timer)
+  }, [])
 
   const ilo = {
     token: useReadContract({ address: iloAddress, abi: ILO_ABI, functionName: 'token' }),
@@ -85,14 +86,10 @@ export default function PresalePage() {
     args: [user || '0x0000000000000000000000000000000000000000'],
   })
 
-  const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
-
   const raised = Number(ilo.totalRaised.data ?? 0) / 1e18
   const hardCap = Number(ilo.hardCap.data ?? 0) / 1e18
   const softCap = Number(ilo.softCap.data ?? 0) / 1e18
   const progress = hardCap > 0 ? Math.min(100, (raised / hardCap) * 100) : 0
-  const now = Date.now() / 1000
   const start = Number(ilo.startTime.data ?? 0)
   const end = Number(ilo.endTime.data ?? 0)
   const isLive = now >= start && now <= end && !ilo.finalized.data && !ilo.cancelled.data

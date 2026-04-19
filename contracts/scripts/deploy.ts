@@ -42,6 +42,7 @@ async function main() {
 
   console.log("Deploying contracts with account:", deployer.address);
   console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
+  console.log("Treasury address:", TREASURY);
 
   if (chainId === 4441n && deployer.address.toLowerCase() !== TREASURY.toLowerCase()) {
     throw new Error(`LitVM deployments must use the treasury multisig ${TREASURY}`);
@@ -60,6 +61,10 @@ async function main() {
   await tokenFactory.waitForDeployment();
   const tokenFactoryAddress = await tokenFactory.getAddress();
   console.log("TokenFactory deployed to:", tokenFactoryAddress);
+  if (deployer.address.toLowerCase() !== TREASURY.toLowerCase()) {
+    await (await tokenFactory.transferOwnership(TREASURY)).wait();
+    console.log("TokenFactory ownership transferred to treasury");
+  }
 
   // --- LiquidityLocker ---
   const LiquidityLocker = await ethers.getContractFactory("LiquidityLocker");
@@ -67,6 +72,10 @@ async function main() {
   await liquidityLocker.waitForDeployment();
   const liquidityLockerAddress = await liquidityLocker.getAddress();
   console.log("LiquidityLocker deployed to:", liquidityLockerAddress);
+  if (deployer.address.toLowerCase() !== TREASURY.toLowerCase()) {
+    await (await liquidityLocker.transferOwnership(TREASURY)).wait();
+    console.log("LiquidityLocker ownership transferred to treasury");
+  }
 
   // --- VestingFactory ---
   const VestingFactory = await ethers.getContractFactory("VestingFactory");
@@ -74,6 +83,10 @@ async function main() {
   await vestingFactory.waitForDeployment();
   const vestingFactoryAddress = await vestingFactory.getAddress();
   console.log("VestingFactory deployed to:", vestingFactoryAddress);
+  if (deployer.address.toLowerCase() !== TREASURY.toLowerCase()) {
+    await (await vestingFactory.transferOwnership(TREASURY)).wait();
+    console.log("VestingFactory ownership transferred to treasury");
+  }
 
   // --- Disperse ---
   const Disperse = await ethers.getContractFactory("Disperse");
@@ -93,6 +106,10 @@ async function main() {
   await iloFactory.waitForDeployment();
   const iloFactoryAddress = await iloFactory.getAddress();
   console.log("ILOFactory deployed to:", iloFactoryAddress);
+  if (deployer.address.toLowerCase() !== TREASURY.toLowerCase()) {
+    await (await iloFactory.transferOwnership(TREASURY)).wait();
+    console.log("ILOFactory ownership transferred to treasury");
+  }
 
   const setConnectorTx = await iloFactory.setConnector(connectorAddress);
   await setConnectorTx.wait();

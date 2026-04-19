@@ -1,15 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { waitForTransactionReceipt } from '@wagmi/core'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { ToolHero } from '@/components/shared/ToolHero'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useReadContracts } from 'wagmi'
-import { parseEther, parseUnits, isAddress, formatEther } from 'viem'
+import { useAccount, useChainId, useSwitchChain, useWriteContract, useReadContract, useReadContracts } from 'wagmi'
+import { decodeEventLog, parseEther, parseUnits, isAddress, formatEther } from 'viem'
 import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
+import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
+import { litvm } from '@/config/chains'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI, ILO_ABI } from '@/config/abis'
+import { wagmiConfig } from '@/config/wagmi'
 import { useTokenMetadata, getTokenLogoUrl } from '@/hooks/useTokenMetadata'
 import { useTokenImageUrls } from '@/hooks/useTokenImageUrls'
 
@@ -21,6 +26,20 @@ const ERC20_DECIMALS_ABI = [
     stateMutability: 'view',
     inputs: [],
     outputs: [{ name: '', type: 'uint8' }],
+  },
+] as const
+
+const ILO_CREATED_EVENT_ABI = [
+  {
+    type: 'event',
+    name: 'ILOCreated',
+    inputs: [
+      { name: 'ilo', type: 'address', indexed: true },
+      { name: 'token', type: 'address', indexed: true },
+      { name: 'owner', type: 'address', indexed: true },
+      { name: 'softCap', type: 'uint256', indexed: false },
+      { name: 'hardCap', type: 'uint256', indexed: false },
+    ],
   },
 ] as const
 
@@ -104,7 +123,7 @@ function useAllILOData(addresses: `0x${string}`[]) {
 }
 
 // Live ILO card — receives pre-fetched data as props (no individual contract reads)
-function LiveILOCard({ address, data: d, meta, imageUrl }: { address: `0x${string}`; data: ILOData; meta?: { name: string; symbol: string }; imageUrl?: string | null }) {
+function LiveILOCard({ address, data: d, meta, imageUrl, now }: { address: `0x${string}`; data: ILOData; meta?: { name: string; symbol: string }; imageUrl?: string | null; now: number }) {
   const logoUrl = imageUrl ?? getTokenLogoUrl(address)
   const livePresale = {
     address,
@@ -113,8 +132,8 @@ function LiveILOCard({ address, data: d, meta, imageUrl }: { address: `0x${strin
     softCap: d.softCap ? formatEther(d.softCap) : '0',
     hardCap: d.hardCap ? formatEther(d.hardCap) : '0',
     raised: d.totalRaised ? formatEther(d.totalRaised) : '0',
-    startTime: d.startTime ? Number(d.startTime) * 1000 : Date.now(),
-    endTime: d.endTime ? Number(d.endTime) * 1000 : Date.now(),
+    startTime: d.startTime ? Number(d.startTime) * 1000 : now,
+    endTime: d.endTime ? Number(d.endTime) * 1000 : now,
     finalized: d.finalized ?? false,
     cancelled: d.cancelled ?? false,
     liquidityBps: Number(d.liquidityBps ?? 0n),
@@ -123,7 +142,7 @@ function LiveILOCard({ address, data: d, meta, imageUrl }: { address: `0x${strin
     logoUrl,
   }
 
-  return <PresaleCard presale={livePresale as unknown as MockPresale} />
+  return <PresaleCard presale={livePresale as unknown as MockPresale} now={now} />
 }
 
 type MockPresale = {
@@ -133,10 +152,34 @@ type MockPresale = {
   contributorCount: string | number; logoUrl?: string;
 }
 
+interface CreatedPresaleState {
+  address: string
+  txHash: `0x${string}`
+}
+
+function getLaunchpadErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    const lines = err.message
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+    const firstLine = lines[0] ?? 'An unexpected error occurred.'
+
+    if (/user rejected|user denied|rejected the request/i.test(firstLine)) {
+      return 'Transaction was rejected in the wallet.'
+    }
+
+    return firstLine.slice(0, 180)
+  }
+
+  return 'An unexpected error occurred.'
+}
+
 function CreatePresaleForm() {
   const { isConnected } = useAccount()
-  const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const chainId = useChainId()
+  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
+  const { writeContractAsync, isPending: isSubmitting } = useWriteContract()
 
   const [form, setForm] = useState({
     tokenAddress: '',
@@ -151,7 +194,11 @@ function CreatePresaleForm() {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [tokenDecimals, setTokenDecimals] = useState<number | undefined>(undefined)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
+  const [txMessage, setTxMessage] = useState<string | undefined>()
+  const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
+  const [successResult, setSuccessResult] = useState<CreatedPresaleState | null>(null)
 
   // Fetch token decimals on-chain (RP-001)
   const { data: fetchedDecimals, isLoading: isDecimalsLoading, isError: isDecimalsError } = useReadContract({
@@ -163,20 +210,8 @@ function CreatePresaleForm() {
     },
   })
 
-  // Reset decimals when token address changes to prevent stale values
-  useEffect(() => {
-    setTokenDecimals(undefined)
-  }, [form.tokenAddress])
-
-  // Update tokenDecimals when fetched
-  useEffect(() => {
-    if (fetchedDecimals !== undefined) {
-      setTokenDecimals(fetchedDecimals)
-    }
-  }, [fetchedDecimals])
-
   // Fetch creation fee from contract (RP-003)
-  const { data: creationFee, isLoading: isFeeLoading } = useReadContract({
+  const { data: creationFee, isLoading: isFeeLoading, isError: isFeeError } = useReadContract({
     address: ILO_FACTORY_ADDRESS,
     abi: ILO_FACTORY_ABI,
     functionName: 'creationFee',
@@ -186,6 +221,8 @@ function CreatePresaleForm() {
   })
 
   const feeDisplay = creationFee ? formatEther(creationFee) : '...'
+  const tokenDecimals = fetchedDecimals
+  const isWrongNetwork = isConnected && chainId !== litvm.id
 
   const set =
     (k: keyof typeof form) =>
@@ -213,7 +250,7 @@ function CreatePresaleForm() {
       errs.hardCap = 'Hard cap must be ≥ soft cap'
     }
     if (!form.tokensPerEth || isNaN(parseFloat(form.tokensPerEth)) || parseFloat(form.tokensPerEth) <= 0) {
-      errs.tokensPerEth = 'Enter how many tokens 1 LTC buys'
+      errs.tokensPerEth = 'Enter how many tokens 1 zkLTC buys'
     }
     if (!form.startDate) {
       errs.startDate = 'Select a start date'
@@ -240,32 +277,109 @@ function CreatePresaleForm() {
 
   // Gate submit on successful decimals fetch (RP-001)
   const decimalsReady = tokenDecimals !== undefined && !isDecimalsError
-  const feeReady = creationFee !== undefined && !isFeeLoading
+  const feeReady = creationFee !== undefined && !isFeeLoading && !isFeeError
+  const isConfirming = txStatus === 'pending' && currentTxHash !== undefined
+
+  const handleSwitchNetwork = useCallback(async () => {
+    try {
+      await switchChainAsync({ chainId: litvm.id })
+    } catch (err: unknown) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(getLaunchpadErrorMessage(err))
+    }
+  }, [switchChainAsync])
 
   const handleCreate = async () => {
     if (!isConnected) return
     if (!iloFactoryValid) return
     if (!validate()) return
+    if (isWrongNetwork) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(`Switch to LitVM Testnet (Chain ID ${litvm.id}) before creating a presale.`)
+      return
+    }
     if (!decimalsReady || !feeReady) return // Block if decimals/fee not loaded (RP-001, RP-003)
     const startTs = Math.floor(new Date(form.startDate).getTime() / 1000)
     const endTs = Math.floor(new Date(form.endDate).getTime() / 1000)
-    writeContract({
-      address: ILO_FACTORY_ADDRESS,
-      abi: ILO_FACTORY_ABI,
-      functionName: 'createILO',
-      args: [
-        form.tokenAddress as `0x${string}`,
-        parseEther(form.softCap || '0'), // native asset units
-        parseEther(form.hardCap || '0'),  // native asset units
-        parseUnits(form.tokensPerEth || '0', tokenDecimals!), // Use token decimals (RP-001)
-        BigInt(startTs),
-        BigInt(endTs),
-        BigInt(Math.floor(parseFloat(form.liquidityPct) * 100)),
-        BigInt(parseInt(form.lpLockDays) * 86400),
-        form.whitelist,
-      ],
-      value: creationFee!, // Use live fee from contract (RP-003)
-    })
+    try {
+      setModalOpen(true)
+      setTxStatus('pending')
+      setTxMessage('Confirm the presale creation in your wallet…')
+      setCurrentTxHash(undefined)
+      setSuccessResult(null)
+
+      const hash = await writeContractAsync({
+        address: ILO_FACTORY_ADDRESS,
+        abi: ILO_FACTORY_ABI,
+        functionName: 'createILO',
+        args: [
+          form.tokenAddress as `0x${string}`,
+          parseEther(form.softCap || '0'),
+          parseEther(form.hardCap || '0'),
+          parseUnits(form.tokensPerEth || '0', tokenDecimals!),
+          BigInt(startTs),
+          BigInt(endTs),
+          BigInt(Math.floor(parseFloat(form.liquidityPct) * 100)),
+          BigInt(parseInt(form.lpLockDays) * 86400),
+          form.whitelist,
+        ],
+        value: creationFee!,
+      })
+
+      setCurrentTxHash(hash)
+      setTxMessage('Transaction submitted. Waiting for confirmation…')
+
+      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+      if (receipt.status === 'reverted') {
+        setTxStatus('error')
+        setTxMessage('Transaction reverted on-chain. Please verify your presale inputs and token approvals.')
+        return
+      }
+
+      let presaleAddress: string | undefined
+      const factoryLogs = (receipt.logs || []).filter(
+        (log) => log.address.toLowerCase() === ILO_FACTORY_ADDRESS.toLowerCase(),
+      )
+
+      for (const log of factoryLogs) {
+        try {
+          const decoded = decodeEventLog({
+            abi: ILO_CREATED_EVENT_ABI,
+            data: log.data,
+            topics: log.topics,
+          })
+
+          if (decoded.eventName === 'ILOCreated' && 'ilo' in decoded.args) {
+            presaleAddress = decoded.args.ilo as string
+            break
+          }
+        } catch {
+          // Ignore non-matching logs.
+        }
+      }
+
+      if (!presaleAddress) {
+        setTxStatus('error')
+        setTxMessage('Transaction mined but the new presale address could not be decoded. Verify it on the explorer.')
+        return
+      }
+
+      setSuccessResult({
+        address: presaleAddress,
+        txHash: hash,
+      })
+      setTxStatus('success')
+      setTxMessage('Presale created successfully.')
+    } catch (err: unknown) {
+      setTxStatus('error')
+      setTxMessage(getLaunchpadErrorMessage(err))
+    }
+  }
+
+  const handleModalClose = () => {
+    setModalOpen(false)
   }
 
   const inputStyle: React.CSSProperties = {
@@ -337,7 +451,7 @@ function CreatePresaleForm() {
             }}
           >
             <div>
-              <label style={labelStyle}>Soft Cap (LTC)</label>
+              <label style={labelStyle}>Soft Cap (zkLTC)</label>
               <input
                 style={inputStyle}
                 type="number"
@@ -348,7 +462,7 @@ function CreatePresaleForm() {
               {errors.softCap && <div style={errorStyle}>{errors.softCap}</div>}
             </div>
             <div>
-              <label style={labelStyle}>Hard Cap (LTC)</label>
+              <label style={labelStyle}>Hard Cap (zkLTC)</label>
               <input
                 style={inputStyle}
                 type="number"
@@ -362,7 +476,7 @@ function CreatePresaleForm() {
 
           {/* Price */}
           <div>
-            <label style={labelStyle}>Tokens per LTC</label>
+            <label style={labelStyle}>Tokens per zkLTC</label>
             <input
               style={inputStyle}
               type="number"
@@ -372,7 +486,7 @@ function CreatePresaleForm() {
             />
             {errors.tokensPerEth && <div style={errorStyle}>{errors.tokensPerEth}</div>}
             <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
-              e.g. 1,000,000 means contributors get 1M tokens per 1 LTC raised
+              e.g. 1,000,000 means contributors get 1M tokens per 1 zkLTC raised
             </p>
             {/* RP-001: Token decimals UI note */}
             {isAddress(form.tokenAddress) && (
@@ -438,7 +552,7 @@ function CreatePresaleForm() {
                 marginTop: '4px',
               }}
             >
-              % of raised LTC that goes to LP. Minimum 50%.
+              % of raised zkLTC that goes to LP. Minimum 50%.
             </p>
           </div>
 
@@ -491,7 +605,7 @@ function CreatePresaleForm() {
             }}
           >
             Creation fee:{' '}
-            <strong style={{ color: 'rgba(255,255,255,0.9)' }}>{feeDisplay} LTC</strong>{' '}
+            <strong style={{ color: 'rgba(255,255,255,0.9)' }}>{feeDisplay} zkLTC</strong>{' '}
             · Platform fee:{' '}
             <strong style={{ color: 'rgba(255,255,255,0.9)' }}>2% of raise</strong>{' '}
             at finalization
@@ -528,31 +642,95 @@ function CreatePresaleForm() {
             </div>
           )}
 
-          {/* Submit (RP-001, RP-003: gate on decimals and fee) */}
-          <button
-            onClick={handleCreate}
-            disabled={!isConnected || !iloFactoryValid || isPending || isConfirming || !decimalsReady || !feeReady}
-            style={{
-              padding: '14px',
-              background:
-                !isConnected || !iloFactoryValid || isPending || isConfirming || !decimalsReady || !feeReady
-                  ? 'rgba(99,102,241,0.3)'
-                  : 'var(--accent)',
-              border: 'none',
+          {isWrongNetwork && (
+            <div style={{
+              padding: '10px 14px',
+              background: 'rgba(251,191,36,0.1)',
+              border: '1px solid rgba(251,191,36,0.3)',
               borderRadius: '8px',
-              color: '#fff',
-              fontSize: '15px',
-              fontWeight: 600,
-              cursor:
-                !isConnected || isPending || isConfirming || !decimalsReady || !feeReady
-                  ? 'not-allowed'
-                  : 'pointer',
-              transition: 'opacity 0.2s',
-            }}
-          >
-            {!isConnected
-              ? 'Connect Wallet'
-              : isPending
+              color: '#fbbf24',
+              fontSize: '13px',
+            }}>
+              Wallet is connected to the wrong network. Switch to LitVM Testnet (Chain ID 4441) before creating a presale.
+            </div>
+          )}
+
+          {isFeeError && (
+            <div style={{
+              padding: '10px 14px',
+              background: 'rgba(239,68,68,0.1)',
+              border: '1px solid rgba(239,68,68,0.3)',
+              borderRadius: '8px',
+              color: '#f87171',
+              fontSize: '13px',
+            }}>
+              Failed to load the launchpad creation fee from the ILO Factory. Check your LitVM network connection and try again.
+            </div>
+          )}
+
+          {!isConnected ? (
+            <ConnectButton.Custom>
+              {({ openConnectModal, mounted }) => (
+                <button
+                  onClick={openConnectModal}
+                  disabled={!mounted}
+                  style={{
+                    padding: '14px',
+                    background: mounted ? 'var(--accent)' : 'rgba(99,102,241,0.3)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    cursor: mounted ? 'pointer' : 'not-allowed',
+                    transition: 'opacity 0.2s',
+                  }}
+                >
+                  Connect Wallet
+                </button>
+              )}
+            </ConnectButton.Custom>
+          ) : isWrongNetwork ? (
+            <button
+              onClick={handleSwitchNetwork}
+              disabled={isSwitchingChain}
+              style={{
+                padding: '14px',
+                background: isSwitchingChain ? 'rgba(251,191,36,0.35)' : 'rgba(251,191,36,0.92)',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#111827',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: isSwitchingChain ? 'not-allowed' : 'pointer',
+                transition: 'opacity 0.2s',
+              }}
+            >
+              {isSwitchingChain ? 'Switching network…' : 'Switch to LitVM Testnet'}
+            </button>
+          ) : (
+            <button
+              onClick={handleCreate}
+              disabled={!iloFactoryValid || isSubmitting || isConfirming || !decimalsReady || !feeReady}
+              style={{
+                padding: '14px',
+                background:
+                  !iloFactoryValid || isSubmitting || isConfirming || !decimalsReady || !feeReady
+                    ? 'rgba(99,102,241,0.3)'
+                    : 'var(--accent)',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#fff',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor:
+                  !iloFactoryValid || isSubmitting || isConfirming || !decimalsReady || !feeReady
+                    ? 'not-allowed'
+                    : 'pointer',
+                transition: 'opacity 0.2s',
+              }}
+            >
+              {isSubmitting
                 ? 'Confirm in wallet…'
                 : isConfirming
                   ? 'Creating presale…'
@@ -560,20 +738,28 @@ function CreatePresaleForm() {
                     ? 'Loading token decimals…'
                     : isFeeLoading
                       ? 'Loading fee…'
-                      : `Create Presale — ${feeDisplay} LTC`}
-          </button>
+                      : `Create Presale — ${feeDisplay} zkLTC`}
+            </button>
+          )}
 
-          {isSuccess && hash && (
+          {successResult && (
             <div style={{ padding: '16px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', fontSize: '14px', color: '#4ade80' }}>
               <div style={{ fontWeight: 700, marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <CircleCheck size={16} /> Presale created successfully!
               </div>
               <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.8 }}>
                 <div style={{ marginBottom: '6px' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>Tx:</span>{' '}
-                  <a href={`${LITVM_EXPLORER_URL}/tx/${hash}`} target="_blank" rel="noopener noreferrer"
+                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>Presale:</span>{' '}
+                  <a href={`${LITVM_EXPLORER_URL}/address/${successResult.address}`} target="_blank" rel="noopener noreferrer"
                     style={{ color: 'var(--accent)', fontFamily: 'monospace', fontSize: '12px' }}>
-                    {hash.slice(0, 10)}…{hash.slice(-8)}
+                    {successResult.address.slice(0, 10)}…{successResult.address.slice(-8)}
+                  </a>
+                </div>
+                <div style={{ marginBottom: '6px' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>Tx:</span>{' '}
+                  <a href={`${LITVM_EXPLORER_URL}/tx/${successResult.txHash}`} target="_blank" rel="noopener noreferrer"
+                    style={{ color: 'var(--accent)', fontFamily: 'monospace', fontSize: '12px' }}>
+                    {successResult.txHash.slice(0, 10)}…{successResult.txHash.slice(-8)}
                   </a>
                 </div>
                 <div style={{ marginTop: '8px', color: 'rgba(255,255,255,0.7)' }}>
@@ -581,7 +767,13 @@ function CreatePresaleForm() {
                 </div>
               </div>
               <button
-                onClick={() => { setForm({ tokenAddress: '', softCap: '', hardCap: '', tokensPerEth: '', startDate: '', endDate: '', liquidityPct: '60', lpLockDays: '180', whitelist: false }); }}
+                onClick={() => {
+                  setForm({ tokenAddress: '', softCap: '', hardCap: '', tokensPerEth: '', startDate: '', endDate: '', liquidityPct: '60', lpLockDays: '180', whitelist: false })
+                  setCurrentTxHash(undefined)
+                  setSuccessResult(null)
+                  setTxMessage(undefined)
+                  setTxStatus('pending')
+                }}
                 style={{ marginTop: '12px', padding: '8px 16px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: 'rgba(255,255,255,0.7)', fontSize: '13px', cursor: 'pointer' }}
               >
                 Create another presale
@@ -590,15 +782,25 @@ function CreatePresaleForm() {
           )}
         </div>
       </div>
+
+      <TxStatusModal
+        isOpen={modalOpen}
+        onClose={handleModalClose}
+        status={txStatus}
+        txHash={currentTxHash}
+        contractAddress={successResult?.address}
+        message={txMessage}
+        onRetry={txStatus === 'error' ? handleCreate : undefined}
+      />
     </div>
   )
 }
 
-function PresaleCard({ presale }: { presale: MockPresale }) {
+function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
   const progress =
     parseFloat(presale.raised) / parseFloat(presale.hardCap)
   const progressPct = Math.min(100, parseFloat((progress * 100).toFixed(2)))
-  const timeLeft = presale.endTime - Date.now()
+  const timeLeft = presale.endTime - now
   const daysLeft = Math.max(0, Math.floor(timeLeft / 86400000))
   const hoursLeft = Math.max(
     0,
@@ -755,7 +957,7 @@ function PresaleCard({ presale }: { presale: MockPresale }) {
           }}
         >
           <span>
-            {parseFloat(presale.raised).toFixed(2)} / {presale.hardCap} LTC
+            {parseFloat(presale.raised).toFixed(2)} / {presale.hardCap} zkLTC
           </span>
           <span style={{ color: '#a78bfa', fontWeight: 600 }}>
             {progressPct}%
@@ -814,6 +1016,15 @@ function PresaleCard({ presale }: { presale: MockPresale }) {
 }
 export default function LaunchpadPage() {
   const [tab, setTab] = useState<Tab>('browse')
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(Date.now())
+    }, 60000)
+
+    return () => window.clearInterval(interval)
+  }, [])
 
   const iloCount = useReadContract({
     address: ILO_FACTORY_ADDRESS,
@@ -1030,6 +1241,7 @@ export default function LaunchpadPage() {
                       data={iloData}
                       meta={tokenMetaMap.get(iloData.token.toLowerCase())}
                       imageUrl={tokenImageUrls.get(iloData.token.toLowerCase()) ?? null}
+                      now={now}
                     />
                   )
                 })}
