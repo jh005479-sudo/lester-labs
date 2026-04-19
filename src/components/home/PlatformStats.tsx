@@ -56,7 +56,6 @@ type ILOFactoryFn = 'creationFee' | 'allILOs' | 'getILOCount' | 'getOwnerILOs'
 function useILOFactoryCounter(fn: ILOFactoryFn) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // New factory
   const { data, refetch } = useReadContract({
     address: ILO_FACTORY_ADDRESS as `0x${string}`,
     abi: ILO_FACTORY_ABI as any,
@@ -64,7 +63,6 @@ function useILOFactoryCounter(fn: ILOFactoryFn) {
     query: { enabled: isValidContractAddress(ILO_FACTORY_ADDRESS) },
   })
 
-  // Legacy factory (for historical ILO count from previous deployment)
   const { data: legacyData, refetch: legacyRefetch } = useReadContract({
     address: LEGACY_ILO_FACTORY as `0x${string}`,
     abi: ILO_FACTORY_ABI as any,
@@ -111,12 +109,10 @@ async function fetchTokenCount(): Promise<number> {
   }
 }
 
-// ── Airdrop wallet count from Disperse contract Transfer events ───────────
-async function fetchAirdropWalletCount(): Promise<number> {
-  if (!isValidContractAddress(DISPERSE_ADDRESS)) return 0
-  const CACHE_KEY = 'lester_cached_airdrop_count'
+// ── Swap count from all Uniswap V2 pair Swap events ───────────────────────
+async function fetchSwapCount(): Promise<number> {
+  const CACHE_KEY = 'lester_cached_swap_count'
   try {
-    // Transfer(from=Disperse, to=recipient) events — all recipients ofDisperse transfers
     const resp = await fetch(RPC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -124,11 +120,39 @@ async function fetchAirdropWalletCount(): Promise<number> {
         jsonrpc: '2.0',
         method: 'eth_getLogs',
         params: [{
-          // Transfer(address indexed from, address indexed to, uint256 value)
+          topics: ['0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822'],
+          fromBlock: '0x0',
+          toBlock:   'latest',
+        }],
+        id: 1,
+      }),
+    })
+    const json = await resp.json()
+    const count = Array.isArray(json.result) ? json.result.length : 0
+    sessionStorage.setItem(CACHE_KEY, String(count))
+    return count
+  } catch {
+    const cached = sessionStorage.getItem(CACHE_KEY)
+    return cached ? parseInt(cached) : 0
+  }
+}
+
+// ── Airdrop wallet count from Disperse contract Transfer events ───────────
+async function fetchAirdropWalletCount(): Promise<number> {
+  if (!isValidContractAddress(DISPERSE_ADDRESS)) return 0
+  const CACHE_KEY = 'lester_cached_airdrop_count'
+  try {
+    const resp = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getLogs',
+        params: [{
           topics: [
             TRANSFER_SIG,
-            '0x' + DISPERSE_ADDRESS.slice(2).padStart(64, '0'),  // from = Disperse
-            null,                                               // to = any
+            '0x' + DISPERSE_ADDRESS.slice(2).padStart(64, '0'),
+            null,
           ],
           fromBlock: '0x1',
           toBlock:   'latest',
@@ -141,7 +165,6 @@ async function fetchAirdropWalletCount(): Promise<number> {
       const cached = sessionStorage.getItem(CACHE_KEY)
       return cached ? parseInt(cached) : 0
     }
-    // Deduplicate recipients (unique wallet addresses)
     const wallets = new Set<string>()
     for (const ev of json.result) {
       if (ev.topics[2]) {
@@ -162,25 +185,26 @@ export function PlatformStats() {
   const iloCount  = useILOFactoryCounter('getILOCount')
   const [tokenCount, setTokenCount] = useState<string>('—')
   const [airdropCount, setAirdropCount] = useState<string>('—')
+  const [swapCount, setSwapCount] = useState<string>('—')
   const [loading, setLoading] = useState(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Initial fetch + 30s polling for token count
   useEffect(() => {
-    fetchTokenCount().then(c => {
+    Promise.all([fetchTokenCount(), fetchSwapCount()]).then(([c, s]) => {
       setTokenCount(String(c))
+      setSwapCount(String(s))
       setLoading(false)
     })
 
     intervalRef.current = setInterval(async () => {
-      const c = await fetchTokenCount()
+      const [c, s] = await Promise.all([fetchTokenCount(), fetchSwapCount()])
       setTokenCount(String(c))
+      setSwapCount(String(s))
     }, POLL_INTERVAL)
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [])
 
-  // Airdrop wallet count — fetch once on mount (disperse events don't change for a static stat)
   useEffect(() => {
     fetchAirdropWalletCount().then(c => {
       setAirdropCount(String(c))
@@ -209,6 +233,11 @@ export function PlatformStats() {
         label="Wallets Airdropped"
         value={airdropCount}
         accent="#36D1DC"
+      />
+      <StatChip
+        label="Swaps Completed"
+        value={loading ? '—' : swapCount}
+        accent="#E44FB5"
       />
     </div>
   )
