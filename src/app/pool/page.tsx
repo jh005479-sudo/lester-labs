@@ -395,36 +395,51 @@ function RemoveLiquidityPanel({
 
       const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
 
+      // Apply 0.5% slippage tolerance to expected amounts (prevents raw-call-argument errors)
+      const SLIPPAGE_NUM = 995n
+      const SLIPPAGE_DEN = 1000n
+      const safeExpected0 = expectedToken0 > 0n ? (expectedToken0 * SLIPPAGE_NUM) / SLIPPAGE_DEN : 0n
+      const safeExpected1 = expectedToken1 > 0n ? (expectedToken1 * SLIPPAGE_NUM) / SLIPPAGE_DEN : 0n
+
       let hash: `0x${string}`
 
       if (isETHPair) {
         // One of the tokens is zkLTC (native)
         const tokenAddr = isToken0Native ? token1 : token0
+        const amountTokenMin = isToken0Native ? safeExpected1 : safeExpected0
+        const amountETHMin = isToken0Native ? safeExpected0 : safeExpected1
         hash = await writeContractAsync({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_EXTENDED_ABI,
           functionName: 'removeLiquidityETH',
-          args: [tokenAddr, lpAmount, 0n, 0n, address, deadline],
+          args: [tokenAddr, lpAmount, amountTokenMin, amountETHMin, address, deadline],
           gas: 500000n,
         })
       } else {
         // Both ERC20 — ensure tokenA < tokenB
-        const [tokenA, tokenB] = token0.toLowerCase() < token1.toLowerCase()
-          ? [token0, token1] as const
-          : [token1, token0] as const
+        const isSorted = token0.toLowerCase() < token1.toLowerCase()
+        const [tokenA, tokenB] = isSorted ? [token0, token1] as const : [token1, token0] as const
+        const [amountAMin, amountBMin] = isSorted
+          ? [safeExpected0, safeExpected1] as const
+          : [safeExpected1, safeExpected0] as const
         hash = await writeContractAsync({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_EXTENDED_ABI,
           functionName: 'removeLiquidity',
-          args: [tokenA, tokenB, lpAmount, 0n, 0n, address, deadline],
+          args: [tokenA, tokenB, lpAmount, amountAMin, amountBMin, address, deadline],
           gas: 500000n,
         })
       }
 
       setTxHash(hash)
-    } catch (err) {
+    } catch (err: unknown) {
       setTxStatus('error')
-      setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Remove liquidity failed.')
+      const raw = err instanceof Error ? err.message : String(err)
+      const revertMatch = raw.match(/reverted with reason string:\s*(.+)/i)
+        || raw.match(/execution reverted:\s*(.+)/i)
+        || raw.match(/Transaction timed out/i)
+      const display = revertMatch ? revertMatch[0] : raw
+      setTxMessage(display.slice(0, 300) || 'Remove liquidity failed.')
     } finally {
       setRemoving(false)
     }
