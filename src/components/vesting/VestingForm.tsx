@@ -386,8 +386,14 @@ export function VestingForm() {
     }
   }, [receipt, currentTxHash, txStatus, txPhase, form])
 
+  const isWrongNetwork = isConnected && chainId !== litvm.id
+
   const handleApprove = async () => {
     if (tokenDecimals === undefined) return // Guard against stale decimals
+    if (isWrongNetwork) {
+      await switchChainAsync({ chainId: litvm.id })
+      return
+    }
     try {
       setModalOpen(true)
       setTxStatus('pending')
@@ -414,8 +420,6 @@ export function VestingForm() {
       )
     }
   }
-
-  const isWrongNetwork = isConnected && chainId !== litvm.id
 
   const handleCreate = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
