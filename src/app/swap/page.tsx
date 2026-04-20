@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, useEffect, useRef, useState, useMemo, startTransition } from 'react'
+import { Suspense, useEffect, useRef, useState, startTransition } from 'react'
 import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Wallet, X } from 'lucide-react'
 import { useAccount, useBalance, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { CurrencyAmount, Token } from '@uniswap/sdk-core'
 import { Pair, Route, Trade } from '@uniswap/v2-sdk'
-import { encodeFunctionData, formatUnits, maxUint256, parseUnits, zeroAddress } from 'viem'
+import { encodeFunctionData, formatUnits, isAddress, maxUint256, parseUnits, zeroAddress } from 'viem'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
@@ -24,7 +24,6 @@ import {
   isValidContractAddress,
 } from '@/config/contracts'
 import { useAllTokenMetadata } from '@/hooks/useTokenMetadata'
-import type { TokenCacheStatus } from '@/hooks/useTokenMetadata'
 import { useRpcCallReadContract } from '@/hooks/useRpcCall'
 import { useSearchParams } from 'next/navigation'
 
@@ -78,15 +77,26 @@ function formatInputAmount(value: string) {
   return normalized
 }
 
+function formatTokenAddressLabel(address: string) {
+  return `${address.slice(0, 6)}…${address.slice(-4)}`
+}
+
+function buildFallbackTokenOption(address: `0x${string}`): TokenOption {
+  const shortLabel = formatTokenAddressLabel(address)
+  return {
+    address,
+    name: `Token ${shortLabel}`,
+    symbol: shortLabel,
+    isNative: false,
+  }
+}
+
 function buildSdkToken(token: ResolvedToken) {
   if (token.isNative) {
     return new Token(CHAIN_ID, WRAPPED_ZKLTC_ADDRESS, 18, 'wzkLTC', 'Wrapped zkLTC')
   }
   return new Token(CHAIN_ID, token.address, token.decimals, token.symbol, token.name)
 }
-
-// ── Slippage selector ───────────────────────────────────────────────────────
-const SLIPPAGE_PRESETS = [10n, 50n, 100n] // 0.1%, 0.5%, 1.0%
 
 function SlippageSelector({
   valueBps,
@@ -188,6 +198,26 @@ function CreatePoolPanel({
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
 
+  useEffect(() => {
+    if (!initialToken0) return
+    setToken0((current) => {
+      if (current === null || current.address.toLowerCase() === initialToken0.address.toLowerCase()) {
+        return initialToken0
+      }
+      return current
+    })
+  }, [initialToken0])
+
+  useEffect(() => {
+    if (!initialToken1) return
+    setToken1((current) => {
+      if (current === null || current.address.toLowerCase() === initialToken1.address.toLowerCase()) {
+        return initialToken1
+      }
+      return current
+    })
+  }, [initialToken1])
+
   // Detect existing pool: if reserves > 0, pool already exists — pre-fill amounts from ratio
   useEffect(() => {
     if (!reservesRead.data || !reservesRead.isSuccess) return
@@ -203,10 +233,53 @@ function CreatePoolPanel({
     }
   }, [reservesRead.data, reservesRead.isSuccess])
 
-  const tokenOptions: TokenOption[] = [
-    NATIVE_TOKEN,
-    ...discoveredTokens.map((t) => ({ address: t.address, name: t.name, symbol: t.symbol, isNative: false })),
-  ]
+  const selectedTokenAddresses = [token0, token1]
+    .filter((token): token is TokenOption => token !== null && !token.isNative)
+    .map((token) => token.address.toLowerCase())
+    .filter((address, index, all) => all.indexOf(address) === index) as `0x${string}`[]
+
+  const selectedTokenDecimalReads = useReadContracts({
+    contracts: selectedTokenAddresses.map((address) => ({
+      address,
+      abi: ERC20_ABI,
+      functionName: 'decimals' as const,
+    })),
+    query: { enabled: selectedTokenAddresses.length > 0 },
+  })
+
+  const selectedTokenDecimals = new Map<string, number>()
+  selectedTokenAddresses.forEach((address, index) => {
+    const result = selectedTokenDecimalReads.data?.[index]
+    if (result?.status === 'success') {
+      selectedTokenDecimals.set(address.toLowerCase(), Number(result.result))
+    }
+  })
+
+  const token0Decimals = token0?.isNative ? 18 : (token0 ? selectedTokenDecimals.get(token0.address.toLowerCase()) : undefined)
+  const token1Decimals = token1?.isNative ? 18 : (token1 ? selectedTokenDecimals.get(token1.address.toLowerCase()) : undefined)
+  const decimalsReady =
+    (token0 === null || token0Decimals !== undefined) &&
+    (token1 === null || token1Decimals !== undefined)
+
+  const tokenOptionMap = new Map<string, TokenOption>()
+  tokenOptionMap.set(NATIVE_TOKEN.address.toLowerCase(), NATIVE_TOKEN)
+
+  ;[initialToken0, initialToken1, token0, token1].forEach((token) => {
+    if (token) {
+      tokenOptionMap.set(token.address.toLowerCase(), token)
+    }
+  })
+
+  discoveredTokens.forEach((token) => {
+    tokenOptionMap.set(token.address.toLowerCase(), {
+      address: token.address,
+      name: token.name,
+      symbol: token.symbol,
+      isNative: false,
+    })
+  })
+
+  const tokenOptions = Array.from(tokenOptionMap.values())
 
   const { isLoading: isConfirming, isSuccess: txConfirmed, error: txError } = useWaitForTransactionReceipt({
     hash: txHash,
@@ -240,12 +313,14 @@ function CreatePoolPanel({
     token0 !== null &&
     token1 !== null &&
     token0.address.toLowerCase() !== token1.address.toLowerCase() &&
+    decimalsReady &&
     parseFloat(amount0) > 0 &&
     parseFloat(amount1) > 0
 
   async function handleCreate() {
     // Debug: tell user if canCreate or address is false
     if (!isConnected) { setTxMessage('Wallet not connected.'); setTxOpen(true); setTxStatus('error'); return }
+    if (!decimalsReady) { setTxMessage('Token metadata is still loading. Please try again in a moment.'); setTxOpen(true); setTxStatus('error'); return }
     if (!canCreate) { console.warn('[CreatePool] canCreate=false — token0:', token0?.symbol, 'token1:', token1?.symbol, 'amount0:', amount0, 'amount1:', amount1) }
     if (!canCreate || !address) return
     setCreating(true)
@@ -254,8 +329,8 @@ function CreatePoolPanel({
       setTxStatus('pending')
       setTxMessage(undefined)
 
-      const t0Decimals = token0!.isNative ? 18 : 18
-      const t1Decimals = token1!.isNative ? 18 : 18
+      const t0Decimals = token0Decimals ?? 18
+      const t1Decimals = token1Decimals ?? 18
       const a0 = parseUnits(amount0, t0Decimals)
       const a1 = parseUnits(amount1, t1Decimals)
 
@@ -397,6 +472,12 @@ function CreatePoolPanel({
             </p>
           )}
 
+          {!decimalsReady && (
+            <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65">
+              Loading token metadata before building the liquidity transaction…
+            </p>
+          )}
+
           <button
             onClick={handleCreate}
             disabled={!canCreate || creating || isConfirming}
@@ -463,17 +544,15 @@ function TokenPicker({
 }) {
   const [search, setSearch] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [isSearching, setIsSearching] = useState(false)
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 })
   const scrollRef = useRef<HTMLDivElement>(null)
+  const isSearching = open && search !== debouncedQuery
 
   // 300ms debounce on search input
   useEffect(() => {
     if (!open) return
-    setIsSearching(true)
     const timer = setTimeout(() => {
       setDebouncedQuery(search)
-      setIsSearching(false)
       // Reset scroll and visible range when query changes
       if (scrollRef.current) {
         scrollRef.current.scrollTop = 0
@@ -678,6 +757,10 @@ function SwapPageInner() {
   const { address, isConnected } = useAccount()
   const { tokens: discoveredTokens, loading: tokensLoading, cacheStatus } = useAllTokenMetadata()
   const { writeContractAsync } = useWriteContract()
+  const createPoolRequested = Boolean(searchParams.get('createPool'))
+  const addLiquidityPairAddress = searchParams.get('addLiquidity')
+  const urlToken0 = searchParams.get('token0')?.toLowerCase()
+  const urlToken1 = searchParams.get('token1')?.toLowerCase()
 
   // Restore swap card state from sessionStorage (URL params override on first load)
   const [savedState] = useState<{
@@ -714,31 +797,78 @@ function SwapPageInner() {
   const [txAction, setTxAction] = useState<'approve' | 'swap' | null>(null)
   const [slippageBps, setSlippageBps] = useState<bigint>(savedState.slippageBps)
   const [showCreatePool, setShowCreatePool] = useState(false)
-  const [addLiqToken0, setAddLiqToken0] = useState<TokenOption | null>(null)
-  const [addLiqToken1, setAddLiqToken1] = useState<TokenOption | null>(null)
   const [showSettlementPreview, setShowSettlementPreview] = useState(false)
   const [settlementConfirming, setSettlementConfirming] = useState(false)
 
   useEffect(() => {
-    if (!searchParams.get('createPool') && !searchParams.get('addLiquidity')) return
-    if (discoveredTokens.length === 0) return // wait for tokens to load
-
+    if (!createPoolRequested && !addLiquidityPairAddress) return
     setShowCreatePool(true)
+  }, [addLiquidityPairAddress, createPoolRequested])
 
-    const token0Addr = searchParams.get('token0')?.toLowerCase()
-    const token1Addr = searchParams.get('token1')?.toLowerCase()
+  const urlLookupAddresses = [urlToken0, urlToken1]
+    .filter((tokenAddress): tokenAddress is `0x${string}` => {
+      if (!tokenAddress) return false
+      const normalized = tokenAddress.toLowerCase()
+      return (
+        isAddress(normalized) &&
+        normalized !== ZERO_ADDRESS.toLowerCase() &&
+        normalized !== WRAPPED_ZKLTC_ADDRESS.toLowerCase()
+      )
+    })
+    .filter((tokenAddress, index, all) => all.indexOf(tokenAddress) === index)
 
-    function resolveToken(addr: string | null | undefined): TokenOption | null {
-      if (!addr) return null
-      if (addr === ZERO_ADDRESS.toLowerCase()) return NATIVE_TOKEN
-      const found = discoveredTokens.find((t) => t.address.toLowerCase() === addr)
-      if (found) return { address: found.address, name: found.name, symbol: found.symbol, isNative: false }
-      return null
+  const urlTokenMetadataReads = useReadContracts({
+    contracts: urlLookupAddresses.flatMap((tokenAddress) => [
+      { address: tokenAddress, abi: ERC20_ABI, functionName: 'name' as const },
+      { address: tokenAddress, abi: ERC20_ABI, functionName: 'symbol' as const },
+    ]),
+    query: { enabled: urlLookupAddresses.length > 0 },
+  })
+
+  const urlTokenMetadata = new Map<string, { name?: string; symbol?: string }>()
+  urlLookupAddresses.forEach((tokenAddress, index) => {
+    const nameResult = urlTokenMetadataReads.data?.[index * 2]
+    const symbolResult = urlTokenMetadataReads.data?.[index * 2 + 1]
+    urlTokenMetadata.set(tokenAddress.toLowerCase(), {
+      name: nameResult?.status === 'success' ? (nameResult.result as string) : undefined,
+      symbol: symbolResult?.status === 'success' ? (symbolResult.result as string) : undefined,
+    })
+  })
+
+  function resolveCreatePoolToken(address: string | undefined): TokenOption | null {
+    if (!address) return null
+
+    const normalized = address.toLowerCase()
+    if (normalized === ZERO_ADDRESS.toLowerCase() || normalized === WRAPPED_ZKLTC_ADDRESS.toLowerCase()) {
+      return NATIVE_TOKEN
     }
 
-    setAddLiqToken0(resolveToken(token0Addr))
-    setAddLiqToken1(resolveToken(token1Addr))
-  }, [searchParams, discoveredTokens])
+    const discovered = discoveredTokens.find((token) => token.address.toLowerCase() === normalized)
+    if (discovered) {
+      return {
+        address: discovered.address,
+        name: discovered.name,
+        symbol: discovered.symbol,
+        isNative: false,
+      }
+    }
+
+    if (isAddress(normalized)) {
+      const metadata = urlTokenMetadata.get(normalized)
+      const fallback = buildFallbackTokenOption(normalized as `0x${string}`)
+      return {
+        address: normalized as `0x${string}`,
+        name: metadata?.name ?? fallback.name,
+        symbol: metadata?.symbol ?? fallback.symbol,
+        isNative: false,
+      }
+    }
+
+    return null
+  }
+
+  const initialCreatePoolToken0 = resolveCreatePoolToken(urlToken0)
+  const initialCreatePoolToken1 = resolveCreatePoolToken(urlToken1)
 
   // Persist swap card state to sessionStorage (debounced 500ms)
   useEffect(() => {
@@ -973,6 +1103,7 @@ function SwapPageInner() {
     hash: txHash,
     query: { enabled: Boolean(txHash) },
   })
+  const refetchAllowance = allowanceRead.refetch
 
   useEffect(() => {
     if (!txHash) return
@@ -987,8 +1118,8 @@ function SwapPageInner() {
     setTxStatus('success')
     setTxMessage(txAction === 'approve' ? 'Approval confirmed.' : 'Swap confirmed on LitVM.')
     if (txAction === 'swap') setAmountIn('')
-    if (txAction === 'approve') allowanceRead.refetch()
-  }, [txAction, txConfirmed, txHash])
+    if (txAction === 'approve') refetchAllowance()
+  }, [refetchAllowance, txAction, txConfirmed, txHash])
 
   useEffect(() => {
     if (!txHash || !txError) return
@@ -1207,20 +1338,18 @@ function SwapPageInner() {
             {/* Create pool panel */}
             {showCreatePool && (
               <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
-                {addLiqToken0 !== null && addLiqToken1 !== null ? (
-                  <CreatePoolPanel
-                    key={`cp-${addLiqToken0.address}-${addLiqToken1.address}`}
-                    onClose={() => setShowCreatePool(false)}
-                    initialToken0={addLiqToken0}
-                    initialToken1={addLiqToken1}
-                    existingPairAddress={(searchParams.get('addLiquidity') ?? undefined) as `0x${string}` | undefined}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center rounded-[30px] border border-white/10 bg-white/[0.03] p-8 text-center">
-                    <Loader2 size={24} className="animate-spin text-white/40" />
-                    <p className="mt-3 text-sm text-white/45">Loading pool tokens…</p>
+                {addLiquidityPairAddress && (!initialCreatePoolToken0 || !initialCreatePoolToken1) && (
+                  <div className="mb-4 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+                    We couldn&apos;t fully preselect the pool tokens from the URL, so you may need to confirm the pair manually before adding liquidity.
                   </div>
                 )}
+                <CreatePoolPanel
+                  key={`cp-${initialCreatePoolToken0?.address ?? 'empty'}-${initialCreatePoolToken1?.address ?? 'empty'}-${addLiquidityPairAddress ?? 'new'}`}
+                  onClose={() => setShowCreatePool(false)}
+                  initialToken0={initialCreatePoolToken0}
+                  initialToken1={initialCreatePoolToken1}
+                  existingPairAddress={isValidContractAddress(addLiquidityPairAddress ?? '') ? (addLiquidityPairAddress as `0x${string}`) : undefined}
+                />
               </div>
             )}
 
@@ -1485,4 +1614,3 @@ export default function SwapPage() {
     </Suspense>
   )
 }
-
