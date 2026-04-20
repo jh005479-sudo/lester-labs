@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount } from 'wagmi'
 import { Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { useGovernance, useGovernanceWrite } from '@/hooks/useGovernance'
@@ -9,7 +8,15 @@ import { GOVERNANCE_CONFIG } from '@/config/governance'
 
 export function CreateProposalTab() {
   const { isConnected, hasEnoughTokens, tokenBalance, rawBalance, proposalCount } = useGovernance()
-  const { createProposal, isProposing, proposeWrite, proposeTx } = useGovernanceWrite()
+  const {
+    createProposal,
+    isProposing,
+    proposeWrite,
+    proposeTx,
+    switchError,
+    isWrongNetwork,
+    isSwitchingNetwork,
+  } = useGovernanceWrite()
 
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -61,7 +68,7 @@ export function CreateProposalTab() {
     )
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim() || !body.trim()) return
 
     const description = [title, body, discussion ? `Discussion: ${discussion}` : '']
@@ -73,7 +80,7 @@ export function CreateProposalTab() {
     const values = [0n]
     const calldatas = ['0x'] as `0x${string}`[]
 
-    createProposal(targets, values, calldatas, description)
+    await createProposal(targets, values, calldatas, description)
   }
 
   const canSubmit = title.trim().length > 0 && body.trim().length > 0 && !isProposing
@@ -165,20 +172,36 @@ export function CreateProposalTab() {
       {/* Submit */}
       <div className="pt-2 space-y-3">
         <button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
+          onClick={() => { void handleSubmit() }}
+          disabled={isWrongNetwork ? isSwitchingNetwork : !canSubmit}
           className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-            canSubmit
+            (isWrongNetwork || canSubmit)
               ? 'bg-[#E44FB5] hover:bg-[#c9369e] text-white'
               : 'bg-white/5 text-gray-500 cursor-not-allowed'
           }`}
         >
-          {isProposing ? (
+          {isWrongNetwork ? (
+            <>{isSwitchingNetwork ? <><Loader2 size={14} className="animate-spin" /> Switching network...</> : 'Switch to LitVM Testnet'}</>
+          ) : isProposing ? (
             <><Loader2 size={14} className="animate-spin" /> Submitting on-chain...</>
           ) : (
             'Submit Proposal On-Chain'
           )}
         </button>
+
+        {isWrongNetwork && (
+          <div className="flex items-center gap-2 text-xs text-yellow-300 bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+            <AlertCircle size={14} />
+            Wallet is on the wrong network. Switch to LitVM Testnet before creating a proposal.
+          </div>
+        )}
+
+        {switchError && (
+          <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+            <AlertCircle size={14} />
+            {switchError}
+          </div>
+        )}
 
         {proposeTx.isError && (
           <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">

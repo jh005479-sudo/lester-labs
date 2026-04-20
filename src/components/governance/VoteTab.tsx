@@ -1,11 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount } from 'wagmi'
 import { Loader2, CheckCircle, AlertCircle, ThumbsUp, ThumbsDown, Minus, Search } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { useGovernance, useGovernanceWrite } from '@/hooks/useGovernance'
-import { GOVERNANCE_CONFIG } from '@/config/governance'
 import { ProposalState } from '@/config/governance'
 
 const STATE_COLORS: Record<ProposalState, string> = {
@@ -25,8 +23,16 @@ const SUPPORT_ICONS = {
 }
 
 export function VoteTab() {
-  const { isConnected, proposals, isLoading, refetch } = useGovernance()
-  const { castVoteWithReason, isVoting, voteTx, SUPPORT_LABELS } = useGovernanceWrite()
+  const { isConnected, proposals, isLoading } = useGovernance()
+  const {
+    castVoteWithReason,
+    isVoting,
+    voteTx,
+    SUPPORT_LABELS,
+    switchError,
+    isWrongNetwork,
+    isSwitchingNetwork,
+  } = useGovernanceWrite()
 
   const [search, setSearch] = useState('')
   const [selectedProposal, setSelectedProposal] = useState<number | null>(null)
@@ -43,11 +49,11 @@ export function VoteTab() {
       p.description.toLowerCase().includes(search.toLowerCase()),
   )
 
-  if (!isConnected) return <ConnectWalletPrompt />
-
-  const handleVote = (proposalId: number) => {
-    setPendingVoteId(proposalId)
-    castVoteWithReason(proposalId, selectedSupport, reason)
+  const handleVote = async (proposalId: number) => {
+    const started = await castVoteWithReason(proposalId, selectedSupport, reason)
+    if (started) {
+      setPendingVoteId(proposalId)
+    }
   }
 
   // Watch for vote tx success and update voted state
@@ -60,6 +66,8 @@ export function VoteTab() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voteTx.isSuccess])
+
+  if (!isConnected) return <ConnectWalletPrompt />
 
   return (
     <div className="space-y-6">
@@ -170,11 +178,16 @@ export function VoteTab() {
                     </div>
 
                     <button
-                      onClick={() => handleVote(proposal.id)}
-                      disabled={isVoting}
+                      onClick={() => { void handleVote(proposal.id) }}
+                      disabled={isWrongNetwork ? isSwitchingNetwork : isVoting}
                       className="w-full py-2.5 rounded-xl bg-[#E44FB5] hover:bg-[#c9369e] text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     >
-                      {isVoting ? (
+                      {isWrongNetwork ? (
+                        <>
+                          {isSwitchingNetwork ? <Loader2 size={14} className="animate-spin" /> : null}
+                          {isSwitchingNetwork ? 'Switching network…' : 'Switch to LitVM Testnet'}
+                        </>
+                      ) : isVoting ? (
                         <>
                           <Loader2 size={14} className="animate-spin" />
                           Voting...
@@ -186,6 +199,20 @@ export function VoteTab() {
                         </>
                       )}
                     </button>
+
+                    {isWrongNetwork && (
+                      <div className="flex items-center gap-2 text-xs text-yellow-300">
+                        <AlertCircle size={12} />
+                        Wallet is on the wrong network. Switch to LitVM Testnet before voting.
+                      </div>
+                    )}
+
+                    {switchError && (
+                      <div className="flex items-center gap-2 text-xs text-red-400">
+                        <AlertCircle size={12} />
+                        {switchError}
+                      </div>
+                    )}
 
                     {voteTx.isError && (
                       <div className="flex items-center gap-2 text-xs text-red-400">

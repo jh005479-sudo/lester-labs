@@ -2,8 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useAccount, useWaitForTransactionReceipt, useWriteContract, useChainId, useSwitchChain } from 'wagmi'
-import { litvm } from '@/config/chains'
+import { useAccount, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { ExternalLink, Loader2, PenLine, Wallet } from 'lucide-react'
 import { toHex, type Hex } from 'viem'
 import {
@@ -14,6 +13,8 @@ import {
   LEDGER_POST_GAS_LIMIT,
   formatLedgerFee,
 } from '@/lib/contracts/ledger'
+import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
+import { getWalletErrorMessage, getWrongNetworkMessage } from '@/lib/walletErrors'
 
 interface MessageComposerProps {
   address: `0x${string}`
@@ -26,25 +27,16 @@ type ComposerPhase = 'idle' | 'signing' | 'pending' | 'confirmed' | 'error'
 const textEncoder = new TextEncoder()
 
 function normalizeError(error: unknown): string {
-  if (error instanceof Error) {
-    if (error.message.includes('User rejected')) {
-      return 'Transaction was rejected in your wallet.'
-    }
-
-    if (error.message.includes('Transfer failed')) {
-      return 'Posting is temporarily unavailable because the ledger treasury destination is rejecting payouts.'
-    }
-
-    return error.message
+  if (error instanceof Error && error.message.includes('Transfer failed')) {
+    return 'Posting is temporarily unavailable because the ledger treasury destination is rejecting payouts.'
   }
 
-  return 'Something went wrong while posting to The Ledger.'
+  return getWalletErrorMessage(error, 'Something went wrong while posting to The Ledger.')
 }
 
 export function MessageComposer({ address, minFee, onConfirmed }: MessageComposerProps) {
   const { isConnected } = useAccount()
-  const chainId = useChainId()
-  const { switchChainAsync } = useSwitchChain()
+  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
   const { writeContractAsync } = useWriteContract()
 
   const [draft, setDraft] = useState('')
@@ -97,17 +89,11 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
     applyReceiptSuccess(currentTxHash)
   }, [currentTxHash, isConfirmed])
 
-  const isWrongNetwork = isConnected && chainId !== litvm.id
-
   async function handlePost() {
     if (!isConnected || isEmpty || isTooLong) return
     if (isWrongNetwork) {
-      try {
-        await switchChainAsync({ chainId: litvm.id })
-      } catch {
-        setPhase('error')
-        setStatusMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
-      }
+      setPhase('error')
+      setStatusMessage(getWrongNetworkMessage('posting to The Ledger'))
       return
     }
 
@@ -134,7 +120,21 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
     }
   }
 
-  const buttonDisabled = !isConnected || isEmpty || isTooLong || phase === 'signing' || phase === 'pending'
+  async function handleSwitchNetwork() {
+    const result = await switchToLitvm()
+    if (!result.switched) {
+      setPhase('error')
+      setStatusMessage(result.error ?? 'Network switch was not completed.')
+      return
+    }
+
+    setPhase('idle')
+    setStatusMessage('Switched to LitVM Testnet. You can post now.')
+  }
+
+  const buttonDisabled = isWrongNetwork
+    ? phase === 'pending' || isSwitchingChain
+    : !isConnected || isEmpty || isTooLong || phase === 'signing' || phase === 'pending'
 
   return (
     <section
@@ -236,24 +236,43 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
               </p>
             </div>
 
+            {isWrongNetwork && (
+              <div
+                className="rounded-2xl border px-4 py-3 text-sm"
+                style={{
+                  borderColor: 'rgba(251,191,36,0.24)',
+                  background: 'rgba(251,191,36,0.08)',
+                  color: '#fde68a',
+                }}
+              >
+                Switch to LitVM Testnet before posting a fee-bearing ledger message.
+              </div>
+            )}
+
             <button
-              onClick={handlePost}
+              onClick={isWrongNetwork ? handleSwitchNetwork : handlePost}
               disabled={buttonDisabled}
               className="cin-btn min-w-[260px] self-start disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
             >
-              {phase === 'signing' && (
+              {isWrongNetwork && (
+                <>
+                  {isSwitchingChain ? <Loader2 size={16} className="animate-spin" /> : null}
+                  {isSwitchingChain ? 'Switching network…' : 'Switch to LitVM Testnet'}
+                </>
+              )}
+              {!isWrongNetwork && phase === 'signing' && (
                 <>
                   <Loader2 size={16} className="animate-spin" />
                   Confirm in wallet
                 </>
               )}
-              {phase === 'pending' && (
+              {!isWrongNetwork && phase === 'pending' && (
                 <>
                   <Loader2 size={16} className="animate-spin" />
                   Posting to The Ledger...
                 </>
               )}
-              {(phase === 'idle' || phase === 'confirmed' || phase === 'error') && (
+              {!isWrongNetwork && (phase === 'idle' || phase === 'confirmed' || phase === 'error') && (
                 <>Post to The Ledger — {feeDisplay} zkLTC</>
               )}
             </button>
