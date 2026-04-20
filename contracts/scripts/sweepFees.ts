@@ -9,6 +9,21 @@ async function main() {
 
   const LIQUIDITY_LOCKER = "0x80d88C7F529D256e5e6A2CB0e0C30D82bC8827A9";
   const VESTING_FACTORY = "0x6EE07118D39e9330Ef0658FFA797EeDD2CB823Cf";
+  const TOKEN_FACTORY = "0x93acc61fcdc2e3407A0c03450Adfd8aE78964948";
+
+  // --- Sweep TokenFactory ---
+  console.log("\n=== Sweeping TokenFactory ===");
+  const tokenFactory = await ethers.getContractAt("TokenFactory", TOKEN_FACTORY);
+  const tokenFacBal = await ethers.provider.getBalance(TOKEN_FACTORY);
+  console.log("TokenFactory balance:", ethers.formatEther(tokenFacBal), "zkLTC");
+
+  if (tokenFacBal > 0n) {
+    const tx0 = await tokenFactory.connect(deployer).withdraw();
+    await tx0.wait();
+    console.log("TokenFactory sweep tx:", tx0.hash);
+  } else {
+    console.log("Nothing to sweep from TokenFactory");
+  }
 
   // --- Sweep LiquidityLocker ---
   console.log("\n=== Sweeping LiquidityLocker ===");
