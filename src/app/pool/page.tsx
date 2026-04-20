@@ -366,6 +366,7 @@ function RemoveLiquidityPanel({
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [UNISWAP_V2_ROUTER_ADDRESS, lpAmount],
+        gas: 500000n,
       })
       setTxHash(hash)
       setTxOpen(true)
