@@ -7,7 +7,6 @@ import { useAccount, useReadContract, useReadContracts, useWaitForTransactionRec
 import { useQueryClient } from '@tanstack/react-query'
 import { formatUnits } from 'viem'
 import { ToolHero } from '@/components/shared/ToolHero'
-import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
 import { UNISWAP_V2_FACTORY_ADDRESS, UNISWAP_V2_ROUTER_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
@@ -15,7 +14,6 @@ import { UNISWAP_V2_FACTORY_ADDRESS, UNISWAP_V2_ROUTER_ADDRESS, WRAPPED_ZKLTC_AD
 const ACCENT = '#E44FB5'
 const PAGE_SIZE = 10
 const MAX_DISPLAY = 100
-const MAX_INITIAL = 20 // pre-load first 20 pairs (2 batches)
 
 function ZERO_ADDRESS(): string {
   return '0x0000000000000000000000000000000000000000'
@@ -994,7 +992,7 @@ export default function PoolPage() {
                 </div>
                 <h2 className="mt-5 text-2xl font-semibold text-white">No LP positions</h2>
                 <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/45">
-                  You don't hold any Lester Labs V2 LP tokens yet. Add liquidity to a pair to earn from trades.
+                  You don&apos;t hold any Lester Labs V2 LP tokens yet. Add liquidity to a pair to earn from trades.
                 </p>
                 <Link
                   href="/swap"
@@ -1103,4 +1101,3 @@ export default function PoolPage() {
     </div>
   )
 }
-
