@@ -66,8 +66,9 @@ function formatTokenAmount(value: bigint | null | undefined, decimals: number, f
   if (value === null || value === undefined) return fallback
   const raw = formatUnits(value, decimals)
   const [whole, fraction = ''] = raw.split('.')
-  if (!fraction) return whole
-  return `${whole}.${fraction.slice(0, 6).replace(/0+$/, '') || '0'}`
+  const formatted = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  if (!fraction) return formatted
+  return `${formatted}.${fraction.slice(0, 6).replace(/0+$/, '') || '0'}`
 }
 
 function formatInputAmount(value: string) {
@@ -247,6 +248,46 @@ function CreatePoolPanel({
   const decimalsReady =
     (token0 === null || token0Decimals !== undefined) &&
     (token1 === null || token1Decimals !== undefined)
+
+  // Balance reads for max buttons
+  const nativeBal = useBalance({ address })
+  const token0BalRead = useReadContract({
+    address: token0 && !token0.isNative ? token0.address : undefined,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: Boolean(address && token0 && !token0.isNative) },
+  })
+  const token1BalRead = useReadContract({
+    address: token1 && !token1.isNative ? token1.address : undefined,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: Boolean(address && token1 && !token1.isNative) },
+  })
+  const token0Balance = token0?.isNative
+    ? (nativeBal.data?.value ?? 0n)
+    : ((token0BalRead.data ?? 0n) as bigint)
+  const token1Balance = token1?.isNative
+    ? (nativeBal.data?.value ?? 0n)
+    : ((token1BalRead.data ?? 0n) as bigint)
+
+  function setMaxToken0() {
+    if (!token0) return
+    const bal = token0.isNative && token0Balance > NATIVE_GAS_RESERVE
+      ? token0Balance - NATIVE_GAS_RESERVE
+      : token0Balance
+    const dec = token0Decimals ?? 18
+    setAmount0(formatTokenAmount(bal, dec, '0'))
+  }
+  function setMaxToken1() {
+    if (!token1) return
+    const bal = token1.isNative && token1Balance > NATIVE_GAS_RESERVE
+      ? token1Balance - NATIVE_GAS_RESERVE
+      : token1Balance
+    const dec = token1Decimals ?? 18
+    setAmount1(formatTokenAmount(bal, dec, '0'))
+  }
 
   const tokenOptionMap = new Map<string, TokenOption>()
   tokenOptionMap.set(NATIVE_TOKEN.address.toLowerCase(), NATIVE_TOKEN)
@@ -490,7 +531,22 @@ function CreatePoolPanel({
         <>
           <div className="space-y-3">
             <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
-              <p className="mb-2 text-xs uppercase tracking-[0.12em] text-white/35">Token 1</p>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.12em] text-white/35">Token 1</p>
+                {isConnected && token0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-white/40">
+                      Balance: {formatTokenAmount(token0Balance, token0Decimals ?? 18)} {token0.symbol}
+                    </span>
+                    <button
+                      onClick={setMaxToken0}
+                      className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70 hover:border-white/20 hover:text-white"
+                    >
+                      MAX
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="flex gap-2">
                 <input
                   value={amount0}
@@ -517,7 +573,22 @@ function CreatePoolPanel({
             </div>
 
             <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
-              <p className="mb-2 text-xs uppercase tracking-[0.12em] text-white/35">Token 2</p>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.12em] text-white/35">Token 2</p>
+                {isConnected && token1 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-white/40">
+                      Balance: {formatTokenAmount(token1Balance, token1Decimals ?? 18)} {token1.symbol}
+                    </span>
+                    <button
+                      onClick={setMaxToken1}
+                      className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70 hover:border-white/20 hover:text-white"
+                    >
+                      MAX
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="flex gap-2">
                 <input
                   value={amount1}

@@ -23,8 +23,9 @@ function ZERO_ADDRESS(): string {
 function formatAmount(value: bigint, decimals: number) {
   const raw = formatUnits(value, decimals)
   const [whole, fraction = ''] = raw.split('.')
-  if (!fraction) return whole
-  return `${whole}.${fraction.slice(0, 6).replace(/0+$/, '') || '0'}`
+  const formatted = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  if (!fraction) return formatted
+  return `${formatted}.${fraction.slice(0, 6).replace(/0+$/, '') || '0'}`
 }
 
 function formatPercent(value: number) {
@@ -600,6 +601,7 @@ export default function PoolPage() {
   // ── Pagination state ─────────────────────────────────────────────────────
   const [loadedBatches, setLoadedBatches] = useState(2) // start with 2 batches (20 pairs)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [poolSearch, setPoolSearch] = useState('')
 
   // ── Remove liquidity modal state ────────────────────────────────────────
   const [showRemoveLiq, setShowRemoveLiq] = useState(false)
@@ -797,9 +799,18 @@ export default function PoolPage() {
       }
     })
 
-  const visiblePools = pools.filter(
-    (p) => !(p.lpBalance > 0n && p.totalSupply > 0n) // exclude pools where user already has LP
-  )
+  const searchLower = poolSearch.trim().toLowerCase()
+  const visiblePools = pools.filter((p) => {
+    if (p.lpBalance > 0n && p.totalSupply > 0n) return false
+    if (!searchLower) return true
+    return (
+      p.token0Meta.symbol.toLowerCase().includes(searchLower) ||
+      p.token1Meta.symbol.toLowerCase().includes(searchLower) ||
+      p.token0Meta.name.toLowerCase().includes(searchLower) ||
+      p.token1Meta.name.toLowerCase().includes(searchLower) ||
+      p.pairAddress.toLowerCase().includes(searchLower)
+    )
+  })
 
   function handleAddLiquidity(
     pairAddress: `0x${string}`,
@@ -870,6 +881,13 @@ export default function PoolPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <input
+              value={poolSearch}
+              onChange={(e) => setPoolSearch(e.target.value)}
+              placeholder="Search pools..."
+              type="text"
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-white/20"
+            />
             {!isConnected && (
               <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/45">
                 Connect wallet to see your positions
