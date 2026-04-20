@@ -1503,8 +1503,11 @@ function SwapPageInner() {
 
   async function handleSwapClick() {
     if (isWrongNetwork) {
-      await handleCorrectChain()
-      return
+      if (await handleCorrectChain(() => {
+        setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
+        setTxOpen(true)
+        setTxStatus('error')
+      })) return
     }
     setShowSettlementPreview(true)
   }
@@ -1643,7 +1646,7 @@ function SwapPageInner() {
   const primaryButtonText = !isConnected
     ? 'Connect wallet to swap'
     : isWrongNetwork
-      ? 'Wrong network — click to switch'
+      ? 'Wrong network'
       : resolvedOutput === null
       ? 'Select an output token'
       : wrappedInputAddress.toLowerCase() === wrappedOutputAddress.toLowerCase()

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId, useSwitchChain } from 'wagmi'
 import { litvm } from '@/config/chains'
 import { waitForTransactionReceipt } from '@wagmi/core'
@@ -205,7 +205,7 @@ export function AirdropForm() {
     totalAmount > 0 &&
     decimalsReady
 
-  const handleSend = useCallback(async () => {
+  const handleSend = async () => {
     if (!canSubmit) return
     if (isWrongNetwork) {
       await switchChainAsync({ chainId: litvm.id })
@@ -327,7 +327,7 @@ export function AirdropForm() {
           : 'An unexpected error occurred.'
       setTxMessage(msg)
     }
-  }, [canSubmit, mode, tokenAddress, tokenDecimals, validRecipients, totalAmount, totalAmountWei, parsedRecipients, writeContractAsync])
+  }
 
   const handleReset = () => {
     setSuccessState(null)

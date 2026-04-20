@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useChainId, useSwitchChain } from 'wagmi'
 import { litvm } from '@/config/chains'
 import { parseEther, formatEther } from 'viem'
@@ -198,53 +198,44 @@ export function useGovernanceWrite() {
   const voteTx = useWaitForTransactionReceipt({ hash: voteWrite.data })
   const proposeTx = useWaitForTransactionReceipt({ hash: proposeWrite.data })
 
-  const castVote = useCallback(
-    (proposalId: number, support: 0 | 1 | 2) => {
-      if (isWrongNetwork) {
-        switchChainAsync({ chainId: litvm.id })
-        return
-      }
-      voteWrite.writeContract({
-        address: governorConfig.address,
-        abi: GOVERNOR_ABI,
-        functionName: 'castVote',
-        args: [BigInt(proposalId), support],
-      })
-    },
-    [governorConfig.address, voteWrite],
-  )
+  const castVote = (proposalId: number, support: 0 | 1 | 2) => {
+    if (isWrongNetwork) {
+      switchChainAsync({ chainId: litvm.id })
+      return
+    }
+    voteWrite.writeContract({
+      address: governorConfig.address,
+      abi: GOVERNOR_ABI,
+      functionName: 'castVote',
+      args: [BigInt(proposalId), support],
+    })
+  }
 
-  const castVoteWithReason = useCallback(
-    (proposalId: number, support: 0 | 1 | 2, reason: string) => {
-      if (isWrongNetwork) {
-        switchChainAsync({ chainId: litvm.id })
-        return
-      }
-      voteWrite.writeContract({
-        address: governorConfig.address,
-        abi: GOVERNOR_ABI,
-        functionName: 'castVoteWithReason',
-        args: [BigInt(proposalId), support, reason],
-      })
-    },
-    [governorConfig.address, voteWrite],
-  )
+  const castVoteWithReason = (proposalId: number, support: 0 | 1 | 2, reason: string) => {
+    if (isWrongNetwork) {
+      switchChainAsync({ chainId: litvm.id })
+      return
+    }
+    voteWrite.writeContract({
+      address: governorConfig.address,
+      abi: GOVERNOR_ABI,
+      functionName: 'castVoteWithReason',
+      args: [BigInt(proposalId), support, reason],
+    })
+  }
 
-  const createProposal = useCallback(
-    (targets: `0x${string}`[], values: bigint[], calldatas: `0x${string}`[], description: string) => {
-      if (isWrongNetwork) {
-        switchChainAsync({ chainId: litvm.id })
-        return
-      }
-      proposeWrite.writeContract({
-        address: governorConfig.address,
-        abi: GOVERNOR_ABI,
-        functionName: 'propose',
-        args: [targets, values, calldatas, description],
-      })
-    },
-    [governorConfig.address, proposeWrite],
-  )
+  const createProposal = (targets: `0x${string}`[], values: bigint[], calldatas: `0x${string}`[], description: string) => {
+    if (isWrongNetwork) {
+      switchChainAsync({ chainId: litvm.id })
+      return
+    }
+    proposeWrite.writeContract({
+      address: governorConfig.address,
+      abi: GOVERNOR_ABI,
+      functionName: 'propose',
+      args: [targets, values, calldatas, description],
+    })
+  }
 
   return {
     // Vote
