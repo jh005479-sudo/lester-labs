@@ -354,28 +354,97 @@ function CreatePoolPanel({
 
       const to: `0x${string}` = address as `0x${string}`
 
+      // Compute optimal amounts from reserve ratio (for existing pools)
+      // and apply 0.5% slippage tolerance to the *optimal* amounts,
+      // not the user's desired amounts (which may not match the ratio exactly).
+      const SLIPPAGE_NUMERATOR = 995n  // 0.5%
+      const SLIPPAGE_DENOM = 1000n
+
+      // Helper: compute optimal counterpart amount given reserves
+      const computeOptimal = (desired: bigint, reserveDesired: bigint, reserveOther: bigint) =>
+        reserveDesired > 0n ? (desired * reserveOther) / reserveDesired : desired
+
+      // Reserves from the pair (if existing pool)
+      const pairReserves = reservesRead.isSuccess && reservesRead.data ? reservesRead.data : null
+      const [pairR0, pairR1] = pairReserves ? pairReserves : [0n, 0n]
+      // pairR0 = reserve of token0 in the pair (sorted by address)
+      // pairR1 = reserve of token1 in the pair
+
       if (isToken0Native) {
+        // Native zkLTC (token0) + ERC20 token1
+        // The router wraps native to WZKLTC and calls _addLiquidity internally.
+        // NOTE: This router has non-standard parameter ordering where
+        //   amountTokenMin controls the ETH-side min and amountETHMin controls the token-side min.
+        // We compute optimal amounts using the reserve ratio to set safe min values.
+        // token0Addr = WZKLTC (after native→wrapped mapping)
+        // token1Addr = ERC20 token
+        // Sorted: token0Addr < token1Addr → pairR0=reserve of WZKLTC, pairR1=reserve of token1
+        let amountTokenMin: bigint
+        let amountETHMin: bigint
+        if (pairR0 > 0n && pairR1 > 0n) {
+          // Optimal token1 amount for a0 native: a0 * pairR1 / pairR0
+          const optimalToken1 = computeOptimal(a0, pairR0, pairR1)
+          // Optimal native amount for a1 token: a1 * pairR0 / pairR1
+          const optimalNative = computeOptimal(a1, pairR1, pairR0)
+          // Apply slippage to both optimal amounts
+          amountTokenMin = 0n  // ETH side: allow full slippage since native wraps automatically
+          amountETHMin = (optimalToken1 * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
+        } else {
+          amountTokenMin = 0n
+          amountETHMin = 0n
+        }
         hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidityETH',
-          args: [token1Addr, a1, a1, 0n, to, deadline],
+          args: [token1Addr, a1, amountTokenMin, amountETHMin, to, deadline],
           value: a0,
         })
       } else if (isToken1Native) {
+        // ERC20 token0 + Native zkLTC (token1)
+        // token0Addr = ERC20, token1Addr = WZKLTC (after mapping)
+        // Sorted depends on addresses
+        let amountTokenMin: bigint
+        let amountETHMin: bigint
+        if (pairR0 > 0n && pairR1 > 0n) {
+          // Figure out which pair reserve corresponds to which token
+          const token0IsSortedFirst = token0Addr.toLowerCase() < token1Addr.toLowerCase()
+          const reserveForToken0 = token0IsSortedFirst ? pairR0 : pairR1
+          const reserveForToken1 = token0IsSortedFirst ? pairR1 : pairR0
+          // token0 = ERC20, token1 = WZKLTC (native side)
+          const optimalToken0 = computeOptimal(a1, reserveForToken1, reserveForToken0)  // ERC20 optimal for a1 native
+          const optimalNative = computeOptimal(a0, reserveForToken0, reserveForToken1)  // native optimal for a0 ERC20
+          amountTokenMin = (optimalToken0 * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
+          amountETHMin = 0n  // native side
+        } else {
+          amountTokenMin = 0n
+          amountETHMin = 0n
+        }
         hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidityETH',
-          args: [token0Addr, a0, a0, 0n, to, deadline],
+          args: [token0Addr, a0, amountTokenMin, amountETHMin, to, deadline],
           value: a1,
         })
       } else {
+        // Non-native pair: use reserve-ratio-aware min calculation
         const [tokenA, tokenB, amountA, amountB] = token0Addr.toLowerCase() < token1Addr.toLowerCase()
           ? [token0Addr, token1Addr, a0, a1] as const
           : [token1Addr, token0Addr, a1, a0] as const
-        const amountAMin = (amountA * 995n) / 1000n
-        const amountBMin = (amountB * 995n) / 1000n
+        let amountAMin: bigint
+        let amountBMin: bigint
+        if (pairR0 > 0n && pairR1 > 0n) {
+          // tokenA is sorted first → corresponds to pairR0
+          const optimalB = computeOptimal(amountA, pairR0, pairR1)
+          const optimalA = computeOptimal(amountB, pairR1, pairR0)
+          // Use the optimal amounts (whichever is binding) for mins
+          amountAMin = (optimalA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
+          amountBMin = (optimalB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
+        } else {
+          amountAMin = (amountA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
+          amountBMin = (amountB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
+        }
         hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
