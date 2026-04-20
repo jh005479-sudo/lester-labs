@@ -374,11 +374,13 @@ function CreatePoolPanel({
         const [tokenA, tokenB, amountA, amountB] = token0Addr.toLowerCase() < token1Addr.toLowerCase()
           ? [token0Addr, token1Addr, a0, a1] as const
           : [token1Addr, token0Addr, a1, a0] as const
+        const amountAMin = (amountA * 995n) / 1000n
+        const amountBMin = (amountB * 995n) / 1000n
         hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidity',
-          args: [tokenA, tokenB, amountA, amountB, 0n, 0n, to, deadline],
+          args: [tokenA, tokenB, amountA, amountB, amountAMin, amountBMin, to, deadline],
         })
       }
       setTxHash(hash)
