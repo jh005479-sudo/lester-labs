@@ -218,20 +218,7 @@ function CreatePoolPanel({
     })
   }, [initialToken1])
 
-  // Detect existing pool: if reserves > 0, pool already exists — pre-fill amounts from ratio
-  useEffect(() => {
-    if (!reservesRead.data || !reservesRead.isSuccess) return
-    const [r0, r1] = reservesRead.data
-    if (r0 === 0n && r1 === 0n) return
-    // Pre-fill amount0 as 1 token worth to give user a starting point
-    const defaultAmount0 = '1'
-    setAmount0(defaultAmount0)
-    // Calculate proportional amount1 using the reserve ratio
-    if (r1 > 0n && r0 > 0n) {
-      const proportional = (1 * Number(r1)) / Number(r0)
-      setAmount1(proportional.toFixed(4))
-    }
-  }, [reservesRead.data, reservesRead.isSuccess])
+
 
   const selectedTokenAddresses = [token0, token1]
     .filter((token): token is TokenOption => token !== null && !token.isNative)
@@ -428,19 +415,33 @@ function CreatePoolPanel({
           value: a1,
         })
       } else {
-        // Non-native pair: use reserve-ratio-aware min calculation
-        const [tokenA, tokenB, amountA, amountB] = token0Addr.toLowerCase() < token1Addr.toLowerCase()
-          ? [token0Addr, token1Addr, a0, a1] as const
-          : [token1Addr, token0Addr, a1, a0] as const
+        // Non-native pair: both are ERC20 tokens
+        // Sort tokens by address to match the pair's token0/token1 ordering
+        const isToken0SortedFirst = token0Addr.toLowerCase() < token1Addr.toLowerCase()
+        const [tokenA, tokenB] = isToken0SortedFirst
+          ? [token0Addr, token1Addr] as const
+          : [token1Addr, token0Addr] as const
+        // Map amounts to the sorted tokens (tokenA = lower addr = pair's token0 = pairR0)
+        const [amountA, amountB] = isToken0SortedFirst
+          ? [a0, a1] as const
+          : [a1, a0] as const
+
+        // Compute min amounts using reserve ratio (only when pair has liquidity)
         let amountAMin: bigint
         let amountBMin: bigint
         if (pairR0 > 0n && pairR1 > 0n) {
-          // tokenA is sorted first → corresponds to pairR0
-          const optimalB = computeOptimal(amountA, pairR0, pairR1)
-          const optimalA = computeOptimal(amountB, pairR1, pairR0)
-          // Use the optimal amounts (whichever is binding) for mins
-          amountAMin = (optimalA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
-          amountBMin = (optimalB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
+          // tokenA = pair's token0 → reserve for tokenA = pairR0
+          // tokenB = pair's token1 → reserve for tokenB = pairR1
+          const optimalB = (amountA * pairR1) / pairR0  // optimal tokenB for amountA
+          const optimalA = (amountB * pairR0) / pairR1  // optimal tokenA for amountB
+          // Apply 0.5% slippage to the optimal (binding) amount
+          // The larger of the two optimal amounts is the binding constraint
+          amountAMin = optimalA > optimalB
+            ? (optimalA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
+            : 0n
+          amountBMin = optimalB > optimalA
+            ? (optimalB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
+            : 0n
         } else {
           amountAMin = (amountA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
           amountBMin = (amountB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
