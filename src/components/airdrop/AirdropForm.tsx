@@ -208,7 +208,13 @@ export function AirdropForm() {
   const handleSend = async () => {
     if (!canSubmit) return
     if (isWrongNetwork) {
-      await switchChainAsync({ chainId: litvm.id })
+      try {
+        await switchChainAsync({ chainId: litvm.id })
+      } catch {
+        setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
+        setModalOpen(true)
+        setTxStatus('error')
+      }
       return
     }
 
