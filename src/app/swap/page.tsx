@@ -342,11 +342,11 @@ function CreatePoolPanel({
 
       let hash: `0x${string}`
 
-      // Wrap wallet call with 60s timeout to prevent infinite spinner
+      // Wrap wallet call with 30s timeout + explicit gas cap to prevent infinite spinner / bad estimates
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const walletCall = (cfg: any) =>
         Promise.race([
-          writeContractAsync(cfg),
+          writeContractAsync({ ...cfg, gas: 500000n }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Transaction timed out. Please try again.')), 30_000)
           ),
