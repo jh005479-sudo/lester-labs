@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId, useSwitchChain } from 'wagmi'
+import { litvm } from '@/config/chains'
 import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Circle, CircleAlert, CircleDashed, Copy, ExternalLink, ArrowRight, Mail, PartyPopper, Send } from 'lucide-react'
@@ -274,6 +275,10 @@ const DEFAULT_FORM: FormState = {
 }
 
 export function VestingForm() {
+  const { isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
+
   const [form, setForm] = useState<FormState>(DEFAULT_FORM)
   const [step, setStep] = useState<'form' | 'review'>('form')
   const [txPhase, setTxPhase] = useState<'approve' | 'create'>('approve')
@@ -410,8 +415,14 @@ export function VestingForm() {
     }
   }
 
+  const isWrongNetwork = isConnected && chainId !== litvm.id
+
   const handleCreate = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
+    if (isWrongNetwork) {
+      await switchChainAsync({ chainId: litvm.id })
+      return
+    }
     if (tokenDecimals === undefined) return // Guard against stale decimals
     try {
       setModalOpen(true)

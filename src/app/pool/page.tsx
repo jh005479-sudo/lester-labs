@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Droplets, ExternalLink, Layers3, Loader2, Minus, Plus, Wallet, X } from 'lucide-react'
-import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { useAccount, useChainId, useReadContract, useReadContracts, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { litvm } from '@/config/chains'
 import { useQueryClient } from '@tanstack/react-query'
 import { formatUnits } from 'viem'
 import { ToolHero } from '@/components/shared/ToolHero'
@@ -268,6 +269,8 @@ function RemoveLiquidityPanel({
   token1Decimals,
   onClose,
   onSuccess,
+  wrongNetwork,
+  onSwitchChain,
 }: {
   pairAddress: `0x${string}`
   token0: `0x${string}`
@@ -277,6 +280,8 @@ function RemoveLiquidityPanel({
   token1Decimals: number
   onClose: () => void
   onSuccess: () => void
+  wrongNetwork: boolean
+  onSwitchChain: () => void
 }) {
   const { address, isConnected } = useAccount()
   const { writeContractAsync } = useWriteContract()
@@ -378,6 +383,7 @@ function RemoveLiquidityPanel({
 
   async function handleApprove() {
     if (!address) return
+    if (wrongNetwork) { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error'); return }
     setApprovalPending(true)
     try {
       const hash = await writeContractAsync({
@@ -406,6 +412,7 @@ function RemoveLiquidityPanel({
 
   async function handleRemoveLiquidity() {
     if (!canRemove || !address) return
+    if (wrongNetwork) { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error'); return }
     setRemoving(true)
     setTxAction('remove')
     try {
@@ -603,8 +610,18 @@ function RemoveLiquidityPanel({
 
 export default function PoolPage() {
   const { address, isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
 
   const isDexConfigured = isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) && isValidContractAddress(WRAPPED_ZKLTC_ADDRESS)
+
+  // Chain verification — prevent transactions on wrong network (root cause of 2026-04-20 incident)
+  const isWrongNetwork = isConnected && chainId !== litvm.id
+  const handleCorrectChain = async (onError?: () => void) => {
+    if (!isWrongNetwork) return true
+    try { await switchChainAsync({ chainId: litvm.id }) } catch { onError?.() }
+    return false
+  }
 
   // ── Total pair count ─────────────────────────────────────────────────────
   const allPairsLengthRead = useReadContract({
@@ -1100,6 +1117,8 @@ export default function PoolPage() {
                         lpBalanceReads.refetch()
                         pairStateReads.refetch()
                       }}
+                      wrongNetwork={isWrongNetwork}
+                      onSwitchChain={() => switchChainAsync({ chainId: litvm.id })}
                     />
                   </Dialog.Content>
                 </Dialog.Portal>

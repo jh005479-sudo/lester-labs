@@ -2,7 +2,8 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useAccount, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { useAccount, useWaitForTransactionReceipt, useWriteContract, useChainId, useSwitchChain } from 'wagmi'
+import { litvm } from '@/config/chains'
 import { ExternalLink, Loader2, PenLine, Wallet } from 'lucide-react'
 import { toHex, type Hex } from 'viem'
 import {
@@ -42,6 +43,8 @@ function normalizeError(error: unknown): string {
 
 export function MessageComposer({ address, minFee, onConfirmed }: MessageComposerProps) {
   const { isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
   const { writeContractAsync } = useWriteContract()
 
   const [draft, setDraft] = useState('')
@@ -94,8 +97,14 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
     applyReceiptSuccess(currentTxHash)
   }, [currentTxHash, isConfirmed])
 
+  const isWrongNetwork = isConnected && chainId !== litvm.id
+
   async function handlePost() {
     if (!isConnected || isEmpty || isTooLong) return
+    if (isWrongNetwork) {
+      await switchChainAsync({ chainId: litvm.id })
+      return
+    }
 
     try {
       setPhase('signing')

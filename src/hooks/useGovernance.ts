@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useChainId, useSwitchChain } from 'wagmi'
+import { litvm } from '@/config/chains'
 import { parseEther, formatEther } from 'viem'
 import { GOVERNANCE_CONFIG, GOVERNOR_ABI, PROPOSAL_STATES, SUPPORT_LABELS, type ProposalState } from '@/config/governance'
 
@@ -184,17 +185,25 @@ export function useGovernance() {
 // ── Write helpers ─────────────────────────────────────────────────────────
 
 export function useGovernanceWrite() {
-  const { address } = useAccount()
+  const { address, isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
   const governorConfig = GOVERNANCE_CONFIG.governor
 
   const voteWrite = useWriteContract()
   const proposeWrite = useWriteContract()
+
+  const isWrongNetwork = isConnected && chainId !== litvm.id
 
   const voteTx = useWaitForTransactionReceipt({ hash: voteWrite.data })
   const proposeTx = useWaitForTransactionReceipt({ hash: proposeWrite.data })
 
   const castVote = useCallback(
     (proposalId: number, support: 0 | 1 | 2) => {
+      if (isWrongNetwork) {
+        switchChainAsync({ chainId: litvm.id })
+        return
+      }
       voteWrite.writeContract({
         address: governorConfig.address,
         abi: GOVERNOR_ABI,
@@ -207,6 +216,10 @@ export function useGovernanceWrite() {
 
   const castVoteWithReason = useCallback(
     (proposalId: number, support: 0 | 1 | 2, reason: string) => {
+      if (isWrongNetwork) {
+        switchChainAsync({ chainId: litvm.id })
+        return
+      }
       voteWrite.writeContract({
         address: governorConfig.address,
         abi: GOVERNOR_ABI,
@@ -219,6 +232,10 @@ export function useGovernanceWrite() {
 
   const createProposal = useCallback(
     (targets: `0x${string}`[], values: bigint[], calldatas: `0x${string}`[], description: string) => {
+      if (isWrongNetwork) {
+        switchChainAsync({ chainId: litvm.id })
+        return
+      }
       proposeWrite.writeContract({
         address: governorConfig.address,
         abi: GOVERNOR_ABI,
