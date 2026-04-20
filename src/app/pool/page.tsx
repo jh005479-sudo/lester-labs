@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Droplets, ExternalLink, Layers3, Loader2, Minus, Plus, Wallet, X } from 'lucide-react'
-import { useAccount, useChainId, useReadContract, useReadContracts, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { useAccount, useChainId, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { litvm } from '@/config/chains'
 import { useQueryClient } from '@tanstack/react-query'
 import { formatUnits } from 'viem'
@@ -609,7 +609,6 @@ function RemoveLiquidityPanel({
 export default function PoolPage() {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
-  const { switchChainAsync } = useSwitchChain()
 
   const isDexConfigured = isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) && isValidContractAddress(WRAPPED_ZKLTC_ADDRESS)
 
@@ -1111,7 +1110,6 @@ export default function PoolPage() {
                         pairStateReads.refetch()
                       }}
                       wrongNetwork={isWrongNetwork}
-                      onSwitchChain={() => switchChainAsync({ chainId: litvm.id })}
                     />
                   </Dialog.Content>
                 </Dialog.Portal>
