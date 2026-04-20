@@ -1266,6 +1266,7 @@ function SwapPageInner() {
           abi: ERC20_ABI,
           functionName: 'approve',
           args: [UNISWAP_V2_ROUTER_ADDRESS, maxUint256],
+          gas: 500000n,
         })
         setTxHash(hash)
         return
@@ -1282,6 +1283,7 @@ function SwapPageInner() {
           functionName: 'swapExactETHForTokens',
           args: [minimumAmountOut, path, address, deadline],
           value: parsedAmountIn,
+          gas: 500000n,
         })
         setTxHash(hash)
         return
@@ -1293,6 +1295,7 @@ function SwapPageInner() {
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'swapExactTokensForETH',
           args: [parsedAmountIn, minimumAmountOut, path, address, deadline],
+          gas: 500000n,
         })
         setTxHash(hash)
         return
@@ -1303,6 +1306,7 @@ function SwapPageInner() {
         abi: UNISWAP_V2_ROUTER_ABI,
         functionName: 'swapExactTokensForTokens',
         args: [parsedAmountIn, minimumAmountOut, path, address, deadline],
+        gas: 500000n,
       })
       setTxHash(hash)
     } catch (error) {
