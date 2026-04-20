@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getPlatformStatsSnapshot } from '@/lib/platformStats'
 
 export const runtime = 'nodejs'
+export const maxDuration = 30
 
 export async function GET() {
   try {
@@ -9,7 +10,7 @@ export async function GET() {
 
     return NextResponse.json(snapshot, {
       headers: {
-        'Cache-Control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=120',
+        'Cache-Control': 'public, max-age=30, s-maxage=60, stale-while-revalidate=300',
       },
     })
   } catch {

@@ -1,32 +1,45 @@
-import { createPublicClient, decodeFunctionData, http, parseAbiItem, type Address, type Hex } from 'viem'
+import { createPublicClient, decodeFunctionData, http, toFunctionSelector, type Address, type Hex } from 'viem'
 import { litvm } from '@/config/chains'
 import {
   DISPERSE_ADDRESS,
   ILO_FACTORY_ADDRESS,
   LEDGER_ADDRESS,
   TOKEN_FACTORY_ADDRESS,
-  UNISWAP_V2_FACTORY_ADDRESS,
+  UNISWAP_V2_ROUTER_ADDRESS,
   isValidContractAddress,
 } from '@/config/contracts'
 import { ILO_FACTORY_ABI, LEDGER_ABI } from '@/config/abis'
 import { DISPERSE_ABI } from '@/lib/contracts/airdrop'
 import { RPC_URL } from '@/lib/rpcClient'
 
+const EXPLORER_API_BASE_URL = 'https://liteforge.explorer.caldera.xyz/api'
 const LEGACY_ILO_FACTORY_ADDRESS = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB' as const
-const RESPONSE_TTL_MS = 30_000
-const RPC_TIMEOUT_MS = 30_000
-const SWAP_ADDRESS_BATCH_SIZE = 20
-const BLOCK_SCAN_BATCH_SIZE = 100
+const DEFAULT_TOKEN_FACTORY_ADDRESS = '0x93acc61fcdc2e3407A0c03450Adfd8aE78964948' as const
+const DEFAULT_DISPERSE_ADDRESS = '0x3cc66cb4713dca78564df512922adb331ac5ee04' as const
+const DEFAULT_LEDGER_ADDRESS = '0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079' as const
+const DEFAULT_UNISWAP_V2_ROUTER_ADDRESS = '0xD56a623890b083d876D47c3b1c5343b7f983FA62' as const
 
-const TOKEN_CREATED_EVENT = parseAbiItem(
-  'event TokenCreated(address indexed tokenAddress, address indexed creator, string name, string symbol)',
-)
-const PAIR_CREATED_EVENT = parseAbiItem(
-  'event PairCreated(address indexed token0, address indexed token1, address pair, uint256)',
-)
-const SWAP_EVENT = parseAbiItem(
-  'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
-)
+const RESPONSE_TTL_MS = 60_000
+const RPC_TIMEOUT_MS = 30_000
+const EXPLORER_REQUEST_TIMEOUT_MS = 15_000
+const EXPLORER_TXLIST_PAGE_SIZE = 10_000
+const EXPLORER_TXLIST_MAX_PAGES = 25
+
+const CREATE_TOKEN_FUNCTION_SELECTOR = toFunctionSelector(
+  'createToken(string,string,uint256,uint8,bool,bool,bool)',
+).toLowerCase()
+
+const SWAP_FUNCTION_SELECTORS = new Set<string>([
+  'swapExactETHForTokens(uint256,address[],address,uint256)',
+  'swapETHForExactTokens(uint256,address[],address,uint256)',
+  'swapExactTokensForETH(uint256,uint256,address[],address,uint256)',
+  'swapTokensForExactETH(uint256,uint256,address[],address,uint256)',
+  'swapExactTokensForTokens(uint256,uint256,address[],address,uint256)',
+  'swapTokensForExactTokens(uint256,uint256,address[],address,uint256)',
+  'swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,uint256)',
+  'swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)',
+  'swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)',
+].map((signature) => toFunctionSelector(signature).toLowerCase()))
 
 const client = createPublicClient({
   chain: litvm,
@@ -45,44 +58,18 @@ export interface PlatformStatsSnapshot {
   fetchedAt: string
 }
 
-interface CountCache {
-  count: number
-  lastScannedBlock: bigint | null
+interface ExplorerTransactionItem {
+  to?: string | null
+  input?: string | null
+  isError?: string | null
+  txreceipt_status?: string | null
 }
 
-interface SwapCountCache extends CountCache {
-  pairAddresses: Set<string>
-  pairScanBlock: bigint | null
+interface ExplorerTxListResponse {
+  status?: string
+  message?: string
+  result?: ExplorerTransactionItem[] | string
 }
-
-interface AirdropCountCache extends CountCache {
-  recipients: Set<string>
-}
-
-interface DisperseTransaction {
-  hash: Hex
-  input: Hex
-}
-
-const tokenCountCache: CountCache = {
-  count: 0,
-  lastScannedBlock: null,
-}
-
-const swapCountCache: SwapCountCache = {
-  count: 0,
-  lastScannedBlock: null,
-  pairAddresses: new Set<string>(),
-  pairScanBlock: null,
-}
-
-const airdropCountCache: AirdropCountCache = {
-  count: 0,
-  lastScannedBlock: null,
-  recipients: new Set<string>(),
-}
-
-const deploymentBlockCache = new Map<string, bigint>()
 
 let responseCache:
   | {
@@ -93,12 +80,77 @@ let responseCache:
 
 let inflightSnapshot: Promise<PlatformStatsSnapshot> | null = null
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = []
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size))
+function resolveContractAddress(configuredAddress: Address, fallbackAddress?: Address): Address | null {
+  if (isValidContractAddress(configuredAddress)) return configuredAddress
+  if (fallbackAddress && isValidContractAddress(fallbackAddress)) return fallbackAddress
+  return null
+}
+
+function buildTxListUrl(address: Address, page: number): string {
+  const url = new URL(EXPLORER_API_BASE_URL)
+  url.searchParams.set('module', 'account')
+  url.searchParams.set('action', 'txlist')
+  url.searchParams.set('address', address)
+  url.searchParams.set('page', String(page))
+  url.searchParams.set('offset', String(EXPLORER_TXLIST_PAGE_SIZE))
+  url.searchParams.set('sort', 'desc')
+  return url.toString()
+}
+
+async function fetchTxListPage(address: Address, page: number): Promise<ExplorerTransactionItem[]> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), EXPLORER_REQUEST_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(buildTxListUrl(address, page), {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Explorer HTTP ${response.status} for txlist ${address}`)
+    }
+
+    const payload = (await response.json()) as ExplorerTxListResponse
+
+    if (Array.isArray(payload.result)) {
+      return payload.result
+    }
+
+    if (typeof payload.result === 'string' && payload.result.toLowerCase().includes('no transactions')) {
+      return []
+    }
+
+    throw new Error(payload.message || `Unexpected txlist payload for ${address}`)
+  } finally {
+    clearTimeout(timeoutId)
   }
-  return chunks
+}
+
+async function walkExplorerTransactions(
+  address: Address,
+  onPage: (items: ExplorerTransactionItem[]) => void | Promise<void>,
+): Promise<void> {
+  for (let page = 1; page <= EXPLORER_TXLIST_MAX_PAGES; page += 1) {
+    const items = await fetchTxListPage(address, page)
+    if (items.length === 0) return
+
+    await onPage(items)
+
+    if (items.length < EXPLORER_TXLIST_PAGE_SIZE) return
+  }
+
+  throw new Error(`Explorer txlist pagination limit exceeded for ${address}`)
+}
+
+function isSuccessfulExplorerTransaction(transaction: ExplorerTransactionItem): boolean {
+  if (transaction.isError !== '0') return false
+  return transaction.txreceipt_status === null || transaction.txreceipt_status === undefined || transaction.txreceipt_status === '1'
+}
+
+function getFunctionSelector(rawInput?: string | null): string | null {
+  if (typeof rawInput !== 'string' || rawInput.length < 10) return null
+  return rawInput.slice(0, 10).toLowerCase()
 }
 
 async function safeReadCount(address: Address, abi: typeof ILO_FACTORY_ABI, functionName: 'getILOCount'): Promise<number>
@@ -122,257 +174,114 @@ async function safeReadCount(
   }
 }
 
-async function getDeploymentBlock(address: Address, latestBlock: bigint): Promise<bigint> {
-  const cacheKey = address.toLowerCase()
-  const cached = deploymentBlockCache.get(cacheKey)
-  if (cached !== undefined) return cached
-
-  const latestCode = await client.getCode({ address, blockNumber: latestBlock })
-  if (!latestCode || latestCode === '0x') {
-    deploymentBlockCache.set(cacheKey, latestBlock)
-    return latestBlock
-  }
-
-  let low = 0n
-  let high = latestBlock
-
-  while (low < high) {
-    const mid = low + (high - low) / 2n
-    const code = await client.getCode({ address, blockNumber: mid })
-    if (code && code !== '0x') {
-      high = mid
-    } else {
-      low = mid + 1n
-    }
-  }
-
-  deploymentBlockCache.set(cacheKey, low)
-  return low
-}
-
-async function getTokenCount(latestBlock: bigint): Promise<number> {
-  if (!isValidContractAddress(TOKEN_FACTORY_ADDRESS)) return 0
-
-  const fromBlock =
-    tokenCountCache.lastScannedBlock === null
-      ? await getDeploymentBlock(TOKEN_FACTORY_ADDRESS, latestBlock)
-      : tokenCountCache.lastScannedBlock + 1n
-
-  if (fromBlock > latestBlock) return tokenCountCache.count
-
-  const logs = await client.getLogs({
-    address: TOKEN_FACTORY_ADDRESS,
-    event: TOKEN_CREATED_EVENT,
-    fromBlock,
-    toBlock: latestBlock,
-  })
-
-  tokenCountCache.count += logs.length
-  tokenCountCache.lastScannedBlock = latestBlock
-  return tokenCountCache.count
-}
-
-async function getPairAddresses(latestBlock: bigint): Promise<Set<string>> {
-  if (!isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS)) return new Set<string>()
-
-  const fromBlock =
-    swapCountCache.pairScanBlock === null
-      ? await getDeploymentBlock(UNISWAP_V2_FACTORY_ADDRESS, latestBlock)
-      : swapCountCache.pairScanBlock + 1n
-
-  if (fromBlock <= latestBlock) {
-    const logs = await client.getLogs({
-      address: UNISWAP_V2_FACTORY_ADDRESS,
-      event: PAIR_CREATED_EVENT,
-      fromBlock,
-      toBlock: latestBlock,
-    })
-
-    for (const log of logs) {
-      const pairAddress = Array.isArray(log.args) ? log.args[2] : undefined
-      if (typeof pairAddress === 'string') {
-        swapCountCache.pairAddresses.add(pairAddress.toLowerCase())
-      }
-    }
-
-    swapCountCache.pairScanBlock = latestBlock
-  }
-
-  return swapCountCache.pairAddresses
-}
-
-async function countSwapLogs(addresses: Address[], fromBlock: bigint, toBlock: bigint): Promise<number> {
-  if (addresses.length === 0 || fromBlock > toBlock) return 0
+async function getTokenCount(): Promise<number> {
+  const tokenFactoryAddress = resolveContractAddress(TOKEN_FACTORY_ADDRESS, DEFAULT_TOKEN_FACTORY_ADDRESS)
+  if (!tokenFactoryAddress) return 0
 
   let count = 0
-  for (const batch of chunk(addresses, SWAP_ADDRESS_BATCH_SIZE)) {
-    const logs = await client.getLogs({
-      address: batch,
-      event: SWAP_EVENT,
-      fromBlock,
-      toBlock,
-    })
-    count += logs.length
-  }
+
+  await walkExplorerTransactions(tokenFactoryAddress, (items) => {
+    for (const item of items) {
+      if (item.to?.toLowerCase() !== tokenFactoryAddress.toLowerCase()) continue
+      if (!isSuccessfulExplorerTransaction(item)) continue
+
+      const selector = getFunctionSelector(item.input)
+      if (selector === CREATE_TOKEN_FUNCTION_SELECTOR) {
+        count += 1
+      }
+    }
+  })
 
   return count
 }
 
-async function getSwapCount(latestBlock: bigint): Promise<number> {
-  const previousPairs = new Set(Array.from(swapCountCache.pairAddresses))
-  const pairAddresses = await getPairAddresses(latestBlock)
-  if (pairAddresses.size === 0) {
-    swapCountCache.count = 0
-    swapCountCache.lastScannedBlock = latestBlock
-    return 0
-  }
+async function getPresalesCount(): Promise<number> {
+  const addresses = new Map<string, Address>()
 
-  const currentPairs = Array.from(pairAddresses) as Address[]
+  const currentFactory = resolveContractAddress(ILO_FACTORY_ADDRESS, LEGACY_ILO_FACTORY_ADDRESS)
+  if (currentFactory) addresses.set(currentFactory.toLowerCase(), currentFactory)
 
-  if (swapCountCache.lastScannedBlock === null) {
-    const fullCount = await countSwapLogs(currentPairs, 0n, latestBlock)
-    swapCountCache.count = fullCount
-    swapCountCache.lastScannedBlock = latestBlock
-    return fullCount
-  }
+  addresses.set(LEGACY_ILO_FACTORY_ADDRESS.toLowerCase(), LEGACY_ILO_FACTORY_ADDRESS)
 
-  const newPairs = currentPairs.filter((pairAddress) => !previousPairs.has(pairAddress.toLowerCase()))
-  const existingPairs = currentPairs.filter((pairAddress) => previousPairs.has(pairAddress.toLowerCase()))
-
-  let nextCount = swapCountCache.count
-  if (swapCountCache.lastScannedBlock < latestBlock) {
-    nextCount += await countSwapLogs(existingPairs, swapCountCache.lastScannedBlock + 1n, latestBlock)
-  }
-  if (newPairs.length > 0) {
-    nextCount += await countSwapLogs(newPairs, 0n, latestBlock)
-  }
-
-  swapCountCache.count = nextCount
-  swapCountCache.lastScannedBlock = latestBlock
-  return nextCount
-}
-
-async function getDisperseTransactions(fromBlock: bigint, toBlock: bigint): Promise<DisperseTransaction[]> {
-  const transactions: DisperseTransaction[] = []
-
-  for (let start = fromBlock; start <= toBlock; start += BigInt(BLOCK_SCAN_BATCH_SIZE)) {
-    const end = start + BigInt(BLOCK_SCAN_BATCH_SIZE - 1)
-    const blockNumbers: bigint[] = []
-    for (let blockNumber = start; blockNumber <= end && blockNumber <= toBlock; blockNumber++) {
-      blockNumbers.push(blockNumber)
-    }
-
-    const blocks = await Promise.all(
-      blockNumbers.map((blockNumber) =>
-        client.getBlock({
-          blockNumber,
-          includeTransactions: true,
-        }),
-      ),
-    )
-
-    for (const block of blocks) {
-      for (const transaction of block.transactions) {
-        if (
-          transaction.to?.toLowerCase() === DISPERSE_ADDRESS.toLowerCase() &&
-          transaction.input &&
-          transaction.input !== '0x'
-        ) {
-          transactions.push({
-            hash: transaction.hash,
-            input: transaction.input,
-          })
-        }
-      }
-    }
-  }
-
-  return transactions
-}
-
-async function getAirdropWalletCount(latestBlock: bigint): Promise<number> {
-  if (!isValidContractAddress(DISPERSE_ADDRESS)) return 0
-
-  const fromBlock =
-    airdropCountCache.lastScannedBlock === null
-      ? await getDeploymentBlock(DISPERSE_ADDRESS, latestBlock)
-      : airdropCountCache.lastScannedBlock + 1n
-
-  if (fromBlock > latestBlock) return airdropCountCache.count
-
-  const disperseTransactions = await getDisperseTransactions(fromBlock, latestBlock)
-  if (disperseTransactions.length === 0) {
-    airdropCountCache.lastScannedBlock = latestBlock
-    return airdropCountCache.count
-  }
-
-  const transactions = await Promise.all(
-    disperseTransactions.map((transaction) =>
-      client.getTransactionReceipt({ hash: transaction.hash })
-        .then((receipt) => ({
-          input: transaction.input,
-          receipt,
-        }))
-        .catch(() => null),
-    ),
+  const counts = await Promise.all(
+    Array.from(addresses.values()).map((address) => safeReadCount(address, ILO_FACTORY_ABI, 'getILOCount')),
   )
 
-  for (const entry of transactions) {
-    if (!entry) continue
+  return counts.reduce((sum, value) => sum + value, 0)
+}
 
-    const { input, receipt } = entry
-    if (receipt.status !== 'success') continue
+async function getSwapCount(): Promise<number> {
+  const routerAddress = resolveContractAddress(UNISWAP_V2_ROUTER_ADDRESS, DEFAULT_UNISWAP_V2_ROUTER_ADDRESS)
+  if (!routerAddress) return 0
 
-    try {
-      const decoded = decodeFunctionData({
-        abi: DISPERSE_ABI,
-        data: input,
-      })
+  let count = 0
 
-      const recipientsArg =
-        decoded.functionName === 'disperseToken'
-          ? decoded.args[1]
-          : decoded.args[0]
+  await walkExplorerTransactions(routerAddress, (items) => {
+    for (const item of items) {
+      if (item.to?.toLowerCase() !== routerAddress.toLowerCase()) continue
+      if (!isSuccessfulExplorerTransaction(item)) continue
 
-      if (!Array.isArray(recipientsArg)) continue
-
-      for (const recipient of recipientsArg) {
-        if (typeof recipient === 'string') {
-          airdropCountCache.recipients.add(recipient.toLowerCase())
-        }
+      const selector = getFunctionSelector(item.input)
+      if (selector && SWAP_FUNCTION_SELECTORS.has(selector)) {
+        count += 1
       }
-    } catch {
-      // Ignore non-matching calldata.
     }
-  }
+  })
 
-  airdropCountCache.count = airdropCountCache.recipients.size
-  airdropCountCache.lastScannedBlock = latestBlock
-  return airdropCountCache.count
+  return count
+}
+
+async function getAirdropWalletCount(): Promise<number> {
+  const disperseAddress = resolveContractAddress(DISPERSE_ADDRESS, DEFAULT_DISPERSE_ADDRESS)
+  if (!disperseAddress) return 0
+
+  const recipients = new Set<string>()
+
+  await walkExplorerTransactions(disperseAddress, (items) => {
+    for (const item of items) {
+      if (item.to?.toLowerCase() !== disperseAddress.toLowerCase()) continue
+      if (!isSuccessfulExplorerTransaction(item)) continue
+      if (typeof item.input !== 'string' || item.input === '0x') continue
+
+      try {
+        const decoded = decodeFunctionData({
+          abi: DISPERSE_ABI,
+          data: item.input as Hex,
+        })
+
+        const recipientsArg = decoded.functionName === 'disperseToken' ? decoded.args[1] : decoded.args[0]
+        if (!Array.isArray(recipientsArg)) continue
+
+        for (const recipient of recipientsArg) {
+          if (typeof recipient === 'string') {
+            recipients.add(recipient.toLowerCase())
+          }
+        }
+      } catch {
+        // Ignore non-disperse calls and malformed calldata.
+      }
+    }
+  })
+
+  return recipients.size
+}
+
+async function getOnChainMessageCount(): Promise<number> {
+  const ledgerAddress = resolveContractAddress(LEDGER_ADDRESS, DEFAULT_LEDGER_ADDRESS)
+  if (!ledgerAddress) return 0
+
+  return safeReadCount(ledgerAddress, LEDGER_ABI, 'messageCount')
 }
 
 async function computeSnapshot(): Promise<PlatformStatsSnapshot> {
-  const latestBlock = await client.getBlockNumber()
   const previous = responseCache?.snapshot
 
-  const [
-    tokensResult,
-    presalesResult,
-    swapsResult,
-    airdropsResult,
-    messagesResult,
-  ] = await Promise.allSettled([
-    getTokenCount(latestBlock),
-    (async () => {
-      const [currentCount, legacyCount] = await Promise.all([
-        safeReadCount(ILO_FACTORY_ADDRESS, ILO_FACTORY_ABI, 'getILOCount'),
-        safeReadCount(LEGACY_ILO_FACTORY_ADDRESS, ILO_FACTORY_ABI, 'getILOCount'),
-      ])
-      return currentCount + legacyCount
-    })(),
-    getSwapCount(latestBlock),
-    getAirdropWalletCount(latestBlock),
-    safeReadCount(LEDGER_ADDRESS, LEDGER_ABI, 'messageCount'),
+  const [tokensResult, presalesResult, swapsResult, airdropsResult, messagesResult] = await Promise.allSettled([
+    getTokenCount(),
+    getPresalesCount(),
+    getSwapCount(),
+    getAirdropWalletCount(),
+    getOnChainMessageCount(),
   ])
 
   return {

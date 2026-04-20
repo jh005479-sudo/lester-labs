@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PlatformStatsSnapshot } from '@/lib/platformStats'
 
-const POLL_INTERVAL_MS = 30_000
+const POLL_INTERVAL_MS = 60_000
 const SESSION_CACHE_KEY = 'lester_platform_stats_v1'
 
 function StatChip({ label, value, accent }: { label: string; value: string; accent: string }) {
@@ -98,9 +98,7 @@ export function PlatformStats() {
 
     const fetchSnapshot = async () => {
       try {
-        const response = await fetch('/api/platform-stats', {
-          cache: 'no-store',
-        })
+        const response = await fetch('/api/platform-stats')
 
         if (!response.ok) throw new Error('Failed to fetch platform stats')
         const payload = (await response.json()) as unknown
