@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract } from 'wagmi'
+import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract, useChainId, useSwitchChain } from 'wagmi'
+import { litvm } from '@/config/chains'
 import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
 import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
 import { FeeDisplay } from '@/components/shared/FeeDisplay'
@@ -145,7 +146,9 @@ function Field({
 // ─── Main form ─────────────────────────────────────────────────────────────
 
 export function LockForm() {
-  const { address: connectedAddress } = useAccount()
+  const { address: connectedAddress, isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
 
   // Form state
   const [lpToken, setLpToken] = useState('')
@@ -300,8 +303,14 @@ export function LockForm() {
 
   // ── Approve step ──────────────────────────────────────────────────────────
 
+  const isWrongNetwork = isConnected && chainId !== litvm.id
+
   const handleApprove = async () => {
     if (lpDecimals === undefined) return // Guard against stale decimals
+    if (isWrongNetwork) {
+      await switchChainAsync({ chainId: litvm.id })
+      return
+    }
     try {
       setInTwoStep(true)
       setApproveStep('approve')
@@ -332,6 +341,10 @@ export function LockForm() {
   const handleLock = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
     if (lpDecimals === undefined) return // Guard against stale decimals
+    if (isWrongNetwork) {
+      await switchChainAsync({ chainId: litvm.id })
+      return
+    }
     try {
       setApproveStep('lock')
       setModalOpen(true)

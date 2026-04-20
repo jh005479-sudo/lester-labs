@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { Suspense, useEffect, useRef, useState, startTransition } from 'react'
 import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Wallet, X, ArrowLeftRight } from 'lucide-react'
-import { useAccount, useBalance, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { useAccount, useBalance, useChainId, useReadContract, useReadContracts, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { litvm } from '@/config/chains'
 import { CurrencyAmount, Token } from '@uniswap/sdk-core'
 import { Pair, Route, Trade } from '@uniswap/v2-sdk'
 import { encodeFunctionData, formatUnits, isAddress, maxUint256, parseUnits, zeroAddress } from 'viem'
@@ -178,7 +179,9 @@ function CreatePoolPanel({
   existingPairAddress?: `0x${string}`
 }) {
   const { address, isConnected } = useAccount()
+  const chainId = useChainId()
   const { writeContractAsync } = useWriteContract()
+  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
   const { tokens: discoveredTokens } = useAllTokenMetadata()
   const [token0, setToken0] = useState<TokenOption | null>(initialToken0 ?? null)
   const [token1, setToken1] = useState<TokenOption | null>(initialToken1 ?? null)
@@ -198,6 +201,14 @@ function CreatePoolPanel({
   const [txOpen, setTxOpen] = useState(false)
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
+
+  // Chain verification — prevent transactions on wrong network (root cause of 2026-04-20 incident)
+  const isWrongNetwork = isConnected && chainId !== litvm.id
+  const handleCorrectChain = async (onError?: () => void) => {
+    if (!isWrongNetwork) return true
+    try { await switchChainAsync({ chainId: litvm.id }) } catch { onError?.() }
+    return false
+  }
 
   useEffect(() => {
     if (!initialToken0) return
@@ -348,8 +359,10 @@ function CreatePoolPanel({
     parseFloat(amount1) > 0
 
   async function handleCreate() {
-    // Debug: tell user if canCreate or address is false
     if (!isConnected) { setTxMessage('Wallet not connected.'); setTxOpen(true); setTxStatus('error'); return }
+    if (isWrongNetwork) {
+      if (await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') })) return
+    }
     if (!decimalsReady) { setTxMessage('Token metadata is still loading. Please try again in a moment.'); setTxOpen(true); setTxStatus('error'); return }
     if (!canCreate) { console.warn('[CreatePool] canCreate=false — token0:', token0?.symbol, 'token1:', token1?.symbol, 'amount0:', amount0, 'amount1:', amount1) }
     if (!canCreate || !address) return
@@ -899,7 +912,9 @@ function TokenButton({
 // ── Wrap / Unwrap Panel ──────────────────────────────────────────────────────
 function WrapUnwrapPanel() {
   const { address, isConnected } = useAccount()
+  const chainId = useChainId()
   const { writeContractAsync } = useWriteContract()
+  const { switchChainAsync } = useSwitchChain()
   const [mode, setMode] = useState<'wrap' | 'unwrap'>('wrap')
   const [amount, setAmount] = useState('')
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
@@ -943,8 +958,18 @@ function WrapUnwrapPanel() {
     setTxMessage(txError.message.slice(0, 180))
   }, [txError, txHash])
 
+  const isWrongNetwork = isConnected && chainId !== litvm.id
+  const handleCorrectChain = async (onError?: () => void) => {
+    if (!isWrongNetwork) return true
+    try { await switchChainAsync({ chainId: litvm.id }) } catch { onError?.() }
+    return false
+  }
+
   async function handleWrap() {
     if (!isConnected || !address || !amount || parseFloat(amount) <= 0) return
+    if (isWrongNetwork) {
+      if (await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') })) return
+    }
     try {
       setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
       const value = parseUnits(amount, 18)
@@ -970,6 +995,9 @@ function WrapUnwrapPanel() {
 
   async function handleUnwrap() {
     if (!isConnected || !address || !amount || parseFloat(amount) <= 0) return
+    if (isWrongNetwork) {
+      if (await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') })) return
+    }
     try {
       setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
       const value = parseUnits(amount, 18)
@@ -1090,7 +1118,17 @@ function WrapUnwrapPanel() {
 function SwapPageInner() {
   const searchParams = useSearchParams()
   const { address, isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
   const { tokens: discoveredTokens, loading: tokensLoading, cacheStatus } = useAllTokenMetadata()
+
+  // Chain verification — block all contract interactions on wrong network (2026-04-20 fix)
+  const isWrongNetwork = isConnected && chainId !== litvm.id
+  const handleCorrectChain = async (onError?: () => void) => {
+    if (!isWrongNetwork) return true
+    try { await switchChainAsync({ chainId: litvm.id }) } catch { onError?.() }
+    return false
+  }
   const { writeContractAsync } = useWriteContract()
   const createPoolRequested = Boolean(searchParams.get('createPool'))
   const addLiquidityPairAddress = searchParams.get('addLiquidity')
@@ -1464,7 +1502,10 @@ function SwapPageInner() {
   }, [txError, txHash])
 
   async function handleSwapClick() {
-    // Show settlement preview before any wallet interaction
+    if (isWrongNetwork) {
+      await handleCorrectChain()
+      return
+    }
     setShowSettlementPreview(true)
   }
 
@@ -1515,6 +1556,9 @@ function SwapPageInner() {
 
   async function handlePrimaryAction() {
     if (!isConnected || !address || !resolvedOutput || parsedAmountIn === null || !isDexConfigured) return
+    if (isWrongNetwork) {
+      if (await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') })) return
+    }
     if (wrappedInputAddress.toLowerCase() === wrappedOutputAddress.toLowerCase()) return
     if (!pairExists || minimumAmountOut === null) return
 
@@ -1598,7 +1642,9 @@ function SwapPageInner() {
 
   const primaryButtonText = !isConnected
     ? 'Connect wallet to swap'
-    : resolvedOutput === null
+    : isWrongNetwork
+      ? 'Wrong network — click to switch'
+      : resolvedOutput === null
       ? 'Select an output token'
       : wrappedInputAddress.toLowerCase() === wrappedOutputAddress.toLowerCase()
         ? 'Choose another pair'
@@ -1616,6 +1662,7 @@ function SwapPageInner() {
 
   const primaryButtonDisabled =
     !isConnected ||
+    isWrongNetwork ||
     resolvedOutput === null ||
     normalizedAmountIn.length === 0 ||
     parsedAmountIn === null ||

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId, useSwitchChain } from 'wagmi'
+import { litvm } from '@/config/chains'
 import { parseUnits, decodeEventLog, formatEther } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Copy, ExternalLink, ArrowRight, Calendar, Lock, PartyPopper, Send } from 'lucide-react'
@@ -175,6 +176,9 @@ interface TokenWizardProps {
 }
 
 export function TokenWizard({ onStateChange }: TokenWizardProps) {
+  const { isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
   const [step, setStep] = useState(1)
   const [basics, setBasics] = useState<TokenBasics>(DEFAULT_BASICS)
   const [features, setFeatures] = useState<TokenFeatures>(DEFAULT_FEATURES)
@@ -269,8 +273,14 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
     }
   }, [receipt, currentTxHash, txStatus, handleReceipt])
 
+  const isWrongNetwork = isConnected && chainId !== litvm.id
+
   const handleDeploy = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
+    if (isWrongNetwork) {
+      await switchChainAsync({ chainId: litvm.id })
+      return
+    }
     try {
       setModalOpen(true)
       setTxStatus('pending')

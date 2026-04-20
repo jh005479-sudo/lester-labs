@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId, useSwitchChain } from 'wagmi'
+import { litvm } from '@/config/chains'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { isAddress, parseUnits } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
@@ -127,6 +128,8 @@ function SuccessPanel({ success, onReset }: { success: SuccessState; onReset: ()
 
 export function AirdropForm() {
   const { address, isConnected } = useAccount()
+  const chainId = useChainId()
+  const { switchChainAsync } = useSwitchChain()
 
   const [mode, setMode] = useState<Mode>('token')
   const [tokenAddress, setTokenAddress] = useState('')
@@ -138,6 +141,8 @@ export function AirdropForm() {
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successState, setSuccessState] = useState<SuccessState | null>(null)
+
+  const isWrongNetwork = isConnected && chainId !== litvm.id
 
   const { writeContractAsync } = useWriteContract()
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
@@ -202,6 +207,10 @@ export function AirdropForm() {
 
   const handleSend = useCallback(async () => {
     if (!canSubmit) return
+    if (isWrongNetwork) {
+      await switchChainAsync({ chainId: litvm.id })
+      return
+    }
 
     setModalOpen(true)
     setTxStatus('pending')
