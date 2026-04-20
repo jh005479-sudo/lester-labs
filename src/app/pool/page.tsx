@@ -404,6 +404,7 @@ function RemoveLiquidityPanel({
           abi: UNISWAP_V2_ROUTER_EXTENDED_ABI,
           functionName: 'removeLiquidityETH',
           args: [tokenAddr, lpAmount, 0n, 0n, address, deadline],
+          gas: 500000n,
         })
       } else {
         // Both ERC20 — ensure tokenA < tokenB
@@ -415,6 +416,7 @@ function RemoveLiquidityPanel({
           abi: UNISWAP_V2_ROUTER_EXTENDED_ABI,
           functionName: 'removeLiquidity',
           args: [tokenA, tokenB, lpAmount, 0n, 0n, address, deadline],
+          gas: 500000n,
         })
       }
 
