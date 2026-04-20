@@ -278,7 +278,9 @@ function CreatePoolPanel({
       ? token0Balance - NATIVE_GAS_RESERVE
       : token0Balance
     const dec = token0Decimals ?? 18
-    setAmount0(formatTokenAmount(bal, dec, '0'))
+    // Store raw (unformatted) value — formatInputAmount strips commas on keystroke, and
+    // parseUnits() downstream crashes on comma-formatted input. formatUnits is safe here.
+    setAmount0(formatUnits(bal, dec))
   }
   function setMaxToken1() {
     if (!token1) return
@@ -286,7 +288,7 @@ function CreatePoolPanel({
       ? token1Balance - NATIVE_GAS_RESERVE
       : token1Balance
     const dec = token1Decimals ?? 18
-    setAmount1(formatTokenAmount(bal, dec, '0'))
+    setAmount1(formatUnits(bal, dec))
   }
 
   const tokenOptionMap = new Map<string, TokenOption>()
@@ -994,9 +996,10 @@ function WrapUnwrapPanel() {
     if (mode === 'wrap') {
       const val = nativeBal.data?.value ?? 0n
       const safe = val > NATIVE_GAS_RESERVE ? val - NATIVE_GAS_RESERVE : 0n
-      setAmount(formatTokenAmount(safe, 18, '0'))
+      // Store raw value — parseUnits crashes on comma-formatted input
+      setAmount(formatUnits(safe, 18))
     } else {
-      setAmount(formatTokenAmount((wzklteBal.data ?? 0n) as bigint, 18, '0'))
+      setAmount(formatUnits((wzklteBal.data ?? 0n) as bigint, 18))
     }
   }
 
@@ -1581,7 +1584,8 @@ function SwapPageInner() {
     const sourceBalance = resolvedInput.isNative && rawBalance > NATIVE_GAS_RESERVE
       ? rawBalance - NATIVE_GAS_RESERVE
       : rawBalance
-    setAmountIn(formatTokenAmount(sourceBalance, resolvedInput.decimals, '0'))
+    // Store raw value — parseUnits crashes on comma-formatted input
+    setAmountIn(formatUnits(sourceBalance, resolvedInput.decimals))
   }
 
   function flipPair() {

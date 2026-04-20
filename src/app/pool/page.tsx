@@ -139,7 +139,7 @@ function PositionCard({ position, onAddLiquidity, onRemoveLiquidity }: {
     share: number
   }
   onAddLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`) => void
-  onRemoveLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`, lpBalance: bigint) => void
+  onRemoveLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`, lpBalance: bigint, token0Decimals: number, token1Decimals: number) => void
 }) {
   return (
     <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/25">
@@ -163,7 +163,7 @@ function PositionCard({ position, onAddLiquidity, onRemoveLiquidity }: {
             Add Liquidity
           </button>
           <button
-            onClick={() => onRemoveLiquidity(position.pairAddress, position.token0Address, position.token1Address, position.lpBalance)}
+            onClick={() => onRemoveLiquidity(position.pairAddress, position.token0Address, position.token1Address, position.lpBalance, position.token0Meta.decimals, position.token1Meta.decimals)}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
           >
             <Minus size={12} />
@@ -264,6 +264,8 @@ function RemoveLiquidityPanel({
   token0,
   token1,
   lpBalance,
+  token0Decimals,
+  token1Decimals,
   onClose,
   onSuccess,
 }: {
@@ -271,6 +273,8 @@ function RemoveLiquidityPanel({
   token0: `0x${string}`
   token1: `0x${string}`
   lpBalance: bigint
+  token0Decimals: number
+  token1Decimals: number
   onClose: () => void
   onSuccess: () => void
 }) {
@@ -285,15 +289,16 @@ function RemoveLiquidityPanel({
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [approvalPending, setApprovalPending] = useState(false)
+  const [txAction, setTxAction] = useState<'approve' | 'remove'>('remove')
 
-  const isToken0Native = token0.toLowerCase() === ZERO_ADDRESS().toLowerCase()
-  const isToken1Native = token1.toLowerCase() === ZERO_ADDRESS().toLowerCase()
+  const isToken0Native = token0.toLowerCase() === WRAPPED_ZKLTC_ADDRESS.toLowerCase()
+  const isToken1Native = token1.toLowerCase() === WRAPPED_ZKLTC_ADDRESS.toLowerCase()
   const isETHPair = isToken0Native || isToken1Native
 
   const maxLpReadable = Number(lpBalance) / 1e18
   const inputValue = parseFloat(removePercent)
   const lpAmount = inputValue > 0 && inputValue <= maxLpReadable
-    ? BigInt(Math.floor(inputValue * 1e18))
+    ? (BigInt(Math.floor(inputValue * 1e4)) * lpBalance) / 10000n
     : 0n
 
   // Read reserves to calculate expected token amounts
@@ -341,21 +346,33 @@ function RemoveLiquidityPanel({
     if (!txHash) return
     if (isConfirming) {
       setTxStatus('pending')
-      setTxMessage('Remove liquidity transaction pending...')
+      setTxMessage(txAction === 'approve' ? 'Approval transaction pending...' : 'Remove liquidity transaction pending...')
     }
-  }, [isConfirming, txHash])
+  }, [isConfirming, txHash, txAction])
 
   useEffect(() => {
     if (!txHash || !txConfirmed) return
     setTxStatus('success')
-    setTxMessage('Liquidity removed successfully on LitVM.')
-  }, [txConfirmed, txHash])
+    if (txAction === 'approve') {
+      setTxMessage('Approval confirmed. You can now remove liquidity.')
+      // Refetch allowance so the Remove button unblocks immediately
+      queryClient.invalidateQueries({ queryKey: allowanceRead.queryKey })
+      allowanceRead.refetch()
+    } else {
+      setTxMessage('Liquidity removed successfully on LitVM.')
+    }
+  }, [txConfirmed, txHash, txAction, queryClient, allowanceRead])
 
   useEffect(() => {
     if (!txHash || !txError) return
     setTxStatus('error')
-    setTxMessage(txError.message.slice(0, 180))
-  }, [txError, txHash])
+    const raw = txError.message
+    const revertMatch = raw.match(/reverted with reason string:\s*(.+)/i)
+      || raw.match(/execution reverted:\s*(.+)/i)
+      || raw.match(/Transaction timed out/i)
+    const display = revertMatch ? revertMatch[0] : raw
+    setTxMessage(display.slice(0, 300) || `${txAction === 'approve' ? 'Approval' : 'Remove liquidity'} failed.`)
+  }, [txError, txHash, txAction])
 
   const canRemove = isConnected && parseFloat(removePercent) > 0 && lpAmount > 0n
 
@@ -377,7 +394,7 @@ function RemoveLiquidityPanel({
       // Cancel any in-flight query then refetch to get updated allowance
       await queryClient.cancelQueries({ queryKey: allowanceRead.queryKey })
       queryClient.invalidateQueries({ queryKey: allowanceRead.queryKey })
-      allowanceRead.refetch()
+      setTxAction('approve')
     } catch (err) {
       setTxStatus('error')
       setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Approval failed.')
@@ -390,6 +407,7 @@ function RemoveLiquidityPanel({
   async function handleRemoveLiquidity() {
     if (!canRemove || !address) return
     setRemoving(true)
+    setTxAction('remove')
     try {
       setTxOpen(true)
       setTxStatus('pending')
@@ -491,7 +509,7 @@ function RemoveLiquidityPanel({
               />
               <div className="flex flex-col gap-1">
                 <button
-                  onClick={() => setRemovePercent((Number(lpBalance) / 1e18).toFixed(8))}
+                  onClick={() => setRemovePercent(lpBalance.toString())}
                   className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:border-white/20 hover:text-white"
                 >
                   Max
@@ -504,21 +522,22 @@ function RemoveLiquidityPanel({
                 </button>
               </div>
             </div>
+            {/* Basis-points state: '2500'=25%, '5000'=50%, '7500'=75%, '10000'=100%, numeric string=custom */}
             <div className="flex gap-2 text-xs text-white/40">
-              {['25', '50', '75'].map((pct) => (
+              {(['2500', '5000', '7500'] as const).map((bp) => (
                 <button
-                  key={pct}
+                  key={bp}
                   onClick={() => {
-                    const fraction = (Number(lpBalance) * Number(pct) / 100 / 1e18).toFixed(8)
-                    setRemovePercent(fraction)
+                    const lpAmt = (lpBalance * BigInt(bp)) / 10000n
+                    setRemovePercent(lpAmt.toString())
                   }}
                   className={`flex-1 rounded-full border py-1 transition ${
-                    removePercent === pct
+                    removePercent === (lpBalance * BigInt(bp) / 10000n).toString()
                       ? 'border-white/20 bg-white/10 text-white'
                       : 'border-white/10 text-white/40 hover:border-white/15'
                   }`}
                 >
-                  {pct}%
+                  {Number(bp) / 100}%
                 </button>
               ))}
             </div>
@@ -529,8 +548,8 @@ function RemoveLiquidityPanel({
             <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4 space-y-2">
               <p className="text-xs uppercase tracking-[0.12em] text-white/35">You will receive (estimated)</p>
               <div className="flex justify-between">
-                <span className="text-sm text-white/70">{formatAmount(expectedToken0, 18)}</span>
-                <span className="text-sm text-white/70">{formatAmount(expectedToken1, 18)}</span>
+                <span className="text-sm text-white/70">{formatAmount(expectedToken0, token0Decimals)} {token0.slice(0, 6)}…</span>
+                <span className="text-sm text-white/70">{formatAmount(expectedToken1, token1Decimals)} {token1.slice(0, 6)}…</span>
               </div>
             </div>
           )}
@@ -610,6 +629,8 @@ export default function PoolPage() {
     token0: `0x${string}`
     token1: `0x${string}`
     lpBalance: bigint
+    token0Decimals: number
+    token1Decimals: number
   } | null>(null)
 
   const displayedCount = Math.min(loadedBatches * PAGE_SIZE, maxDisplay)
@@ -824,9 +845,11 @@ export default function PoolPage() {
     pairAddress: `0x${string}`,
     token0: `0x${string}`,
     token1: `0x${string}`,
-    lpBalance: bigint
+    lpBalance: bigint,
+    token0Decimals: number,
+    token1Decimals: number
   ) {
-    setRemoveLiqData({ pairAddress, token0, token1, lpBalance })
+    setRemoveLiqData({ pairAddress, token0, token1, lpBalance, token0Decimals, token1Decimals })
     setShowRemoveLiq(true)
   }
 
@@ -1070,6 +1093,8 @@ export default function PoolPage() {
                       token0={removeLiqData.token0}
                       token1={removeLiqData.token1}
                       lpBalance={removeLiqData.lpBalance}
+                      token0Decimals={removeLiqData.token0Decimals}
+                      token1Decimals={removeLiqData.token1Decimals}
                       onClose={() => { setShowRemoveLiq(false); setRemoveLiqData(null) }}
                       onSuccess={() => {
                         lpBalanceReads.refetch()
