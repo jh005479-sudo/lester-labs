@@ -12,6 +12,8 @@ interface StepReviewProps {
   features: TokenFeatures
   onDeploy: () => void
   isDeploying: boolean
+  isWrongNetwork?: boolean
+  isSwitchingNetwork?: boolean
   feeDisplay?: string // RP-003: Live fee from contract
   feeReady?: boolean  // RP-003: Whether fee is loaded
 }
@@ -45,7 +47,16 @@ function FeatureBadge({ enabled, label }: { enabled: boolean; label: string }) {
   )
 }
 
-export function StepReview({ basics, features, onDeploy, isDeploying, feeDisplay = '0.05', feeReady = true }: StepReviewProps) {
+export function StepReview({
+  basics,
+  features,
+  onDeploy,
+  isDeploying,
+  isWrongNetwork = false,
+  isSwitchingNetwork = false,
+  feeDisplay = '0.05',
+  feeReady = true,
+}: StepReviewProps) {
   const { isConnected } = useAccount()
 
   const supplyDisplay = Number(basics.totalSupply).toLocaleString()
@@ -83,16 +94,30 @@ export function StepReview({ basics, features, onDeploy, isDeploying, feeDisplay
         <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.05} feeLabel="Total" />
       </div>
 
+      {isConnected && isWrongNetwork && (
+        <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+          Wallet is connected to the wrong network. Switch to LitVM Testnet before deploying this token.
+        </div>
+      )}
+
       {/* Deploy / connect (RP-003: disable until fee loaded) */}
       {!isConnected ? (
         <ConnectWalletPrompt />
       ) : (
         <button
           onClick={onDeploy}
-          disabled={isDeploying || !feeReady}
+          disabled={isWrongNetwork ? isSwitchingNetwork : isDeploying || !feeReady}
           className="w-full rounded-xl bg-[var(--accent)] px-6 py-3.5 text-base font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isDeploying ? 'Deploying…' : !feeReady ? 'Loading fee…' : 'Deploy Token'}
+          {isWrongNetwork
+            ? isSwitchingNetwork
+              ? 'Switching network…'
+              : 'Switch to LitVM Testnet'
+            : isDeploying
+              ? 'Deploying…'
+              : !feeReady
+                ? 'Loading fee…'
+                : 'Deploy Token'}
         </button>
       )}
 

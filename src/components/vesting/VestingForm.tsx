@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId, useSwitchChain } from 'wagmi'
-import { litvm } from '@/config/chains'
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Circle, CircleAlert, CircleDashed, Copy, ExternalLink, ArrowRight, Mail, PartyPopper, Send } from 'lucide-react'
@@ -16,6 +15,8 @@ import {
   VESTING_FACTORY_ADDRESS,
 } from '@/lib/contracts/tokenVesting'
 import { isValidContractAddress } from '@/config/contracts'
+import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
+import { getWalletErrorMessage, getWrongNetworkMessage } from '@/lib/walletErrors'
 
 // ABI for fetching token decimals (F-009)
 const ERC20_DECIMALS_ABI = [
@@ -275,10 +276,6 @@ const DEFAULT_FORM: FormState = {
 }
 
 export function VestingForm() {
-  const { isConnected } = useAccount()
-  const chainId = useChainId()
-  const { switchChainAsync } = useSwitchChain()
-
   const [form, setForm] = useState<FormState>(DEFAULT_FORM)
   const [step, setStep] = useState<'form' | 'review'>('form')
   const [txPhase, setTxPhase] = useState<'approve' | 'create'>('approve')
@@ -287,7 +284,7 @@ export function VestingForm() {
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successResult, setSuccessResult] = useState<SuccessState | null>(null)
-  const [tokenDecimals, setTokenDecimals] = useState<number | undefined>(undefined)
+  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
 
   const set = <K extends keyof FormState>(key: K, val: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: val }))
@@ -318,18 +315,7 @@ export function VestingForm() {
       enabled: isAddress(form.tokenAddress),
     },
   })
-
-  // Reset decimals when token address changes to prevent stale values
-  useEffect(() => {
-    setTokenDecimals(undefined)
-  }, [form.tokenAddress])
-
-  // Update tokenDecimals when fetched
-  useEffect(() => {
-    if (fetchedDecimals !== undefined) {
-      setTokenDecimals(fetchedDecimals)
-    }
-  }, [fetchedDecimals])
+  const tokenDecimals = fetchedDecimals
 
   // Handle receipt when it comes back
   useEffect(() => {
@@ -386,18 +372,12 @@ export function VestingForm() {
     }
   }, [receipt, currentTxHash, txStatus, txPhase, form])
 
-  const isWrongNetwork = isConnected && chainId !== litvm.id
-
   const handleApprove = async () => {
     if (tokenDecimals === undefined) return // Guard against stale decimals
     if (isWrongNetwork) {
-      try {
-        await switchChainAsync({ chainId: litvm.id })
-      } catch {
-        setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
-        setModalOpen(true)
-        setTxStatus('error')
-      }
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(getWrongNetworkMessage('approving a vesting schedule'))
       return
     }
     try {
@@ -417,29 +397,19 @@ export function VestingForm() {
       setCurrentTxHash(hash)
     } catch (err: unknown) {
       setTxStatus('error')
-      setTxMessage(
-        err instanceof Error
-          ? err.message.includes('User rejected')
-            ? 'Transaction was rejected.'
-            : err.message.slice(0, 120)
-          : 'An unexpected error occurred.',
-      )
+      setTxMessage(getWalletErrorMessage(err))
     }
   }
 
   const handleCreate = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
+    if (tokenDecimals === undefined) return // Guard against stale decimals
     if (isWrongNetwork) {
-      try {
-        await switchChainAsync({ chainId: litvm.id })
-      } catch {
-        setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
-        setModalOpen(true)
-        setTxStatus('error')
-      }
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(getWrongNetworkMessage('creating a vesting schedule'))
       return
     }
-    if (tokenDecimals === undefined) return // Guard against stale decimals
     try {
       setModalOpen(true)
       setTxStatus('pending')
@@ -472,13 +442,16 @@ export function VestingForm() {
       setCurrentTxHash(hash)
     } catch (err: unknown) {
       setTxStatus('error')
-      setTxMessage(
-        err instanceof Error
-          ? err.message.includes('User rejected')
-            ? 'Transaction was rejected.'
-            : err.message.slice(0, 120)
-          : 'An unexpected error occurred.',
-      )
+      setTxMessage(getWalletErrorMessage(err))
+    }
+  }
+
+  const handleSwitchNetwork = async () => {
+    const result = await switchToLitvm()
+    if (!result.switched) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(result.error)
     }
   }
 
@@ -777,7 +750,22 @@ export function VestingForm() {
               schedule.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            {isWrongNetwork && (
+              <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+                Wallet is connected to the wrong network. Switch to LitVM Testnet before approving or creating this vesting schedule.
+              </div>
+            )}
+
+            {isWrongNetwork ? (
+              <button
+                onClick={handleSwitchNetwork}
+                disabled={isSwitchingChain}
+                className="w-full rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSwitchingChain ? 'Switching network…' : 'Switch to LitVM Testnet'}
+              </button>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-3">
               {/* Step 1 — Approve */}
               <button
                 onClick={handleApprove}
@@ -800,7 +788,8 @@ export function VestingForm() {
               >
                 {isFeeLoading ? 'Loading fee…' : '2. Create Schedule'}
               </button>
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -822,4 +811,3 @@ export function VestingForm() {
     </div>
   )
 }
-

@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId, useSwitchChain } from 'wagmi'
-import { litvm } from '@/config/chains'
+import { useState, useCallback, useEffect, useEffectEvent } from 'react'
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, decodeEventLog, formatEther } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Copy, ExternalLink, ArrowRight, Calendar, Lock, PartyPopper, Send } from 'lucide-react'
@@ -16,6 +15,8 @@ import {
   TOKEN_FACTORY_ADDRESS,
 } from '@/lib/contracts/tokenFactory'
 import { isValidContractAddress } from '@/config/contracts'
+import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
+import { getWalletErrorMessage, getWrongNetworkMessage } from '@/lib/walletErrors'
 
 const STEPS = [
   { id: 1, label: 'Token Basics' },
@@ -176,9 +177,6 @@ interface TokenWizardProps {
 }
 
 export function TokenWizard({ onStateChange }: TokenWizardProps) {
-  const { isConnected } = useAccount()
-  const chainId = useChainId()
-  const { switchChainAsync } = useSwitchChain()
   const [step, setStep] = useState(1)
   const [basics, setBasics] = useState<TokenBasics>(DEFAULT_BASICS)
   const [features, setFeatures] = useState<TokenFeatures>(DEFAULT_FEATURES)
@@ -197,27 +195,13 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
     })
   }, [basics, features, onStateChange])
 
-  // Save token logo to IndexedDB after successful deployment
-  const handleReceipt = useCallback(
-    async (hash: `0x${string}`, contractAddress: string) => {
-      if (basics.logoUrl) {
-        await setTokenImageUrl(contractAddress, basics.logoUrl)
-      }
-      setTxStatus('success')
-      setSuccessResult({
-        tokenAddress: contractAddress,
-        name: basics.name,
-        symbol: basics.symbol,
-        txHash: hash,
-      })
-    },
-    [basics.name, basics.symbol, basics.logoUrl],
-  )
   const [modalOpen, setModalOpen] = useState(false)
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [successResult, setSuccessResult] = useState<SuccessState | null>(null)
 
+
+  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
   const { writeContractAsync } = useWriteContract()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
 
@@ -236,6 +220,24 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
 
   const { data: receipt } = useWaitForTransactionReceipt({
     hash: currentTxHash,
+  })
+
+  const applyReceiptSuccess = useEffectEvent(async (hash: `0x${string}`, contractAddress: string) => {
+    if (basics.logoUrl) {
+      await setTokenImageUrl(contractAddress, basics.logoUrl)
+    }
+    setTxStatus('success')
+    setSuccessResult({
+      tokenAddress: contractAddress,
+      name: basics.name,
+      symbol: basics.symbol,
+      txHash: hash,
+    })
+  })
+
+  const applyReceiptDecodeFailure = useEffectEvent(() => {
+    setTxStatus('error')
+    setTxMessage('Transaction mined but expected event was not decoded; verify on explorer')
   })
 
   // Watch for receipt — parse logs for the deployed token address using ABI-based decoding (F-010)
@@ -264,28 +266,22 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
       }
       // RP-007: If event not found, set error state with verification message
       if (deployedAddress === undefined) {
-        setTxStatus('error')
-        setTxMessage('Transaction mined but expected event was not decoded; verify on explorer')
+        applyReceiptDecodeFailure()
         return
       }
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      handleReceipt(currentTxHash, deployedAddress)
+      void applyReceiptSuccess(currentTxHash, deployedAddress)
     }
-  }, [receipt, currentTxHash, txStatus, handleReceipt])
-
-  const isWrongNetwork = isConnected && chainId !== litvm.id
+  }, [receipt, currentTxHash, txStatus])
 
   const handleDeploy = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
     if (isWrongNetwork) {
-      try {
-        await switchChainAsync({ chainId: litvm.id })
-      } catch {
-        setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
-        setTxStatus('error')
-      }
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(getWrongNetworkMessage('deploying a token'))
       return
     }
+
     try {
       setModalOpen(true)
       setTxStatus('pending')
@@ -312,14 +308,18 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
       setCurrentTxHash(hash)
       // Status will update when receipt is available via useWaitForTransactionReceipt
     } catch (err: unknown) {
+      setModalOpen(true)
       setTxStatus('error')
-      const msg =
-        err instanceof Error
-          ? err.message.includes('User rejected')
-            ? 'Transaction was rejected.'
-            : err.message.slice(0, 120)
-          : 'An unexpected error occurred.'
-      setTxMessage(msg)
+      setTxMessage(getWalletErrorMessage(err))
+    }
+  }
+
+  const handleSwitchNetwork = async () => {
+    const result = await switchToLitvm()
+    if (!result.switched) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(result.error)
     }
   }
 
@@ -346,8 +346,10 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
           <StepReview
             basics={basics}
             features={features}
-            onDeploy={handleDeploy}
-            isDeploying={txStatus === 'pending' && modalOpen}
+            onDeploy={isWrongNetwork ? handleSwitchNetwork : handleDeploy}
+            isDeploying={txStatus === 'pending' && modalOpen && !isWrongNetwork}
+            isWrongNetwork={isWrongNetwork}
+            isSwitchingNetwork={isSwitchingChain}
             feeDisplay={feeDisplay}
             feeReady={feeReady}
           />

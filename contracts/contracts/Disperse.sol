@@ -12,10 +12,14 @@ contract Disperse {
         require(recipients.length == values.length, "Length mismatch"); // RP-005
         for (uint256 i = 0; i < recipients.length; i++) {
             require(recipients[i] != address(0), "Invalid recipient"); // RP-005
-            payable(recipients[i]).transfer(values[i]);
+            (bool success, ) = payable(recipients[i]).call{value: values[i]}("");
+            require(success, "ETH transfer failed");
         }
         uint256 balance = address(this).balance;
-        if (balance > 0) payable(msg.sender).transfer(balance);
+        if (balance > 0) {
+            (bool refunded, ) = payable(msg.sender).call{value: balance}("");
+            require(refunded, "Refund failed");
+        }
     }
 
     function disperseToken(IERC20 token, address[] calldata recipients, uint256[] calldata values) external {

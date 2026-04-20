@@ -270,7 +270,6 @@ function RemoveLiquidityPanel({
   onClose,
   onSuccess,
   wrongNetwork,
-  onSwitchChain,
 }: {
   pairAddress: `0x${string}`
   token0: `0x${string}`
@@ -281,7 +280,6 @@ function RemoveLiquidityPanel({
   onClose: () => void
   onSuccess: () => void
   wrongNetwork: boolean
-  onSwitchChain: () => void
 }) {
   const { address, isConnected } = useAccount()
   const { writeContractAsync } = useWriteContract()
@@ -611,17 +609,12 @@ function RemoveLiquidityPanel({
 export default function PoolPage() {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
-  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
+  const { switchChainAsync } = useSwitchChain()
 
   const isDexConfigured = isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) && isValidContractAddress(WRAPPED_ZKLTC_ADDRESS)
 
   // Chain verification — prevent transactions on wrong network (root cause of 2026-04-20 incident)
   const isWrongNetwork = isConnected && chainId !== litvm.id
-  const handleCorrectChain = async (onError?: () => void) => {
-    if (!isWrongNetwork) return true
-    try { await switchChainAsync({ chainId: litvm.id }) } catch { onError?.() }
-    return false
-  }
 
   // ── Total pair count ─────────────────────────────────────────────────────
   const allPairsLengthRead = useReadContract({

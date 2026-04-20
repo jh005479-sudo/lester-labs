@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract, useChainId, useSwitchChain } from 'wagmi'
-import { litvm } from '@/config/chains'
+import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract } from 'wagmi'
 import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
 import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
 import { FeeDisplay } from '@/components/shared/FeeDisplay'
@@ -14,6 +13,8 @@ import {
   ERC20_APPROVE_ABI,
 } from '@/lib/contracts/liquidityLocker'
 import { isValidContractAddress } from '@/config/contracts'
+import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
+import { getWalletErrorMessage, getWrongNetworkMessage } from '@/lib/walletErrors'
 
 // ABI for fetching token decimals (F-009)
 const ERC20_DECIMALS_ABI = [
@@ -146,9 +147,8 @@ function Field({
 // ─── Main form ─────────────────────────────────────────────────────────────
 
 export function LockForm() {
-  const { address: connectedAddress, isConnected } = useAccount()
-  const chainId = useChainId()
-  const { switchChainAsync } = useSwitchChain()
+  const { address: connectedAddress } = useAccount()
+  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
 
   // Form state
   const [lpToken, setLpToken] = useState('')
@@ -156,7 +156,6 @@ export function LockForm() {
   const [duration, setDuration] = useState<DurationOption>('1y')
   const [customDate, setCustomDate] = useState('')
   const [withdrawer, setWithdrawer] = useState('')
-  const [lpDecimals, setLpDecimals] = useState<number | undefined>(undefined)
 
   // Populate withdrawer with wallet on connect
   useEffect(() => {
@@ -175,18 +174,7 @@ export function LockForm() {
       enabled: isAddress(lpToken),
     },
   })
-
-  // Reset decimals when LP token address changes to prevent stale values
-  useEffect(() => {
-    setLpDecimals(undefined)
-  }, [lpToken])
-
-  // Update lpDecimals when fetched
-  useEffect(() => {
-    if (fetchedDecimals !== undefined) {
-      setLpDecimals(fetchedDecimals)
-    }
-  }, [fetchedDecimals])
+  const lpDecimals = fetchedDecimals
 
   // Tx / flow state
   const [approveStep, setApproveStep] = useState<'approve' | 'lock' | 'done'>('approve')
@@ -303,18 +291,12 @@ export function LockForm() {
 
   // ── Approve step ──────────────────────────────────────────────────────────
 
-  const isWrongNetwork = isConnected && chainId !== litvm.id
-
   const handleApprove = async () => {
     if (lpDecimals === undefined) return // Guard against stale decimals
     if (isWrongNetwork) {
-      try {
-        await switchChainAsync({ chainId: litvm.id })
-      } catch {
-        setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
-        setModalOpen(true)
-        setTxStatus('error')
-      }
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(getWrongNetworkMessage('approving an LP lock'))
       return
     }
     try {
@@ -348,13 +330,9 @@ export function LockForm() {
     if (!feeReady) return // RP-003: Block submit until fee loaded
     if (lpDecimals === undefined) return // Guard against stale decimals
     if (isWrongNetwork) {
-      try {
-        await switchChainAsync({ chainId: litvm.id })
-      } catch {
-        setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
-        setModalOpen(true)
-        setTxStatus('error')
-      }
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(getWrongNetworkMessage('locking liquidity'))
       return
     }
     try {
@@ -385,6 +363,15 @@ export function LockForm() {
     } catch (err: unknown) {
       setTxStatus('error')
       setTxMessage(errMessage(err))
+    }
+  }
+
+  const handleSwitchNetwork = async () => {
+    const result = await switchToLitvm()
+    if (!result.switched) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(result.error)
     }
   }
 
@@ -521,8 +508,22 @@ export function LockForm() {
           <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.03} feeLabel="Lock fee" />
         </div>
 
+        {isWrongNetwork && (
+          <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+            Wallet is connected to the wrong network. Switch to LitVM Testnet before approving or locking liquidity.
+          </div>
+        )}
+
         {/* CTA */}
-        {!approveConfirmed ? (
+        {isWrongNetwork ? (
+          <button
+            onClick={handleSwitchNetwork}
+            disabled={isSwitchingChain}
+            className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          >
+            {isSwitchingChain ? 'Switching network…' : 'Switch to LitVM Testnet'}
+          </button>
+        ) : !approveConfirmed ? (
           <button
             onClick={handleApprove}
             disabled={!canSubmit}
@@ -563,10 +564,5 @@ export function LockForm() {
 // ── Utils ─────────────────────────────────────────────────────────────────
 
 function errMessage(err: unknown): string {
-  if (err instanceof Error) {
-    if (err.message.includes('User rejected')) return 'Transaction was rejected.'
-    return err.message.slice(0, 120)
-  }
-  return 'An unexpected error occurred.'
+  return getWalletErrorMessage(err)
 }
-

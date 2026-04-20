@@ -181,7 +181,7 @@ function CreatePoolPanel({
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
   const { writeContractAsync } = useWriteContract()
-  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
+  const { switchChainAsync } = useSwitchChain()
   const { tokens: discoveredTokens } = useAllTokenMetadata()
   const [token0, setToken0] = useState<TokenOption | null>(initialToken0 ?? null)
   const [token1, setToken1] = useState<TokenOption | null>(initialToken1 ?? null)
@@ -432,8 +432,6 @@ function CreatePoolPanel({
         if (pairR0 > 0n && pairR1 > 0n) {
           // Optimal token1 amount for a0 native: a0 * pairR1 / pairR0
           const optimalToken1 = computeOptimal(a0, pairR0, pairR1)
-          // Optimal native amount for a1 token: a1 * pairR0 / pairR1
-          const optimalNative = computeOptimal(a1, pairR1, pairR0)
           // Apply slippage to both optimal amounts
           amountTokenMin = 0n  // ETH side: allow full slippage since native wraps automatically
           amountETHMin = (optimalToken1 * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
@@ -461,7 +459,6 @@ function CreatePoolPanel({
           const reserveForToken1 = token0IsSortedFirst ? pairR1 : pairR0
           // token0 = ERC20, token1 = WZKLTC (native side)
           const optimalToken0 = computeOptimal(a1, reserveForToken1, reserveForToken0)  // ERC20 optimal for a1 native
-          const optimalNative = computeOptimal(a0, reserveForToken0, reserveForToken1)  // native optimal for a0 ERC20
           amountTokenMin = (optimalToken0 * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
           amountETHMin = 0n  // native side
         } else {

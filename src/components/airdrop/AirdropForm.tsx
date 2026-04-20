@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId, useSwitchChain } from 'wagmi'
-import { litvm } from '@/config/chains'
+import { useState, useCallback, useMemo } from 'react'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { isAddress, parseUnits } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
@@ -18,6 +17,8 @@ import {
 } from '@/lib/contracts/airdrop'
 import { isValidContractAddress } from '@/config/contracts'
 import { wagmiConfig } from '@/config/wagmi'
+import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
+import { getWalletErrorMessage, getWrongNetworkMessage } from '@/lib/walletErrors'
 
 // ABI for fetching token decimals
 const ERC20_DECIMALS_ABI = [
@@ -128,12 +129,10 @@ function SuccessPanel({ success, onReset }: { success: SuccessState; onReset: ()
 
 export function AirdropForm() {
   const { address, isConnected } = useAccount()
-  const chainId = useChainId()
-  const { switchChainAsync } = useSwitchChain()
+  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
 
   const [mode, setMode] = useState<Mode>('token')
   const [tokenAddress, setTokenAddress] = useState('')
-  const [tokenDecimals, setTokenDecimals] = useState<number | undefined>(undefined)
   const [recipients, setRecipients] = useState<Recipient[]>([])
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -141,8 +140,6 @@ export function AirdropForm() {
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successState, setSuccessState] = useState<SuccessState | null>(null)
-
-  const isWrongNetwork = isConnected && chainId !== litvm.id
 
   const { writeContractAsync } = useWriteContract()
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
@@ -157,18 +154,7 @@ export function AirdropForm() {
       enabled: mode === 'token' && isAddress(tokenAddress),
     },
   })
-
-  // Reset decimals when token address changes to prevent stale values
-  useEffect(() => {
-    setTokenDecimals(undefined)
-  }, [tokenAddress])
-
-  // Update tokenDecimals when fetched
-  useEffect(() => {
-    if (fetchedDecimals !== undefined) {
-      setTokenDecimals(fetchedDecimals)
-    }
-  }, [fetchedDecimals])
+  const tokenDecimals = fetchedDecimals
 
   const validRecipients = recipients.filter(
     (r) => isAddress(r.address) && !isNaN(parseFloat(r.amount)) && parseFloat(r.amount) > 0,
@@ -177,13 +163,17 @@ export function AirdropForm() {
   // RP-002: Build parsedRecipients with precomputed wei values (bigint)
   // This ensures approval amount is computed deterministically from bigint, never from float
   // Guard: only build if decimals are loaded for token mode
-  const parsedRecipients = (mode === 'token' && tokenDecimals === undefined)
-    ? []
-    : validRecipients.map((r) => ({
-        addr: r.address as `0x${string}`,
-        wei: parseUnits(r.amount, tokenDecimals ?? 18),
-        displayAmount: r.amount,
-      }))
+  const parsedRecipients = useMemo(
+    () =>
+      (mode === 'token' && tokenDecimals === undefined)
+        ? []
+        : validRecipients.map((r) => ({
+            addr: r.address as `0x${string}`,
+            wei: parseUnits(r.amount, tokenDecimals ?? 18),
+            displayAmount: r.amount,
+          })),
+    [mode, tokenDecimals, validRecipients],
+  )
 
   // RP-002: totalAmountWei computed from bigint reduce - never from parseFloat
   const totalAmountWei = parsedRecipients.reduce((a, r) => a + r.wei, 0n)
@@ -205,16 +195,16 @@ export function AirdropForm() {
     totalAmount > 0 &&
     decimalsReady
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!canSubmit) return
     if (isWrongNetwork) {
-      try {
-        await switchChainAsync({ chainId: litvm.id })
-      } catch {
-        setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
-        setModalOpen(true)
-        setTxStatus('error')
-      }
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(
+        getWrongNetworkMessage(
+          mode === 'token' ? 'approving and sending a token airdrop' : 'sending a zkLTC airdrop',
+        ),
+      )
       return
     }
 
@@ -325,15 +315,18 @@ export function AirdropForm() {
       })
     } catch (err: unknown) {
       setTxStatus('error')
-      const msg =
-        err instanceof Error
-          ? err.message.includes('User rejected')
-            ? 'Transaction was rejected.'
-            : err.message.slice(0, 140)
-          : 'An unexpected error occurred.'
-      setTxMessage(msg)
+      setTxMessage(getWalletErrorMessage(err))
     }
-  }
+  }, [canSubmit, isWrongNetwork, mode, tokenAddress, validRecipients, totalAmount, totalAmountWei, parsedRecipients, writeContractAsync])
+
+  const handleSwitchNetwork = useCallback(async () => {
+    const result = await switchToLitvm()
+    if (!result.switched) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(result.error)
+    }
+  }, [switchToLitvm])
 
   const handleReset = () => {
     setSuccessState(null)
@@ -523,23 +516,49 @@ export function AirdropForm() {
             </div>
           )}
 
-          <button
-            onClick={handleSend}
-            disabled={!canSubmit}
-            className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-          >
-            {txStatus === 'pending' && modalOpen ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Sending…
-              </>
-            ) : (
-              <>
-                <CheckCircle2 size={16} />
-                {mode === 'token' ? 'Approve & Airdrop Tokens' : 'Send zkLTC Airdrop'}
-              </>
-            )}
-          </button>
+          {isWrongNetwork && (
+            <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
+              Wallet is connected to the wrong network. Switch to LitVM Testnet before authorising this airdrop.
+            </div>
+          )}
+
+          {isWrongNetwork ? (
+            <button
+              onClick={handleSwitchNetwork}
+              disabled={isSwitchingChain}
+              className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              {isSwitchingChain ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Switching network…
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={16} />
+                  Switch to LitVM Testnet
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!canSubmit}
+              className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              {txStatus === 'pending' && modalOpen ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={16} />
+                  {mode === 'token' ? 'Approve & Airdrop Tokens' : 'Send zkLTC Airdrop'}
+                </>
+              )}
+            </button>
+          )}
 
           {!tokenAddressValid && mode === 'token' && (
             <p className="text-center text-xs text-red-400">Enter a valid token contract address to continue</p>
@@ -561,4 +580,3 @@ export function AirdropForm() {
     </div>
   )
 }
-
