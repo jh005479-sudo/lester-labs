@@ -1,24 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useReadContract, usePublicClient } from 'wagmi'
-import { ILO_FACTORY_ADDRESS, DISPERSE_ADDRESS, UNISWAP_V2_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
-import { ILO_FACTORY_ABI } from '@/config/abis'
+import { useEffect, useRef, useState } from 'react'
+import type { PlatformStatsSnapshot } from '@/lib/platformStats'
 
-const POLL_INTERVAL = 30_000
-const TOKEN_FACTORY = '0x93acc61fcdc2e3407A0c03450Adfd8aE78964948' as const
-const LEGACY_ILO_FACTORY = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB' as const
-const TRANSFER_SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+const POLL_INTERVAL_MS = 30_000
+const SESSION_CACHE_KEY = 'lester_platform_stats_v1'
 
-// Cache keys — v5 invalidates stale v4 caches and adds block-position tracking
-const SWAP_COUNT_KEY = 'lester_cached_swap_count_v5'
-const TOKEN_COUNT_KEY = 'lester_cached_token_count_v5'
-const AIRDROP_COUNT_KEY = 'lester_cached_airdrop_count_v5'
-const LAST_TOKEN_BLOCK_KEY = 'lester_last_token_block_v5'
-const LAST_AIRDROP_BLOCK_KEY = 'lester_last_airdrop_block_v5'
-const LAST_SWAP_BLOCK_KEY = 'lester_last_swap_block_v5'
-
-// ── Stat chip ──────────────────────────────────────────────────────────────
 function StatChip({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <div style={{
@@ -56,247 +43,90 @@ function StatChip({ label, value, accent }: { label: string; value: string; acce
   )
 }
 
-// ── ILO count hook — sums new factory + legacy factory ─────────────────────
-type ILOFactoryFn = 'creationFee' | 'allILOs' | 'getILOCount' | 'getOwnerILOs'
-
-function useILOFactoryCounter(fn: ILOFactoryFn) {
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const { data, refetch } = useReadContract({
-    address: ILO_FACTORY_ADDRESS as `0x${string}`,
-    abi: ILO_FACTORY_ABI as any,
-    functionName: fn as any,
-    query: { enabled: isValidContractAddress(ILO_FACTORY_ADDRESS) },
-  })
-
-  const { data: legacyData, refetch: legacyRefetch } = useReadContract({
-    address: LEGACY_ILO_FACTORY as `0x${string}`,
-    abi: ILO_FACTORY_ABI as any,
-    functionName: fn as any,
-    query: { enabled: isValidContractAddress(LEGACY_ILO_FACTORY) },
-  })
-
-  useEffect(() => {
-    intervalRef.current = setInterval(() => { refetch(); legacyRefetch() }, POLL_INTERVAL)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [refetch, legacyRefetch])
-
-  const newCount = data !== undefined && data !== null ? Number(data) : 0
-  const legacyCount = legacyData !== undefined && legacyData !== null ? Number(legacyData) : 0
-  return String(newCount + legacyCount)
+function formatCount(value: number): string {
+  return new Intl.NumberFormat('en-US').format(value)
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────
-interface DecodedPairCreated {
-  token0: string
-  token1: string
-  pair: string
-  param: bigint
+function isValidSnapshot(value: unknown): value is PlatformStatsSnapshot {
+  if (!value || typeof value !== 'object') return false
+
+  const candidate = value as Partial<PlatformStatsSnapshot>
+  return (
+    typeof candidate.tokensMinted === 'number' &&
+    typeof candidate.walletsAirdropped === 'number' &&
+    typeof candidate.presalesCreated === 'number' &&
+    typeof candidate.swapsCompleted === 'number' &&
+    typeof candidate.onChainMessages === 'number' &&
+    typeof candidate.fetchedAt === 'string'
+  )
 }
 
 export function PlatformStats() {
-  const publicClient = usePublicClient()
-  const iloCount = useILOFactoryCounter('getILOCount')
-  const [tokenCount, setTokenCount] = useState<string>('—')
-  const [airdropCount, setAirdropCount] = useState<string>('—')
-  const [swapCount, setSwapCount] = useState<string>('—')
+  const [snapshot, setSnapshot] = useState<PlatformStatsSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
-  const [pairCount, setPairCount] = useState<string>('—')
+  const mountedRef = useRef(true)
+  const hasSnapshotRef = useRef(false)
 
-  const lastSwapBlock = useRef<bigint>(0n)
-  const accumulatedSwaps = useRef<number>(0)
-  const lastTokenBlock = useRef<bigint>(0n)
-  const accumulatedTokens = useRef<number>(0)
-  const lastAirdropBlock = useRef<bigint>(0n)
-  const accumulatedAirdrop = useRef<Set<string>>(new Set())
-  const cachedPairCount = useRef<number>(0)
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const isReady = useRef(false)
-  const scanInProgress = useRef(false)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
-  // ── Core incremental scan from fromBlock → toBlock ─────────────────────
-  async function runIncrementalScan(fromBlock: bigint, toBlock: bigint) {
-    if (!publicClient || scanInProgress.current) return
-    scanInProgress.current = true
-
+  useEffect(() => {
     try {
-      // 1. Discover factory pairs (always from 0 — only 4 pairs, trivially cheap)
-      const pairLogs = await publicClient.getLogs({
-        address: UNISWAP_V2_FACTORY_ADDRESS,
-        event: {
-          type: 'event' as const,
-          name: 'PairCreated',
-          inputs: [
-            { type: 'address', name: 'token0', indexed: true },
-            { type: 'address', name: 'token1', indexed: true },
-            { type: 'address', name: 'pair', indexed: false },
-            { type: 'uint256', name: 'param', indexed: false },
-          ],
-        },
-        fromBlock: 0n,
-        toBlock: 'latest',
-      })
-      const pairs: string[] = pairLogs
-        .map(log => (log.args as unknown as DecodedPairCreated).pair)
-        .filter(Boolean)
-      cachedPairCount.current = pairs.length
-      setPairCount(String(pairs.length))
-
-      // 2. Token count — incremental from last scanned block
-      const tokenLogs = await publicClient.getLogs({
-        address: TOKEN_FACTORY,
-        event: {
-          type: 'event' as const,
-          name: 'TokenCreated',
-          inputs: [
-            { type: 'address', name: 'creator' },
-            { type: 'address', name: 'token' },
-            { type: 'string', name: 'name' },
-            { type: 'string', name: 'symbol' },
-          ],
-        },
-        fromBlock: lastTokenBlock.current === 0n ? 0n : fromBlock,
-        toBlock,
-      })
-      accumulatedTokens.current += tokenLogs.length
-      lastTokenBlock.current = toBlock
-      sessionStorage.setItem(TOKEN_COUNT_KEY, String(accumulatedTokens.current))
-      sessionStorage.setItem(LAST_TOKEN_BLOCK_KEY, String(toBlock))
-      setTokenCount(String(accumulatedTokens.current))
-
-      // 3. Airdrop wallets — incremental from last scanned block
-      const airdropLogs: any[] = await (publicClient as any).getLogs({
-        topics: [TRANSFER_SIG, '0x' + DISPERSE_ADDRESS.slice(2).padStart(64, '0'), null],
-        fromBlock: lastAirdropBlock.current === 0n ? 0n : fromBlock,
-        toBlock,
-      })
-      for (const ev of airdropLogs) {
-        if (ev.topics?.[2]) accumulatedAirdrop.current.add('0x' + ev.topics[2].slice(26).toLowerCase())
+      const cached = sessionStorage.getItem(SESSION_CACHE_KEY)
+      if (!cached) {
+        setLoading(true)
+        return
       }
-      lastAirdropBlock.current = toBlock
-      sessionStorage.setItem(AIRDROP_COUNT_KEY, String(accumulatedAirdrop.current))
-      sessionStorage.setItem(LAST_AIRDROP_BLOCK_KEY, String(toBlock))
-      setAirdropCount(String(accumulatedAirdrop.current))
 
-      // 4. Swap count — incremental from last scanned block
-      if (pairs.length > 0) {
-        const batchResults = await Promise.all(
-          pairs.map(async (addr) => {
-            try {
-              const logs = await publicClient.getLogs({
-                address: addr as `0x${string}`,
-                event: {
-                  type: 'event' as const,
-                  name: 'Swap',
-                  inputs: [
-                    { type: 'address', name: 'sender', indexed: true },
-                    { type: 'uint256', name: 'amount0In', indexed: false },
-                    { type: 'uint256', name: 'amount1In', indexed: false },
-                    { type: 'uint256', name: 'amount0Out', indexed: false },
-                    { type: 'uint256', name: 'amount1Out', indexed: false },
-                    { type: 'address', name: 'to', indexed: true },
-                  ],
-                },
-                fromBlock: lastSwapBlock.current === 0n ? 0n : fromBlock,
-                toBlock,
-              })
-              return logs.length
-            } catch {
-              return 0
-            }
-          })
-        )
-        const newSwaps = batchResults.reduce((a, b) => a + b, 0)
-        accumulatedSwaps.current += newSwaps
-        lastSwapBlock.current = toBlock
-        sessionStorage.setItem(SWAP_COUNT_KEY, String(accumulatedSwaps.current))
-        sessionStorage.setItem(LAST_SWAP_BLOCK_KEY, String(toBlock))
-        setSwapCount(String(accumulatedSwaps.current))
-      } else {
-        setSwapCount(String(accumulatedSwaps.current))
+      const parsed = JSON.parse(cached) as unknown
+      if (isValidSnapshot(parsed)) {
+        setSnapshot(parsed)
+        setLoading(false)
+        hasSnapshotRef.current = true
       }
-    } finally {
-      scanInProgress.current = false
-      setLoading(false)
+    } catch {
+      setLoading(true)
     }
-  }
+  }, [])
 
-  // ── Initial load — restore from cache, then incremental catch-up ───────
   useEffect(() => {
-    if (!publicClient) return
-    if (isReady.current) return
-    isReady.current = true
+    let intervalId: ReturnType<typeof setInterval> | null = null
 
-    // Restore accumulated counts and last scanned block positions from sessionStorage
-    accumulatedSwaps.current = parseInt(sessionStorage.getItem(SWAP_COUNT_KEY) ?? '0')
-    accumulatedTokens.current = parseInt(sessionStorage.getItem(TOKEN_COUNT_KEY) ?? '0')
-    // Airdrop Set is rebuilt incrementally; store count separately for display
-    const cachedAirdropCount = parseInt(sessionStorage.getItem(AIRDROP_COUNT_KEY) ?? '0')
-    accumulatedAirdrop.current = new Set<string>()
-    // Populate Set with dummy entries so .size reflects the cached count
-    for (let i = 0; i < cachedAirdropCount; i++) accumulatedAirdrop.current.add(`_w${i}`)
-
-    lastSwapBlock.current = BigInt(sessionStorage.getItem(LAST_SWAP_BLOCK_KEY) ?? '0')
-    lastTokenBlock.current = BigInt(sessionStorage.getItem(LAST_TOKEN_BLOCK_KEY) ?? '0')
-    lastAirdropBlock.current = BigInt(sessionStorage.getItem(LAST_AIRDROP_BLOCK_KEY) ?? '0')
-
-    // Show cached values immediately — no loading spinner
-    setSwapCount(String(accumulatedSwaps.current))
-    setTokenCount(String(accumulatedTokens.current))
-    setAirdropCount(String(cachedAirdropCount))
-    setLoading(false)
-
-    // Incremental catch-up from last scanned block
-    async function init() {
-      if (!publicClient) return
+    const fetchSnapshot = async () => {
       try {
-        const latestBlock = await publicClient.getBlockNumber()
-        const fromBlock = [lastSwapBlock.current, lastTokenBlock.current, lastAirdropBlock.current]
-          .reduce((max, b) => b > max ? b : max, 0n)
+        const response = await fetch('/api/platform-stats', {
+          cache: 'no-store',
+        })
 
-        if (latestBlock > fromBlock) {
-          await runIncrementalScan(fromBlock + 1n, latestBlock)
-        } else {
-          // Cache warm and current — just discover pairs
-          const pairLogs = await publicClient.getLogs({
-            address: UNISWAP_V2_FACTORY_ADDRESS,
-            event: { type: 'event' as const, name: 'PairCreated', inputs: [
-              { type: 'address', name: 'token0', indexed: true },
-              { type: 'address', name: 'token1', indexed: true },
-              { type: 'address', name: 'pair', indexed: false },
-              { type: 'uint256', name: 'param', indexed: false },
-            ]},
-            fromBlock: 0n,
-            toBlock: 'latest',
-          })
-          setPairCount(String(pairLogs.length))
-        }
-      } catch (err) {
-        console.error('[PlatformStats] init error:', err)
+        if (!response.ok) throw new Error('Failed to fetch platform stats')
+        const payload = (await response.json()) as unknown
+        if (!isValidSnapshot(payload)) throw new Error('Invalid platform stats payload')
+
+        if (!mountedRef.current) return
+
+        setSnapshot(payload)
+        setLoading(false)
+        hasSnapshotRef.current = true
+        sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(payload))
+      } catch {
+        if (!mountedRef.current) return
+        setLoading((current) => current && !hasSnapshotRef.current)
       }
     }
-    init()
-  }, [publicClient])
 
-  // ── Polling — incremental from last scanned block ───────────────────────
-  useEffect(() => {
-    if (!publicClient) return
-    if (!isReady.current) return
+    void fetchSnapshot()
+    intervalId = setInterval(() => {
+      void fetchSnapshot()
+    }, POLL_INTERVAL_MS)
 
-    pollIntervalRef.current = setInterval(async () => {
-      try {
-        const latestBlock = await publicClient.getBlockNumber()
-        const fromBlock = [lastSwapBlock.current, lastTokenBlock.current, lastAirdropBlock.current]
-          .reduce((max, b) => b > max ? b : max, 0n)
-        if (latestBlock <= fromBlock) return
-        await runIncrementalScan(fromBlock + 1n, latestBlock)
-      } catch (err) {
-        console.error('[PlatformStats] poll error:', err)
-      }
-    }, POLL_INTERVAL)
-
-    return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current) }
-  }, [publicClient])
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+    }
+  }, [])
 
   return (
     <div style={{
@@ -308,23 +138,28 @@ export function PlatformStats() {
     }}>
       <StatChip
         label="Tokens Minted"
-        value={loading ? '—' : tokenCount}
+        value={loading || snapshot === null ? '—' : formatCount(snapshot.tokensMinted)}
         accent="#6B4FFF"
       />
       <StatChip
-        label="Pre-sales Created"
-        value={iloCount}
-        accent="#5E6AD2"
-      />
-      <StatChip
         label="Wallets Airdropped"
-        value={airdropCount}
+        value={loading || snapshot === null ? '—' : formatCount(snapshot.walletsAirdropped)}
         accent="#36D1DC"
       />
       <StatChip
+        label="Pre-sales Created"
+        value={loading || snapshot === null ? '—' : formatCount(snapshot.presalesCreated)}
+        accent="#5E6AD2"
+      />
+      <StatChip
         label="Swaps Completed"
-        value={loading ? '—' : swapCount}
+        value={loading || snapshot === null ? '—' : formatCount(snapshot.swapsCompleted)}
         accent="#E44FB5"
+      />
+      <StatChip
+        label="On-chain Messages"
+        value={loading || snapshot === null ? '—' : formatCount(snapshot.onChainMessages)}
+        accent="#F5A623"
       />
     </div>
   )
