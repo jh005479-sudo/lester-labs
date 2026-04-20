@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
 import { Droplets, ExternalLink, Layers3, Loader2, Minus, Plus, Wallet, X } from 'lucide-react'
 import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
@@ -1034,24 +1035,32 @@ export default function PoolPage() {
               </div>
             )}
 
-            {/* Remove liquidity panel */}
+            {/* Remove liquidity modal */}
             {showRemoveLiq && removeLiqData && (
-              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
-                <RemoveLiquidityPanel
-                  pairAddress={removeLiqData.pairAddress}
-                  token0={removeLiqData.token0}
-                  token1={removeLiqData.token1}
-                  lpBalance={removeLiqData.lpBalance}
-                  onClose={() => setShowRemoveLiq(false)}
-                  onSuccess={() => {
-                    setShowRemoveLiq(false)
-                    setRemoveLiqData(null)
-                    // Refresh data by re-triggering reads
-                    lpBalanceReads.refetch()
-                    pairStateReads.refetch()
-                  }}
-                />
-              </div>
+              <Dialog.Root open={showRemoveLiq} onOpenChange={(open) => { if (!open) { setShowRemoveLiq(false); setRemoveLiqData(null) } }}>
+                <Dialog.Portal>
+                  <Dialog.Overlay
+                    className="fixed inset-0 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+                    style={{ background: 'rgba(5, 3, 9, 0.85)', backdropFilter: 'blur(12px)' }}
+                  />
+                  <Dialog.Content
+                    className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 p-6 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+                    style={{ background: 'var(--background)', border: '1px solid var(--surface-border)', borderRadius: '24px' }}
+                  >
+                    <RemoveLiquidityPanel
+                      pairAddress={removeLiqData.pairAddress}
+                      token0={removeLiqData.token0}
+                      token1={removeLiqData.token1}
+                      lpBalance={removeLiqData.lpBalance}
+                      onClose={() => { setShowRemoveLiq(false); setRemoveLiqData(null) }}
+                      onSuccess={() => {
+                        lpBalanceReads.refetch()
+                        pairStateReads.refetch()
+                      }}
+                    />
+                  </Dialog.Content>
+                </Dialog.Portal>
+              </Dialog.Root>
             )}
 
             {/* Other pools (no LP position) */}
