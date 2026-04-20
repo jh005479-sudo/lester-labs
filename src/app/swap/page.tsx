@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Suspense, useEffect, useRef, useState, startTransition } from 'react'
-import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Wallet, X } from 'lucide-react'
+import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Wallet, X, ArrowLeftRight } from 'lucide-react'
 import { useAccount, useBalance, useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { CurrencyAmount, Token } from '@uniswap/sdk-core'
 import { Pair, Route, Trade } from '@uniswap/v2-sdk'
@@ -823,6 +823,195 @@ function TokenButton({
   )
 }
 
+// ── Wrap / Unwrap Panel ──────────────────────────────────────────────────────
+function WrapUnwrapPanel() {
+  const { address, isConnected } = useAccount()
+  const { writeContractAsync } = useWriteContract()
+  const [mode, setMode] = useState<'wrap' | 'unwrap'>('wrap')
+  const [amount, setAmount] = useState('')
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
+  const [txOpen, setTxOpen] = useState(false)
+  const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
+  const [txMessage, setTxMessage] = useState<string | undefined>()
+
+  const nativeBal = useBalance({ address })
+  const wzklteBal = useReadContract({
+    address: WRAPPED_ZKLTC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: isConnected && Boolean(address) },
+  })
+
+  const balance = mode === 'wrap'
+    ? formatTokenAmount(nativeBal.data?.value ?? 0n, 18)
+    : formatTokenAmount((wzklteBal.data ?? 0n) as bigint, 18)
+
+  const { isLoading: isConfirming, isSuccess: txConfirmed, error: txError } = useWaitForTransactionReceipt({
+    hash: txHash,
+    query: { enabled: Boolean(txHash) },
+  })
+
+  useEffect(() => {
+    if (!txHash) return
+    if (isConfirming) { setTxStatus('pending'); setTxMessage('Transaction pending...') }
+  }, [isConfirming, txHash])
+
+  useEffect(() => {
+    if (!txHash || !txConfirmed) return
+    setTxStatus('success')
+    setTxMessage(mode === 'wrap' ? 'Wrapped zkLTC to wzkLTC successfully.' : 'Unwrapped wzkLTC to zkLTC successfully.')
+    setAmount('')
+  }, [txConfirmed, txHash, mode])
+
+  useEffect(() => {
+    if (!txHash || !txError) return
+    setTxStatus('error')
+    setTxMessage(txError.message.slice(0, 180))
+  }, [txError, txHash])
+
+  async function handleWrap() {
+    if (!isConnected || !address || !amount || parseFloat(amount) <= 0) return
+    try {
+      setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
+      const value = parseUnits(amount, 18)
+      const hash = await writeContractAsync({
+        address: WRAPPED_ZKLTC_ADDRESS,
+        abi: [
+          {
+            name: 'deposit', type: 'function', stateMutability: 'payable',
+            inputs: [], outputs: [],
+          },
+        ],
+        functionName: 'deposit',
+        args: [],
+        value,
+        gas: 500000n,
+      })
+      setTxHash(hash)
+    } catch (err: unknown) {
+      setTxStatus('error')
+      setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Wrap failed.')
+    }
+  }
+
+  async function handleUnwrap() {
+    if (!isConnected || !address || !amount || parseFloat(amount) <= 0) return
+    try {
+      setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
+      const value = parseUnits(amount, 18)
+      const hash = await writeContractAsync({
+        address: WRAPPED_ZKLTC_ADDRESS,
+        abi: [
+          {
+            name: 'withdraw', type: 'function', stateMutability: 'nonpayable',
+            inputs: [{ name: 'wad', type: 'uint256' }], outputs: [],
+          },
+        ],
+        functionName: 'withdraw',
+        args: [value],
+        gas: 500000n,
+      })
+      setTxHash(hash)
+    } catch (err: unknown) {
+      setTxStatus('error')
+      setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Unwrap failed.')
+    }
+  }
+
+  function setMax() {
+    if (mode === 'wrap') {
+      const val = nativeBal.data?.value ?? 0n
+      const safe = val > NATIVE_GAS_RESERVE ? val - NATIVE_GAS_RESERVE : 0n
+      setAmount(formatTokenAmount(safe, 18, '0'))
+    } else {
+      setAmount(formatTokenAmount((wzklteBal.data ?? 0n) as bigint, 18, '0'))
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="mb-2">
+        <h2 className="text-xl font-semibold text-white">Wrap / Unwrap</h2>
+        <p className="mt-1 text-sm text-white/45">Convert between native zkLTC and wrapped wzkLTC (ERC20).</p>
+      </div>
+
+      {/* Mode toggle */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => { setMode('wrap'); setAmount('') }}
+          className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
+          style={{
+            background: mode === 'wrap' ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
+            color: mode === 'wrap' ? '#fff' : 'rgba(255,255,255,0.55)',
+            boxShadow: mode === 'wrap' ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
+          }}
+        >
+          Wrap zkLTC to wzkLTC
+        </button>
+        <button
+          onClick={() => { setMode('unwrap'); setAmount('') }}
+          className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
+          style={{
+            background: mode === 'unwrap' ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
+            color: mode === 'unwrap' ? '#fff' : 'rgba(255,255,255,0.55)',
+            boxShadow: mode === 'unwrap' ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
+          }}
+        >
+          Unwrap wzkLTC to zkLTC
+        </button>
+      </div>
+
+      {/* Amount input */}
+      <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs uppercase tracking-[0.14em] text-white/35">
+            {mode === 'wrap' ? 'zkLTC to wrap' : 'wzkLTC to unwrap'}
+          </span>
+          <button
+            onClick={setMax}
+            className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-white/70 hover:border-white/20 hover:text-white"
+          >
+            Max
+          </button>
+        </div>
+        <input
+          value={amount}
+          onChange={(e) => setAmount(formatInputAmount(e.target.value))}
+          placeholder="0.0"
+          type="text"
+          inputMode="decimal"
+          className="w-full bg-transparent text-[2rem] font-semibold text-white outline-none placeholder:text-white/20"
+        />
+        <p className="mt-2 text-sm text-white/40">
+          Balance: {balance} {mode === 'wrap' ? 'zkLTC' : 'wzkLTC'}
+        </p>
+      </div>
+
+      <button
+        onClick={mode === 'wrap' ? handleWrap : handleUnwrap}
+        disabled={!isConnected || !amount || parseFloat(amount) <= 0 || isConfirming}
+        className="flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+        style={{
+          background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
+          boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
+        }}
+      >
+        {isConfirming ? <Loader2 size={16} className="animate-spin" /> : <ArrowLeftRight size={16} />}
+        <span>{isConfirming ? 'Confirming...' : mode === 'wrap' ? 'Wrap' : 'Unwrap'}</span>
+      </button>
+
+      <TxStatusModal
+        isOpen={txOpen}
+        onClose={() => setTxOpen(false)}
+        status={txStatus}
+        txHash={txHash}
+        message={txMessage}
+      />
+    </div>
+  )
+}
+
 // ── Main swap page (inner — uses useSearchParams) ────────────────────────────
 function SwapPageInner() {
   const searchParams = useSearchParams()
@@ -869,6 +1058,7 @@ function SwapPageInner() {
   const [txAction, setTxAction] = useState<'approve' | 'swap' | null>(null)
   const [slippageBps, setSlippageBps] = useState<bigint>(savedState.slippageBps)
   const [showCreatePool, setShowCreatePool] = useState(false)
+  const [showWrap, setShowWrap] = useState(false)
   const [showSettlementPreview, setShowSettlementPreview] = useState(false)
   const [settlementConfirming, setSettlementConfirming] = useState(false)
 
@@ -1388,12 +1578,12 @@ function SwapPageInner() {
             {/* Tab bar: Swap / Create Pool */}
             <div className="analytics-card flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
               <button
-                onClick={() => setShowCreatePool(false)}
+                onClick={() => { setShowCreatePool(false); setShowWrap(false) }}
                 className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
                 style={{
-                  background: !showCreatePool ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
-                  color: !showCreatePool ? '#fff' : 'rgba(255,255,255,0.55)',
-                  boxShadow: !showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
+                  background: !showCreatePool && !showWrap ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
+                  color: !showCreatePool && !showWrap ? '#fff' : 'rgba(255,255,255,0.55)',
+                  boxShadow: !showCreatePool && !showWrap ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
                 }}
               >
                 Swap
@@ -1409,10 +1599,21 @@ function SwapPageInner() {
               >
                 Create Pool
               </button>
+              <button
+                onClick={() => { setShowCreatePool(false); setShowWrap(true) }}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
+                style={{
+                  background: showWrap ? `linear-gradient(135deg, ${ACCENT}, #b43684)` : 'transparent',
+                  color: showWrap ? '#fff' : 'rgba(255,255,255,0.55)',
+                  boxShadow: showWrap ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
+                }}
+              >
+                Wrap / Unwrap
+              </button>
             </div>
 
             {/* Create pool panel */}
-            {showCreatePool && (
+            {showCreatePool && !showWrap && (
               <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
                 {addLiquidityPairAddress && (!initialCreatePoolToken0 || !initialCreatePoolToken1) && (
                   <div className="mb-4 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
@@ -1429,8 +1630,15 @@ function SwapPageInner() {
               </div>
             )}
 
+            {/* Wrap/Unwrap panel */}
+            {showWrap && !showCreatePool && (
+              <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-6 shadow-2xl shadow-black/30">
+                <WrapUnwrapPanel />
+              </div>
+            )}
+
             {/* Swap card */}
-            {!showCreatePool && (
+            {!showCreatePool && !showWrap && (
               <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
