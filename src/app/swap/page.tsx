@@ -372,33 +372,33 @@ function CreatePoolPanel({
 
       let hash: `0x${string}`
 
+      const to: `0x${string}` = address as `0x${string}`
+
+      // Reserves from the pair (if existing pool) — read before walletCall so isNewPair is known
+      const pairReserves = reservesRead.isSuccess && reservesRead.data ? reservesRead.data : null
+      const [pairR0, pairR1] = pairReserves ? pairReserves : [0n, 0n]
+
+      // New pair creation triggers factory.createPair() (CREATE2) inside the router, which
+      // costs ~200k gas extra. Bump cap to 800k to cover both deployment + first add.
+      const isNewPair = pairR0 === 0n && pairR1 === 0n
       // Wrap wallet call with 30s timeout + explicit gas cap to prevent infinite spinner / bad estimates
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const walletCall = (cfg: any) =>
         Promise.race([
-          writeContractAsync({ ...cfg, gas: 500000n }),
+          writeContractAsync({ ...cfg, gas: isNewPair ? 800000n : 500000n }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Transaction timed out. Please try again.')), 30_000)
           ),
         ])
-
-      const to: `0x${string}` = address as `0x${string}`
 
       // Compute optimal amounts from reserve ratio (for existing pools)
       // and apply 0.5% slippage tolerance to the *optimal* amounts,
       // not the user's desired amounts (which may not match the ratio exactly).
       const SLIPPAGE_NUMERATOR = 995n  // 0.5%
       const SLIPPAGE_DENOM = 1000n
-
       // Helper: compute optimal counterpart amount given reserves
       const computeOptimal = (desired: bigint, reserveDesired: bigint, reserveOther: bigint) =>
         reserveDesired > 0n ? (desired * reserveOther) / reserveDesired : desired
-
-      // Reserves from the pair (if existing pool)
-      const pairReserves = reservesRead.isSuccess && reservesRead.data ? reservesRead.data : null
-      const [pairR0, pairR1] = pairReserves ? pairReserves : [0n, 0n]
-      // pairR0 = reserve of token0 in the pair (sorted by address)
-      // pairR1 = reserve of token1 in the pair
 
       if (isToken0Native) {
         // Native zkLTC (token0) + ERC20 token1
