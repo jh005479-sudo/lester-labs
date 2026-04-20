@@ -278,7 +278,12 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
   const handleDeploy = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
     if (isWrongNetwork) {
-      await switchChainAsync({ chainId: litvm.id })
+      try {
+        await switchChainAsync({ chainId: litvm.id })
+      } catch {
+        setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
+        setTxStatus('error')
+      }
       return
     }
     try {

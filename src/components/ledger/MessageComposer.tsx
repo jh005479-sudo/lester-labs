@@ -102,7 +102,12 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
   async function handlePost() {
     if (!isConnected || isEmpty || isTooLong) return
     if (isWrongNetwork) {
-      await switchChainAsync({ chainId: litvm.id })
+      try {
+        await switchChainAsync({ chainId: litvm.id })
+      } catch {
+        setPhase('error')
+        setStatusMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
+      }
       return
     }
 

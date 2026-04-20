@@ -206,8 +206,13 @@ function CreatePoolPanel({
   const isWrongNetwork = isConnected && chainId !== litvm.id
   const handleCorrectChain = async (onError?: () => void) => {
     if (!isWrongNetwork) return true
-    try { await switchChainAsync({ chainId: litvm.id }) } catch { onError?.() }
-    return false
+    try {
+      await switchChainAsync({ chainId: litvm.id })
+      return true
+    } catch {
+      onError?.()
+      return true // stop regardless — don't fall through to write on rejection
+    }
   }
 
   useEffect(() => {
@@ -961,8 +966,13 @@ function WrapUnwrapPanel() {
   const isWrongNetwork = isConnected && chainId !== litvm.id
   const handleCorrectChain = async (onError?: () => void) => {
     if (!isWrongNetwork) return true
-    try { await switchChainAsync({ chainId: litvm.id }) } catch { onError?.() }
-    return false
+    try {
+      await switchChainAsync({ chainId: litvm.id })
+      return true
+    } catch {
+      onError?.()
+      return true // stop — don't fall through to write on rejection
+    }
   }
 
   async function handleWrap() {
@@ -1126,8 +1136,13 @@ function SwapPageInner() {
   const isWrongNetwork = isConnected && chainId !== litvm.id
   const handleCorrectChain = async (onError?: () => void) => {
     if (!isWrongNetwork) return true
-    try { await switchChainAsync({ chainId: litvm.id }) } catch { onError?.() }
-    return false
+    try {
+      await switchChainAsync({ chainId: litvm.id })
+      return true
+    } catch {
+      onError?.()
+      return true // stop — don't fall through to write on rejection
+    }
   }
   const { writeContractAsync } = useWriteContract()
   const createPoolRequested = Boolean(searchParams.get('createPool'))
