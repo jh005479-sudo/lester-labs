@@ -236,6 +236,10 @@ export default function HomePage() {
 
 
       <main>
+        {/* Visually hidden H1 for accessibility and SEO crawlers */}
+        <h1 style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+          Lester Labs — DeFi Utilities for LitVM
+        </h1>
         {/* HERO */}
         <ScrollHero onIntroComplete={() => setIntroComplete(true)} />
 
