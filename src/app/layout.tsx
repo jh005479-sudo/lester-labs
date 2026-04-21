@@ -32,8 +32,23 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Lester Labs — DeFi Utilities for LitVM',
-  description: 'Token launch, locking, vesting, airdrop, and governance tools built for LitVM.',
+  title: {
+    default: 'Lester Labs — DeFi Utilities for LitVM',
+    template: '%s | Lester Labs on LitVM',
+  },
+  description: 'Lester Labs is the first native DeFi suite for LitVM — featuring a DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, and governance. Deploy, swap, and launch on LitVM testnet.',
+  keywords: [
+    'Lester Labs',
+    'LitVM DEX',
+    'LitVM swap',
+    'LitVM airdrop',
+    'LitVM launchpad',
+    'LitVM DeFi',
+    'LitVM token factory',
+    'LitVM liquidity locker',
+    'LesterLabs',
+    'Lester-Labs',
+  ],
 }
 
 export default function RootLayout({
