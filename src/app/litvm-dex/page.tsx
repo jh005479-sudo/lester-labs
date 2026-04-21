@@ -119,7 +119,7 @@ export default function LitvmDexPage() {
                 Open the DEX →
               </Link>
               <Link
-                href="/docs/dex-swap"
+                href="/docs"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: '8px',
                   padding: '12px 28px',

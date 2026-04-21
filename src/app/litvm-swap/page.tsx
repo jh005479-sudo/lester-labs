@@ -79,7 +79,7 @@ export default function LitvmSwapPage() {
               }}>
                 Open Swap →
               </Link>
-              <Link href="/docs/dex-swap" style={{
+              <Link href="/docs" style={{
                 display: 'inline-flex', alignItems: 'center', gap: '8px',
                 padding: '12px 28px', background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)',
                 borderRadius: '10px', fontWeight: 600, fontSize: '14px',
