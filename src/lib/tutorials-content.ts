@@ -101,7 +101,7 @@ export const TUTORIALS: TutorialArticle[] = [
       },
       {
         type: 'text',
-        heading: 'What you can build on LitVM',
+        heading: 'What you can build on LitVM — DeFi, tokens, and beyond',
         body: 'LitVM supports the full EVM instruction set, which means:\n\n• **DeFi protocols** — DEXs, lending markets, yield aggregators\n• **Token standards** — ERC-20, ERC-721 (NFTs), ERC-4626 (vaults)\n• **Cross-chain bridges** — trustless bridges using Litecoin as the settlement layer\n• **Gaming** — on-chain game state, asset ownership\n• **Identity** — ENS-style naming, credential systems\n\nThe gas fees are paid in zkLTC, and because the proof compresses the data published to Litecoin, costs stay low even when the chain is busy.',
       },
     ],
@@ -237,8 +237,8 @@ export const TUTORIALS: TutorialArticle[] = [
 
   {
     slug: 'launchpad-how-it-works',
-    title: 'Launchpad — how to run a permissionless presale',
-    subtitle: 'A complete walkthrough of the Lester Labs Launchpad: configuring caps and timelines, the automatic LP creation mechanic, and how to give your community a fair shot.',
+    title: 'LitVM Launchpad — How to Run a Permissionless Token Presale',
+    subtitle: 'A complete walkthrough of the LitVM Launchpad: configuring caps and timelines, the automatic LP creation mechanic, and how to give your community a fair shot at your token launch on LitVM.',
     badge: 'Launchpad',
     badgeColor: '#a78bfa',
     readTime: '8 min read',
@@ -307,8 +307,8 @@ export const TUTORIALS: TutorialArticle[] = [
 
   {
     slug: 'how-to-use-dex-swap',
-    title: 'How to Use the DEX Swap',
-    subtitle: 'Connect to LitVM, approve tokens, execute a swap on Lester Labs\' Uniswap V2 router, add liquidity, and track your LP positions from the pool page.',
+    title: 'How to Use the LitVM DEX Swap',
+    subtitle: 'Connect to LitVM, approve tokens, execute a swap on the native LitVM decentralized exchange, add liquidity, and track LP positions from the pool page. Full walkthrough of the Lester Labs DEX on LitVM.',
     badge: 'DEX',
     badgeColor: '#E44FB5',
     readTime: '6 min read',
@@ -533,8 +533,8 @@ export const TUTORIALS: TutorialArticle[] = [
 
   {
     slug: 'airdrop-tool-guide',
-    title: 'Airdrop Tool — distribute tokens to thousands of wallets',
-    subtitle: 'How to use the batch airdrop tool to send tokens to thousands of recipients in a single transaction with CSV upload, snapshot support, and on-chain proof.',
+    title: 'LitVM Airdrop Tool — Batch Token Distribution on LitVM',
+    subtitle: 'How to use the LitVM Airdrop Tool to send tokens to thousands of wallets in a single transaction. CSV upload, merkle proof mode, and on-chain verification for LitVM token distributions.',
     badge: 'Airdrop',
     badgeColor: '#f97316',
     readTime: '6 min read',
@@ -668,6 +668,346 @@ export const TUTORIALS: TutorialArticle[] = [
       },
     ],
     related: ['token-factory-guide', 'launchpad-how-it-works'],
+  },
+
+  // ── Article 11: Complete Guide to LitVM Testnet ──────────────────────────
+  {
+    slug: 'complete-guide-litvm-testnet',
+    title: 'The Complete Guide to LitVM Testnet — Getting Started',
+    subtitle: 'Everything you need to get started on LitVM testnet: wallet setup, network configuration, getting test zkLTC, and your first interaction with LitVM DeFi dApps.',
+    badge: 'Getting Started',
+    badgeColor: '#4ade80',
+    readTime: '9 min read',
+    category: 'Getting Started',
+    heroGradient: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+    heroAccent: '#4ade80',
+    sections: [
+      {
+        type: 'text',
+        heading: 'What is LitVM testnet and why use it',
+        body: 'LitVM testnet (chain ID 4441) is the sandbox environment for the LitVM blockchain — the Litecoin Virtual Machine powered by Arbitrum Orbit and BitcoinOS. It mirrors the eventual LitVM mainnet exactly: the same EVM, the same contract APIs, the same DeFi infrastructure. The only difference is that testnet tokens have no monetary value, which means you can experiment, deploy, trade, and break things without risking real funds. Every dApp, contract, and tool on Lester Labs is live and fully functional on LitVM testnet.',
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'info',
+          text: 'LitVM testnet uses zkLTC as its gas token — not real LTC. You can get free test zkLTC from the LitVM testnet faucet. Testnet zkLTC has no real value and cannot be swapped for mainnet assets.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'Which wallet to use on LitVM testnet',
+        body: 'Any EVM-compatible wallet works on LitVM testnet. MetaMask is the most widely supported and recommended choice. Rabby, Coinbase Wallet, and Trust Wallet also work. Hardware wallets (Ledger, Trezor) can be used via WalletConnect or by importing the private key into a software wallet for testnet-only use.\n\nFor development workflows, `wagmi` + `viem` integrations work out of the box. For Hardhat or Foundry testing, you can fork testnet state by pointing your JSON-RPC URL at the LitVM testnet RPC.',
+      },
+      {
+        type: 'step',
+        heading: 'Adding LitVM testnet to MetaMask',
+        steps: [
+          {
+            title: 'Open MetaMask settings',
+            body: 'Click the network selector at the top of MetaMask, then click \"Add network\". Scroll to the bottom and click \"Add a network manually\".',
+          },
+          {
+            title: 'Enter the LitVM testnet configuration',
+            body: 'Fill in exactly:\n\nNetwork name: LitVM Testnet\nNew RPC URL: https://liteforge.rpc.caldera.xyz/infra-partner-http\nChain ID: 4441\nCurrency symbol: zkLTC\nBlock explorer URL: https://liteforge.caldera.xyz\n\nThe RPC is provided by Caldera as a LitVM infrastructure partner and gives faster, more consistent responses than the public RPC.',
+          },
+          {
+            title: 'Save and switch',
+            body: 'Click Save. MetaMask will switch to LitVM testnet automatically. You will see \"LitVM Testnet\" appear in your network selector and the zkLTC balance displayed in your wallet.',
+          },
+        ],
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'warning',
+          text: 'Always verify the chain ID is 4441 before sending transactions. If your wallet connects to a different chain with the same ID (extremely unlikely), you could send test funds to the wrong place.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'Getting test zkLTC on LitVM',
+        body: 'The primary method is the LitVM testnet faucet. Connect your wallet (MetaMask or Rabby), make sure you are on LitVM testnet (chain ID 4441), and claim your free test zkLTC. There is a per-wallet claim limit to prevent hoarding — sufficient for development and testing.\n\nFor larger volumes needed during active development, contact the LitVM team via their Discord or Telegram channels. Some projects on LitVM also distribute test tokens directly from their own faucets.\n\nOnce you have test zkLTC, you can interact with every Lester Labs dApp on testnet at zero cost.',
+      },
+      {
+        type: 'step',
+        heading: 'Your first interaction with LitVM DeFi',
+        steps: [
+          {
+            title: 'Deploy a test token',
+            body: 'Go to lester-labs.com/launch. Connect your wallet, fill in name, symbol, and supply, and deploy. The Token Factory costs 0.05 zkLTC. Your ERC-20 is live on LitVM testnet in under a minute.',
+          },
+          {
+            title: 'Try a LitVM swap',
+            body: 'Go to lester-labs.com/swap. You need two tokens to swap — use the Token Factory to create a second one. Approve the router, place your swap, and sign the transaction. The 0.30% fee is charged in test tokens only.',
+          },
+          {
+            title: 'Lock liquidity',
+            body: 'After creating a pair on /swap, go to lester-labs.com/locker to lock your LP tokens. Set an unlock date. The lock is permanent and immutably recorded on LitVM testnet.',
+          },
+          {
+            title: 'Explore the block explorer',
+            body: 'Visit lester-labs.com/explorer to search for your wallet address, transaction hash, or any contract. Every interaction you have had is recorded and publicly verifiable on LitVM testnet.',
+          },
+        ],
+      },
+      {
+        type: 'text',
+        heading: 'Navigating LitVM testnet vs mainnet',
+        body: 'LitVM testnet and mainnet will coexist: testnet is where projects and users experiment before committing real capital, and mainnet is where actual transactions settle. All Lester Labs contracts are deployed on testnet now. The same contracts will be deployed to LitVM mainnet at launch.\n\nBookmark the LitVM testnet explorer (liteforge.caldera.xyz) and the Lester Labs testnet dApp at lester-labs.com. Nothing on mainnet is live yet — but when it is, the interfaces and addresses will be identical.',
+      },
+    ],
+    related: ['what-is-litvm', 'setting-up-litvm-wallet', 'how-to-use-dex-swap'],
+  },
+
+  // ── Article 12: Complete Guide to LitVM Airdrop ──────────────────────────
+  {
+    slug: 'complete-guide-litvm-airdrop',
+    title: 'The Complete Guide to LitVM Airdrop — Maximise Your Eligibility',
+    subtitle: 'No LitVM airdrop has been officially confirmed. But if one comes, here is how to position yourself: LitVM testnet activity, dApp usage, wallet signals, and the behaviours that typically determine eligibility.',
+    badge: 'Airdrop',
+    badgeColor: '#fb923c',
+    readTime: '8 min read',
+    category: 'Ecosystem',
+    heroGradient: 'linear-gradient(135deg, #1a0f00 0%, #2e1a00 50%, #1a0f00 100%)',
+    heroAccent: '#fb923c',
+    sections: [
+      {
+        type: 'callout',
+        callout: {
+          type: 'warning',
+          text: 'No official LitVM airdrop has been confirmed at the time of writing. Nothing in this guide constitutes a guarantee of eligibility. LitVM and its associated projects have not announced a formal airdrop programme. Proceed on the basis of the activity itself — not the expectation of a reward.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'How crypto airdrops typically work',
+        body: 'Most major crypto protocols and L2 chains have conducted or announced token distributions. The pattern is consistent: early users of a protocol or chain receive priority allocation, often weighted by transaction frequency, volume, or tenure. Eligibility criteria usually include being an active wallet on the network before a snapshot date — often before the announcement itself.\n\nThis means the only reliable way to position for a potential LitVM airdrop is to genuinely use LitVM testnet and mainnet when it launches. Activity before the announcement is the strongest signal projects use.',
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'tip',
+          text: 'The strongest historical predictor of airdrop eligibility is being an active wallet on a chain before the token is announced — not after. Start using LitVM dApps now, on testnet, while the window is open.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'Step-by-step: maximising your LitVM eligibility signal',
+        body: 'Below are the concrete steps to build the strongest possible eligibility signal for a potential LitVM airdrop. These are the same steps that have been associated with eligibility in comparable protocols and L2 airdrops.',
+      },
+      {
+        type: 'step',
+        heading: 'Step 1: Set up your LitVM wallet',
+        steps: [
+          {
+            title: 'Use a dedicated wallet',
+            body: 'Consider using a wallet that has no prior history with the LitVM ecosystem — new EOAs tend to receive more attention in eligibility models than wallets that already have a long history on the chain.',
+          },
+          {
+            title: 'Add LitVM testnet to MetaMask or Rabby',
+            body: 'Network name: LitVM Testnet, RPC: https://liteforge.rpc.caldera.xyz/infra-partner-http, Chain ID: 4441, Currency: zkLTC, Explorer: https://liteforge.caldera.xyz.',
+          },
+          {
+            title: 'Secure your seed phrase',
+            body: 'Write down your seed phrase. Never share it. Use a hardware wallet if possible for the wallet you intend to use long-term on LitVM mainnet.',
+          },
+        ],
+      },
+      {
+        type: 'step',
+        heading: 'Step 2: Use LitVM DeFi dApps consistently on testnet',
+        steps: [
+          {
+            title: 'Deploy a test token',
+            body: 'Use the Token Factory at lester-labs.com/launch to deploy an ERC-20 on LitVM testnet. It costs 0.05 zkLTC. This registers your wallet as an active deployer on LitVM — a meaningful signal for any future eligibility model.',
+          },
+          {
+            title: 'Run a LitVM swap',
+            body: 'Go to lester-labs.com/swap. Create two test tokens with the Token Factory and swap between them. Swap activity is one of the strongest signals used in airdrop eligibility — it demonstrates genuine chain usage.',
+          },
+          {
+            title: 'Use the Launchpad',
+            body: 'Run a test presale on lester-labs.com/launchpad. Even a small raise with your own tokens demonstrates engagement with LitVM infrastructure. ILO participation signals deep protocol engagement.',
+          },
+          {
+            title: 'Use the Airdrop Tool',
+            body: 'Send a test batch distribution at lester-labs.com/airdrop. Demonstrates use of the full DeFi stack — not just swapping — and registers your wallet across multiple contract interactions.',
+          },
+          {
+            title: 'Lock LP tokens',
+            body: 'After providing liquidity on /swap, lock your LP tokens at lester-labs.com/locker. LP locking is a strong signal of long-term commitment to a chain ecosystem.',
+          },
+        ],
+      },
+      {
+        type: 'step',
+        heading: 'Step 3: Stay active over time',
+        steps: [
+          {
+            title: 'Activity frequency matters',
+            body: 'Most airdrop eligibility models weight transaction count and tenure. Regular activity over weeks and months matters more than a single burst of transactions. Spread your testnet activity over time.',
+          },
+          {
+            title: 'Use multiple LitVM dApps',
+            body: 'The more contracts you interact with, the richer your on-chain signal. Use the block explorer at lester-labs.com/explorer to look up your own address and verify your activity history.',
+          },
+          {
+            title: 'Track your activity on the LitVM block explorer',
+            body: 'Search your wallet address at lester-labs.com/explorer. Every transaction, token transfer, and contract interaction is recorded. Use this to confirm your wallet is registering activity correctly.',
+          },
+        ],
+      },
+      {
+        type: 'step',
+        heading: 'Step 4: Follow LitVM and Lester Labs for official announcements',
+        steps: [
+          {
+            title: 'Follow LitVM official channels',
+            body: 'Bookmark litvm.com and follow their official X/Twitter and Telegram accounts. Official announcements about token launches, mainnet dates, and airdrop programmes will come through these channels first.',
+          },
+          {
+            title: 'Follow Lester Labs',
+            body: 'Lester Labs is the primary dApp infrastructure provider on LitVM. Follow @lesterlabshq on X for updates on contract deployments, new features, and any ecosystem announcements that could relate to airdrop eligibility.',
+          },
+          {
+            title: 'Join the LitVM community',
+            body: 'Participate in the LitVM Discord and Telegram. Active community membership is often tracked by projects and can be a factor in eligibility for grants, early access, and token distributions.',
+          },
+        ],
+      },
+      {
+        type: 'text',
+        heading: 'What NOT to do',
+        body: 'Airdrop farmers who create hundreds of wallets to farm eligibility are often penalised rather than rewarded — Sybil detection has become sophisticated. Use one or two wallets genuinely. The goal is to demonstrate real usage, not to game the system.\n\nSimilarly, do not send funds to random wallets in an attempt to simulate activity. Clean, purposeful transactions across real dApps are the only signal worth building.',
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'tip',
+          text: 'The best LitVM airdrop strategy is to forget about the airdrop and focus on genuinely exploring the ecosystem. You will learn more, build better habits, and your activity will look authentic — which is exactly what eligibility models reward.',
+        },
+      },
+    ],
+    related: ['complete-guide-litvm-testnet', 'what-is-litvm', 'how-to-use-dex-swap', 'launchpad-how-it-works'],
+  },
+
+  // ── Article 13: LitVM Block Explorer ────────────────────────────────────
+  {
+    slug: 'litvm-block-explorer',
+    title: 'LitVM Block Explorer — Track Transactions, Wallets, and Tokens',
+    subtitle: 'A complete guide to the LitVM block explorer: how to search for transactions, monitor wallet activity, track token transfers, and verify contract deployments on LitVM using the Lester Labs explorer.',
+    badge: 'Block Explorer',
+    badgeColor: '#22d3ee',
+    readTime: '6 min read',
+    category: 'Ecosystem',
+    heroGradient: 'linear-gradient(135deg, #001a1e 0%, #003333 50%, #001a1e 100%)',
+    heroAccent: '#22d3ee',
+    sections: [
+      {
+        type: 'text',
+        heading: 'What is the LitVM block explorer',
+        body: 'A block explorer is a search engine for a blockchain. It lets you look up any transaction, wallet address, contract deployment, or token transfer that has ever occurred on LitVM — without needing a wallet or any permission. The LitVM block explorer is available at lester-labs.com/explorer, powered by a LitVM RPC node with full indexing support.\n\nEvery action on LitVM — a token swap, a contract deployment, a governance vote, an airdrop distribution — generates a transaction that is permanently recorded on the chain and visible through the explorer.',
+      },
+      {
+        type: 'callout',
+        callout: {
+          type: 'info',
+          text: 'The LitVM block explorer is fully public. You do not need to connect a wallet or have any balance to use it. You can look up any LitVM address, transaction, or contract at any time.',
+        },
+      },
+      {
+        type: 'text',
+        heading: 'How to search on the LitVM block explorer',
+        body: 'The LitVM block explorer at lester-labs.com/explorer accepts three primary search types: wallet addresses, transaction hashes, and block numbers. Paste any Ethereum-format address (0x...) into the search bar to see its full history.',
+      },
+      {
+        type: 'step',
+        heading: 'Searching for a wallet address',
+        steps: [
+          {
+            title: 'Paste the address',
+            body: 'Paste any LitVM wallet address into the search bar at lester-labs.com/explorer. Press Enter.',
+          },
+          {
+            title: 'Read the address overview',
+            body: 'The explorer shows the current balance (in zkLTC), the total number of transactions sent and received, and the age of the wallet (first seen at block). For contracts, it additionally shows the deployed code.',
+          },
+          {
+            title: 'Review the transaction history',
+            body: 'Scrolling down shows every transaction involving that address: swaps, transfers, contract deployments, LP interactions, governance votes. Each row shows the method called, the amount, the gas used, and a link to the full transaction.',
+          },
+          {
+            title: 'Check token holdings',
+            body: 'The Tokens tab on an address page shows every ERC-20 token held by that wallet and the current balance. Useful for checking whether a target wallet holds a specific project token.',
+          },
+        ],
+      },
+      {
+        type: 'step',
+        heading: 'Reading a LitVM transaction',
+        steps: [
+          {
+            title: 'Find the transaction hash',
+            body: 'Every LitVM transaction has a unique hash (0x...). On lester-labs.com/explorer, paste the hash into the search bar to open the transaction detail page.',
+          },
+          {
+            title: 'Check the status',
+            body: 'The top of the transaction page shows Status (Success / Failed), the block number it was included in, and the gas used. A confirmed transaction shows the block number and a link to the block.',
+          },
+          {
+            title: 'Read the method called',
+            body: 'For contract interactions, the Method field shows the function name (e.g. \"swapExactETHForTokens\" or \"create\" for a token deployment). This tells you what the transaction did without reading the raw input data.',
+          },
+          {
+            title: 'Verify token transfers',
+            body: 'The Tokens Transferred section shows every ERC-20 token moved in the transaction: the token, the amount, and the from/to addresses. For a swap, this shows input and output tokens.',
+          },
+        ],
+      },
+      {
+        type: 'step',
+        heading: 'Exploring blocks',
+        steps: [
+          {
+            title: 'Navigate to the block explorer',
+            body: 'Go to lester-labs.com/explorer/block/[number] — or click any block number from a transaction page. The block page shows all transactions included in that block.',
+          },
+          {
+            title: 'Read block metadata',
+            body: 'Each block shows its number, timestamp, gas used, gas limit, transaction count, and the miner or validator address. Gas used vs limit tells you how full the block was.',
+          },
+          {
+            title: 'Monitor chain health',
+            body: 'Watch block times and gas usage over time at lester-labs.com/explorer/health. Consistent block times and moderate gas usage indicate a healthy, uncongested LitVM network.',
+          },
+        ],
+      },
+      {
+        type: 'step',
+        heading: 'Tracking tokens on LitVM',
+        steps: [
+          {
+            title: 'Find a token contract',
+            body: 'Search for a token by its contract address on lester-labs.com/explorer. The Token page shows the token name, symbol, total supply, decimals, and the deployer address.',
+          },
+          {
+            title: 'View token holders',
+            body: 'The Holders tab shows the top wallets holding the token and their balance. Useful for verifying distribution and checking whether team or investor wallets hold large portions.',
+          },
+          {
+            title: 'Find token transfers',
+            body: 'The Transfers tab shows every transfer of that token: sender, recipient, amount, and transaction hash. Useful for auditing airdrop distributions or tracking large wallet movements.',
+          },
+        ],
+      },
+      {
+        type: 'text',
+        heading: 'Verifying your own LitVM activity',
+        body: 'After using any Lester Labs dApp on LitVM — deploying a token, running a swap, creating an LP position, locking tokens — you can verify the result on the explorer. Search your wallet address and confirm the transaction appears. This is the definitive proof of on-chain activity: the block explorer records everything permanently, without any reliance on the dApp being online.\n\nThis is one of the core properties of blockchain: public verifiability. The LitVM block explorer at lester-labs.com/explorer is your interface to that permanent record.',
+      },
+    ],
+    related: ['what-is-litvm', 'complete-guide-litvm-testnet', 'how-to-use-dex-swap'],
   },
 ]
 

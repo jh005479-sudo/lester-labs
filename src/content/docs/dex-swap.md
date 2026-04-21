@@ -1,10 +1,10 @@
-# DEX Swap & Pool
+# LitVM DEX Swap & Pool — Native Token Trading on LitVM
 
 ## Overview
 
-The Lester Labs DEX is a local Uniswap V2 deployment on LitVM. The `/swap` page gives users a direct trading interface for native zkLTC and LitVM ERC-20 tokens, while `/pool` provides a lightweight LP-positions view for connected wallets.
+The Lester Labs DEX is the native LitVM decentralized exchange: a self-deployed Uniswap V2 instance on LitVM that powers token swaps, liquidity provision, and Launchpad LP seeding without any external venue dependency. The `/swap` page provides a direct trading interface for native zkLTC and any ERC-20 token deployed on LitVM. The `/pool` page gives a lightweight view of LP positions for any connected wallet.
 
-This DEX is not a third-party integration. Quotes, swaps, pair discovery, and launchpad liquidity seeding all resolve against Lester Labs-owned factory and router contracts.
+This LitVM DEX is not a third-party integration or a bridge-dependent pair. Quotes, swaps, pair discovery, and launchpad liquidity seeding all resolve against Lester Labs-owned factory and router contracts deployed on LitVM.
 
 ## How it works
 
