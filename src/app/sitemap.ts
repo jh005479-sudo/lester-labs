@@ -5,7 +5,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const routes: { route: string; priority: number; changefreq: 'weekly' | 'monthly' }[] = [
     { route: '', priority: 1, changefreq: 'weekly' },
-    { route: '/litvm-dex', priority: 0.9, changefreq: 'weekly' },
+    { route: '/litvm-testnet', priority: 0.9, changefreq: 'weekly' },
     { route: '/litvm-swap', priority: 0.9, changefreq: 'weekly' },
     { route: '/litvm-airdrop', priority: 0.9, changefreq: 'weekly' },
     { route: '/litvm-launchpad', priority: 0.9, changefreq: 'weekly' },

@@ -4,7 +4,20 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'LitVM Launchpad — Permissionless Token Launches on LitVM | Lester Labs',
   description: 'Run a token presale on LitVM with automatic LP seeding. No application, no listing fees, no team veto. The LitVM Launchpad deploys your ILO contract and seeds liquidity into the native DEX.',
-  keywords: ['LitVM launchpad', 'LitVM token launch', 'LitVM ILO', 'LitVM presale', 'LitVM token sale'],
+  alternates: { canonical: 'https://www.lester-labs.com/litvm-launchpad' },
+  openGraph: {
+    title: 'LitVM Launchpad — Permissionless Token Launches on LitVM | Lester Labs',
+    description: 'Run a token presale on LitVM with automatic LP seeding. No application, no listing fees, no team veto. The LitVM Launchpad deploys your ILO contract and seeds liquidity into the native DEX.',
+    url: 'https://www.lester-labs.com/litvm-launchpad',
+    siteName: 'Lester Labs',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'LitVM Launchpad — Permissionless Token Launches on LitVM | Lester Labs',
+    description: 'Run a token presale on LitVM with automatic LP seeding. No application, no listing fees, no team veto.',
+  },
 }
 
 const features = [

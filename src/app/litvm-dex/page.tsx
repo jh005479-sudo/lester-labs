@@ -5,6 +5,20 @@ export const metadata: Metadata = {
   title: 'LitVM DEX — Native Decentralized Exchange on LitVM | Lester Labs',
   description: 'Trade tokens directly on LitVM with the Lester Labs DEX. 0.30% per trade, 0.20% routed to the protocol treasury, zero external dependencies. The native LitVM decentralized exchange.',
   keywords: ['LitVM DEX', 'LitVM decentralized exchange', 'LitVM swap', 'Lester Labs DEX'],
+  alternates: { canonical: 'https://www.lester-labs.com/litvm-dex' },
+  openGraph: {
+    title: 'LitVM DEX — Native Decentralized Exchange on LitVM | Lester Labs',
+    description: 'Trade tokens directly on LitVM with the Lester Labs DEX. 0.30% per trade, 0.20% routed to the protocol treasury, zero external dependencies.',
+    url: 'https://www.lester-labs.com/litvm-dex',
+    siteName: 'Lester Labs',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'LitVM DEX — Native Decentralized Exchange on LitVM | Lester Labs',
+    description: 'Trade tokens directly on LitVM with the Lester Labs DEX. 0.30% per trade, 0.20% routed to the protocol treasury.',
+  },
 }
 
 const features = [
