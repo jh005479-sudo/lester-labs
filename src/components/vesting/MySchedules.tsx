@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, ExternalLink, Calendar } from 'lucide-react'
+import { Search, Calendar } from 'lucide-react'
 
 export function MySchedules() {
   const [lookupId, setLookupId] = useState('')
@@ -64,26 +64,15 @@ export function MySchedules() {
         </div>
       )}
 
-      {/* Beneficiary link note */}
+      {/* Beneficiary note */}
       <div className="rounded-xl border border-white/10 bg-white/5 p-4">
         <p className="text-sm text-white/50">
-          <span className="text-white/70 font-medium">Beneficiary dashboard:</span>{' '}
-          Share{' '}
-          <span className="font-mono text-[var(--accent)]">
-            lester-labs.com/vesting/claim?id=[id]
-          </span>{' '}
-          with beneficiaries to let them track and claim their tokens.{' '}
-          <a
-            href="https://lester-labs.com/vesting/claim"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[var(--accent)] hover:underline"
-          >
-            Open <ExternalLink size={11} />
-          </a>
+          <span className="text-white/70 font-medium">Beneficiary claims:</span>{' '}
+          Share the vesting wallet address from the creation receipt. Vesting follows the standard
+          OpenZeppelin `release(token)` pattern, so vested tokens are claimed from the vesting
+          wallet itself rather than a dedicated Lester claim route.
         </p>
       </div>
     </div>
   )
 }
-

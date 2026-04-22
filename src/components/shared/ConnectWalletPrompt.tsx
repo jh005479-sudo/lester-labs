@@ -2,6 +2,7 @@
 
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { Wallet } from 'lucide-react'
+import { walletConnectConfigured } from '@/config/wagmi'
 
 export function ConnectWalletPrompt() {
   return (
@@ -22,6 +23,12 @@ export function ConnectWalletPrompt() {
         <div className="flex justify-center">
           <ConnectButton />
         </div>
+        {!walletConnectConfigured && (
+          <p className="mt-4 text-[12px]" style={{ color: 'var(--foreground-muted)' }}>
+            Local wallet connectivity is running without a configured WalletConnect project ID.
+            Add `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` to enable the full connector set.
+          </p>
+        )}
         <p className="mt-6 text-[12px]" style={{ color: 'var(--foreground-muted)' }}>
           Need testnet ETH?{' '}
           <a

@@ -26,14 +26,15 @@ export default function VestingPage() {
         category="Token Distribution"
         title="Lester"
         titleHighlight="Vester"
-        subtitle="Create vesting schedules for teams, investors, and advisors. Auto-release, zero claims."
+        subtitle="Create battle-tested vesting wallets for teams, investors, and advisors. Beneficiaries claim vested tokens on demand."
         color={COLOR}
         image="/images/carousel/token-vesting.png"
         compact
         stats={[
           { label: 'Schedules', value: 'Linear + Cliff' },
-          { label: 'Release', value: 'Automatic' },
-          { label: 'Claims', value: 'Zero' },
+          { label: 'Model', value: 'VestingWallet' },
+          { label: 'Release', value: 'On demand' },
+          { label: 'Claims', value: 'Beneficiary' },
           { label: 'Fee', value: '0.03 zkLTC' },
         ]}
       />
