@@ -1,8 +1,10 @@
-# Launchpad
+# LitVM Launchpad — Permissionless Token Launches on LitVM
 
 ## Overview
 
 The Launchpad lets project teams run community presales (ILOs — Initial Liquidity Offerings) and then finalize directly into a Lester Labs DEX pool. The flow is self-serve and permissionless: deploy the presale, fund it with tokens, accept zkLTC contributions, and finalize into locked LP without handing the launch off to an external DEX.
+
+The LitVM Launchpad enables project teams to run community token presales (ILOs — Initial Liquidity Offerings) on LitVM with automatic LP creation and LP lock enforcement at finalization. Fully self-service and permissionless: deploy your presale, accept zkLTC contributions from the LitVM community, and seed liquidity into the native LitVM DEX in a single finalize transaction. No external DEX listing step, no team veto, no application process.
 
 ## How it works
 

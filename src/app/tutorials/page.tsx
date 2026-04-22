@@ -103,9 +103,9 @@ export default function TutorialsPage() {
 
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight">Tutorials & Guides</h1>
+          <h1 className="text-2xl font-bold tracking-tight">LitVM DeFi Tutorials & Guides</h1>
           <p className="text-white/50 text-sm mt-1">
-            Step-by-step guides, protocol explainers, and ecosystem deep dives for LitVM and every Lester Labs dApp.
+            Step-by-step guides for every Lester Labs dApp on LitVM. Learn how to swap on the LitVM DEX, run a launchpad presale, deploy tokens, airdrop, vest, and lock LP — all on LitVM testnet.
           </p>
         </div>
 

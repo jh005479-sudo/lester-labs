@@ -13,6 +13,7 @@ import { ERC20_ABI, ILO_ABI } from '@/config/abis'
 import { wagmiConfig } from '@/config/wagmi'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+import { litvm } from '@/config/chains'
 
 function shortAddress(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`
@@ -49,7 +50,7 @@ export default function PresalePage() {
   const iloAddress = isAddress(rawAddress) ? (rawAddress as `0x${string}`) : undefined
 
   const { address: userAddress, isConnected } = useAccount()
-  const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, writeContractAsync } = useSafeWriteContract()
+  const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, switchChainAsync, writeContractAsync } = useSafeWriteContract()
 
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
   const [contributionAmount, setContributionAmount] = useState('')
@@ -287,6 +288,27 @@ export default function PresalePage() {
       setFundingAmount(formatUnits(fundingGap, tokenDecimals))
     }
   }, [fundingAmount, fundingGap, tokenDecimals])
+
+  async function ensureLitvm() {
+    if (!isConnected) {
+      setTxOpen(true)
+      setTxStatus('error')
+      setTxMessage('Connect a wallet before submitting a transaction.')
+      return false
+    }
+
+    if (!isWrongNetwork) return true
+
+    try {
+      await switchChainAsync({ chainId: litvm.id })
+      return true
+    } catch {
+      setTxOpen(true)
+      setTxStatus('error')
+      setTxMessage(`Switch to LitVM Testnet (Chain ID ${litvm.id}) before continuing.`)
+      return false
+    }
+  }
 
   async function refreshPresaleState() {
     await Promise.allSettled([
@@ -600,16 +622,7 @@ export default function PresalePage() {
               </div>
             </div>
             <button
-              onClick={() => {
-                void ensureLitvmWrite({
-                  action: 'continuing',
-                  onError: (message) => {
-                    setTxOpen(true)
-                    setTxStatus('error')
-                    setTxMessage(message)
-                  },
-                })
-              }}
+              onClick={() => { void ensureLitvm() }}
               disabled={isSwitchingChain}
               style={{
                 marginTop: '14px',
