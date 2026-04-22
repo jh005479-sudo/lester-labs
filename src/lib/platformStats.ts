@@ -169,7 +169,9 @@ async function walkExplorerTransactions(
 }
 
 function isSuccessfulExplorerTransaction(transaction: ExplorerTransactionItem): boolean {
-  if (transaction.isError !== '0') return false
+  // Caldera explorer: isError='0' means no error (success), isError='1' means error
+  // txreceipt_status='1' means success, '0' means failed
+  if (transaction.isError === '1') return false
   return transaction.txreceipt_status === null || transaction.txreceipt_status === undefined || transaction.txreceipt_status === '1'
 }
 
