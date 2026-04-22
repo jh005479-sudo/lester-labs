@@ -30,15 +30,7 @@ export function ConnectWalletPrompt() {
           </p>
         )}
         <p className="mt-6 text-[12px]" style={{ color: 'var(--foreground-muted)' }}>
-          Need testnet ETH?{' '}
-          <a
-            href="https://www.alchemy.com/faucets/arbitrum-sepolia"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: 'var(--accent)', opacity: 0.7 }}
-          >
-            Alchemy faucet →
-          </a>
+          Need testnet zkLTC? Use the current LitVM faucet or bridge details shared by the Lester Labs team.
         </p>
       </div>
     </div>

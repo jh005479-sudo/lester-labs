@@ -69,6 +69,8 @@ contract ILO is ReentrancyGuard {
         uint256 _platformFeeBps,
         bool    _whitelistEnabled
     ) {
+        require(_owner != address(0), "Invalid owner");
+        require(_token != address(0) && _token.code.length > 0, "Invalid token");
         require(_softCap > 0 && _hardCap >= _softCap, "Invalid caps");
         require(_tokensPerEth > 0, "Invalid price");
         require(_startTime < _endTime, "Invalid times");
