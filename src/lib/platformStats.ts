@@ -1,4 +1,4 @@
-import { createPublicClient, decodeFunctionData, http, toFunctionSelector, type Address, type Hex } from 'viem'
+import { createPublicClient, decodeFunctionData, http, parseAbiItem, toFunctionSelector, type Address, type Hex } from 'viem'
 import { litvm } from '@/config/chains'
 import {
   DISPERSE_ADDRESS,
@@ -12,7 +12,16 @@ import { ILO_FACTORY_ABI, LEDGER_ABI } from '@/config/abis'
 import { DISPERSE_ABI } from '@/lib/contracts/airdrop'
 import { RPC_URL } from '@/lib/rpcClient'
 
+// Public RPC fallback — use when infra RPC eth_call reverts
+const PUBLIC_RPC_URL = 'https://liteforge.rpc.caldera.xyz/http'
+
+// Explorer-based event counting constants
 const EXPLORER_API_BASE_URL = 'https://liteforge.explorer.caldera.xyz/api'
+
+const MESSAGE_POSTED_EVENT = parseAbiItem(
+  'event MessagePosted(address indexed sender, uint256 indexed index, uint256 timestamp, bytes data)',
+)
+
 const LEGACY_ILO_FACTORY_ADDRESS = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB' as const
 const DEFAULT_TOKEN_FACTORY_ADDRESS = '0x93acc61fcdc2e3407A0c03450Adfd8aE78964948' as const
 const DEFAULT_DISPERSE_ADDRESS = '0x3cc66cb4713dca78564df512922adb331ac5ee04' as const
@@ -25,8 +34,30 @@ const EXPLORER_REQUEST_TIMEOUT_MS = 15_000
 const EXPLORER_TXLIST_PAGE_SIZE = 10_000
 const EXPLORER_TXLIST_MAX_PAGES = 25
 
+// Public RPC client — fallback when infra RPC eth_call reverts
+const publicClient = createPublicClient({
+  chain: litvm,
+  transport: http(PUBLIC_RPC_URL, {
+    retryCount: 2,
+    timeout: RPC_TIMEOUT_MS,
+  }),
+})
+
+// Infra RPC client — primary
+const client = createPublicClient({
+  chain: litvm,
+  transport: http(RPC_URL, {
+    retryCount: 2,
+    timeout: RPC_TIMEOUT_MS,
+  }),
+})
+
 const CREATE_TOKEN_FUNCTION_SELECTOR = toFunctionSelector(
   'createToken(string,string,uint256,uint8,bool,bool,bool)',
+).toLowerCase()
+
+const CREATE_ILO_FUNCTION_SELECTOR = toFunctionSelector(
+  'createILO(address,uint256,uint256,uint256,uint256,uint256,uint256,bool)',
 ).toLowerCase()
 
 const SWAP_FUNCTION_SELECTORS = new Set<string>([
@@ -41,13 +72,7 @@ const SWAP_FUNCTION_SELECTORS = new Set<string>([
   'swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)',
 ].map((signature) => toFunctionSelector(signature).toLowerCase()))
 
-const client = createPublicClient({
-  chain: litvm,
-  transport: http(RPC_URL, {
-    retryCount: 2,
-    timeout: RPC_TIMEOUT_MS,
-  }),
-})
+
 
 export interface PlatformStatsSnapshot {
   tokensMinted: number
@@ -153,6 +178,20 @@ function getFunctionSelector(rawInput?: string | null): string | null {
   return rawInput.slice(0, 10).toLowerCase()
 }
 
+// eth_call via infra RPC with public RPC fallback
+async function rpcCall<T>(fn: (client: ReturnType<typeof createPublicClient>) => Promise<T>, fallbackValue: T): Promise<T> {
+  try {
+    return await fn(client)
+  } catch {
+    // Fallback to public RPC if infra RPC reverts
+    try {
+      return await fn(publicClient)
+    } catch {
+      return fallbackValue
+    }
+  }
+}
+
 async function safeReadCount(address: Address, abi: typeof ILO_FACTORY_ABI, functionName: 'getILOCount'): Promise<number>
 async function safeReadCount(address: Address, abi: typeof LEDGER_ABI, functionName: 'messageCount'): Promise<number>
 async function safeReadCount(
@@ -162,16 +201,15 @@ async function safeReadCount(
 ): Promise<number> {
   if (!isValidContractAddress(address)) return 0
 
-  try {
-    const result = await client.readContract({
-      address,
-      abi,
-      functionName,
-    })
-    return Number(result)
-  } catch {
-    return 0
-  }
+  return rpcCall(
+    (c) =>
+      c.readContract({
+        address,
+        abi,
+        functionName,
+      }).then((r) => Number(r)),
+    0,
+  )
 }
 
 async function getTokenCount(): Promise<number> {
@@ -196,18 +234,38 @@ async function getTokenCount(): Promise<number> {
 }
 
 async function getPresalesCount(): Promise<number> {
+  // Primary: eth_call via getILOCount() with RPC fallback
   const addresses = new Map<string, Address>()
-
   const currentFactory = resolveContractAddress(ILO_FACTORY_ADDRESS, LEGACY_ILO_FACTORY_ADDRESS)
   if (currentFactory) addresses.set(currentFactory.toLowerCase(), currentFactory)
-
   addresses.set(LEGACY_ILO_FACTORY_ADDRESS.toLowerCase(), LEGACY_ILO_FACTORY_ADDRESS)
 
   const counts = await Promise.all(
     Array.from(addresses.values()).map((address) => safeReadCount(address, ILO_FACTORY_ABI, 'getILOCount')),
   )
+  const rpcCount = counts.reduce((sum, value) => sum + value, 0)
+  if (rpcCount > 0) return rpcCount
 
-  return counts.reduce((sum, value) => sum + value, 0)
+  // Fallback: count successful createILO txs from explorer
+  let explorerCount = 0
+  try {
+    for (const address of Array.from(addresses.values())) {
+      await walkExplorerTransactions(address, (items) => {
+        for (const item of items) {
+          if (item.to?.toLowerCase() !== address.toLowerCase()) continue
+          if (!isSuccessfulExplorerTransaction(item)) continue
+          const selector = getFunctionSelector(item.input)
+          if (selector === CREATE_ILO_FUNCTION_SELECTOR) {
+            explorerCount += 1
+          }
+        }
+      })
+    }
+  } catch {
+    // Explorer unavailable — return 0 rather than throwing
+  }
+
+  return explorerCount
 }
 
 async function getSwapCount(): Promise<number> {
@@ -231,37 +289,81 @@ async function getSwapCount(): Promise<number> {
   return count
 }
 
+// Both common DISPERSE parameter orderings for disperseToken:
+// A: (address token, address[] recipients, uint256[] values) — current codebase
+// B: (address token, uint256[] values, address[] recipients) — original DISPERSE.sol
+const DISPERSE_ABI_VARIANT_A = [
+  {
+    name: 'disperseToken',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'recipients', type: 'address[]' },
+      { name: 'values', type: 'uint256[]' },
+    ],
+    outputs: [],
+  },
+] as const
+
+const DISPERSE_ABI_VARIANT_B = [
+  {
+    name: 'disperseToken',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'values', type: 'uint256[]' },
+      { name: 'recipients', type: 'address[]' },
+    ],
+    outputs: [],
+  },
+] as const
+
 async function getAirdropWalletCount(): Promise<number> {
   const disperseAddress = resolveContractAddress(DISPERSE_ADDRESS, DEFAULT_DISPERSE_ADDRESS)
   if (!disperseAddress) return 0
 
   const recipients = new Set<string>()
+  let decodeSucceeded = false
 
-  await walkExplorerTransactions(disperseAddress, (items) => {
-    for (const item of items) {
-      if (item.to?.toLowerCase() !== disperseAddress.toLowerCase()) continue
-      if (!isSuccessfulExplorerTransaction(item)) continue
-      if (typeof item.input !== 'string' || item.input === '0x') continue
+  for (const abiVariant of [DISPERSE_ABI_VARIANT_A, DISPERSE_ABI_VARIANT_B] as const) {
+    try {
+      await walkExplorerTransactions(disperseAddress, (items) => {
+        for (const item of items) {
+          if (item.to?.toLowerCase() !== disperseAddress.toLowerCase()) continue
+          if (!isSuccessfulExplorerTransaction(item)) continue
+          if (typeof item.input !== 'string' || item.input === '0x') continue
 
-      try {
-        const decoded = decodeFunctionData({
-          abi: DISPERSE_ABI,
-          data: item.input as Hex,
-        })
+          try {
+            const decoded = decodeFunctionData({
+              abi: abiVariant,
+              data: item.input as Hex,
+            })
 
-        const recipientsArg = decoded.functionName === 'disperseToken' ? decoded.args[1] : decoded.args[0]
-        if (!Array.isArray(recipientsArg)) continue
-
-        for (const recipient of recipientsArg) {
-          if (typeof recipient === 'string') {
-            recipients.add(recipient.toLowerCase())
+            if (decoded.functionName === 'disperseToken') {
+              // args[0] = recipients (variant A), args[1] = values
+              const rawArgs = decoded.args as unknown as readonly unknown[]
+              const recipientsArg = rawArgs[0]
+              if (Array.isArray(recipientsArg)) {
+                for (const recipient of recipientsArg) {
+                  if (typeof recipient === 'string') {
+                    recipients.add(recipient.toLowerCase())
+                  }
+                }
+                decodeSucceeded = true
+              }
+            }
+          } catch {
+            // Try next variant
           }
         }
-      } catch {
-        // Ignore non-disperse calls and malformed calldata.
-      }
+      })
+      if (decodeSucceeded) break
+    } catch {
+      // Explorer unavailable
     }
-  })
+  }
 
   return recipients.size
 }
@@ -270,7 +372,28 @@ async function getOnChainMessageCount(): Promise<number> {
   const ledgerAddress = resolveContractAddress(LEDGER_ADDRESS, DEFAULT_LEDGER_ADDRESS)
   if (!ledgerAddress) return 0
 
-  return safeReadCount(ledgerAddress, LEDGER_ABI, 'messageCount')
+  // Primary: eth_call
+  const rpcCount = await safeReadCount(ledgerAddress, LEDGER_ABI, 'messageCount')
+  if (rpcCount > 0) return rpcCount
+
+  // Fallback: count MessagePosted events via explorer
+  let explorerCount = 0
+  try {
+    await walkExplorerTransactions(ledgerAddress, (items) => {
+      for (const item of items) {
+        if (item.to?.toLowerCase() !== ledgerAddress.toLowerCase()) continue
+        if (!isSuccessfulExplorerTransaction(item)) continue
+        // Successful tx to ledger that isn't a simple transfer = post() call
+        if (typeof item.input === 'string' && item.input !== '0x' && item.input.length > 10) {
+          explorerCount += 1
+        }
+      }
+    })
+  } catch {
+    // Explorer unavailable
+  }
+
+  return explorerCount
 }
 
 async function computeSnapshot(): Promise<PlatformStatsSnapshot> {
