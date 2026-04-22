@@ -1,4 +1,4 @@
-import { createPublicClient, decodeFunctionData, http, parseAbiItem, type Address, type Hex } from 'viem'
+import { createPublicClient, http, parseAbiItem, toFunctionSelector, type Address, type Hex } from 'viem'
 import { litvm } from '@/config/chains'
 import {
   DISPERSE_ADDRESS,
@@ -12,6 +12,52 @@ import {
 import { ILO_FACTORY_ABI, LEDGER_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
 import { DISPERSE_ABI } from '@/lib/contracts/airdrop'
 import { RPC_URL } from '@/lib/rpcClient'
+
+// Deployed DISPERSE selector hashes (confirmed from bytecode PUSH4 opcodes on-chain)
+const DISPERSE_TOKEN_SELECTOR = toFunctionSelector('disperseToken(address,address[],uint256[])').toLowerCase()
+const DISPERSE_ETHER_SELECTOR = toFunctionSelector('disperseEther(address[],uint256[])').toLowerCase()
+
+/**
+ * Decode recipient addresses from raw DISPERSE calldata.
+ * Uses manual parsing to avoid viem's BigInt safe-integer overflow on large uint256 values.
+ */
+function decodeAirdropRecipients(calldata: Hex): string[] {
+  const h = calldata.slice(10)
+  const selector = calldata.slice(0, 10).toLowerCase()
+
+  try {
+    if (selector === DISPERSE_TOKEN_SELECTOR) {
+      // disperseToken(address token, address[] recipients, uint256[] values)
+      // Layout: token(32b) | offset_recip(32b) | offset_vals(32b) | count_recip | recipients | count_vals | values
+      const offsetRecip = Number(BigInt('0x' + h.slice(64, 128)))
+      const countRecip = Number(BigInt('0x' + h.slice(offsetRecip * 2, offsetRecip * 2 + 64)))
+      const result: string[] = []
+      for (let i = 0; i < Math.min(countRecip, 500); i++) {
+        const charPos = (offsetRecip + 32 + i * 32) * 2
+        if (charPos + 64 > h.length) break
+        const addr = h.slice(charPos + 24, charPos + 64)
+        if (!addr.startsWith('0000')) result.push('0x' + addr)
+      }
+      return result
+    } else if (selector === DISPERSE_ETHER_SELECTOR) {
+      // disperseEther(address[] recipients, uint256[] values)
+      // Layout: offset_recip(32b) | offset_vals(32b) | count_recip | recipients
+      const offsetRecip = Number(BigInt('0x' + h.slice(0, 64)))
+      const countRecip = Number(BigInt('0x' + h.slice(offsetRecip * 2, offsetRecip * 2 + 64)))
+      const result: string[] = []
+      for (let i = 0; i < Math.min(countRecip, 500); i++) {
+        const charPos = (offsetRecip + 32 + i * 32) * 2
+        if (charPos + 64 > h.length) break
+        const addr = h.slice(charPos + 24, charPos + 64)
+        if (!addr.startsWith('0000')) result.push('0x' + addr)
+      }
+      return result
+    }
+  } catch {
+    // Malformed calldata — skip
+  }
+  return []
+}
 
 const EXPLORER_API_BASE_URL = 'https://liteforge.explorer.caldera.xyz/api'
 const LEGACY_ILO_FACTORY_ADDRESS = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB' as const
@@ -97,7 +143,7 @@ function buildTxListUrl(address: Address, page: number): string {
   url.searchParams.set('address', address)
   url.searchParams.set('page', String(page))
   url.searchParams.set('offset', String(EXPLORER_TXLIST_PAGE_SIZE))
-  url.searchParams.set('sort', 'desc')
+  url.searchParams.set('sort', 'asc')
   return url.toString()
 }
 
@@ -315,22 +361,11 @@ async function getAirdropWalletCount(): Promise<number> {
         newHashes += 1
       }
 
-      try {
-        const decoded = decodeFunctionData({
-          abi: DISPERSE_ABI,
-          data: item.input as Hex,
-        })
-
-        const recipientsArg = decoded.functionName === 'disperseToken' ? decoded.args[1] : decoded.args[0]
-        if (!Array.isArray(recipientsArg)) continue
-
-        for (const recipient of recipientsArg) {
-          if (typeof recipient === 'string') {
-            recipients.add(recipient.toLowerCase())
-          }
+      const recipientsArg = decodeAirdropRecipients(item.input as Hex)
+      for (const recipient of recipientsArg) {
+        if (typeof recipient === 'string') {
+          recipients.add(recipient.toLowerCase())
         }
-      } catch {
-        // Ignore non-disperse calls and malformed calldata.
       }
     }
 
