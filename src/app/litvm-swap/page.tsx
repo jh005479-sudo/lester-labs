@@ -27,7 +27,7 @@ const features = [
   { title: 'Live on testnet', body: 'The LitVM swap is live on LitVM testnet (chain ID 4441). All mechanics and fees are identical to the eventual mainnet deployment.' },
 ]
 
-const faqs = [
+const FAQ_DATA = [
   { q: 'What fee does LitVM Swap charge per trade?', a: '0.30% per swap. 0.20% is captured by the protocol treasury and 0.10% is retained by liquidity providers in the pool.' },
   { q: 'How do I access LitVM Swap?', a: 'Navigate to lester-labs.com/swap. Connect your wallet and switch to LitVM testnet (chain ID 4441). No separate registration required.' },
   { q: 'Which tokens can I swap on LitVM?', a: 'Any ERC-20 token deployed on LitVM. You can deploy a new token at /launch using the Token Factory, then swap it immediately on /swap.' },
@@ -168,7 +168,7 @@ export default function LitvmSwapPage() {
             Frequently asked questions
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {faqs.map((faq) => (
+            {FAQ_DATA.map((faq) => (
               <div key={faq.q} style={{
                 padding: '20px 24px', background: 'rgba(255,255,255,0.025)',
                 border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px',
@@ -195,6 +195,21 @@ export default function LitvmSwapPage() {
             Open LitVM Swap →
           </Link>
         </section>
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'FAQPage',
+              mainEntity: FAQ_DATA.map((faq) => ({
+                '@type': 'Question',
+                name: faq.q,
+                acceptedAnswer: { '@type': 'Answer', text: faq.a },
+              })),
+            }),
+          }}
+        />
       </div>
     </div>
   )

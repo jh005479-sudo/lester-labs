@@ -1,6 +1,15 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 
+const FAQ_DATA = [
+  { q: 'What fee does the LitVM DEX charge?', a: '0.30% per trade. Of that, 0.20% is routed to the Lester Labs protocol treasury and 0.10% is retained in the pool for LPs.' },
+  { q: 'Which tokens can I swap on LitVM?', a: 'Any ERC-20 deployed on LitVM. Use the Token Factory to deploy a new token at /launch, then pair it on the DEX.' },
+  { q: 'Is there a maximum slippage setting?', a: 'Yes — slippage is configurable per transaction in the swap interface. Default is set to 0.5%.' },
+  { q: 'How do I add liquidity to a LitVM pair?', a: 'Navigate to /swap and use the "Add Liquidity" panel. Alternatively, seed a pair directly through the Launchpad when running a presale.' },
+  { q: 'Can I view my LP positions?', a: 'Yes. Connect your wallet at /pool to see all your liquidity provider positions, your share of each pool, and the underlying token balances.' },
+  { q: 'Does the DEX work on LitVM testnet?', a: 'Yes. The LitVM DEX is live on testnet (chain ID 4441). All features, fees, and mechanics are identical to the eventual mainnet deployment.' },
+]
+
 export const metadata: Metadata = {
   title: 'LitVM DEX — Native Decentralized Exchange on LitVM | Lester Labs',
   description: 'Trade tokens directly on LitVM with the Lester Labs DEX. 0.30% per trade, 0.20% routed to the protocol treasury, zero external dependencies. The native LitVM decentralized exchange.',
@@ -40,14 +49,7 @@ const features = [
   },
 ]
 
-const faqs = [
-  { q: 'What fee does the LitVM DEX charge?', a: '0.30% per trade. Of that, 0.20% is routed to the Lester Labs protocol treasury and 0.10% is retained in the pool for LPs.' },
-  { q: 'Which tokens can I swap on LitVM?', a: 'Any ERC-20 deployed on LitVM. Use the Token Factory to deploy a new token at /launch, then pair it on the DEX.' },
-  { q: 'Is there a maximum slippage setting?', a: 'Yes — slippage is configurable per transaction in the swap interface. Default is set to 0.5%.' },
-  { q: 'How do I add liquidity to a LitVM pair?', a: 'Navigate to /swap and use the "Add Liquidity" panel. Alternatively, seed a pair directly through the Launchpad when running a presale.' },
-  { q: 'Can I view my LP positions?', a: 'Yes. Connect your wallet at /pool to see all your liquidity provider positions, your share of each pool, and the underlying token balances.' },
-  { q: 'Does the DEX work on LitVM testnet?', a: 'Yes. The LitVM DEX is live on testnet (chain ID 4441). All features, fees, and mechanics are identical to the eventual mainnet deployment.' },
-]
+const faqs = FAQ_DATA
 
 export default function LitvmDexPage() {
   return (
@@ -278,6 +280,21 @@ export default function LitvmDexPage() {
             Open the DEX →
           </Link>
         </section>
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'FAQPage',
+              mainEntity: FAQ_DATA.map((faq) => ({
+                '@type': 'Question',
+                name: faq.q,
+                acceptedAnswer: { '@type': 'Answer', text: faq.a },
+              })),
+            }),
+          }}
+        />
       </div>
     </div>
   )

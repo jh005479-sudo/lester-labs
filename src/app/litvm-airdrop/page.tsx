@@ -27,9 +27,9 @@ const features = [
   { title: 'No wallet limit', body: 'Schedule airdrops to activate at a specific block timestamp. Set cliff periods before claiming opens. Perfect for retroactive rewards and retroactive token distributions.' },
 ]
 
-const faqs = [
+const FAQ_DATA = [
   { q: 'How does the LitVM Airdrop Tool work?', a: 'Upload a CSV of recipient addresses and token amounts. The tool builds a single batch transaction that calls the Airdrop contract. The contract distributes tokens to every recipient atomically.' },
-  { q: 'What format does the CSV need to be in?', a: 'Two columns: address and amount. Example:\n\naddress,amount\n0x1234...abcd,1000\n0x5678...wxyz,2500\n\nAddresses must be valid Ethereum-format (42 characters, 0x prefix). Amounts are in the smallest token unit.' },
+  { q: 'What format does the CSV need to be in?', a: 'Two columns: address and amount. Example: address,amount followed by one wallet per line. Addresses must be valid Ethereum-format (42 characters, 0x prefix). Amounts are in the smallest token unit.' },
   { q: 'Can I schedule an airdrop for a future date?', a: 'Yes. Set a start time when configuring the airdrop. Tokens are held by the contract until the scheduled time, then distributed automatically.' },
   { q: 'What tokens can I airdrop on LitVM?', a: 'Any ERC-20 deployed on LitVM. Deploy a new token at /launch, then use that same token in the airdrop tool at /airdrop.' },
   { q: 'Is the airdrop tool available on LitVM testnet?', a: 'Yes. The LitVM airdrop tool is live on testnet (chain ID 4441). Use test tokens — no real value is transferred during testing.' },
@@ -164,7 +164,7 @@ export default function LitvmAirdropPage() {
             Frequently asked questions
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {faqs.map((faq) => (
+            {FAQ_DATA.map((faq) => (
               <div key={faq.q} style={{
                 padding: '20px 24px', background: 'rgba(255,255,255,0.025)',
                 border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px',
@@ -191,6 +191,21 @@ export default function LitvmAirdropPage() {
             Open LitVM Airdrop Tool →
           </Link>
         </section>
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'FAQPage',
+              mainEntity: FAQ_DATA.map((faq) => ({
+                '@type': 'Question',
+                name: faq.q,
+                acceptedAnswer: { '@type': 'Answer', text: faq.a },
+              })),
+            }),
+          }}
+        />
       </div>
     </div>
   )
