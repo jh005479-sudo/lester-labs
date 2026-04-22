@@ -4,15 +4,15 @@ import { waitForTransactionReceipt } from '@wagmi/core'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from 'wagmi'
+import { useAccount, useReadContract } from 'wagmi'
 import { formatEther, formatUnits, isAddress, parseEther, parseUnits, zeroAddress } from 'viem'
 import { AlertTriangle, CircleCheck, ExternalLink, ShieldCheck, Upload } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { ERC20_ABI, ILO_ABI } from '@/config/abis'
-import { litvm } from '@/config/chains'
 import { wagmiConfig } from '@/config/wagmi'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
+import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 
 function shortAddress(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`
@@ -49,9 +49,7 @@ export default function PresalePage() {
   const iloAddress = isAddress(rawAddress) ? (rawAddress as `0x${string}`) : undefined
 
   const { address: userAddress, isConnected } = useAccount()
-  const chainId = useChainId()
-  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
-  const { writeContractAsync } = useWriteContract()
+  const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, writeContractAsync } = useSafeWriteContract()
 
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
   const [contributionAmount, setContributionAmount] = useState('')
@@ -245,8 +243,6 @@ export default function PresalePage() {
   const lpTokensLocked = (lpTokensLockedRead.data ?? 0n) as bigint
   const isWhitelisted = Boolean(whitelistRead.data)
   const isOwner = Boolean(owner && userAddress && owner.toLowerCase() === userAddress.toLowerCase())
-  const isWrongNetwork = isConnected && chainId !== litvm.id
-
   const fundingGap = tokensRequired > contractTokenBalance ? tokensRequired - contractTokenBalance : 0n
   const progress = hardCap > 0n ? Math.min(100, Number((totalRaised * 10_000n) / hardCap) / 100) : 0
   const isLive = now >= startTime && now <= endTime && !finalized && !cancelled
@@ -292,27 +288,6 @@ export default function PresalePage() {
     }
   }, [fundingAmount, fundingGap, tokenDecimals])
 
-  async function ensureLitvm() {
-    if (!isConnected) {
-      setTxOpen(true)
-      setTxStatus('error')
-      setTxMessage('Connect a wallet before submitting a transaction.')
-      return false
-    }
-
-    if (!isWrongNetwork) return true
-
-    try {
-      await switchChainAsync({ chainId: litvm.id })
-      return true
-    } catch {
-      setTxOpen(true)
-      setTxStatus('error')
-      setTxMessage(`Switch to LitVM Testnet (Chain ID ${litvm.id}) before continuing.`)
-      return false
-    }
-  }
-
   async function refreshPresaleState() {
     await Promise.allSettled([
       ownerRead.refetch(),
@@ -353,7 +328,16 @@ export default function PresalePage() {
     onSuccess?: () => void
     request: () => Promise<`0x${string}`>
   }) {
-    if (!(await ensureLitvm())) return
+    if (!(await ensureLitvmWrite({
+      action: 'submitting a presale transaction',
+      onError: (message) => {
+        setTxOpen(true)
+        setTxStatus('error')
+        setTxMessage(message)
+      },
+    }))) {
+      return
+    }
 
     try {
       setTxOpen(true)
@@ -616,7 +600,16 @@ export default function PresalePage() {
               </div>
             </div>
             <button
-              onClick={() => { void ensureLitvm() }}
+              onClick={() => {
+                void ensureLitvmWrite({
+                  action: 'continuing',
+                  onError: (message) => {
+                    setTxOpen(true)
+                    setTxStatus('error')
+                    setTxMessage(message)
+                  },
+                })
+              }}
               disabled={isSwitchingChain}
               style={{
                 marginTop: '14px',

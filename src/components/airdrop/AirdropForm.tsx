@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useAccount, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { isAddress, parseUnits } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
@@ -17,8 +17,8 @@ import {
 } from '@/lib/contracts/airdrop'
 import { isValidContractAddress } from '@/config/contracts'
 import { wagmiConfig } from '@/config/wagmi'
-import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
-import { getWalletErrorMessage, getWrongNetworkMessage } from '@/lib/walletErrors'
+import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+import { getWalletErrorMessage } from '@/lib/walletErrors'
 
 // ABI for fetching token decimals
 const ERC20_DECIMALS_ABI = [
@@ -129,7 +129,7 @@ function SuccessPanel({ success, onReset }: { success: SuccessState; onReset: ()
 
 export function AirdropForm() {
   const { address, isConnected } = useAccount()
-  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
+  const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, switchToLitvm, writeContractAsync } = useSafeWriteContract()
 
   const [mode, setMode] = useState<Mode>('token')
   const [tokenAddress, setTokenAddress] = useState('')
@@ -141,7 +141,6 @@ export function AirdropForm() {
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successState, setSuccessState] = useState<SuccessState | null>(null)
 
-  const { writeContractAsync } = useWriteContract()
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
   void receipt // used as dependency for re-renders
 
@@ -197,14 +196,14 @@ export function AirdropForm() {
 
   const handleSend = useCallback(async () => {
     if (!canSubmit) return
-    if (isWrongNetwork) {
-      setModalOpen(true)
-      setTxStatus('error')
-      setTxMessage(
-        getWrongNetworkMessage(
-          mode === 'token' ? 'approving and sending a token airdrop' : 'sending a zkLTC airdrop',
-        ),
-      )
+    if (!(await ensureLitvmWrite({
+      action: mode === 'token' ? 'approving and sending a token airdrop' : 'sending a zkLTC airdrop',
+      onError: (message) => {
+        setModalOpen(true)
+        setTxStatus('error')
+        setTxMessage(message)
+      },
+    }))) {
       return
     }
 
@@ -317,7 +316,7 @@ export function AirdropForm() {
       setTxStatus('error')
       setTxMessage(getWalletErrorMessage(err))
     }
-  }, [canSubmit, isWrongNetwork, mode, tokenAddress, validRecipients, totalAmount, totalAmountWei, parsedRecipients, writeContractAsync])
+  }, [canSubmit, ensureLitvmWrite, mode, tokenAddress, validRecipients, totalAmount, totalAmountWei, parsedRecipients, writeContractAsync])
 
   const handleSwitchNetwork = useCallback(async () => {
     const result = await switchToLitvm()

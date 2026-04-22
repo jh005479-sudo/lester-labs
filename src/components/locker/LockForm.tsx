@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract } from 'wagmi'
+import { useWaitForTransactionReceipt, useAccount, useReadContract } from 'wagmi'
 import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
 import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
 import { FeeDisplay } from '@/components/shared/FeeDisplay'
@@ -13,8 +13,8 @@ import {
   ERC20_APPROVE_ABI,
 } from '@/lib/contracts/liquidityLocker'
 import { isValidContractAddress } from '@/config/contracts'
-import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
-import { getWalletErrorMessage, getWrongNetworkMessage } from '@/lib/walletErrors'
+import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+import { getWalletErrorMessage } from '@/lib/walletErrors'
 
 // ABI for fetching token decimals (F-009)
 const ERC20_DECIMALS_ABI = [
@@ -148,7 +148,7 @@ function Field({
 
 export function LockForm() {
   const { address: connectedAddress } = useAccount()
-  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
+  const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, switchToLitvm, writeContractAsync } = useSafeWriteContract()
 
   // Form state
   const [lpToken, setLpToken] = useState('')
@@ -185,8 +185,6 @@ export function LockForm() {
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successData, setSuccessData] = useState<LockCertificateData | null>(null)
   const [inTwoStep, setInTwoStep] = useState(false) // show step indicator
-
-  const { writeContractAsync } = useWriteContract()
 
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
 
@@ -293,10 +291,14 @@ export function LockForm() {
 
   const handleApprove = async () => {
     if (lpDecimals === undefined) return // Guard against stale decimals
-    if (isWrongNetwork) {
-      setModalOpen(true)
-      setTxStatus('error')
-      setTxMessage(getWrongNetworkMessage('approving an LP lock'))
+    if (!(await ensureLitvmWrite({
+      action: 'approving an LP lock',
+      onError: (message) => {
+        setModalOpen(true)
+        setTxStatus('error')
+        setTxMessage(message)
+      },
+    }))) {
       return
     }
     try {
@@ -329,10 +331,14 @@ export function LockForm() {
   const handleLock = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
     if (lpDecimals === undefined) return // Guard against stale decimals
-    if (isWrongNetwork) {
-      setModalOpen(true)
-      setTxStatus('error')
-      setTxMessage(getWrongNetworkMessage('locking liquidity'))
+    if (!(await ensureLitvmWrite({
+      action: 'locking liquidity',
+      onError: (message) => {
+        setModalOpen(true)
+        setTxStatus('error')
+        setTxMessage(message)
+      },
+    }))) {
       return
     }
     try {

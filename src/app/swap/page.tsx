@@ -4,8 +4,7 @@ import { waitForTransactionReceipt } from '@wagmi/core'
 import Link from 'next/link'
 import { Suspense, useEffect, useRef, useState, startTransition } from 'react'
 import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Wallet, X, ArrowLeftRight } from 'lucide-react'
-import { useAccount, useBalance, useChainId, useReadContract, useReadContracts, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
-import { litvm } from '@/config/chains'
+import { useAccount, useBalance, useReadContract, useReadContracts, useWaitForTransactionReceipt } from 'wagmi'
 import { CurrencyAmount, Token } from '@uniswap/sdk-core'
 import { Pair, Route, Trade } from '@uniswap/v2-sdk'
 import { encodeFunctionData, formatUnits, isAddress, maxUint256, parseUnits, zeroAddress } from 'viem'
@@ -29,6 +28,7 @@ import { useAllTokenMetadata } from '@/hooks/useTokenMetadata'
 import { useRpcCallReadContract } from '@/hooks/useRpcCall'
 import { useSearchParams } from 'next/navigation'
 import { wagmiConfig } from '@/config/wagmi'
+import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 
 const ACCENT = '#E44FB5'
 const NATIVE_GAS_RESERVE = parseUnits('0.01', 18)
@@ -181,9 +181,7 @@ function CreatePoolPanel({
   existingPairAddress?: `0x${string}`
 }) {
   const { address, isConnected } = useAccount()
-  const chainId = useChainId()
-  const { writeContractAsync } = useWriteContract()
-  const { switchChainAsync } = useSwitchChain()
+  const { ensureLitvmWrite, writeContractAsync } = useSafeWriteContract()
   const { tokens: discoveredTokens } = useAllTokenMetadata()
   const [token0, setToken0] = useState<TokenOption | null>(initialToken0 ?? null)
   const [token1, setToken1] = useState<TokenOption | null>(initialToken1 ?? null)
@@ -203,19 +201,6 @@ function CreatePoolPanel({
   const [txOpen, setTxOpen] = useState(false)
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
-
-  // Chain verification — prevent transactions on wrong network (root cause of 2026-04-20 incident)
-  const isWrongNetwork = isConnected && chainId !== litvm.id
-  const handleCorrectChain = async (onError?: () => void) => {
-    if (!isWrongNetwork) return true
-    try {
-      await switchChainAsync({ chainId: litvm.id })
-      return true
-    } catch {
-      onError?.()
-      return false
-    }
-  }
 
   useEffect(() => {
     if (!initialToken0) return
@@ -369,10 +354,14 @@ function CreatePoolPanel({
   const needsToken1Approval = Boolean(token1 && !token1.isNative && parsedAmount1 > 0n && token1Allowance < parsedAmount1)
 
   async function handleCreate() {
-    if (!isConnected) { setTxMessage('Wallet not connected.'); setTxOpen(true); setTxStatus('error'); return }
-    if (isWrongNetwork) {
-      if (!(await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') }))) return
-    }
+    if (!(await ensureLitvmWrite({
+      action: 'creating a pool',
+      onError: (message) => {
+        setTxMessage(message)
+        setTxOpen(true)
+        setTxStatus('error')
+      },
+    }))) return
     if (!decimalsReady) { setTxMessage('Token metadata is still loading. Please try again in a moment.'); setTxOpen(true); setTxStatus('error'); return }
     if (!canCreate) { console.warn('[CreatePool] canCreate=false — token0:', token0?.symbol, 'token1:', token1?.symbol, 'amount0:', amount0, 'amount1:', amount1) }
     if (!canCreate || !address) return
@@ -928,9 +917,7 @@ function TokenButton({
 // ── Wrap / Unwrap Panel ──────────────────────────────────────────────────────
 function WrapUnwrapPanel() {
   const { address, isConnected } = useAccount()
-  const chainId = useChainId()
-  const { writeContractAsync } = useWriteContract()
-  const { switchChainAsync } = useSwitchChain()
+  const { ensureLitvmWrite, writeContractAsync } = useSafeWriteContract()
   const [mode, setMode] = useState<'wrap' | 'unwrap'>('wrap')
   const [amount, setAmount] = useState('')
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
@@ -974,23 +961,16 @@ function WrapUnwrapPanel() {
     setTxMessage(txError.message.slice(0, 180))
   }, [txError, txHash])
 
-  const isWrongNetwork = isConnected && chainId !== litvm.id
-  const handleCorrectChain = async (onError?: () => void) => {
-    if (!isWrongNetwork) return true
-    try {
-      await switchChainAsync({ chainId: litvm.id })
-      return true
-    } catch {
-      onError?.()
-      return false
-    }
-  }
-
   async function handleWrap() {
     if (!isConnected || !address || !amount || parseFloat(amount) <= 0) return
-    if (isWrongNetwork) {
-      if (!(await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') }))) return
-    }
+    if (!(await ensureLitvmWrite({
+      action: 'wrapping zkLTC',
+      onError: (message) => {
+        setTxMessage(message)
+        setTxOpen(true)
+        setTxStatus('error')
+      },
+    }))) return
     try {
       setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
       const value = parseUnits(amount, 18)
@@ -1016,9 +996,14 @@ function WrapUnwrapPanel() {
 
   async function handleUnwrap() {
     if (!isConnected || !address || !amount || parseFloat(amount) <= 0) return
-    if (isWrongNetwork) {
-      if (!(await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') }))) return
-    }
+    if (!(await ensureLitvmWrite({
+      action: 'unwrapping wzkLTC',
+      onError: (message) => {
+        setTxMessage(message)
+        setTxOpen(true)
+        setTxStatus('error')
+      },
+    }))) return
     try {
       setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
       const value = parseUnits(amount, 18)
@@ -1139,23 +1124,8 @@ function WrapUnwrapPanel() {
 function SwapPageInner() {
   const searchParams = useSearchParams()
   const { address, isConnected } = useAccount()
-  const chainId = useChainId()
-  const { switchChainAsync } = useSwitchChain()
+  const { ensureLitvmWrite, isWrongNetwork, writeContractAsync } = useSafeWriteContract()
   const { tokens: discoveredTokens, loading: tokensLoading, cacheStatus } = useAllTokenMetadata()
-
-  // Chain verification — block all contract interactions on wrong network (2026-04-20 fix)
-  const isWrongNetwork = isConnected && chainId !== litvm.id
-  const handleCorrectChain = async (onError?: () => void) => {
-    if (!isWrongNetwork) return true
-    try {
-      await switchChainAsync({ chainId: litvm.id })
-      return true
-    } catch {
-      onError?.()
-      return false
-    }
-  }
-  const { writeContractAsync } = useWriteContract()
   const createPoolRequested = Boolean(searchParams.get('createPool'))
   const addLiquidityPairAddress = searchParams.get('addLiquidity')
   const urlToken0 = searchParams.get('token0')?.toLowerCase()
@@ -1528,13 +1498,14 @@ function SwapPageInner() {
   }, [txError, txHash])
 
   async function handleSwapClick() {
-    if (isWrongNetwork) {
-      if (!(await handleCorrectChain(() => {
-        setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
+    if (!(await ensureLitvmWrite({
+      action: 'preparing a swap',
+      onError: (message) => {
+        setTxMessage(message)
         setTxOpen(true)
         setTxStatus('error')
-      }))) return
-    }
+      },
+    }))) return
     setShowSettlementPreview(true)
   }
 
@@ -1585,9 +1556,14 @@ function SwapPageInner() {
 
   async function handlePrimaryAction() {
     if (!isConnected || !address || !resolvedOutput || parsedAmountIn === null || !isDexConfigured) return
-    if (isWrongNetwork) {
-      if (!(await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') }))) return
-    }
+    if (!(await ensureLitvmWrite({
+      action: needsApproval ? 'approving swap input tokens' : 'submitting a swap',
+      onError: (message) => {
+        setTxMessage(message)
+        setTxOpen(true)
+        setTxStatus('error')
+      },
+    }))) return
     if (wrappedInputAddress.toLowerCase() === wrappedOutputAddress.toLowerCase()) return
     if (!pairExists || minimumAmountOut === null) return
 
