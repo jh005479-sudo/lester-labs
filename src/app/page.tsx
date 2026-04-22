@@ -299,6 +299,7 @@ export default function HomePage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
             {[
               { href: '/litvm-testnet', label: 'LitVM Testnet', desc: 'Add the network, claim test tokens, and start exploring.' },
+              { href: '/litvm-dex', label: 'LitVM DEX', desc: 'Trade any token at 0.30% with a single signature.' },
               { href: '/litvm-swap', label: 'LitVM Swap', desc: 'Gasless token trading at 0.30% per swap.' },
               { href: '/litvm-airdrop', label: 'LitVM Airdrop', desc: 'Batch token distribution to thousands of wallets.' },
               { href: '/litvm-launchpad', label: 'LitVM Launchpad', desc: 'Permissionless token presales with automatic LP creation.' },
