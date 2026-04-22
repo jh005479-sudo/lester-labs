@@ -182,6 +182,8 @@ contract LitGovernor {
         bytes32 r,
         bytes32 s
     ) external {
+        require(support <= ABSTAIN, "Governor: invalid vote type");
+
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"),
@@ -191,10 +193,9 @@ contract LitGovernor {
             )
         );
         bytes32 structHash = keccak256(abi.encode(
-            keccak256("Ballot(uint256 proposalId,uint8 support,uint256 nonce)"),
+            keccak256("Ballot(uint256 proposalId,uint8 support)"),
             proposalId,
-            support,
-            token.nonces(msg.sender)
+            support
         ));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
 
@@ -255,47 +256,33 @@ contract LitGovernor {
     // ── execute ───────────────────────────────────────────────────────
 
     /**
-     * @notice Execute a succeeded proposal directly (no timelock — for pure signalling txs).
+     * @notice Execute a queued proposal through the timelock once the delay has passed.
      */
     function execute(uint256 proposalId) external payable {
-        require(state(proposalId) == ProposalState.Succeeded, "Governor: not succeeded");
-
-        ProposalDetails storage details = _proposalDetails[proposalId];
-        _proposals[proposalId].canceled = true; // prevent re-entry and re-execution
-
-        _executeActions(details.targets, details.values, details.calldatas);
-        emit ProposalExecuted(proposalId);
+        _executeQueuedProposal(proposalId);
     }
 
     /**
      * @notice Execute a queued timelock operation after the delay has passed.
      */
     function executeTimelocked(uint256 proposalId) external {
+        _executeQueuedProposal(proposalId);
+    }
+
+    function _executeQueuedProposal(uint256 proposalId) internal {
         require(state(proposalId) == ProposalState.Queued, "Governor: not queued");
 
         ProposalDetails storage details = _proposalDetails[proposalId];
-        bytes32 opId = _timelockIds[proposalId];
-        _proposals[proposalId].canceled = true;
+        bytes32 salt = _timelockSalt(proposalId);
 
         timelock.executeBatch(
             details.targets,
             details.values,
             details.calldatas,
             0,
-            opId
+            salt
         );
         emit ProposalExecuted(proposalId);
-    }
-
-    function _executeActions(
-        address[] memory targets,
-        uint256[] memory values,
-        bytes[] memory calldatas
-    ) internal {
-        for (uint256 i = 0; i < targets.length; i++) {
-            (bool success, ) = targets[i].call{value: values[i]}(calldatas[i]);
-            require(success, "Governor: execution failed");
-        }
     }
 
     // ── cancellation ──────────────────────────────────────────────────

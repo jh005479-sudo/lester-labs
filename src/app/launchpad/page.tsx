@@ -334,7 +334,7 @@ function CreatePresaleForm() {
       const receipt = await waitForTransactionReceipt(wagmiConfig, { hash })
       if (receipt.status === 'reverted') {
         setTxStatus('error')
-        setTxMessage('Transaction reverted on-chain. Please verify your presale inputs and token approvals.')
+        setTxMessage('Transaction reverted on-chain. Please verify your presale inputs and the factory configuration, then try again.')
         return
       }
 
@@ -425,7 +425,7 @@ function CreatePresaleForm() {
           }}
         >
           Launch a community presale. LP is automatically created and locked
-          for your chosen duration.
+          for your chosen duration when you finalize the raise.
         </p>
 
         <div style={{ display: 'grid', gap: '20px' }}>
@@ -763,21 +763,29 @@ function CreatePresaleForm() {
                   </a>
                 </div>
                 <div style={{ marginTop: '8px', color: 'rgba(255,255,255,0.7)' }}>
-                  Your presale is live on-chain. Copy the address above and share your presale link with your community.
+                  Your presale contract is deployed. Finish setup on the presale page by funding sale tokens, loading a whitelist if needed, and then share it with your community. Finalization will create the Lester DEX pool when the raise closes.
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setForm({ tokenAddress: '', softCap: '', hardCap: '', tokensPerEth: '', startDate: '', endDate: '', liquidityPct: '60', lpLockDays: '180', whitelist: false })
-                  setCurrentTxHash(undefined)
-                  setSuccessResult(null)
-                  setTxMessage(undefined)
-                  setTxStatus('pending')
-                }}
-                style={{ marginTop: '12px', padding: '8px 16px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: 'rgba(255,255,255,0.7)', fontSize: '13px', cursor: 'pointer' }}
-              >
-                Create another presale
-              </button>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
+                <Link
+                  href={`/launchpad/${successResult.address}`}
+                  style={{ padding: '8px 16px', background: 'var(--accent)', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '13px', fontWeight: 600, textDecoration: 'none' }}
+                >
+                  Manage presale
+                </Link>
+                <button
+                  onClick={() => {
+                    setForm({ tokenAddress: '', softCap: '', hardCap: '', tokensPerEth: '', startDate: '', endDate: '', liquidityPct: '60', lpLockDays: '180', whitelist: false })
+                    setCurrentTxHash(undefined)
+                    setSuccessResult(null)
+                    setTxMessage(undefined)
+                    setTxStatus('pending')
+                  }}
+                  style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: 'rgba(255,255,255,0.7)', fontSize: '13px', cursor: 'pointer' }}
+                >
+                  Create another presale
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -821,7 +829,8 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
         : '#f87171'
 
   return (
-    <div
+    <Link
+      href={'/launchpad/' + presale.address}
       className="analytics-card"
       style={{
         background: '#12192e',
@@ -833,6 +842,7 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
         gap: '12px',
         cursor: 'pointer',
         transition: 'border-color 0.2s',
+        textDecoration: 'none',
       }}
       onMouseEnter={e => (e.currentTarget.style.borderColor = '#2d3a55')}
       onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e2a45')}
@@ -994,8 +1004,7 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
               : '—'}
           </span>
         </div>
-        <Link
-          href={'/launchpad/' + presale.address}
+        <span
           style={{
             padding: '4px 12px',
             background: 'transparent',
@@ -1004,14 +1013,12 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
             color: '#5E6AD2',
             fontSize: '12px',
             fontWeight: 600,
-            cursor: 'pointer',
-            textDecoration: 'none',
           }}
         >
           View →
-        </Link>
+        </span>
       </div>
-    </div>
+    </Link>
   )
 }
 export default function LaunchpadPage() {
