@@ -4,7 +4,20 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'LitVM Airdrop — Batch Token Distribution on LitVM | Lester Labs',
   description: 'Send tokens to thousands of wallets in a single transaction with the LitVM airdrop tool. Batch distribution, CSV upload, and zero third-party custody. Built natively on LitVM.',
-  keywords: ['LitVM airdrop', 'LitVM token distribution', 'batch airdrop LitVM', 'token airdrop tool LitVM'],
+  alternates: { canonical: 'https://www.lester-labs.com/litvm-airdrop' },
+  openGraph: {
+    title: 'LitVM Airdrop — Batch Token Distribution on LitVM | Lester Labs',
+    description: 'Send tokens to thousands of wallets in a single transaction with the LitVM airdrop tool. Batch distribution, CSV upload, and zero third-party custody.',
+    url: 'https://www.lester-labs.com/litvm-airdrop',
+    siteName: 'Lester Labs',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'LitVM Airdrop — Batch Token Distribution on LitVM | Lester Labs',
+    description: 'Send tokens to thousands of wallets in a single transaction with the LitVM airdrop tool. Batch distribution and CSV upload.',
+  },
 }
 
 const features = [
