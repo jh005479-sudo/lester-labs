@@ -213,7 +213,7 @@ function CreatePoolPanel({
       return true
     } catch {
       onError?.()
-      return true // stop regardless — don't fall through to write on rejection
+      return false
     }
   }
 
@@ -371,7 +371,7 @@ function CreatePoolPanel({
   async function handleCreate() {
     if (!isConnected) { setTxMessage('Wallet not connected.'); setTxOpen(true); setTxStatus('error'); return }
     if (isWrongNetwork) {
-      if (await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') })) return
+      if (!(await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') }))) return
     }
     if (!decimalsReady) { setTxMessage('Token metadata is still loading. Please try again in a moment.'); setTxOpen(true); setTxStatus('error'); return }
     if (!canCreate) { console.warn('[CreatePool] canCreate=false — token0:', token0?.symbol, 'token1:', token1?.symbol, 'amount0:', amount0, 'amount1:', amount1) }
@@ -982,14 +982,14 @@ function WrapUnwrapPanel() {
       return true
     } catch {
       onError?.()
-      return true // stop — don't fall through to write on rejection
+      return false
     }
   }
 
   async function handleWrap() {
     if (!isConnected || !address || !amount || parseFloat(amount) <= 0) return
     if (isWrongNetwork) {
-      if (await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') })) return
+      if (!(await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') }))) return
     }
     try {
       setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
@@ -1017,7 +1017,7 @@ function WrapUnwrapPanel() {
   async function handleUnwrap() {
     if (!isConnected || !address || !amount || parseFloat(amount) <= 0) return
     if (isWrongNetwork) {
-      if (await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') })) return
+      if (!(await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') }))) return
     }
     try {
       setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
@@ -1152,7 +1152,7 @@ function SwapPageInner() {
       return true
     } catch {
       onError?.()
-      return true // stop — don't fall through to write on rejection
+      return false
     }
   }
   const { writeContractAsync } = useWriteContract()
@@ -1529,11 +1529,11 @@ function SwapPageInner() {
 
   async function handleSwapClick() {
     if (isWrongNetwork) {
-      if (await handleCorrectChain(() => {
+      if (!(await handleCorrectChain(() => {
         setTxMessage('Wrong network. Please switch to LitVM Testnet (Chain 4441) in your wallet.')
         setTxOpen(true)
         setTxStatus('error')
-      })) return
+      }))) return
     }
     setShowSettlementPreview(true)
   }
@@ -1586,7 +1586,7 @@ function SwapPageInner() {
   async function handlePrimaryAction() {
     if (!isConnected || !address || !resolvedOutput || parsedAmountIn === null || !isDexConfigured) return
     if (isWrongNetwork) {
-      if (await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') })) return
+      if (!(await handleCorrectChain(() => { setTxMessage('Wrong network. Please switch to LitVM.'); setTxOpen(true); setTxStatus('error') }))) return
     }
     if (wrappedInputAddress.toLowerCase() === wrappedOutputAddress.toLowerCase()) return
     if (!pairExists || minimumAmountOut === null) return

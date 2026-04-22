@@ -193,4 +193,24 @@ describe("Lester Labs Uniswap V2 fork", function () {
   it("keeps the expected Lester treasury target available for deployment assertions", async function () {
     expect(TREASURY_FEE_TARGET).to.equal("0xDD221FBbCb0f6092AfE51183d964AA89A968eE13");
   });
+
+  it("rejects launchpad sales that point at a non-contract token address", async function () {
+    const { projectOwner, iloFactory } = await loadFixture(deployLaunchpadFixture);
+    const now = await time.latest();
+
+    await expect(
+      iloFactory.connect(projectOwner).createILO(
+        projectOwner.address,
+        ethers.parseEther("5"),
+        ethers.parseEther("10"),
+        ethers.parseEther("100"),
+        BigInt(now + 10),
+        BigInt(now + ONE_DAY),
+        6000,
+        BigInt(30 * ONE_DAY),
+        false,
+        { value: ethers.parseEther("0.03") },
+      ),
+    ).to.be.revertedWith("Invalid token");
+  });
 });

@@ -4,8 +4,11 @@ pragma solidity ^0.8.20;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract TheLedger is Ownable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     uint256 public MIN_FEE = 0.01 ether;    // 0.01 zkLTC
     uint256 public treasuryCutBps = 5000;    // 5000/10000 = 50%
     uint256 public messageCount;
@@ -57,7 +60,7 @@ contract TheLedger is Ownable, ReentrancyGuard {
     }
 
     function rescueERC20(address token, uint256 amount) external onlyOwner {
-        IERC20(token).transfer(owner(), amount);
+        IERC20(token).safeTransfer(owner(), amount);
     }
 
     receive() external payable {}
