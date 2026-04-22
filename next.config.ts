@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
       { source: '/docs/ledger', destination: '/docs', permanent: true },
     ]
   },
+  turbopack: {
+    root: __dirname,
+  },
 };
 
 export default nextConfig;

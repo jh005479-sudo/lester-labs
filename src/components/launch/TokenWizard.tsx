@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useEffectEvent } from 'react'
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, decodeEventLog, formatEther } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Copy, ExternalLink, ArrowRight, Calendar, Lock, PartyPopper, Send } from 'lucide-react'
@@ -15,8 +15,8 @@ import {
   TOKEN_FACTORY_ADDRESS,
 } from '@/lib/contracts/tokenFactory'
 import { isValidContractAddress } from '@/config/contracts'
-import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
-import { getWalletErrorMessage, getWrongNetworkMessage } from '@/lib/walletErrors'
+import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+import { getWalletErrorMessage } from '@/lib/walletErrors'
 
 const STEPS = [
   { id: 1, label: 'Token Basics' },
@@ -201,8 +201,7 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
   const [successResult, setSuccessResult] = useState<SuccessState | null>(null)
 
 
-  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
-  const { writeContractAsync } = useWriteContract()
+  const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, switchToLitvm, writeContractAsync } = useSafeWriteContract()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
 
   // RP-003: Read creation fee from contract
@@ -275,10 +274,14 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
 
   const handleDeploy = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
-    if (isWrongNetwork) {
-      setModalOpen(true)
-      setTxStatus('error')
-      setTxMessage(getWrongNetworkMessage('deploying a token'))
+    if (!(await ensureLitvmWrite({
+      action: 'deploying a token',
+      onError: (message) => {
+        setModalOpen(true)
+        setTxStatus('error')
+        setTxMessage(message)
+      },
+    }))) {
       return
     }
 

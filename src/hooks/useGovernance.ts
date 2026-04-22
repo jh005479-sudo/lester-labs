@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt } from 'wagmi'
 import { formatEther } from 'viem'
 import { GOVERNANCE_CONFIG, GOVERNOR_ABI, PROPOSAL_STATES, SUPPORT_LABELS, type ProposalState } from '@/config/governance'
-import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
+import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 
 export interface Proposal {
   id: number
@@ -178,11 +178,15 @@ export function useGovernance() {
 
 export function useGovernanceWrite() {
   const governorConfig = GOVERNANCE_CONFIG.governor
-  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
+  const {
+    ensureLitvmWrite,
+    isWrongNetwork,
+    isSwitchingChain,
+    switchToLitvm,
+    ...voteWrite
+  } = useSafeWriteContract()
+  const { ...proposeWrite } = useSafeWriteContract()
   const [switchError, setSwitchError] = useState<string | null>(null)
-
-  const voteWrite = useWriteContract()
-  const proposeWrite = useWriteContract()
 
   const voteTx = useWaitForTransactionReceipt({ hash: voteWrite.data })
   const proposeTx = useWaitForTransactionReceipt({ hash: proposeWrite.data })
@@ -190,11 +194,10 @@ export function useGovernanceWrite() {
   const castVote = useCallback(
     async (proposalId: number, support: 0 | 1 | 2) => {
       setSwitchError(null)
-      if (isWrongNetwork) {
-        const result = await switchToLitvm()
-        if (!result.switched) {
-          setSwitchError(result.error ?? 'Network switch was not completed.')
-        }
+      if (!(await ensureLitvmWrite({
+        action: 'casting a governance vote',
+        onError: (message) => setSwitchError(message),
+      }))) {
         return false
       }
 
@@ -206,17 +209,16 @@ export function useGovernanceWrite() {
       })
       return true
     },
-    [governorConfig.address, isWrongNetwork, switchToLitvm, voteWrite],
+    [ensureLitvmWrite, governorConfig.address, voteWrite],
   )
 
   const castVoteWithReason = useCallback(
     async (proposalId: number, support: 0 | 1 | 2, reason: string) => {
       setSwitchError(null)
-      if (isWrongNetwork) {
-        const result = await switchToLitvm()
-        if (!result.switched) {
-          setSwitchError(result.error ?? 'Network switch was not completed.')
-        }
+      if (!(await ensureLitvmWrite({
+        action: 'casting a governance vote',
+        onError: (message) => setSwitchError(message),
+      }))) {
         return false
       }
 
@@ -228,17 +230,16 @@ export function useGovernanceWrite() {
       })
       return true
     },
-    [governorConfig.address, isWrongNetwork, switchToLitvm, voteWrite],
+    [ensureLitvmWrite, governorConfig.address, voteWrite],
   )
 
   const createProposal = useCallback(
     async (targets: `0x${string}`[], values: bigint[], calldatas: `0x${string}`[], description: string) => {
       setSwitchError(null)
-      if (isWrongNetwork) {
-        const result = await switchToLitvm()
-        if (!result.switched) {
-          setSwitchError(result.error ?? 'Network switch was not completed.')
-        }
+      if (!(await ensureLitvmWrite({
+        action: 'creating a governance proposal',
+        onError: (message) => setSwitchError(message),
+      }))) {
         return false
       }
 
@@ -250,7 +251,7 @@ export function useGovernanceWrite() {
       })
       return true
     },
-    [governorConfig.address, isWrongNetwork, proposeWrite, switchToLitvm],
+    [ensureLitvmWrite, governorConfig.address, proposeWrite],
   )
 
   return {

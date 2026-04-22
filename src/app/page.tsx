@@ -27,9 +27,9 @@ const tools = [
     name: 'Lester Vester', label: 'Token Distribution',
     icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
     tagline: 'Linear & cliff schedules',
-    desc: 'Set vesting schedules for teams and investors. Auto-release.',
+    desc: 'Set vesting schedules for teams and investors. Beneficiaries release vested tokens on demand.',
     fee: '0.03 zkLTC', color: '#F5A623', href: '/vesting',
-    stats: [['Schedules','Linear + Cliff'],['Release','Automatic'],['Claims','Zero']],
+    stats: [['Schedules','Linear + Cliff'],['Release','On demand'],['Claims','Beneficiary']],
     imgPos: '50%', img: '/images/carousel/token-vesting.png'
   },
   {
@@ -45,9 +45,9 @@ const tools = [
     name: 'Lester Gov', label: 'Community Voting',
     icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E44FB5" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
     tagline: 'Gasless community voting',
-    desc: 'Create proposals and let token holders vote. No gas costs.',
+    desc: 'Draft governance proposals and publish Snapshot-style votes with off-chain signatures.',
     fee: 'Free', color: '#E44FB5', href: '/governance',
-    stats: [['Gas','Zero'],['Style','Snapshot'],['Cost','Free']],
+    stats: [['Voting','Off-chain'],['Style','Snapshot'],['Cost','No vote gas']],
     imgPos: '50%', img: '/images/carousel/governance.png'
   },
   {
