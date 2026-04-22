@@ -6,7 +6,7 @@ Token Vesting creates on-chain vesting schedules for team allocations, investor 
 
 ## How it works
 
-You deploy a vesting contract specifying the beneficiary, schedule parameters, and token amount. Tokens are transferred into the contract at creation and held until they vest. The beneficiary can call `claim()` at any time to withdraw whatever has vested so far. The deployer has no ability to claw back tokens once the contract is funded — this is by design and is what makes vesting credible to investors and communities.
+You deploy a vesting wallet specifying the beneficiary, schedule parameters, and token amount. Tokens are transferred into the vesting wallet at creation and held until they vest. Claims follow the standard OpenZeppelin VestingWallet model: vested tokens are released from the vesting wallet on demand via `release(token)`. The deployer has no ability to claw back tokens once the contract is funded — this is by design and is what makes vesting credible to investors and communities.
 
 ## Step-by-step guide
 
@@ -20,9 +20,9 @@ You deploy a vesting contract specifying the beneficiary, schedule parameters, a
 8. Set total vesting duration
 9. Review the fee (0.03 zkLTC) and confirm
 10. Approve the token spend when prompted
-11. Sign the deployment transaction — the vesting contract is live
+11. Sign the deployment transaction — the vesting wallet is live
 
-The beneficiary can claim their vested tokens from the Vesting page at any time.
+Share the resulting vesting wallet address with the beneficiary. Once tokens are vested, anyone can call `release(token)` on that vesting wallet for them.
 
 ## Parameters
 

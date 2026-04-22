@@ -2,65 +2,60 @@
 
 ## Overview
 
-The Governance tool enables project communities to create proposals and vote using their token holdings — entirely off-chain and gas-free. Based on the Snapshot protocol used by hundreds of DAOs including Uniswap, Aave, and ENS. Proposals are signed with EIP-712, results are stored on IPFS, and voting costs nothing.
+Lester Labs is standardising on a Snapshot-style governance model for mainnet: voting is off-chain, community-visible, and separated from execution. The website currently supports proposal drafting and governance process guidance rather than sending on-chain proposal or vote transactions from the app.
 
 ## How it works
 
-Proposals are created by specifying a snapshot block — the chain block at which token balances are recorded for voting weight. This prevents last-minute token purchases from influencing outcomes. Votes are signed messages (not transactions) submitted off-chain and stored on IPFS. The tally is computed from on-chain balances at the snapshot block combined with the signed vote messages. Results are publicly verifiable by anyone.
+Project teams draft a proposal, publish it to their governance forum or community channel, and set a clear balance snapshot for voting power. Votes should then be collected through an off-chain signature flow such as Snapshot or an equivalent EIP-712 process. After the vote closes, the responsible operators publish the result and carry out the approved action through the correct execution path, such as a multisig, timelock, or manual operator transaction.
 
-On-chain execution (treasury integration, automatic proposal execution) is planned for a future release and will require a separate Governor contract deployment.
+Dedicated Snapshot/IPFS submission from the Lester Labs UI is planned for a future release. Until then, the governance surface intentionally avoids placeholder on-chain voting actions.
 
 ## Step-by-step guide
 
 **Creating a proposal:**
-1. Connect your wallet and switch to LitVM network
-2. Navigate to Governance
-3. Click "New Proposal"
-4. Enter proposal title and description
-5. Add voting options (minimum 2)
-6. Set voting period start and end dates
-7. Set snapshot block (defaults to current block)
-8. Sign the proposal with your wallet (no gas)
-9. Proposal is published to IPFS and visible immediately
+1. Open Governance on Lester Labs and draft the proposal copy
+2. Define the exact action being voted on
+3. Set a voting window and a public snapshot reference
+4. Publish the proposal in your Snapshot space, forum, or governance channel
+5. Share supporting discussion links and the intended execution plan
+6. Open the vote in your chosen off-chain signing tool
 
 **Voting:**
-1. Navigate to an active proposal
-2. Select your preferred option
-3. Sign the vote with your wallet (no gas)
-4. Your vote is recorded — weight equals your project token balance at the snapshot block
+1. Review the published proposal and linked discussion
+2. Confirm the snapshot reference and voting window
+3. Sign your vote off-chain
+4. Wait for the final tally and the project’s follow-up execution post
 
-**Note:** Voting weight is determined by holdings of the specific project token configured in the proposal (not zkLTC or any other token). Each project sets the relevant token when creating their governance space.
+**Note:** Voting weight should come from the project token specified in the proposal space, not from zkLTC unless the proposal explicitly says so.
 
 ## Parameters
-
-**Proposal creation:**
 
 | Field | Description | Constraints |
 |---|---|---|
 | Title | Proposal headline | 1–100 characters |
 | Description | Full proposal text | Markdown supported |
-| Voting Options | Choices available to voters | Minimum 2 |
-| Start Date | When voting opens | Can be immediate or scheduled |
-| End Date | When voting closes | Must be after start date |
-| Snapshot Block | Block number for balance snapshot | Defaults to current block |
+| Voting Options | Choices available to voters | Usually For / Against / Abstain |
+| Voting Window | When voting opens and closes | Must be fixed before publishing |
+| Snapshot Reference | Block or timestamp used for voting power | Must be public and verifiable |
+| Execution Notes | What happens if the vote passes | Should name the responsible executor |
 
 ## Fee structure
 
 | Fee | Amount |
 |---|---|
-| Proposal creation | Free |
-| Voting | Free (off-chain signature, no gas) |
+| Proposal drafting on Lester Labs | Free |
+| Voting | Free in Snapshot-style flows (wallet signature, no vote gas) |
 
 ## Smart contract
 
-- **Forked from:** Snapshot (off-chain protocol, EIP-712 signing)
-- **On-chain contract address:** N/A (off-chain protocol)
-- **IPFS storage:** Proposals and votes stored on IPFS
+- **Operating model:** Snapshot-style off-chain voting
+- **On-chain proposal/vote submission from this UI:** Disabled by design
+- **Execution:** Separate multisig, timelock, or manual action after the vote closes
 
 **Key technical components:**
-- `EIP-712` — typed structured data signing standard used for vote signatures
-- `IPFS` — decentralised storage for proposal content and vote records
-- Token balance at snapshot block — determines each voter's weight
+- `EIP-712` — typed structured data signing standard used by Snapshot-style voting flows
+- Snapshot reference — determines token balances for vote weighting
+- Public execution follow-up — proves how the passed result was carried out
 
 ## Sources
 
@@ -68,6 +63,6 @@ On-chain execution (treasury integration, automatic proposal execution) is plann
 
 ## Security
 
-Based on the Snapshot protocol, the dominant off-chain governance standard used by the largest DAOs in DeFi. Because votes are off-chain signatures rather than transactions, there is no smart contract risk associated with the voting process itself. The snapshot block mechanism prevents vote manipulation via flash loans or last-minute token purchases. Results are publicly verifiable — anyone can independently compute the tally from the IPFS vote records and on-chain token balances.
+Keeping proposal publication and vote signing off-chain reduces the risk of the governance UI accidentally executing live protocol actions. The snapshot mechanism prevents last-minute balance changes from altering the intended voting weight, and the separate execution step creates a clear review point before any treasury or protocol change is carried out.
 
-**Important:** Off-chain governance results are not automatically enforced on-chain. Project teams are responsible for executing the outcome of passed proposals. On-chain execution via treasury contract is planned for a future release.
+**Important:** Off-chain governance results are not automatically enforced on-chain. Project teams are responsible for publishing the result and then executing it transparently through the correct operational path.
