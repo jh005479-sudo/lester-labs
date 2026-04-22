@@ -13,7 +13,7 @@ interface EnsureLitvmWriteOptions {
 
 export function useSafeWriteContract() {
   const { isConnected } = useAccount()
-  const { chainId, isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
+  const { chainId, isWrongNetwork, isSwitchingChain, switchToLitvm, switchChainAsync } = useLitvmNetwork()
   const write = useWriteContract()
 
   const ensureLitvmWrite = useCallback(
@@ -67,6 +67,7 @@ export function useSafeWriteContract() {
     isWrongNetwork,
     isSwitchingChain,
     switchToLitvm,
+    switchChainAsync,
     writeContract,
     writeContractAsync,
   }

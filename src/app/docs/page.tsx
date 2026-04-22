@@ -1,6 +1,35 @@
 import fs from 'fs'
 import path from 'path'
+import { Metadata } from 'next'
 import { DocsClient } from './DocsClient'
+
+export const metadata: Metadata = {
+  title: 'Docs — DeFi Tools on LitVM | Lester Labs',
+  description: 'Complete documentation for the Lester Labs DeFi suite on LitVM. Learn how to use the DEX swap, token factory, launchpad, airdrop tool, liquidity locker, vesting, and governance.',
+  keywords: [
+    'Lester Labs docs',
+    'LitVM DEX documentation',
+    'LitVM token factory guide',
+    'LitVM launchpad docs',
+    'LitVM airdrop tool guide',
+    'LitVM liquidity locker documentation',
+    'LitVM vesting guide',
+  ],
+  alternates: { canonical: 'https://www.lester-labs.com/docs' },
+  openGraph: {
+    title: 'Docs — DeFi Tools on LitVM | Lester Labs',
+    description: 'Documentation for the Lester Labs DeFi suite on LitVM. DEX swap, token factory, launchpad, airdrop, locker, vesting, and governance.',
+    url: 'https://www.lester-labs.com/docs',
+    siteName: 'Lester Labs',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Docs — DeFi Tools on LitVM | Lester Labs',
+    description: 'Documentation for the Lester Labs DeFi suite on LitVM.',
+  },
+}
 
 const docList = [
   { slug: 'index', label: 'Overview', file: 'index.md' },

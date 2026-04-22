@@ -236,6 +236,10 @@ export default function HomePage() {
 
 
       <main>
+        {/* Visually hidden H1 for accessibility and SEO crawlers */}
+        <h1 style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+          Lester Labs — DeFi Utilities for LitVM
+        </h1>
         {/* HERO */}
         <ScrollHero onIntroComplete={() => setIntroComplete(true)} />
 
@@ -285,7 +289,31 @@ export default function HomePage() {
           <div style={{ maxWidth: 1100, margin: '0 auto' }}><div className="divider" /></div>
         </div>
 
-        {/* ── TRUST / WHY LESTER LABS ────────────────────── */}
+        {/* ── EXPLORE LITVM TOOLS ──────────────────────── */}
+        <section style={{ padding: 'clamp(60px,7vw,90px) clamp(16px,4vw,40px)', maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <div className='section-label'>Getting Started</div>
+            <h2 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 800, marginTop: 12, marginBottom: 12, letterSpacing: '-0.02em', lineHeight: 1.1 }}>Explore the LitVM ecosystem</h2>
+            <p style={{ fontSize: '16px', color: 'rgba(240,238,245,0.45)', maxWidth: 500, margin: '0 auto' }}>Everything you need to get started on LitVM — from testnet setup to your first swap, airdrop, and token launch.</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+            {[
+              { href: '/litvm-testnet', label: 'LitVM Testnet', desc: 'Add the network, claim test tokens, and start exploring.' },
+              { href: '/litvm-dex', label: 'LitVM DEX', desc: 'Trade any token at 0.30% with a single signature.' },
+              { href: '/litvm-swap', label: 'LitVM Swap', desc: 'Gasless token trading at 0.30% per swap.' },
+              { href: '/litvm-airdrop', label: 'LitVM Airdrop', desc: 'Batch token distribution to thousands of wallets.' },
+              { href: '/litvm-launchpad', label: 'LitVM Launchpad', desc: 'Permissionless token presales with automatic LP creation.' },
+            ].map((item) => (
+              <a key={item.href} href={item.href} style={{ display: 'block', padding: '20px 22px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, textDecoration: 'none', transition: 'border-color 0.2s, background 0.2s' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(107,79,255,0.3)' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(240,238,245,0.9)', marginBottom: 6 }}>{item.label}</div>
+                <div style={{ fontSize: '13px', color: 'rgba(240,238,245,0.4)', lineHeight: 1.5 }}>{item.desc}</div>
+              </a>
+            ))}
+          </div>
+        </section>
+
         <section className="trust-section" style={{ paddingLeft: 'clamp(16px,4vw,40px)', paddingRight: 'clamp(16px,4vw,40px)' }}>
           <div className="trust-bg">
             <div className="trust-grid-bg" />

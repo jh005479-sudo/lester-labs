@@ -32,8 +32,38 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Lester Labs — DeFi Utilities for LitVM',
-  description: 'Token launch, locking, vesting, airdrop, and governance tools built for LitVM.',
+  title: {
+    default: 'Lester Labs — DeFi Utilities for LitVM',
+    template: '%s | Lester Labs on LitVM',
+  },
+  description: 'Lester Labs is the first native DeFi suite for LitVM — featuring a DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, and governance. Deploy, swap, and launch on LitVM testnet.',
+  keywords: [
+    'Lester Labs',
+    'LitVM DEX',
+    'LitVM swap',
+    'LitVM airdrop',
+    'LitVM launchpad',
+    'LitVM DeFi',
+    'LitVM token factory',
+    'LitVM liquidity locker',
+    'LitVM block explorer',
+    'LesterLabs',
+    'Lester-Labs',
+  ],
+  alternates: { canonical: 'https://www.lester-labs.com' },
+  openGraph: {
+    title: 'Lester Labs — DeFi Utilities for LitVM',
+    description: 'The first native DeFi suite for LitVM. DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, and governance.',
+    url: 'https://www.lester-labs.com',
+    siteName: 'Lester Labs',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Lester Labs — DeFi Utilities for LitVM',
+    description: 'The first native DeFi suite for LitVM. DEX swap, token launchpad, airdrop tool, and more.',
+  },
 }
 
 export default function RootLayout({
@@ -49,6 +79,30 @@ export default function RootLayout({
           fontFamily: "'Inter', sans-serif",
         }}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'Lester Labs',
+              url: 'https://www.lester-labs.com',
+              logo: 'https://www.lester-labs.com/favicon.ico',
+              description: 'The first native DeFi suite for LitVM — featuring a DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, and governance.',
+              sameAs: [
+                'https://x.com/lesterlabshq',
+              ],
+              potentialAction: {
+                '@type': 'SearchAction',
+                target: {
+                  '@type': 'EntryPoint',
+                  urlTemplate: 'https://www.lester-labs.com/explorer?q={search_term_string}',
+                },
+                'query-input': 'required name=search_term_string',
+              },
+            }),
+          }}
+        />
         <Providers>
           <PremiumBackdrop />
           <LTCBanner />

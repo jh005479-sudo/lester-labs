@@ -29,5 +29,6 @@ export function useLitvmNetwork() {
     isWrongNetwork,
     isSwitchingChain: isPending,
     switchToLitvm,
+    switchChainAsync,
   }
 }
