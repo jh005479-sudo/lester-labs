@@ -1,8 +1,8 @@
-# Airdrop Tool
+# LitVM Airdrop Tool — Batch Token Distribution on LitVM
 
 ## Overview
 
-The Airdrop Tool distributes tokens to hundreds of addresses in a single transaction. Paste a list of addresses and amounts, confirm once, and all recipients receive their allocation simultaneously. Supports both ERC-20 tokens and native zkLTC.
+The LitVM Airdrop Tool distributes tokens to hundreds or thousands of recipient wallets in a single atomic transaction. Paste a list of addresses and amounts, confirm once, and all recipients receive their allocation simultaneously on LitVM. Supports both ERC-20 tokens and native zkLTC. Designed for retroactive distributions, community rewards, and token launch airdrops on LitVM.
 
 ## How it works
 

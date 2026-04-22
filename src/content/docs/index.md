@@ -1,23 +1,23 @@
-# Lester-Labs Documentation
+# Lester Labs Documentation — LitVM DeFi Utilities
 
-Lester Labs is a self-serve DeFi suite built natively for LitVM, the Liteforge testnet (chain ID `4441`). The platform covers token deployment, community launches, treasury-routed swapping, liquidity visibility, governance, and analytics without relying on an external DEX at runtime.
+Lester Labs is the first fully native DeFi suite for LitVM (Litecoin Virtual Machine). Built on LitVM testnet (chain ID `4441`), it provides a complete token launch and DeFi infrastructure stack without any external DEX dependencies. The platform covers token deployment, LitVM swaps, community launches, airdrop distribution, liquidity locking, vesting schedules, governance, and on-chain analytics.
 
-## Utilities
+## LitVM DeFi Utilities Overview
 
 | Utility | Purpose | Fee |
 |---|---|---|
-| [Token Factory](./token-factory.md) | Deploy ERC-20 tokens | 0.05 zkLTC |
-| [Liquidity Locker](./liquidity-locker.md) | Lock LP tokens | 0.03 zkLTC |
-| [Token Vesting](./token-vesting.md) | Vesting schedules for teams and investors | 0.03 zkLTC |
-| [Airdrop Tool](./airdrop-tool.md) | Bulk token or native-asset distribution | 0.01 zkLTC / batch |
-| [Governance](./governance.md) | Proposal and voting infrastructure | Varies by action |
-| [Launchpad](./launchpad.md) | Community presales with automatic LP seeding | 0.03 zkLTC + 2% of raise |
-| [DEX Swap & Pool](./dex-swap.md) | Swap assets and inspect LP positions on Lester Labs V2 | 0.30% per trade / gas only for viewing |
-| [The Ledger](./ledger.md) | Post permanent on-chain messages | Protocol-defined posting fee |
+| [Token Factory](./token-factory.md) | Deploy ERC-20 tokens on LitVM | 0.05 zkLTC |
+| [DEX Swap & Pool](./dex-swap.md) | Trade any LitVM token with 0.30% per swap | 0.30% per trade |
+| [Liquidity Locker](./liquidity-locker.md) | Lock LP tokens with on-chain proof | 0.03 zkLTC |
+| [Token Vesting](./token-vesting.md) | Linear and cliff vesting for teams and investors | 0.03 zkLTC |
+| [Airdrop Tool](./airdrop-tool.md) | Batch token distribution to thousands of wallets | 0.01 zkLTC / batch |
+| [Governance](./governance.md) | On-chain proposal and EIP-712 vote infrastructure | Varies by action |
+| [Launchpad](./launchpad.md) | Permissionless ILO presales with automatic LitVM LP seeding | 0.03 zkLTC + 2% |
+| [The Ledger](./ledger.md) | Post permanent messages in blockchain calldata | Posting fee |
 
-## DEX and Launchpad Integration
+## The LitVM DEX — Native Swap Infrastructure
 
-Lester Labs now ships its own Uniswap V2 deployment for LitVM. The local factory and router power both the `/swap` trading flow and Launchpad finalization, so ILOs seed liquidity into Lester Labs-owned infrastructure instead of an external venue.
+Lester Labs ships its own Uniswap V2 deployment as the native LitVM decentralized exchange. The local factory and router power both the `/swap` trading interface and Launchpad finalization — every LitVM presale seeds liquidity directly into Lester Labs-owned infrastructure, with no reliance on third-party DEX venues.
 
 The fee split is enforced on-chain in the pair contract:
 
