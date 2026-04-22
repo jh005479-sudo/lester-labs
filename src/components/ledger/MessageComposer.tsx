@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useAccount, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
 import { ExternalLink, Loader2, PenLine, Wallet } from 'lucide-react'
 import { toHex, type Hex } from 'viem'
 import {
@@ -13,8 +13,8 @@ import {
   LEDGER_POST_GAS_LIMIT,
   formatLedgerFee,
 } from '@/lib/contracts/ledger'
-import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
-import { getWalletErrorMessage, getWrongNetworkMessage } from '@/lib/walletErrors'
+import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+import { getWalletErrorMessage } from '@/lib/walletErrors'
 
 interface MessageComposerProps {
   address: `0x${string}`
@@ -36,8 +36,7 @@ function normalizeError(error: unknown): string {
 
 export function MessageComposer({ address, minFee, onConfirmed }: MessageComposerProps) {
   const { isConnected } = useAccount()
-  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
-  const { writeContractAsync } = useWriteContract()
+  const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, switchToLitvm, writeContractAsync } = useSafeWriteContract()
 
   const [draft, setDraft] = useState('')
   const [phase, setPhase] = useState<ComposerPhase>('idle')
@@ -91,9 +90,13 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
 
   async function handlePost() {
     if (!isConnected || isEmpty || isTooLong) return
-    if (isWrongNetwork) {
-      setPhase('error')
-      setStatusMessage(getWrongNetworkMessage('posting to The Ledger'))
+    if (!(await ensureLitvmWrite({
+      action: 'posting to The Ledger',
+      onError: (message) => {
+        setPhase('error')
+        setStatusMessage(message)
+      },
+    }))) {
       return
     }
 

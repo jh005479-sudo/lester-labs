@@ -6,17 +6,17 @@ import { waitForTransactionReceipt } from '@wagmi/core'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { ToolHero } from '@/components/shared/ToolHero'
-import { useAccount, useChainId, useSwitchChain, useWriteContract, useReadContract, useReadContracts } from 'wagmi'
+import { useAccount, useReadContract, useReadContracts } from 'wagmi'
 import { decodeEventLog, parseEther, parseUnits, isAddress, formatEther } from 'viem'
 import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
-import { litvm } from '@/config/chains'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI, ILO_ABI } from '@/config/abis'
 import { wagmiConfig } from '@/config/wagmi'
 import { useTokenMetadata, getTokenLogoUrl } from '@/hooks/useTokenMetadata'
 import { useTokenImageUrls } from '@/hooks/useTokenImageUrls'
+import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 
 // ABI for fetching token decimals (RP-001)
 const ERC20_DECIMALS_ABI = [
@@ -177,9 +177,14 @@ function getLaunchpadErrorMessage(err: unknown): string {
 
 function CreatePresaleForm() {
   const { isConnected } = useAccount()
-  const chainId = useChainId()
-  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain()
-  const { writeContractAsync, isPending: isSubmitting } = useWriteContract()
+  const {
+    ensureLitvmWrite,
+    isWrongNetwork,
+    isSwitchingChain,
+    switchToLitvm,
+    writeContractAsync,
+    isPending: isSubmitting,
+  } = useSafeWriteContract()
 
   const [form, setForm] = useState({
     tokenAddress: '',
@@ -222,7 +227,6 @@ function CreatePresaleForm() {
 
   const feeDisplay = creationFee ? formatEther(creationFee) : '...'
   const tokenDecimals = fetchedDecimals
-  const isWrongNetwork = isConnected && chainId !== litvm.id
 
   const set =
     (k: keyof typeof form) =>
@@ -281,23 +285,26 @@ function CreatePresaleForm() {
   const isConfirming = txStatus === 'pending' && currentTxHash !== undefined
 
   const handleSwitchNetwork = useCallback(async () => {
-    try {
-      await switchChainAsync({ chainId: litvm.id })
-    } catch (err: unknown) {
+    const result = await switchToLitvm()
+    if (!result.switched) {
       setModalOpen(true)
       setTxStatus('error')
-      setTxMessage(getLaunchpadErrorMessage(err))
+      setTxMessage(result.error)
     }
-  }, [switchChainAsync])
+  }, [switchToLitvm])
 
   const handleCreate = async () => {
     if (!isConnected) return
     if (!iloFactoryValid) return
     if (!validate()) return
-    if (isWrongNetwork) {
-      setModalOpen(true)
-      setTxStatus('error')
-      setTxMessage(`Switch to LitVM Testnet (Chain ID ${litvm.id}) before creating a presale.`)
+    if (!(await ensureLitvmWrite({
+      action: 'creating a presale',
+      onError: (message) => {
+        setModalOpen(true)
+        setTxStatus('error')
+        setTxMessage(message)
+      },
+    }))) {
       return
     }
     if (!decimalsReady || !feeReady) return // Block if decimals/fee not loaded (RP-001, RP-003)

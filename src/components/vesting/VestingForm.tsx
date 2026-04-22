@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Circle, CircleAlert, CircleDashed, Copy, ExternalLink, ArrowRight, PartyPopper, Send } from 'lucide-react'
@@ -15,8 +15,8 @@ import {
   VESTING_FACTORY_ADDRESS,
 } from '@/lib/contracts/tokenVesting'
 import { isValidContractAddress } from '@/config/contracts'
-import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
-import { getWalletErrorMessage, getWrongNetworkMessage } from '@/lib/walletErrors'
+import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+import { getWalletErrorMessage } from '@/lib/walletErrors'
 
 // ABI for fetching token decimals (F-009)
 const ERC20_DECIMALS_ABI = [
@@ -299,12 +299,10 @@ export function VestingForm() {
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successResult, setSuccessResult] = useState<SuccessState | null>(null)
-  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
+  const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, switchToLitvm, writeContractAsync } = useSafeWriteContract()
 
   const set = <K extends keyof FormState>(key: K, val: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: val }))
-
-  const { writeContractAsync } = useWriteContract()
 
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
 
@@ -392,10 +390,14 @@ export function VestingForm() {
 
   const handleApprove = async () => {
     if (tokenDecimals === undefined) return // Guard against stale decimals
-    if (isWrongNetwork) {
-      setModalOpen(true)
-      setTxStatus('error')
-      setTxMessage(getWrongNetworkMessage('approving a vesting schedule'))
+    if (!(await ensureLitvmWrite({
+      action: 'approving a vesting schedule',
+      onError: (message) => {
+        setModalOpen(true)
+        setTxStatus('error')
+        setTxMessage(message)
+      },
+    }))) {
       return
     }
     try {
@@ -422,10 +424,14 @@ export function VestingForm() {
   const handleCreate = async () => {
     if (!feeReady) return // RP-003: Block submit until fee loaded
     if (tokenDecimals === undefined) return // Guard against stale decimals
-    if (isWrongNetwork) {
-      setModalOpen(true)
-      setTxStatus('error')
-      setTxMessage(getWrongNetworkMessage('creating a vesting schedule'))
+    if (!(await ensureLitvmWrite({
+      action: 'creating a vesting schedule',
+      onError: (message) => {
+        setModalOpen(true)
+        setTxStatus('error')
+        setTxMessage(message)
+      },
+    }))) {
       return
     }
     try {
