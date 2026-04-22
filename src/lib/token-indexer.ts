@@ -1,5 +1,6 @@
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, parseAbiItem } from 'viem'
 import { RPC_URL } from './rpcClient'
+import { TOKEN_FACTORY_ADDRESS } from '@/config/contracts'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,13 @@ export interface TokenTransfer {
   timestamp: number
 }
 
+interface IndexedLog {
+  address?: string
+  args?: Record<string, unknown>
+  blockNumber: bigint
+  transactionHash: string
+}
+
 // ── ERC-20 ABI ─────────────────────────────────────────────────────────────
 
 const ERC20_ABI = [
@@ -63,6 +71,10 @@ const TRANSFER_EVENT = {
   ],
 }
 
+const TOKEN_CREATED_EVENT = parseAbiItem(
+  'event TokenCreated(address indexed tokenAddress, address indexed creator, string name, string symbol)',
+)
+
 // ── Client ─────────────────────────────────────────────────────────────────
 
 const client = createPublicClient({
@@ -78,7 +90,7 @@ const client = createPublicClient({
 const erc20MetaCache = new Map<string, { name: string; symbol: string; decimals: number; totalSupply: bigint }>()
 
 // Token list cache
-let tokenCache: TokenInfo[] = []
+const tokenCache: TokenInfo[] = []
 let lastScanBlock = 0
 let cachePopulated = false
 let scanLock = false  // Prevents concurrent cold scans (e.g., TrendingPanel + TokenTracker racing)
@@ -159,13 +171,13 @@ async function readErc20Meta(address: `0x${string}`): Promise<{ name: string; sy
  */
 async function getLogsPaginated(
   address: `0x${string}` | undefined,
-  event: typeof TRANSFER_EVENT,
+  event: typeof TRANSFER_EVENT | typeof TOKEN_CREATED_EVENT,
   fromBlock: number,
   toBlock: number | "latest",
-  args?: { from?: string },
-): Promise<any[]> {
+  args?: Record<string, unknown>,
+): Promise<IndexedLog[]> {
   const BLOCKS_PER_BATCH = 3000
-  const allLogs: any[] = []
+  const allLogs: IndexedLog[] = []
 
   // Resolve "latest" once — avoids calling getBlockNumber in every batch
   const latestBlock = toBlock === "latest" ? Number(await client.getBlockNumber()) : toBlock
@@ -180,7 +192,7 @@ async function getLogsPaginated(
         fromBlock: BigInt(cursor),
         toBlock: BigInt(batchEnd),
         args,
-      }) as any[]
+      }) as IndexedLog[]
       allLogs.push(...logs)
     } catch (err) {
       console.warn(`[token-indexer] getLogs batch ${cursor}-${batchEnd} failed, skipping:`, (err as Error).message)
@@ -204,7 +216,7 @@ async function analyzeTokenTransfers(
 
     const recipients = new Set<string>()
     for (const log of capped) {
-      const to = (log.args as any)?.to as string | undefined
+      const to = typeof log.args?.to === 'string' ? log.args.to : undefined
       if (to && to !== ZERO_ADDR) recipients.add(to.toLowerCase())
     }
 
@@ -238,25 +250,32 @@ const INITIAL_SCAN_BLOCKS = 2_000    // ~33min on LitVM — enough for testnet, 
 export async function scanForTokens(fromBlock: number, toBlock: number): Promise<TokenInfo[]> {
   const newTokens: TokenInfo[] = []
 
-  // Paginated log scan for Mint events (Transfer from zero)
-  let mintLogs: any[]
+  // Only index Lester factory deployments so analytics cannot be polluted by arbitrary chain-wide ERC-20 mints.
+  let tokenCreatedLogs: IndexedLog[]
   try {
-    mintLogs = await getLogsPaginated(undefined, TRANSFER_EVENT, fromBlock, toBlock, { from: ZERO_ADDR })
+    tokenCreatedLogs = await getLogsPaginated(TOKEN_FACTORY_ADDRESS, TOKEN_CREATED_EVENT, fromBlock, toBlock)
   } catch (err) {
-    console.error('[token-indexer] Mint log scan failed:', err)
+    console.error('[token-indexer] TokenCreated log scan failed:', err)
     return []
   }
 
   // Deduplicate by contract address
   const seen = new Set<string>()
-  const candidates: { address: `0x${string}`; txHash: string; blockNumber: number }[] = []
+  const candidates: {
+    address: `0x${string}`
+    creator: string
+    txHash: string
+    blockNumber: number
+  }[] = []
 
-  for (const log of mintLogs) {
-    const addr = log.address?.toLowerCase()
-    if (!addr || seen.has(addr)) continue
-    seen.add(addr)
+  for (const log of tokenCreatedLogs) {
+    const tokenAddress = typeof log.args?.tokenAddress === 'string' ? log.args.tokenAddress.toLowerCase() : undefined
+    const creator = typeof log.args?.creator === 'string' ? log.args.creator : ZERO_ADDR
+    if (!tokenAddress || seen.has(tokenAddress)) continue
+    seen.add(tokenAddress)
     candidates.push({
-      address: log.address as `0x${string}`,
+      address: tokenAddress as `0x${string}`,
+      creator,
       txHash: log.transactionHash,
       blockNumber: Number(log.blockNumber),
     })
@@ -285,7 +304,7 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
           symbol: meta.symbol,
           decimals: meta.decimals,
           totalSupply: formatBigInt(meta.totalSupply, meta.decimals),
-          deployer: ((mintLogs.find(l => l.address?.toLowerCase() === c.address.toLowerCase())?.args as any)?.from ?? ZERO_ADDR),
+          deployer: c.creator,
           creationTx: c.txHash,
           creationBlock: c.blockNumber,
           createdAt: timestamp,
@@ -375,10 +394,7 @@ export async function getTokenDetails(contractAddress: string): Promise<TokenDet
   const latest = await client.getBlockNumber()
   const fromBlock = cached ? cached.creationBlock : Math.max(0, Number(latest) - INITIAL_SCAN_BLOCKS)
 
-  const [metaRefresh, transferData] = await Promise.all([
-    Promise.resolve(cached ?? null),
-    analyzeTokenTransfers(addr, fromBlock),
-  ])
+  const transferData = await analyzeTokenTransfers(addr, fromBlock)
 
   const base: TokenInfo = cached ?? {
     address: contractAddress,
@@ -416,12 +432,11 @@ export async function getTokenTransfers(contractAddress: string, limit: number):
 
   const transfers: TokenTransfer[] = await Promise.all(
     recent.map(async (log) => {
-      const args = log.args as any
       const ts = await getBlockTimestamp(Number(log.blockNumber))
       return {
-        from: args.from ?? ZERO_ADDR,
-        to: args.to ?? ZERO_ADDR,
-        value: (args.value as bigint)?.toString() ?? '0',
+        from: typeof log.args?.from === 'string' ? log.args.from : ZERO_ADDR,
+        to: typeof log.args?.to === 'string' ? log.args.to : ZERO_ADDR,
+        value: typeof log.args?.value === 'bigint' ? log.args.value.toString() : '0',
         txHash: log.transactionHash ?? '',
         blockNumber: Number(log.blockNumber),
         timestamp: ts,

@@ -11,8 +11,8 @@ type Tab = 'spaces' | 'create' | 'vote'
 const COLOR = '#E44FB5'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'spaces', label: 'Spaces' },
-  { id: 'create', label: 'Create Proposal' },
-  { id: 'vote', label: 'Vote' },
+  { id: 'create', label: 'Draft Proposal' },
+  { id: 'vote', label: 'Voting Guide' },
 ]
 
 export default function GovernancePage() {
@@ -25,16 +25,16 @@ export default function GovernancePage() {
         category="Community Voting"
         title="Lester"
         titleHighlight="Gov"
-        subtitle="Off-chain proposals and gasless voting — Snapshot-style, no gas required."
+        subtitle="Snapshot-style governance planning for LitVM communities. Draft proposals, set clear snapshots, and keep execution separate from voting."
         color={COLOR}
         image="/images/carousel/governance.png"
         imagePosition="center 30%"
         compact
         stats={[
-          { label: 'Gas', value: 'Zero' },
+          { label: 'Voting', value: 'Off-chain' },
           { label: 'Style', value: 'Snapshot' },
-          { label: 'Cost', value: 'Free' },
-          { label: 'Proposals', value: 'Unlimited' },
+          { label: 'Execution', value: 'Manual review' },
+          { label: 'Cost', value: 'No vote gas' },
         ]}
       />
       <div className="tool-page-content" style={{ maxWidth: '1040px' }}>

@@ -6,6 +6,7 @@ export const ERC20_ABI = [
   { name: 'balanceOf', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function', inputs: [{ name: 'account', type: 'address' }] },
   { name: 'allowance', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function', inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }] },
   { name: 'approve', outputs: [{ type: 'bool' }], stateMutability: 'nonpayable', type: 'function', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }] },
+  { name: 'transfer', outputs: [{ type: 'bool' }], stateMutability: 'nonpayable', type: 'function', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }] },
 ] as const
 
 export const ILO_FACTORY_ABI = [
@@ -75,12 +76,15 @@ export const ILO_ABI = [
   { inputs: [], name: 'lpTokensLocked', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'tokensRequired', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: '', type: 'address' }], name: 'contributions', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: '', type: 'address' }], name: 'whitelist', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'contribute', outputs: [], stateMutability: 'payable', type: 'function' },
   { inputs: [], name: 'finalize', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'cancel', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'claim', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'refund', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'claimLP', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [], name: 'sweepExcessETH', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'users', type: 'address[]' }, { name: 'status', type: 'bool' }], name: 'setWhitelist', outputs: [], stateMutability: 'nonpayable', type: 'function' },
 ] as const
 
 export const LEDGER_ABI = [

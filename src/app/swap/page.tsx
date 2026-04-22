@@ -1,5 +1,6 @@
 'use client'
 
+import { waitForTransactionReceipt } from '@wagmi/core'
 import Link from 'next/link'
 import { Suspense, useEffect, useRef, useState, startTransition } from 'react'
 import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Wallet, X, ArrowLeftRight } from 'lucide-react'
@@ -27,6 +28,7 @@ import {
 import { useAllTokenMetadata } from '@/hooks/useTokenMetadata'
 import { useRpcCallReadContract } from '@/hooks/useRpcCall'
 import { useSearchParams } from 'next/navigation'
+import { wagmiConfig } from '@/config/wagmi'
 
 const ACCENT = '#E44FB5'
 const NATIVE_GAS_RESERVE = parseUnits('0.01', 18)
@@ -287,6 +289,22 @@ function CreatePoolPanel({
   const token1Balance = token1?.isNative
     ? (nativeBal.data?.value ?? 0n)
     : ((token1BalRead.data ?? 0n) as bigint)
+  const token0AllowanceRead = useReadContract({
+    address: token0 && !token0.isNative ? token0.address : undefined,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: address ? [address, UNISWAP_V2_ROUTER_ADDRESS] : undefined,
+    query: { enabled: Boolean(address && token0 && !token0.isNative) },
+  })
+  const token1AllowanceRead = useReadContract({
+    address: token1 && !token1.isNative ? token1.address : undefined,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: address ? [address, UNISWAP_V2_ROUTER_ADDRESS] : undefined,
+    query: { enabled: Boolean(address && token1 && !token1.isNative) },
+  })
+  const token0Allowance = (token0AllowanceRead.data ?? 0n) as bigint
+  const token1Allowance = (token1AllowanceRead.data ?? 0n) as bigint
 
   function setMaxToken0() {
     if (!token0) return
@@ -327,33 +345,6 @@ function CreatePoolPanel({
 
   const tokenOptions = Array.from(tokenOptionMap.values())
 
-  const { isLoading: isConfirming, isSuccess: txConfirmed, error: txError } = useWaitForTransactionReceipt({
-    hash: txHash,
-    query: { enabled: Boolean(txHash) },
-  })
-
-  useEffect(() => {
-    if (!txHash) return
-    if (isConfirming) {
-      setTxStatus('pending')
-      setTxMessage('Creating pool transaction pending...')
-    }
-  }, [isConfirming, txHash])
-
-  useEffect(() => {
-    if (!txHash || !txConfirmed) return
-    setTxStatus('success')
-    setTxMessage('Pool created on LitVM.')
-    setAmount0('')
-    setAmount1('')
-  }, [txConfirmed, txHash])
-
-  useEffect(() => {
-    if (!txHash || !txError) return
-    setTxStatus('error')
-    setTxMessage(txError.message.slice(0, 180))
-  }, [txError, txHash])
-
   const canCreate =
     isConnected &&
     token0 !== null &&
@@ -362,6 +353,20 @@ function CreatePoolPanel({
     decimalsReady &&
     parseFloat(amount0) > 0 &&
     parseFloat(amount1) > 0
+  let parsedAmount0 = 0n
+  let parsedAmount1 = 0n
+  try {
+    parsedAmount0 = amount0 && token0Decimals !== undefined ? parseUnits(amount0, token0Decimals) : 0n
+  } catch {
+    parsedAmount0 = 0n
+  }
+  try {
+    parsedAmount1 = amount1 && token1Decimals !== undefined ? parseUnits(amount1, token1Decimals) : 0n
+  } catch {
+    parsedAmount1 = 0n
+  }
+  const needsToken0Approval = Boolean(token0 && !token0.isNative && parsedAmount0 > 0n && token0Allowance < parsedAmount0)
+  const needsToken1Approval = Boolean(token1 && !token1.isNative && parsedAmount1 > 0n && token1Allowance < parsedAmount1)
 
   async function handleCreate() {
     if (!isConnected) { setTxMessage('Wallet not connected.'); setTxOpen(true); setTxStatus('error'); return }
@@ -401,117 +406,118 @@ function CreatePoolPanel({
       const isNewPair = pairR0 === 0n && pairR1 === 0n
       // Wrap wallet call with 30s timeout + explicit gas cap to prevent infinite spinner / bad estimates
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const walletCall = (cfg: any) =>
+      const walletCall = (cfg: any, gas: bigint) =>
         Promise.race([
-          writeContractAsync({ ...cfg, gas: isNewPair ? 800000n : 500000n }),
+          writeContractAsync({ ...cfg, gas }),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Transaction timed out. Please try again.')), 30_000)
           ),
         ])
 
-      // Compute optimal amounts from reserve ratio (for existing pools)
-      // and apply 0.5% slippage tolerance to the *optimal* amounts,
-      // not the user's desired amounts (which may not match the ratio exactly).
-      const SLIPPAGE_NUMERATOR = 995n  // 0.5%
+      const SLIPPAGE_NUMERATOR = 995n
       const SLIPPAGE_DENOM = 1000n
-      // Helper: compute optimal counterpart amount given reserves
       const computeOptimal = (desired: bigint, reserveDesired: bigint, reserveOther: bigint) =>
         reserveDesired > 0n ? (desired * reserveOther) / reserveDesired : desired
+      const computeMinAmounts = (desiredA: bigint, desiredB: bigint, reserveA: bigint, reserveB: bigint) => {
+        if (reserveA === 0n || reserveB === 0n) {
+          return {
+            amountAMin: (desiredA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
+            amountBMin: (desiredB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
+          }
+        }
+
+        const optimalB = computeOptimal(desiredA, reserveA, reserveB)
+        if (optimalB <= desiredB) {
+          return {
+            amountAMin: (desiredA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
+            amountBMin: (optimalB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
+          }
+        }
+
+        const optimalA = computeOptimal(desiredB, reserveB, reserveA)
+        return {
+          amountAMin: (optimalA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
+          amountBMin: (desiredB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
+        }
+      }
+      const confirmHash = async (submittedHash: `0x${string}`, confirmationMessage: string) => {
+        setTxHash(submittedHash)
+        const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: submittedHash })
+        if (receipt.status === 'reverted') {
+          throw new Error('Transaction reverted on-chain.')
+        }
+        setTxMessage(confirmationMessage)
+      }
+
+      if (token0 && !token0.isNative && token0Allowance < a0) {
+        setTxMessage(`Approve ${token0.symbol} so the Lester router can add liquidity…`)
+        const approvalHash = await walletCall({
+          address: token0.address,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [UNISWAP_V2_ROUTER_ADDRESS, maxUint256],
+        }, 150000n)
+        await confirmHash(approvalHash, `${token0.symbol} approved. Continuing…`)
+      }
+
+      if (token1 && !token1.isNative && token1Allowance < a1) {
+        setTxMessage(`Approve ${token1.symbol} so the Lester router can add liquidity…`)
+        const approvalHash = await walletCall({
+          address: token1.address,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [UNISWAP_V2_ROUTER_ADDRESS, maxUint256],
+        }, 150000n)
+        await confirmHash(approvalHash, `${token1.symbol} approved. Continuing…`)
+      }
+
+      setTxMessage(isNewPair ? 'Confirm the pool creation transaction in your wallet…' : 'Confirm the add-liquidity transaction in your wallet…')
 
       if (isToken0Native) {
-        // Native zkLTC (token0) + ERC20 token1
-        // The router wraps native to WZKLTC and calls _addLiquidity internally.
-        // NOTE: This router has non-standard parameter ordering where
-        //   amountTokenMin controls the ETH-side min and amountETHMin controls the token-side min.
-        // We compute optimal amounts using the reserve ratio to set safe min values.
-        // token0Addr = WZKLTC (after native→wrapped mapping)
-        // token1Addr = ERC20 token
-        // Sorted: token0Addr < token1Addr → pairR0=reserve of WZKLTC, pairR1=reserve of token1
-        let amountTokenMin: bigint
-        let amountETHMin: bigint
-        if (pairR0 > 0n && pairR1 > 0n) {
-          // Optimal token1 amount for a0 native: a0 * pairR1 / pairR0
-          const optimalToken1 = computeOptimal(a0, pairR0, pairR1)
-          // Apply slippage to both optimal amounts
-          amountTokenMin = 0n  // ETH side: allow full slippage since native wraps automatically
-          amountETHMin = (optimalToken1 * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
-        } else {
-          amountTokenMin = 0n
-          amountETHMin = 0n
-        }
+        const nativeSortedFirst = token0Addr.toLowerCase() < token1Addr.toLowerCase()
+        const reserveNative = nativeSortedFirst ? pairR0 : pairR1
+        const reserveToken = nativeSortedFirst ? pairR1 : pairR0
+        const { amountAMin: amountETHMin, amountBMin: amountTokenMin } = computeMinAmounts(a0, a1, reserveNative, reserveToken)
         hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidityETH',
           args: [token1Addr, a1, amountTokenMin, amountETHMin, to, deadline],
           value: a0,
-        })
+        }, isNewPair ? 800000n : 500000n)
       } else if (isToken1Native) {
-        // ERC20 token0 + Native zkLTC (token1)
-        // token0Addr = ERC20, token1Addr = WZKLTC (after mapping)
-        // Sorted depends on addresses
-        let amountTokenMin: bigint
-        let amountETHMin: bigint
-        if (pairR0 > 0n && pairR1 > 0n) {
-          // Figure out which pair reserve corresponds to which token
-          const token0IsSortedFirst = token0Addr.toLowerCase() < token1Addr.toLowerCase()
-          const reserveForToken0 = token0IsSortedFirst ? pairR0 : pairR1
-          const reserveForToken1 = token0IsSortedFirst ? pairR1 : pairR0
-          // token0 = ERC20, token1 = WZKLTC (native side)
-          const optimalToken0 = computeOptimal(a1, reserveForToken1, reserveForToken0)  // ERC20 optimal for a1 native
-          amountTokenMin = (optimalToken0 * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
-          amountETHMin = 0n  // native side
-        } else {
-          amountTokenMin = 0n
-          amountETHMin = 0n
-        }
+        const tokenSortedFirst = token0Addr.toLowerCase() < token1Addr.toLowerCase()
+        const reserveToken = tokenSortedFirst ? pairR0 : pairR1
+        const reserveNative = tokenSortedFirst ? pairR1 : pairR0
+        const { amountAMin: amountTokenMin, amountBMin: amountETHMin } = computeMinAmounts(a0, a1, reserveToken, reserveNative)
         hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidityETH',
           args: [token0Addr, a0, amountTokenMin, amountETHMin, to, deadline],
           value: a1,
-        })
+        }, isNewPair ? 800000n : 500000n)
       } else {
-        // Non-native pair: both are ERC20 tokens
-        // Sort tokens by address to match the pair's token0/token1 ordering
         const isToken0SortedFirst = token0Addr.toLowerCase() < token1Addr.toLowerCase()
         const [tokenA, tokenB] = isToken0SortedFirst
           ? [token0Addr, token1Addr] as const
           : [token1Addr, token0Addr] as const
-        // Map amounts to the sorted tokens (tokenA = lower addr = pair's token0 = pairR0)
         const [amountA, amountB] = isToken0SortedFirst
           ? [a0, a1] as const
           : [a1, a0] as const
 
-        // Compute min amounts using reserve ratio (only when pair has liquidity)
-        let amountAMin: bigint
-        let amountBMin: bigint
-        if (pairR0 > 0n && pairR1 > 0n) {
-          // tokenA = pair's token0 → reserve for tokenA = pairR0
-          // tokenB = pair's token1 → reserve for tokenB = pairR1
-          const optimalB = (amountA * pairR1) / pairR0  // optimal tokenB for amountA
-          const optimalA = (amountB * pairR0) / pairR1  // optimal tokenA for amountB
-          // Apply 0.5% slippage to the optimal (binding) amount
-          // The larger of the two optimal amounts is the binding constraint
-          amountAMin = optimalA > optimalB
-            ? (optimalA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
-            : 0n
-          amountBMin = optimalB > optimalA
-            ? (optimalB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
-            : 0n
-        } else {
-          amountAMin = (amountA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
-          amountBMin = (amountB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM
-        }
+        const { amountAMin, amountBMin } = computeMinAmounts(amountA, amountB, pairR0, pairR1)
         hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidity',
           args: [tokenA, tokenB, amountA, amountB, amountAMin, amountBMin, to, deadline],
-        })
+        }, isNewPair ? 800000n : 500000n)
       }
-      setTxHash(hash)
+      await confirmHash(hash, isNewPair ? 'Pool created on LitVM.' : 'Liquidity added on LitVM.')
+      setTxStatus('success')
+      setAmount0('')
+      setAmount1('')
     } catch (err: unknown) {
       setTxStatus('error')
       const raw = err instanceof Error ? err.message : String(err)
@@ -640,15 +646,23 @@ function CreatePoolPanel({
 
           <button
             onClick={handleCreate}
-            disabled={!canCreate || creating || isConfirming}
+            disabled={!canCreate || creating}
             className="flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
               boxShadow: '0 16px 40px rgba(228,79,181,0.28)',
             }}
           >
-            {creating || isConfirming ? <Loader2 size={16} className="animate-spin" /> : (reservesRead.isSuccess ? <Plus size={16} /> : <Plus size={16} />)}
-            <span>{creating ? 'Creating pool…' : isConfirming ? 'Confirming…' : reservesRead.isSuccess ? 'Add Liquidity' : 'Create Pool'}</span>
+            {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+            <span>
+              {creating
+                ? 'Submitting…'
+                : needsToken0Approval || needsToken1Approval
+                  ? (reservesRead.isSuccess ? 'Approve & Add Liquidity' : 'Approve & Create Pool')
+                  : reservesRead.isSuccess
+                    ? 'Add Liquidity'
+                    : 'Create Pool'}
+            </span>
           </button>
         </>
       )}

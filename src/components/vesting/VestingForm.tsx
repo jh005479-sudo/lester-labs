@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { parseUnits, isAddress, decodeEventLog, formatEther } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
-import { CheckCircle2, Circle, CircleAlert, CircleDashed, Copy, ExternalLink, ArrowRight, Mail, PartyPopper, Send } from 'lucide-react'
+import { CheckCircle2, Circle, CircleAlert, CircleDashed, Copy, ExternalLink, ArrowRight, PartyPopper, Send } from 'lucide-react'
 import Link from 'next/link'
 import { FeeDisplay } from '@/components/shared/FeeDisplay'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
@@ -46,6 +46,7 @@ interface FormState {
 
 interface SuccessState {
   vestingId: string
+  vestingWallet: string
   tokenAddress: string
   beneficiary: string
   totalAmount: string
@@ -156,13 +157,12 @@ function VestingTypeCard({
 
 function SuccessPanel({ result }: { result: SuccessState }) {
   const [copied, setCopied] = useState(false)
-  const claimLink = `lester-labs.com/vesting/claim?id=${result.vestingId}`
 
   const copy = useCallback(() => {
-    navigator.clipboard.writeText(claimLink)
+    navigator.clipboard.writeText(result.vestingWallet)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [claimLink])
+  }, [result.vestingWallet])
 
   return (
     <div className="space-y-6 text-center">
@@ -186,6 +186,10 @@ function SuccessPanel({ result }: { result: SuccessState }) {
           <div>
             <span className="text-white/40">Beneficiary</span>
             <p className="font-mono text-white">{shortAddr(result.beneficiary)}</p>
+          </div>
+          <div>
+            <span className="text-white/40">Vesting wallet</span>
+            <p className="font-mono text-white">{shortAddr(result.vestingWallet)}</p>
           </div>
           <div>
             <span className="text-white/40">Total amount</span>
@@ -212,11 +216,11 @@ function SuccessPanel({ result }: { result: SuccessState }) {
         </div>
       </div>
 
-      {/* Beneficiary link */}
+      {/* Vesting wallet */}
       <div className="rounded-xl border border-[var(--accent)]/30 bg-[var(--accent-muted)] p-4 text-left">
-        <p className="text-sm font-medium text-white mb-2 inline-flex items-center gap-1.5"><Mail size={14} /> Share with beneficiary</p>
+        <p className="text-sm font-medium text-white mb-2">Share the vesting wallet address</p>
         <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-          <span className="flex-1 truncate font-mono text-xs text-white/70">{claimLink}</span>
+          <span className="flex-1 truncate font-mono text-xs text-white/70">{result.vestingWallet}</span>
           <button
             onClick={copy}
             className="flex-shrink-0 rounded p-1 text-white/40 hover:text-white transition-colors"
@@ -225,19 +229,30 @@ function SuccessPanel({ result }: { result: SuccessState }) {
           </button>
         </div>
         <p className="mt-2 text-xs text-white/40">
-          Beneficiaries can track and claim vested tokens at this link.
+          Claims follow the standard VestingWallet flow. Once tokens are vested, anyone can call
+          `release(token)` on this vesting wallet for the beneficiary.
         </p>
       </div>
 
       {/* Explorer */}
-      <a
-        href={`${LITVM_EXPLORER_URL}/tx/${result.txHash}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
-      >
-        View on Explorer <ExternalLink size={13} />
-      </a>
+      <div className="flex flex-wrap items-center justify-center gap-4">
+        <a
+          href={`${LITVM_EXPLORER_URL}/tx/${result.txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+        >
+          View transaction <ExternalLink size={13} />
+        </a>
+        <a
+          href={`${LITVM_EXPLORER_URL}/address/${result.vestingWallet}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm text-[var(--accent)] hover:underline"
+        >
+          View vesting wallet <ExternalLink size={13} />
+        </a>
+      </div>
 
       {/* Next step */}
       <div className="pt-2">
@@ -333,6 +348,7 @@ export function VestingForm() {
       // Create confirmed — parse vesting ID from logs using ABI-based decoding (F-010)
       // RP-007: Filter logs by factory address before decode, use undefined instead of placeholder
       let vestingId: string | undefined = undefined
+      let vestingWallet: string | undefined = undefined
       const factoryLogs = (receipt.logs || []).filter(
         (log) => log.address.toLowerCase() === VESTING_FACTORY_ADDRESS.toLowerCase()
       )
@@ -343,8 +359,9 @@ export function VestingForm() {
             data: log.data,
             topics: log.topics,
           })
-          if (decoded.eventName === 'VestingCreated' && 'vestingId' in decoded.args) {
+          if (decoded.eventName === 'VestingCreated' && 'vestingId' in decoded.args && 'vestingWallet' in decoded.args) {
             vestingId = decoded.args.vestingId.toString()
+            vestingWallet = decoded.args.vestingWallet
             break
           }
         } catch {
@@ -352,7 +369,7 @@ export function VestingForm() {
         }
       }
       // RP-007: If event not found, set error state
-      if (vestingId === undefined) {
+      if (vestingId === undefined || vestingWallet === undefined) {
         setTxStatus('error')
         setTxMessage('Transaction mined but expected event was not decoded; verify on explorer')
         return
@@ -360,6 +377,7 @@ export function VestingForm() {
       setTxStatus('success')
       setSuccessResult({
         vestingId,
+        vestingWallet,
         tokenAddress: form.tokenAddress,
         beneficiary: form.beneficiary,
         totalAmount: form.totalAmount,

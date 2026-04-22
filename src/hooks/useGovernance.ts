@@ -122,7 +122,7 @@ export function useGovernance() {
       againstVotes: '—',
       abstainVotes: '—',
       quorumMet: false,
-      startBlock: Number(proposalResult.snapshotBlock),
+      startBlock: Number(proposalResult.startBlock),
       endBlock: Number(proposalResult.endBlock),
       hasVoted: (userVotesData.data?.[i]?.result as unknown) as boolean ?? false,
       support: 0,
