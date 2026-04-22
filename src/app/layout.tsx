@@ -64,6 +64,30 @@ export default function RootLayout({
           fontFamily: "'Inter', sans-serif",
         }}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'Lester Labs',
+              url: 'https://www.lester-labs.com',
+              logo: 'https://www.lester-labs.com/favicon.ico',
+              description: 'The first native DeFi suite for LitVM — featuring a DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, and governance.',
+              sameAs: [
+                'https://x.com/lesterlabshq',
+              ],
+              potentialAction: {
+                '@type': 'SearchAction',
+                target: {
+                  '@type': 'EntryPoint',
+                  urlTemplate: 'https://www.lester-labs.com/explorer?q={search_term_string}',
+                },
+                'query-input': 'required name=search_term_string',
+              },
+            }),
+          }}
+        />
         <Providers>
           <PremiumBackdrop />
           <LTCBanner />

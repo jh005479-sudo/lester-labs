@@ -29,7 +29,7 @@ const features = [
   { title: 'Runs on LitVM', body: 'Every presale, finalisation, and LP creation is executed on LitVM testnet (chain ID 4441). The mechanics are identical to the eventual LitVM mainnet launchpad.' },
 ]
 
-const faqs = [
+const FAQ_DATA = [
   { q: 'How does the LitVM Launchpad work?', a: 'Create a presale contract, deposit your token allocation, set your caps and timeline, and go live. When the presale ends (or the hard cap is hit), the ILO factory automatically seeds liquidity into the Lester Labs Uniswap V2 router on LitVM.' },
   { q: 'What does it cost to launch a presale on LitVM?', a: '0.03 zkLTC to create the ILO contract, plus 2% of the total raise taken at finalisation. That is the complete cost — no listing fees, no subscription.' },
   { q: 'Do I need my own token already?', a: 'Yes. You need an ERC-20 deployed on LitVM before creating a presale. Use the Token Factory at /launch to deploy one in under a minute.' },
@@ -167,7 +167,7 @@ export default function LitvmLaunchpadPage() {
             Frequently asked questions
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {faqs.map((faq) => (
+            {FAQ_DATA.map((faq) => (
               <div key={faq.q} style={{
                 padding: '20px 24px', background: 'rgba(255,255,255,0.025)',
                 border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px',
@@ -194,6 +194,21 @@ export default function LitvmLaunchpadPage() {
             Open LitVM Launchpad →
           </Link>
         </section>
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'FAQPage',
+              mainEntity: FAQ_DATA.map((faq) => ({
+                '@type': 'Question',
+                name: faq.q,
+                acceptedAnswer: { '@type': 'Answer', text: faq.a },
+              })),
+            }),
+          }}
+        />
       </div>
     </div>
   )

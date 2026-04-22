@@ -70,7 +70,7 @@ const steps = [
   },
 ]
 
-const faqs = [
+const FAQ_DATA = [
   { q: 'What is the LitVM testnet chain ID?', a: 'Chain ID 4441. Use this to add LitVM testnet to any EVM-compatible wallet.' },
   { q: 'How do I get test zkLTC?', a: 'Use the LitVM testnet faucet to claim free test zkLTC. No limit for testnet purposes.' },
   { q: 'What RPC should I use for LitVM testnet?', a: 'https://liteforge.rpc.caldera.xyz/infra-partner-http — or the public RPC if the partner endpoint is at capacity.' },
@@ -206,7 +206,7 @@ export default function LitvmTestnetPage() {
             Frequently asked questions
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {faqs.map((faq) => (
+            {FAQ_DATA.map((faq) => (
               <div key={faq.q} style={{
                 padding: '20px 24px', background: 'rgba(255,255,255,0.025)',
                 border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px',
@@ -233,6 +233,21 @@ export default function LitvmTestnetPage() {
             Open LitVM DEX →
           </Link>
         </section>
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'FAQPage',
+              mainEntity: FAQ_DATA.map((faq) => ({
+                '@type': 'Question',
+                name: faq.q,
+                acceptedAnswer: { '@type': 'Answer', text: faq.a },
+              })),
+            }),
+          }}
+        />
       </div>
     </div>
   )
