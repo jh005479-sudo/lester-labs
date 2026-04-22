@@ -46,9 +46,24 @@ export const metadata: Metadata = {
     'LitVM DeFi',
     'LitVM token factory',
     'LitVM liquidity locker',
+    'LitVM block explorer',
     'LesterLabs',
     'Lester-Labs',
   ],
+  alternates: { canonical: 'https://www.lester-labs.com' },
+  openGraph: {
+    title: 'Lester Labs — DeFi Utilities for LitVM',
+    description: 'The first native DeFi suite for LitVM. DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, and governance.',
+    url: 'https://www.lester-labs.com',
+    siteName: 'Lester Labs',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Lester Labs — DeFi Utilities for LitVM',
+    description: 'The first native DeFi suite for LitVM. DEX swap, token launchpad, airdrop tool, and more.',
+  },
 }
 
 export default function RootLayout({

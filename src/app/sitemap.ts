@@ -23,6 +23,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { route: '/analytics', priority: 0.7, changefreq: 'monthly' },
     { route: '/docs', priority: 0.8, changefreq: 'monthly' },
     { route: '/tutorials', priority: 0.8, changefreq: 'monthly' },
+    { route: '/tutorials/litvm-block-explorer', priority: 0.8, changefreq: 'monthly' },
+    { route: '/tutorials/what-is-litvm', priority: 0.7, changefreq: 'monthly' },
+    { route: '/tutorials/setting-up-litvm-wallet', priority: 0.7, changefreq: 'monthly' },
+    { route: '/tutorials/understanding-zklktc', priority: 0.7, changefreq: 'monthly' },
+    { route: '/tutorials/launchpad-how-it-works', priority: 0.7, changefreq: 'monthly' },
     { route: '/portfolio', priority: 0.7, changefreq: 'monthly' },
   ]
 
