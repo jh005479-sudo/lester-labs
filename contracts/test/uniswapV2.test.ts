@@ -180,6 +180,26 @@ describe("Lester Labs Uniswap V2 fork", function () {
     expect(await ilo.lpTokensLocked()).to.be.gt(0n);
   });
 
+  it("refuses to finalize an ILO into a skewed pre-existing pair", async function () {
+    const { projectOwner, contributor, router, saleToken, ilo, startTime } = await loadFixture(deployLaunchpadFixture);
+
+    await saleToken.connect(projectOwner).approve(await router.getAddress(), ethers.MaxUint256);
+    await router.connect(projectOwner).addLiquidityETH(
+      await saleToken.getAddress(),
+      ethers.parseEther("100000"),
+      0,
+      0,
+      projectOwner.address,
+      (await time.latest()) + ONE_DAY,
+      { value: ethers.parseEther("1") },
+    );
+
+    await time.increaseTo(startTime + 1);
+    await ilo.connect(contributor).contribute({ value: ethers.parseEther("10") });
+
+    await expect(ilo.connect(projectOwner).finalize()).to.be.reverted;
+  });
+
   it("refuses to seed launchpad liquidity if fee routing drifts away from the treasury", async function () {
     const { treasury, projectOwner, contributor, other, factory, ilo, startTime } = await loadFixture(deployLaunchpadFixture);
 

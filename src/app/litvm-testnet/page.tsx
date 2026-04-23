@@ -39,7 +39,7 @@ const features = [
   },
   {
     title: 'Identical to mainnet mechanics',
-    body: 'Testnet mirrors mainnet exactly — same contract addresses, same fee structure, same mechanics. What works on testnet will work when LitVM mainnet launches.',
+    body: 'Testnet mirrors the intended mainnet mechanics — same EVM, same contract APIs, and the same fee model. Mainnet deployments will use their own verified addresses.',
   },
   {
     title: 'No KYC, no account needed',

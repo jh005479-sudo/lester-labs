@@ -68,10 +68,10 @@ Live at [lester-labs.com/analytics](https://lester-labs.com/analytics).
 | LitGovToken | `0xa5111cedc04554676DbCCA39F2268070008C7A8A` |
 | LitGovernor | `0x5b0092996BA897617B46D42B3F108B253be9Ad3d` |
 | LitTimelock | `0xd38ed693730Db3eB22bA6d6F0050FC45Ac9240ba` |
-| Uniswap V2 Factory | Pending deployment |
-| Uniswap V2 Router | Pending deployment |
-| Wrapped zkLTC | Pending deployment |
-| UniSwapConnector | Pending deployment |
+| Uniswap V2 Factory | `0x017A126A44Aaae9273F7963D4E295F0Ee2793AD8` |
+| Uniswap V2 Router | `0xD56a623890b083d876D47c3b1c5343b7f983FA62` |
+| Wrapped zkLTC | `0xd141A5DDE1a3A373B7e9bb603362A58793AB9D97` |
+| UniSwapConnector | `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD` |
 
 ## Security Notes
 

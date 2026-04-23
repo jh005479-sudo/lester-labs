@@ -35,12 +35,12 @@ Native zkLTC is represented on the router side by a wrapped zkLTC contract, but 
 
 ## Contracts
 
-| Contract | Purpose | Status |
+| Contract | Purpose | LitVM testnet address |
 |---|---|---|
-| Uniswap V2 Factory | Pair creation and fee destination | Pending deployment |
-| Uniswap V2 Router02 | Swaps and LP operations | Pending deployment |
-| Wrapped zkLTC | Native-asset wrapper for router compatibility | Pending deployment |
-| UniSwapConnector | Launchpad-to-DEX liquidity bridge | Pending deployment |
+| Uniswap V2 Factory | Pair creation and fee destination | `0x017A126A44Aaae9273F7963D4E295F0Ee2793AD8` |
+| Uniswap V2 Router02 | Swaps and LP operations | `0xD56a623890b083d876D47c3b1c5343b7f983FA62` |
+| Wrapped zkLTC | Native-asset wrapper for router compatibility | `0xd141A5DDE1a3A373B7e9bb603362A58793AB9D97` |
+| UniSwapConnector | Launchpad-to-DEX liquidity bridge | `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD` |
 
 The Launchpad finalization path shares the same infrastructure. When an ILO finalizes, `UniSwapConnector` checks the factory configuration before adding liquidity, so newly launched pairs and manually created pairs live on the same DEX.
 
