@@ -385,7 +385,7 @@ export default function HomePage() {
               <div className="tc-label">Built by a team that cares deeply about the success of the LitVM and Litecoin ecosystem. Community-driven from the start.</div>
               <div className="tc-data">
                 <div className="tc-data-item"><span>Team</span><span>Trusted</span></div>
-                <div className="tc-data-item"><span>DEX</span><span>Pending</span></div>
+                <div className="tc-data-item"><span>DEX</span><span>Live</span></div>
                 <div className="tc-data-item"><span>Chain</span><span>LitVM</span></div>
               </div>
             </div>

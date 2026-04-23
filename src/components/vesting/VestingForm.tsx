@@ -503,7 +503,7 @@ export function VestingForm() {
   const isContractConfigured = isValidContractAddress(VESTING_FACTORY_ADDRESS)
   // Decimals must be loaded before proceeding
   const decimalsReady = tokenDecimals !== undefined
-  const canReview = isContractConfigured && decimalsReady && (form.vestingType === 'custom' ? isStep1Valid : isStep1Valid && isScheduleValid)
+  const canReview = isContractConfigured && decimalsReady && form.vestingType !== 'custom' && isStep1Valid && isScheduleValid
 
   // Show success panel when done
   if (successResult && !modalOpen) {
@@ -590,7 +590,7 @@ export function VestingForm() {
                 onSelect={() => set('vestingType', 'custom')}
                 icon={<CircleDashed size={18} />}
                 label="Custom Milestones"
-                description="Milestone-based unlocks on specific dates"
+                description="Request a custom milestone contract"
               />
             </div>
 
@@ -598,10 +598,11 @@ export function VestingForm() {
             {form.vestingType === 'custom' && (
               <div className="rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3">
                 <p className="text-sm text-green-300">
-                  Custom milestones available on request —{' '}
+                  Custom milestones require a bespoke contract review and are not deployed by this form.{' '}
                   <a href="mailto:hello@lester-labs.com" className="underline hover:text-green-200">
-                    contact us
+                    Contact us
                   </a>
+                  {' '}to scope the schedule.
                 </p>
               </div>
             )}
@@ -683,13 +684,22 @@ export function VestingForm() {
 
           {/* Continue to review */}
           <div className="flex justify-end">
-            <button
-              onClick={() => setStep('review')}
-              disabled={!canReview}
-              className="rounded-lg bg-[var(--accent)] px-7 py-2.5 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              Review & Deploy →
-            </button>
+            {form.vestingType === 'custom' ? (
+              <a
+                href="mailto:hello@lester-labs.com?subject=Custom%20vesting%20milestone%20schedule"
+                className="rounded-lg bg-[var(--accent)] px-7 py-2.5 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] transition-colors"
+              >
+                Contact Lester Labs
+              </a>
+            ) : (
+              <button
+                onClick={() => setStep('review')}
+                disabled={!canReview}
+                className="rounded-lg bg-[var(--accent)] px-7 py-2.5 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Review & Deploy →
+              </button>
+            )}
           </div>
         </>
       ) : (

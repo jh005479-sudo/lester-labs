@@ -698,6 +698,41 @@ export default function PresalePage() {
           </div>
         </div>
 
+        {!isOwner && hardCap > 0n && softCap > 0n && !finalized && !cancelled && (hasEnded || totalRaised >= hardCap || softCapMet) && (
+          <div style={cardStyle}>
+            <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Settlement</h2>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.58)', marginBottom: '14px', lineHeight: 1.6 }}>
+              Once a sale reaches hard cap or ends above soft cap, anyone can finalize it. This prevents a completed
+              raise from waiting on the creator wallet.
+            </p>
+            {fundingGap > 0n && (
+              <p style={{ fontSize: '13px', color: '#fbbf24', marginBottom: '12px', lineHeight: 1.6 }}>
+                Finalization is waiting for the creator to fund {formatTokenValue(fundingGap, tokenDecimals)} {tokenSymbol}.
+              </p>
+            )}
+            {!softCapMet && (
+              <p style={{ fontSize: '13px', color: '#f87171', marginBottom: '12px', lineHeight: 1.6 }}>
+                The soft cap has not been met, so contributors can refund after the sale window closes.
+              </p>
+            )}
+            <button
+              onClick={() => { void handleFinalize() }}
+              disabled={!canFinalize || fundingGap > 0n}
+              style={{
+                padding: '12px 14px',
+                borderRadius: '8px',
+                border: 'none',
+                background: canFinalize && fundingGap === 0n ? '#4f46e5' : 'rgba(79,70,229,0.3)',
+                color: '#fff',
+                fontWeight: 700,
+                cursor: canFinalize && fundingGap === 0n ? 'pointer' : 'not-allowed',
+              }}
+            >
+              Finalize & Create Lester DEX Pool
+            </button>
+          </div>
+        )}
+
         {isOwner && (
           <div style={cardStyle}>
             <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Creator Controls</h2>

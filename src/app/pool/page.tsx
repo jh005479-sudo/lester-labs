@@ -6,7 +6,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Droplets, ExternalLink, Layers3, Loader2, Minus, Plus, Wallet, X } from 'lucide-react'
 import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
-import { formatUnits } from 'viem'
+import { formatUnits, parseUnits } from 'viem'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
@@ -27,6 +27,13 @@ function formatAmount(value: bigint, decimals: number) {
   const formatted = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   if (!fraction) return formatted
   return `${formatted}.${fraction.slice(0, 6).replace(/0+$/, '') || '0'}`
+}
+
+function formatInputAmount(value: bigint, decimals: number) {
+  const raw = formatUnits(value, decimals)
+  const [whole, fraction = ''] = raw.split('.')
+  const trimmed = fraction.replace(/0+$/, '')
+  return trimmed ? `${whole}.${trimmed}` : whole
 }
 
 function formatPercent(value: number) {
@@ -283,7 +290,7 @@ function RemoveLiquidityPanel({
   const { ensureLitvmWrite, writeContractAsync } = useSafeWriteContract()
   const queryClient = useQueryClient()
 
-  const [removePercent, setRemovePercent] = useState('100')  // percentage or 'max'
+  const [removeAmount, setRemoveAmount] = useState('')
   const [removing, setRemoving] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
   const [txOpen, setTxOpen] = useState(false)
@@ -296,11 +303,14 @@ function RemoveLiquidityPanel({
   const isToken1Native = token1.toLowerCase() === WRAPPED_ZKLTC_ADDRESS.toLowerCase()
   const isETHPair = isToken0Native || isToken1Native
 
-  const maxLpReadable = Number(lpBalance) / 1e18
-  const inputValue = parseFloat(removePercent)
-  const lpAmount = inputValue > 0 && inputValue <= maxLpReadable
-    ? (BigInt(Math.floor(inputValue * 1e4)) * lpBalance) / 10000n
-    : 0n
+  let parsedRemoveAmount = 0n
+  try {
+    parsedRemoveAmount = removeAmount.trim() ? parseUnits(removeAmount.trim(), 18) : 0n
+  } catch {
+    parsedRemoveAmount = 0n
+  }
+  const removeAmountExceedsBalance = parsedRemoveAmount > lpBalance
+  const lpAmount = parsedRemoveAmount > 0n && !removeAmountExceedsBalance ? parsedRemoveAmount : 0n
 
   // Read reserves to calculate expected token amounts
   const reservesRead = useReadContract({
@@ -375,7 +385,7 @@ function RemoveLiquidityPanel({
     setTxMessage(display.slice(0, 300) || `${txAction === 'approve' ? 'Approval' : 'Remove liquidity'} failed.`)
   }, [txError, txHash, txAction])
 
-  const canRemove = isConnected && parseFloat(removePercent) > 0 && lpAmount > 0n
+  const canRemove = isConnected && lpAmount > 0n
 
   async function handleApprove() {
     if (!address) return
@@ -519,37 +529,36 @@ function RemoveLiquidityPanel({
                 type="number"
                 min="0"
                 step="any"
-                value={removePercent}
-                onChange={(e) => setRemovePercent(e.target.value)}
+                value={removeAmount}
+                onChange={(e) => setRemoveAmount(e.target.value)}
                 placeholder="0.0"
                 className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-right font-mono text-lg text-white outline-none placeholder:text-white/20 focus:border-white/20"
               />
               <div className="flex flex-col gap-1">
                 <button
-                  onClick={() => setRemovePercent(lpBalance.toString())}
+                  onClick={() => setRemoveAmount(formatInputAmount(lpBalance, 18))}
                   className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:border-white/20 hover:text-white"
                 >
                   Max
                 </button>
                 <button
-                  onClick={() => setRemovePercent('0')}
+                  onClick={() => setRemoveAmount('')}
                   className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:border-white/20 hover:text-white"
                 >
                   Clear
                 </button>
               </div>
             </div>
-            {/* Basis-points state: '2500'=25%, '5000'=50%, '7500'=75%, '10000'=100%, numeric string=custom */}
             <div className="flex gap-2 text-xs text-white/40">
               {(['2500', '5000', '7500'] as const).map((bp) => (
                 <button
                   key={bp}
                   onClick={() => {
                     const lpAmt = (lpBalance * BigInt(bp)) / 10000n
-                    setRemovePercent(lpAmt.toString())
+                    setRemoveAmount(formatInputAmount(lpAmt, 18))
                   }}
                   className={`flex-1 rounded-full border py-1 transition ${
-                    removePercent === (lpBalance * BigInt(bp) / 10000n).toString()
+                    removeAmount === formatInputAmount((lpBalance * BigInt(bp)) / 10000n, 18)
                       ? 'border-white/20 bg-white/10 text-white'
                       : 'border-white/10 text-white/40 hover:border-white/15'
                   }`}
@@ -558,6 +567,9 @@ function RemoveLiquidityPanel({
                 </button>
               ))}
             </div>
+            {removeAmountExceedsBalance && (
+              <p className="text-xs text-red-300">Amount exceeds your LP balance.</p>
+            )}
           </div>
 
           {/* Expected amounts */}

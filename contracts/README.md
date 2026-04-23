@@ -33,7 +33,7 @@ npm install
 
 # 3. Copy the env example and fill in your private key
 cp .env.example .env
-# Edit .env — set DEPLOYER_PRIVATE_KEY to your wallet's private key (no 0x prefix needed)
+# Edit .env — set DEPLOYER_PRIVATE_KEY to your 0x-prefixed wallet private key
 ```
 
 > ⚠️ Never commit your `.env` file. It is in `.gitignore`.

@@ -9,6 +9,8 @@ import "./IUniswapV2Router.sol";
 contract ILO is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    uint256 private constant LIQUIDITY_SLIPPAGE_BPS = 100; // 1%
+
     // ── State ──────────────────────────────────────────────────────────
     address public owner;
     address public factory;
@@ -139,13 +141,15 @@ contract ILO is ReentrancyGuard {
 
         // The connector verifies fee routing before touching the Lester Labs DEX.
         token.forceApprove(connector, tokensForLiquidity);
+        uint256 minTokensForLiquidity = (tokensForLiquidity * (10000 - LIQUIDITY_SLIPPAGE_BPS)) / 10000;
+        uint256 minEthForLiquidity = (ethForLiquidity * (10000 - LIQUIDITY_SLIPPAGE_BPS)) / 10000;
 
         // Add liquidity on the Lester Labs router, atomically creating the pair if needed.
         (address pair, , , uint256 liquidity) = IUniSwapConnector(connector).addLiquidityETH{value: ethForLiquidity}(
             address(token),
             tokensForLiquidity,
-            0,
-            0,
+            minTokensForLiquidity,
+            minEthForLiquidity,
             address(this),
             block.timestamp + 600
         );

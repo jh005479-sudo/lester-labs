@@ -64,7 +64,7 @@ A project creates an ILO through the factory and configures the sale parameters.
 
 - **Forked from:** Unicrypt ILO
 - **ILO Factory address:** `0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB`
-- **UniSwapConnector address:** `Pending deployment`
+- **UniSwapConnector address:** `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD`
 - **Individual ILO addresses:** Generated per presale at creation
 
 **Key functions (ILOFactory):**
