@@ -378,14 +378,14 @@ export function AirdropForm() {
         ))}
       </div>
 
-      {/* F-013: ETH Airdrop EOA-only warning */}
+      {/* F-013: Native airdrop EOA-only warning */}
       {mode === 'native' && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
           <p className="text-sm font-medium text-amber-400 mb-1 inline-flex items-center gap-1.5">
-            <TriangleAlert size={14} /> ETH Airdrop — EOA Wallets Only
+            <TriangleAlert size={14} /> zkLTC Airdrop — EOA Wallets Only
           </p>
           <p className="text-xs text-amber-300/80">
-            Native ETH dispersal uses a gas-limited transfer. Sending to smart contract addresses
+            Native zkLTC dispersal uses a gas-limited transfer. Sending to smart contract addresses
             (multisigs, contract wallets) will cause the transaction to fail. ERC-20 token airdrops
             are not affected.
           </p>

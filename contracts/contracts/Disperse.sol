@@ -10,15 +10,14 @@ interface IERC20 {
 contract Disperse {
     function disperseEther(address[] calldata recipients, uint256[] calldata values) external payable {
         require(recipients.length == values.length, "Length mismatch"); // RP-005
+        uint256 total = 0;
         for (uint256 i = 0; i < recipients.length; i++) {
             require(recipients[i] != address(0), "Invalid recipient"); // RP-005
-            (bool success, ) = payable(recipients[i]).call{value: values[i]}("");
-            require(success, "ETH transfer failed");
+            total += values[i];
         }
-        uint256 balance = address(this).balance;
-        if (balance > 0) {
-            (bool refunded, ) = payable(msg.sender).call{value: balance}("");
-            require(refunded, "Refund failed");
+        require(msg.value == total, "Incorrect ETH amount");
+        for (uint256 i = 0; i < recipients.length; i++) {
+            payable(recipients[i]).transfer(values[i]);
         }
     }
 
