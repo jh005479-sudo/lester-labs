@@ -6,6 +6,8 @@ import { LTCBanner } from '@/components/LTCBanner'
 import { LedgerStats } from '@/components/ledger/LedgerStats'
 import { MessageComposer } from '@/components/ledger/MessageComposer'
 import { MessageFeed } from '@/components/ledger/MessageFeed'
+import { LaunchFlowRail } from '@/components/shared/LaunchFlowRail'
+import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
 import { LEDGER_ABI } from '@/config/abis'
 import { LEDGER_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { useLedgerFeed } from '@/hooks/useLedgerFeed'
@@ -97,6 +99,11 @@ export default function LedgerPage() {
               <p className="text-sm font-semibold font-mono text-white mt-1">1024 bytes</p>
             </div>
           </div>
+        </div>
+
+        <LaunchFlowRail active="ledger" compact />
+        <div className="mt-8">
+          <LiveActivityRail surface="ledger" />
         </div>
 
         {!ledgerConfigured ? (

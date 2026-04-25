@@ -40,7 +40,19 @@ export default function VestingPage() {
       />
       <div className="tool-page-content" style={{ maxWidth: '920px' }}>
         {!isConnected ? (
-          <ConnectWalletPrompt />
+          <ConnectWalletPrompt
+            body="Connect to create vesting wallets, inspect beneficiary schedules, and release vested tokens."
+            previewTitle="Vesting preview"
+            previewItems={[
+              { label: 'Schedule', value: 'Linear + cliff', detail: 'Model team, investor, or advisor unlocks.' },
+              { label: 'Claiming', value: 'On demand', detail: 'Beneficiaries release only what has vested.' },
+              { label: 'Proof', value: 'Wallet address', detail: 'Each vesting wallet remains inspectable.' },
+            ]}
+            nextActions={[
+              { href: '/launch', label: 'Deploy token' },
+              { href: '/docs', label: 'Vesting docs' },
+            ]}
+          />
         ) : (
           <>
             <div className="tool-tab-bar">

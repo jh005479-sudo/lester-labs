@@ -11,6 +11,8 @@ import { DexPanel } from '@/components/analytics/DexPanel'
 import { BridgePanel } from '@/components/analytics/BridgePanel'
 import { WhaleWatcherPanel } from '@/components/analytics/WhaleWatcherPanel'
 import { GasAnalyticsPanel } from '@/components/analytics/GasAnalyticsPanel'
+import { LaunchFlowRail } from '@/components/shared/LaunchFlowRail'
+import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
 
 type Tab = 'trending' | 'tokens' | 'health' | 'dex' | 'bridge' | 'whalewatcher' | 'gas'
 
@@ -36,6 +38,11 @@ export default function AnalyticsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
           <p className="text-white/50 text-sm mt-1">LitVM chain data — tokens, network health, and more</p>
+        </div>
+
+        <LaunchFlowRail active="analytics" compact />
+        <div className="mt-8">
+          <LiveActivityRail surface="analytics" />
         </div>
 
         {/* Tab bar */}
