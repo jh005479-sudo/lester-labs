@@ -1,4 +1,4 @@
-import { createPublicClient, http, parseAbiItem, toFunctionSelector, type Address, type Hex } from 'viem'
+import { createPublicClient, http, parseAbiItem, type Address } from 'viem'
 import { litvm } from '@/config/chains'
 import {
   DISPERSE_ADDRESS,
@@ -12,53 +12,6 @@ import {
 import { ILO_FACTORY_ABI, LEDGER_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
 import { RPC_URL } from '@/lib/rpcClient'
 
-// Deployed DISPERSE selector hashes (confirmed from bytecode PUSH4 opcodes on-chain)
-const DISPERSE_TOKEN_SELECTOR = toFunctionSelector('disperseToken(address,address[],uint256[])').toLowerCase()
-const DISPERSE_ETHER_SELECTOR = toFunctionSelector('disperseEther(address[],uint256[])').toLowerCase()
-
-/**
- * Decode recipient addresses from raw DISPERSE calldata.
- * Uses manual parsing to avoid viem's BigInt safe-integer overflow on large uint256 values.
- */
-function decodeAirdropRecipients(calldata: Hex): string[] {
-  const h = calldata.slice(10)
-  const selector = calldata.slice(0, 10).toLowerCase()
-
-  try {
-    if (selector === DISPERSE_TOKEN_SELECTOR) {
-      // disperseToken(address token, address[] recipients, uint256[] values)
-      // Layout: token(32b) | offset_recip(32b) | offset_vals(32b) | count_recip | recipients | count_vals | values
-      const offsetRecip = Number(BigInt('0x' + h.slice(64, 128)))
-      const countRecip = Number(BigInt('0x' + h.slice(offsetRecip * 2, offsetRecip * 2 + 64)))
-      const result: string[] = []
-      for (let i = 0; i < Math.min(countRecip, 500); i++) {
-        const charPos = (offsetRecip + 32 + i * 32) * 2
-        if (charPos + 64 > h.length) break
-        const addr = h.slice(charPos + 24, charPos + 64)
-        if (!addr.startsWith('0000')) result.push('0x' + addr)
-      }
-      return result
-    } else if (selector === DISPERSE_ETHER_SELECTOR) {
-      // disperseEther(address[] recipients, uint256[] values)
-      // Layout: offset_recip(32b) | offset_vals(32b) | count_recip | recipients
-      const offsetRecip = Number(BigInt('0x' + h.slice(0, 64)))
-      const countRecip = Number(BigInt('0x' + h.slice(offsetRecip * 2, offsetRecip * 2 + 64)))
-      const result: string[] = []
-      for (let i = 0; i < Math.min(countRecip, 500); i++) {
-        const charPos = (offsetRecip + 32 + i * 32) * 2
-        if (charPos + 64 > h.length) break
-        const addr = h.slice(charPos + 24, charPos + 64)
-        if (!addr.startsWith('0000')) result.push('0x' + addr)
-      }
-      return result
-    }
-  } catch {
-    // Malformed calldata — skip
-  }
-  return []
-}
-
-const EXPLORER_API_BASE_URL = 'https://liteforge.explorer.caldera.xyz/api'
 const LEGACY_ILO_FACTORY_ADDRESS = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB' as const
 const DEFAULT_TOKEN_FACTORY_ADDRESS = '0x93acc61fcdc2e3407A0c03450Adfd8aE78964948' as const
 const DEFAULT_DISPERSE_ADDRESS = '0x3cc66cb4713dca78564df512922adb331ac5ee04' as const
@@ -66,26 +19,32 @@ const DEFAULT_LEDGER_ADDRESS = '0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079' as c
 const DEFAULT_UNISWAP_V2_FACTORY_ADDRESS = '0x017A126A44Aaae9273F7963D4E295F0Ee2793AD8' as const
 const DEFAULT_UNISWAP_V2_ROUTER_ADDRESS = '0xD56a623890b083d876D47c3b1c5343b7f983FA62' as const
 
+// Full historical log scans are too slow for the landing API, so these audited
+// totals anchor launch-to-block counts and the live API only adds new deltas.
+const TOKEN_COUNT_AUDIT_BLOCK = 2_282_519n
+const TOKEN_COUNT_AUDIT_TOTAL = 44_124
+const SWAP_COUNT_AUDIT_BLOCK = 2_282_842n
+const SWAP_COUNT_AUDIT_TOTAL = 9_750
+const AIRDROP_WALLET_AUDIT_BLOCK = 2_278_304n
+const AIRDROP_WALLET_AUDIT_TOTAL = 8_471
+
 const FALLBACK_STATS = {
-  tokensMinted: 37_221,
-  walletsAirdropped: 8_553,
-  presalesCreated: 751,
-  swapsCompleted: 8_408,
-  onChainMessages: 3_070,
+  tokensMinted: 44_130,
+  walletsAirdropped: AIRDROP_WALLET_AUDIT_TOTAL,
+  presalesCreated: 77,
+  swapsCompleted: SWAP_COUNT_AUDIT_TOTAL,
+  onChainMessages: 3_392,
 } satisfies Omit<PlatformStatsSnapshot, 'fetchedAt'>
 
 const RESPONSE_TTL_MS = 60_000
 const RPC_TIMEOUT_MS = 3_000
 const METRIC_TIMEOUT_MS = 3_500
-const EXPLORER_REQUEST_TIMEOUT_MS = 1_500
-const EXPLORER_REQUEST_RETRIES = 1
-const EXPLORER_TXLIST_PAGE_SIZE = 100
-const EXPLORER_TXLIST_MAX_PAGES = 50
 const SWAP_ADDRESS_BATCH_SIZE = 20
 
 const TOKEN_CREATED_EVENT = parseAbiItem(
   'event TokenCreated(address indexed tokenAddress, address indexed creator, string name, string symbol)',
 )
+const TRANSFER_EVENT = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)')
 const SWAP_EVENT = parseAbiItem(
   'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
 )
@@ -105,20 +64,6 @@ export interface PlatformStatsSnapshot {
   swapsCompleted: number
   onChainMessages: number
   fetchedAt: string
-}
-
-interface ExplorerTransactionItem {
-  hash?: string | null
-  to?: string | null
-  input?: string | null
-  isError?: string | null
-  txreceipt_status?: string | null
-}
-
-interface ExplorerTxListResponse {
-  status?: string
-  message?: string
-  result?: ExplorerTransactionItem[] | string
 }
 
 let responseCache:
@@ -144,11 +89,6 @@ function withMetricTimeout<T>(promise: Promise<T>, fallback: T): Promise<T> {
     })
 }
 
-function monotonicCount(value: number, floor: number): number {
-  if (!Number.isFinite(value) || value < 0) return floor
-  return Math.max(value, floor)
-}
-
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = []
   for (let index = 0; index < items.length; index += size) {
@@ -161,78 +101,6 @@ function resolveContractAddress(configuredAddress: Address, fallbackAddress?: Ad
   if (isValidContractAddress(configuredAddress)) return configuredAddress
   if (fallbackAddress && isValidContractAddress(fallbackAddress)) return fallbackAddress
   return null
-}
-
-function buildTxListUrl(address: Address, page: number): string {
-  const url = new URL(EXPLORER_API_BASE_URL)
-  url.searchParams.set('module', 'account')
-  url.searchParams.set('action', 'txlist')
-  url.searchParams.set('address', address)
-  url.searchParams.set('page', String(page))
-  url.searchParams.set('offset', String(EXPLORER_TXLIST_PAGE_SIZE))
-  url.searchParams.set('sort', 'asc')
-  return url.toString()
-}
-
-async function fetchTxListPage(address: Address, page: number): Promise<ExplorerTransactionItem[]> {
-  let lastError: Error | null = null
-
-  for (let attempt = 1; attempt <= EXPLORER_REQUEST_RETRIES; attempt += 1) {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), EXPLORER_REQUEST_TIMEOUT_MS)
-
-    try {
-      const response = await fetch(buildTxListUrl(address, page), {
-        signal: controller.signal,
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        throw new Error(`Explorer HTTP ${response.status} for txlist ${address} page ${page}`)
-      }
-
-      const payload = (await response.json()) as ExplorerTxListResponse
-
-      if (Array.isArray(payload.result)) {
-        return payload.result
-      }
-
-      if (typeof payload.result === 'string' && payload.result.toLowerCase().includes('no transactions')) {
-        return []
-      }
-
-      throw new Error(payload.message || `Unexpected txlist payload for ${address} page ${page}`)
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error))
-      if (attempt === EXPLORER_REQUEST_RETRIES) break
-    } finally {
-      clearTimeout(timeoutId)
-    }
-  }
-
-  throw lastError ?? new Error(`Explorer txlist failed for ${address} page ${page}`)
-}
-
-async function walkExplorerTransactions(
-  address: Address,
-  onPage: (items: ExplorerTransactionItem[]) => void | boolean | Promise<void | boolean>,
-): Promise<void> {
-  for (let page = 1; page <= EXPLORER_TXLIST_MAX_PAGES; page += 1) {
-    const items = await fetchTxListPage(address, page)
-    if (items.length === 0) return
-
-    const shouldContinue = await onPage(items)
-    if (shouldContinue === false) return
-
-    if (items.length < EXPLORER_TXLIST_PAGE_SIZE) return
-  }
-
-  throw new Error(`Explorer txlist pagination limit exceeded for ${address}`)
-}
-
-function isSuccessfulExplorerTransaction(transaction: ExplorerTransactionItem): boolean {
-  if (transaction.isError !== '0') return false
-  return transaction.txreceipt_status === null || transaction.txreceipt_status === undefined || transaction.txreceipt_status === '1'
 }
 
 async function safeReadCount(address: Address, abi: typeof ILO_FACTORY_ABI, functionName: 'getILOCount'): Promise<number>
@@ -260,14 +128,15 @@ async function getTokenCount(): Promise<number> {
   const tokenFactoryAddress = resolveContractAddress(TOKEN_FACTORY_ADDRESS, DEFAULT_TOKEN_FACTORY_ADDRESS)
   if (!tokenFactoryAddress) return 0
 
+  const useAuditBaseline = tokenFactoryAddress.toLowerCase() === DEFAULT_TOKEN_FACTORY_ADDRESS.toLowerCase()
   const logs = await client.getLogs({
     address: tokenFactoryAddress,
     event: TOKEN_CREATED_EVENT,
-    fromBlock: 0n,
+    fromBlock: useAuditBaseline ? TOKEN_COUNT_AUDIT_BLOCK + 1n : 0n,
     toBlock: 'latest',
   })
 
-  return logs.length
+  return (useAuditBaseline ? TOKEN_COUNT_AUDIT_TOTAL : 0) + logs.length
 }
 
 async function getPresalesCount(): Promise<number> {
@@ -350,16 +219,17 @@ async function getSwapCount(): Promise<number> {
   const factoryAddress = await resolveUniswapFactoryAddress()
   if (!factoryAddress) return 0
 
+  const useAuditBaseline = factoryAddress.toLowerCase() === DEFAULT_UNISWAP_V2_FACTORY_ADDRESS.toLowerCase()
   const pairAddresses = await getPairAddresses(factoryAddress)
   if (pairAddresses.length === 0) return 0
 
-  let count = 0
+  let count = useAuditBaseline ? SWAP_COUNT_AUDIT_TOTAL : 0
 
   for (const batch of chunk(pairAddresses, SWAP_ADDRESS_BATCH_SIZE)) {
     const logs = await client.getLogs({
       address: batch,
       event: SWAP_EVENT,
-      fromBlock: 0n,
+      fromBlock: useAuditBaseline ? SWAP_COUNT_AUDIT_BLOCK + 1n : 0n,
       toBlock: 'latest',
     })
     count += logs.length
@@ -372,36 +242,23 @@ async function getAirdropWalletCount(): Promise<number> {
   const disperseAddress = resolveContractAddress(DISPERSE_ADDRESS, DEFAULT_DISPERSE_ADDRESS)
   if (!disperseAddress) return 0
 
-  const recipients = new Set<string>()
-  const seenHashes = new Set<string>()
-
-  await walkExplorerTransactions(disperseAddress, (items) => {
-    let newHashes = 0
-
-    for (const item of items) {
-      if (item.to?.toLowerCase() !== disperseAddress.toLowerCase()) continue
-      if (!isSuccessfulExplorerTransaction(item)) continue
-      if (typeof item.input !== 'string' || item.input === '0x') continue
-      if (typeof item.hash === 'string') {
-        if (seenHashes.has(item.hash)) continue
-        seenHashes.add(item.hash)
-        newHashes += 1
-      }
-
-      const recipientsArg = decodeAirdropRecipients(item.input as Hex)
-      for (const recipient of recipientsArg) {
-        if (typeof recipient === 'string') {
-          recipients.add(recipient.toLowerCase())
-        }
-      }
-    }
-
-    if (newHashes === 0) {
-      return false
-    }
+  const useAuditBaseline = disperseAddress.toLowerCase() === DEFAULT_DISPERSE_ADDRESS.toLowerCase()
+  const logs = await client.getLogs({
+    event: TRANSFER_EVENT,
+    args: {
+      from: disperseAddress,
+    },
+    fromBlock: useAuditBaseline ? AIRDROP_WALLET_AUDIT_BLOCK + 1n : 0n,
+    toBlock: 'latest',
   })
 
-  return recipients.size
+  const recipients = new Set<string>()
+  for (const log of logs) {
+    const recipient = log.args.to
+    if (recipient) recipients.add(recipient.toLowerCase())
+  }
+
+  return (useAuditBaseline ? AIRDROP_WALLET_AUDIT_TOTAL : 0) + recipients.size
 }
 
 async function getOnChainMessageCount(): Promise<number> {
@@ -424,11 +281,11 @@ async function computeSnapshot(): Promise<PlatformStatsSnapshot> {
   ])
 
   return {
-    tokensMinted: monotonicCount(tokensResult.status === 'fulfilled' ? tokensResult.value : floor.tokensMinted, floor.tokensMinted),
-    presalesCreated: monotonicCount(presalesResult.status === 'fulfilled' ? presalesResult.value : floor.presalesCreated, floor.presalesCreated),
-    swapsCompleted: monotonicCount(swapsResult.status === 'fulfilled' ? swapsResult.value : floor.swapsCompleted, floor.swapsCompleted),
-    walletsAirdropped: monotonicCount(airdropsResult.status === 'fulfilled' ? airdropsResult.value : floor.walletsAirdropped, floor.walletsAirdropped),
-    onChainMessages: monotonicCount(messagesResult.status === 'fulfilled' ? messagesResult.value : floor.onChainMessages, floor.onChainMessages),
+    tokensMinted: tokensResult.status === 'fulfilled' ? tokensResult.value : floor.tokensMinted,
+    presalesCreated: presalesResult.status === 'fulfilled' ? presalesResult.value : floor.presalesCreated,
+    swapsCompleted: swapsResult.status === 'fulfilled' ? swapsResult.value : floor.swapsCompleted,
+    walletsAirdropped: airdropsResult.status === 'fulfilled' ? airdropsResult.value : floor.walletsAirdropped,
+    onChainMessages: messagesResult.status === 'fulfilled' ? messagesResult.value : floor.onChainMessages,
     fetchedAt: new Date().toISOString(),
   }
 }

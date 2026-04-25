@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { PlatformStatsSnapshot } from '@/lib/platformStats'
 
 const POLL_INTERVAL_MS = 60_000
-const SESSION_CACHE_KEY = 'lester_platform_stats_v1'
+const SESSION_CACHE_KEY = 'lester_platform_stats_v2'
 
 function StatChip({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
