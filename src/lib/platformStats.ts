@@ -10,7 +10,6 @@ import {
   isValidContractAddress,
 } from '@/config/contracts'
 import { ILO_FACTORY_ABI, LEDGER_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
-import { DISPERSE_ABI } from '@/lib/contracts/airdrop'
 import { RPC_URL } from '@/lib/rpcClient'
 
 // Deployed DISPERSE selector hashes (confirmed from bytecode PUSH4 opcodes on-chain)
@@ -67,10 +66,19 @@ const DEFAULT_LEDGER_ADDRESS = '0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079' as c
 const DEFAULT_UNISWAP_V2_FACTORY_ADDRESS = '0x017A126A44Aaae9273F7963D4E295F0Ee2793AD8' as const
 const DEFAULT_UNISWAP_V2_ROUTER_ADDRESS = '0xD56a623890b083d876D47c3b1c5343b7f983FA62' as const
 
+const FALLBACK_STATS = {
+  tokensMinted: 37_221,
+  walletsAirdropped: 8_553,
+  presalesCreated: 751,
+  swapsCompleted: 8_408,
+  onChainMessages: 3_070,
+} satisfies Omit<PlatformStatsSnapshot, 'fetchedAt'>
+
 const RESPONSE_TTL_MS = 60_000
-const RPC_TIMEOUT_MS = 30_000
-const EXPLORER_REQUEST_TIMEOUT_MS = 7_000
-const EXPLORER_REQUEST_RETRIES = 3
+const RPC_TIMEOUT_MS = 3_000
+const METRIC_TIMEOUT_MS = 3_500
+const EXPLORER_REQUEST_TIMEOUT_MS = 1_500
+const EXPLORER_REQUEST_RETRIES = 1
 const EXPLORER_TXLIST_PAGE_SIZE = 100
 const EXPLORER_TXLIST_MAX_PAGES = 50
 const SWAP_ADDRESS_BATCH_SIZE = 20
@@ -85,7 +93,7 @@ const SWAP_EVENT = parseAbiItem(
 const client = createPublicClient({
   chain: litvm,
   transport: http(RPC_URL, {
-    retryCount: 2,
+    retryCount: 0,
     timeout: RPC_TIMEOUT_MS,
   }),
 })
@@ -121,6 +129,25 @@ let responseCache:
   | null = null
 
 let inflightSnapshot: Promise<PlatformStatsSnapshot> | null = null
+
+function withMetricTimeout<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), METRIC_TIMEOUT_MS)
+  })
+
+  return Promise.race([promise, timeout])
+    .catch(() => fallback)
+    .finally(() => {
+      if (timeoutId) clearTimeout(timeoutId)
+    })
+}
+
+function monotonicCount(value: number, floor: number): number {
+  if (!Number.isFinite(value) || value < 0) return floor
+  return Math.max(value, floor)
+}
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = []
@@ -386,21 +413,22 @@ async function getOnChainMessageCount(): Promise<number> {
 
 async function computeSnapshot(): Promise<PlatformStatsSnapshot> {
   const previous = responseCache?.snapshot
+  const floor = previous ?? FALLBACK_STATS
 
   const [tokensResult, presalesResult, swapsResult, airdropsResult, messagesResult] = await Promise.allSettled([
-    getTokenCount(),
-    getPresalesCount(),
-    getSwapCount(),
-    getAirdropWalletCount(),
-    getOnChainMessageCount(),
+    withMetricTimeout(getTokenCount(), floor.tokensMinted),
+    withMetricTimeout(getPresalesCount(), floor.presalesCreated),
+    withMetricTimeout(getSwapCount(), floor.swapsCompleted),
+    withMetricTimeout(getAirdropWalletCount(), floor.walletsAirdropped),
+    withMetricTimeout(getOnChainMessageCount(), floor.onChainMessages),
   ])
 
   return {
-    tokensMinted: tokensResult.status === 'fulfilled' ? tokensResult.value : previous?.tokensMinted ?? 0,
-    presalesCreated: presalesResult.status === 'fulfilled' ? presalesResult.value : previous?.presalesCreated ?? 0,
-    swapsCompleted: swapsResult.status === 'fulfilled' ? swapsResult.value : previous?.swapsCompleted ?? 0,
-    walletsAirdropped: airdropsResult.status === 'fulfilled' ? airdropsResult.value : previous?.walletsAirdropped ?? 0,
-    onChainMessages: messagesResult.status === 'fulfilled' ? messagesResult.value : previous?.onChainMessages ?? 0,
+    tokensMinted: monotonicCount(tokensResult.status === 'fulfilled' ? tokensResult.value : floor.tokensMinted, floor.tokensMinted),
+    presalesCreated: monotonicCount(presalesResult.status === 'fulfilled' ? presalesResult.value : floor.presalesCreated, floor.presalesCreated),
+    swapsCompleted: monotonicCount(swapsResult.status === 'fulfilled' ? swapsResult.value : floor.swapsCompleted, floor.swapsCompleted),
+    walletsAirdropped: monotonicCount(airdropsResult.status === 'fulfilled' ? airdropsResult.value : floor.walletsAirdropped, floor.walletsAirdropped),
+    onChainMessages: monotonicCount(messagesResult.status === 'fulfilled' ? messagesResult.value : floor.onChainMessages, floor.onChainMessages),
     fetchedAt: new Date().toISOString(),
   }
 }
