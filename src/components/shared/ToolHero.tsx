@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { LaunchFlowRail } from '@/components/shared/LaunchFlowRail'
+import { type FlowKey } from '@/lib/product-flow'
 
 interface StatPill {
   label: string
@@ -19,6 +21,7 @@ interface ToolHeroProps {
   imageTopFade?: boolean
   compact?: boolean
   subtitleMaxWidth?: string
+  flowKey?: FlowKey
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -28,7 +31,7 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b]
 }
 
-export function ToolHero({ category, title, titleHighlight, subtitle, color, stats, image, imagePosition = 'center 34%', imageTopFade = true, compact = false, subtitleMaxWidth = '420px' }: ToolHeroProps) {
+export function ToolHero({ category, title, titleHighlight, subtitle, color, stats, image, imagePosition = 'center 34%', imageTopFade = true, compact = false, subtitleMaxWidth = '420px', flowKey }: ToolHeroProps) {
   const headerRef = useRef<HTMLDivElement>(null)
   const [r, g, b] = hexToRgb(color)
   const bg = '#0a0818'
@@ -246,6 +249,8 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
 
         </div>
       </div>
+
+      {flowKey && <LaunchFlowRail active={flowKey} compact={compact} />}
     </div>
   )
 }

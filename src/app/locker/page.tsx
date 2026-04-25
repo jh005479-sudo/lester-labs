@@ -30,6 +30,7 @@ export default function LockerPage() {
         color={COLOR}
         image="/images/carousel/liquidity-locker.png"
         compact
+        flowKey="locker"
         stats={[
           { label: 'Proof', value: 'On-chain' },
           { label: 'Certificate', value: 'Shareable' },
@@ -39,7 +40,19 @@ export default function LockerPage() {
       />
       <div className="tool-page-content" style={{ maxWidth: '920px' }}>
         {!isConnected ? (
-          <ConnectWalletPrompt />
+          <ConnectWalletPrompt
+            body="Connect to create LP locks, view your existing positions, and generate shareable lock certificates."
+            previewTitle="Lockup preview"
+            previewItems={[
+              { label: 'Certificate', value: 'Shareable proof', detail: 'Turn a lock into a public trust artifact.' },
+              { label: 'Release', value: 'Time-based', detail: 'LP unlocks follow the on-chain schedule.' },
+              { label: 'Discovery', value: 'Explorer links', detail: 'Every lock can be independently verified.' },
+            ]}
+            nextActions={[
+              { href: '/pool', label: 'Find LP pair' },
+              { href: '/docs', label: 'Locking docs' },
+            ]}
+          />
         ) : (
           <>
             <div className="tool-tab-bar">
