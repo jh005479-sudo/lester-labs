@@ -1,32 +1,19 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { ChevronDown, Menu, Wallet, X } from 'lucide-react'
+import { ChevronDown, Grid3X3, Menu, Wallet, X } from 'lucide-react'
+import { appGroups, isActivePath } from '@/lib/product-flow'
 
-const dappLinks = [
-  { href: '/launch',     label: 'Minter' },
-  { href: '/locker',     label: 'Locker' },
-  { href: '/vesting',    label: 'Vesting' },
-  { href: '/airdrop',    label: 'Airdrop' },
-  { href: '/governance', label: 'Governance' },
-  { href: '/launchpad',  label: 'Launchpad' },
-]
-
-const dexLinks = [
-  { href: '/swap', label: 'Swap' },
-  { href: '/pool', label: 'Pool' },
-]
-
-const navLinks = [
-  { href: '/ledger',     label: 'Ledger' },
-  { href: '/explorer',   label: 'Explorer' },
-  { href: '/analytics',  label: 'Analytics' },
-  { href: '/portfolio',  label: 'Portfolio' },
+const directLinks = [
+  { href: '/ledger', label: 'Ledger' },
+  { href: '/explorer', label: 'Explorer' },
+  { href: '/analytics', label: 'Analytics' },
+  { href: '/portfolio', label: 'Portfolio' },
   { href: '/tutorials', label: 'Tutorials' },
-  { href: '/docs',       label: 'Docs' },
+  { href: '/docs', label: 'Docs' },
 ]
 
 const MOBILE_MENU_HEIGHT = 'calc(100dvh - var(--mobile-header-stack))'
@@ -35,27 +22,18 @@ export function Navbar() {
   const pathname = usePathname()
   const isHome = pathname === '/'
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [dappsOpen, setDappsOpen] = useState(false)
-  const [dexOpen, setDexOpen] = useState(false)
-  const dappsRef = useRef<HTMLDivElement>(null)
-  const dexRef = useRef<HTMLDivElement>(null)
+  const [appsOpen, setAppsOpen] = useState(false)
+  const appsRef = useRef<HTMLDivElement>(null)
+  const appActive = appGroups.some((group) => group.apps.some(({ href }) => isActivePath(pathname, href)))
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dappsRef.current && !dappsRef.current.contains(e.target as Node)) setDappsOpen(false)
-      if (dexRef.current && !dexRef.current.contains(e.target as Node)) setDexOpen(false)
+      if (appsRef.current && !appsRef.current.contains(e.target as Node)) setAppsOpen(false)
     }
+
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  // Close mobile menu on navigation
-  useEffect(() => {
-    setMobileOpen(false)
-    setDappsOpen(false)
-    setDexOpen(false)
-  }, [pathname])
 
   return (
     <nav
@@ -69,110 +47,100 @@ export function Navbar() {
         transition: 'all 0.35s ease',
       }}
     >
-      <div className="mx-auto flex h-12 md:h-14 max-w-[1560px] items-center justify-between px-4 sm:px-8 lg:px-10">
+      <div className="mx-auto flex h-12 max-w-[1560px] items-center justify-between px-4 sm:px-8 md:h-14 lg:px-10">
         <Link prefetch={false} href="/" className="transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
-          <span className="text-sm font-bold tracking-widest uppercase" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
+          <span className="text-sm font-bold uppercase tracking-widest" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
             Lester<span style={{ color: 'var(--accent)' }}>Labs</span>
           </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-6">
-          <div className="relative" ref={dappsRef}>
+        <div className="hidden items-center gap-6 md:flex">
+          <div className="relative" ref={appsRef}>
             <button
-              onClick={() => setDappsOpen(!dappsOpen)}
-              className="relative flex items-center gap-1 text-[12px] tracking-wide transition-all duration-300"
+              onClick={() => setAppsOpen((open) => !open)}
+              className="relative flex items-center gap-1.5 text-[12px] tracking-wide transition-all duration-300"
               style={{
                 fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                color: dappLinks.some(({ href }) => pathname === href || pathname.startsWith(href + '/'))
-                  ? 'var(--foreground)'
-                  : 'rgba(255,255,255,0.62)',
+                fontWeight: 600,
+                color: appActive ? 'var(--foreground)' : 'rgba(255,255,255,0.62)',
                 letterSpacing: '0.035em',
               }}
             >
-              dApps
-              <ChevronDown size={14} className={`transition-transform ${dappsOpen ? 'rotate-180' : ''}`} />
-              {dappLinks.some(({ href }) => pathname === href || pathname.startsWith(href + '/')) && (
+              <Grid3X3 size={13} />
+              Apps
+              <ChevronDown size={14} className={`transition-transform ${appsOpen ? 'rotate-180' : ''}`} />
+              {appActive && (
                 <span className="absolute -bottom-1 left-0 right-0 h-px" style={{ background: 'var(--accent)', opacity: 0.6 }} />
               )}
             </button>
 
-            {dappsOpen && (
+            {appsOpen && (
               <div
-                className="absolute left-0 top-8 min-w-[180px] rounded-xl border border-white/10 p-2"
-                style={{ background: 'rgba(12, 10, 18, 0.96)', backdropFilter: 'blur(14px)' }}
+                className="absolute left-0 top-8 w-[720px] rounded-2xl border border-white/10 p-4"
+                style={{
+                  background: 'rgba(12, 10, 18, 0.98)',
+                  backdropFilter: 'blur(18px)',
+                  boxShadow: '0 26px 80px rgba(0,0,0,0.42)',
+                }}
               >
-                {dappLinks.map(({ href, label }) => {
-                  const isActive = pathname === href || pathname.startsWith(href + '/')
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      prefetch={false}
-                      onClick={() => setDappsOpen(false)}
-                      className="block rounded-lg px-3 py-2 text-sm transition-colors"
-                      style={{
-                        color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
-                        background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
-                      }}
-                    >
-                      {label}
-                    </Link>
-                  )
-                })}
+                <div className="grid grid-cols-5 gap-3">
+                  {appGroups.map((group) => (
+                    <div key={group.intent} className="min-w-0">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.13em]" style={{ color: 'rgba(255,255,255,0.36)' }}>
+                        {group.intent}
+                      </p>
+                      <p className="mb-2 min-h-[30px] text-[11px] leading-snug" style={{ color: 'rgba(255,255,255,0.34)' }}>
+                        {group.summary}
+                      </p>
+                      <div className="flex flex-col gap-1">
+                        {group.apps.map((app) => {
+                          const Icon = app.icon
+                          const isActive = isActivePath(pathname, app.href)
+
+                          return (
+                            <Link
+                              key={app.href}
+                              href={app.href}
+                              prefetch={false}
+                              onClick={() => setAppsOpen(false)}
+                              className="group rounded-xl p-2.5 transition-colors hover:bg-white/[0.045]"
+                              style={{
+                                color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
+                                background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
+                                textDecoration: 'none',
+                              }}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span
+                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                                  style={{
+                                    color: app.accent,
+                                    background: `${app.accent}18`,
+                                    border: `1px solid ${app.accent}40`,
+                                  }}
+                                >
+                                  <Icon size={14} />
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block text-[13px] font-semibold leading-none">{app.label}</span>
+                                  <span className="mt-1 block text-[11px] leading-snug" style={{ color: 'rgba(255,255,255,0.38)' }}>
+                                    {app.description}
+                                  </span>
+                                </span>
+                              </span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          <div className="relative" ref={dexRef}>
-            <button
-              onClick={() => setDexOpen(!dexOpen)}
-              className="relative flex items-center gap-1 text-[12px] tracking-wide transition-all duration-300"
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                color: dexLinks.some(({ href }) => pathname === href || pathname.startsWith(href + '/'))
-                  ? 'var(--foreground)'
-                  : 'rgba(255,255,255,0.62)',
-                letterSpacing: '0.035em',
-              }}
-            >
-              DEX
-              <ChevronDown size={14} className={`transition-transform ${dexOpen ? 'rotate-180' : ''}`} />
-              {dexLinks.some(({ href }) => pathname === href || pathname.startsWith(href + '/')) && (
-                <span className="absolute -bottom-1 left-0 right-0 h-px" style={{ background: 'var(--accent)', opacity: 0.6 }} />
-              )}
-            </button>
-
-            {dexOpen && (
-              <div
-                className="absolute left-0 top-8 min-w-[180px] rounded-xl border border-white/10 p-2"
-                style={{ background: 'rgba(12, 10, 18, 0.96)', backdropFilter: 'blur(14px)' }}
-              >
-                {dexLinks.map(({ href, label }) => {
-                  const isActive = pathname === href || pathname.startsWith(href + '/')
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      prefetch={false}
-                      onClick={() => setDexOpen(false)}
-                      className="block rounded-lg px-3 py-2 text-sm transition-colors"
-                      style={{
-                        color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
-                        background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
-                      }}
-                    >
-                      {label}
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {navLinks.map(({ href, label }) => {
-            const isActive = pathname === href || pathname.startsWith(href + '/')
+          {directLinks.map(({ href, label }) => {
+            const isActive = isActivePath(pathname, href)
             return (
               <Link
                 key={href}
@@ -185,8 +153,6 @@ export function Navbar() {
                   color: isActive ? 'var(--foreground)' : 'rgba(255,255,255,0.62)',
                   letterSpacing: '0.035em',
                 }}
-                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = 'var(--foreground)' }}
-                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = 'var(--foreground-dim)' }}
               >
                 {label}
                 {isActive && (
@@ -199,23 +165,15 @@ export function Navbar() {
 
         <div className="flex items-center gap-4">
           <ConnectButton.Custom>
-            {({
-              account,
-              chain,
-              openAccountModal,
-              openChainModal,
-              openConnectModal,
-              mounted,
-            }) => {
-              const ready = mounted
-              const connected = ready && account && chain
+            {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+              const connected = mounted && account && chain
 
               if (!connected) {
                 return (
                   <button
                     onClick={openConnectModal}
                     type="button"
-                    className="px-4 py-2 rounded-[14px] text-[14px] font-semibold"
+                    className="rounded-[14px] px-4 py-2 text-[14px] font-semibold"
                     style={{
                       color: '#f6f4ff',
                       background: 'linear-gradient(135deg, #6B4FFF 0%, #5B3FF0 100%)',
@@ -233,7 +191,7 @@ export function Navbar() {
                   <button
                     onClick={openChainModal}
                     type="button"
-                    className="px-4 py-2 rounded-[14px] text-[14px] font-semibold inline-flex items-center gap-2"
+                    className="inline-flex items-center gap-2 rounded-[14px] px-4 py-2 text-[14px] font-semibold"
                     style={{
                       color: '#f6f4ff',
                       background: 'rgba(74, 49, 220, 0.22)',
@@ -248,7 +206,7 @@ export function Navbar() {
                   <button
                     onClick={openAccountModal}
                     type="button"
-                    className="h-[42px] min-w-[64px] px-3 rounded-[14px] inline-flex items-center justify-center"
+                    className="inline-flex h-[42px] min-w-[64px] items-center justify-center rounded-[14px] px-3"
                     style={{
                       background: 'rgba(74, 49, 220, 0.22)',
                       border: '1px solid rgba(167, 137, 255, 0.46)',
@@ -257,11 +215,8 @@ export function Navbar() {
                     }}
                   >
                     {chain?.hasIcon && chain.iconUrl ? (
-                      <img
-                        src={chain.iconUrl}
-                        alt={chain.name ?? 'Chain'}
-                        className="w-6 h-6 rounded-full"
-                      />
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={chain.iconUrl} alt={chain.name ?? 'Chain'} className="h-6 w-6 rounded-full" />
                     ) : (
                       <Wallet size={16} color="#f6f4ff" />
                     )}
@@ -270,10 +225,11 @@ export function Navbar() {
               )
             }}
           </ConnectButton.Custom>
+
           <button
-            className="md:hidden transition-colors duration-300 p-2 -mr-2"
+            className="-mr-2 p-2 transition-colors duration-300 md:hidden"
             style={{ color: 'var(--foreground-dim)' }}
-            onClick={() => setMobileOpen(!mobileOpen)}
+            onClick={() => setMobileOpen((open) => !open)}
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
@@ -283,7 +239,7 @@ export function Navbar() {
 
       {mobileOpen && (
         <div
-          className="md:hidden absolute left-0 right-0 flex flex-col gap-1 overflow-y-auto px-5"
+          className="absolute left-0 right-0 flex flex-col gap-5 overflow-y-auto px-5 md:hidden"
           style={{
             top: '100%',
             height: MOBILE_MENU_HEIGHT,
@@ -296,76 +252,60 @@ export function Navbar() {
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          <div className="py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-            <p
-              className="mb-2 text-xs uppercase tracking-[0.12em]"
-              style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-body)' }}
-            >
-              dApps
-            </p>
-            <div className="flex flex-col gap-1">
-              {dappLinks.map(({ href, label }) => {
-                const isActive = pathname === href || pathname.startsWith(href + '/')
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    prefetch={false}
-                    onClick={() => setMobileOpen(false)}
-                    className="py-2 text-lg font-light tracking-wide transition-colors duration-300"
-                    style={{
-                      color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
-                      fontFamily: 'var(--font-heading)',
-                    }}
-                  >
-                    {label}
-                  </Link>
-                )
-              })}
+          {appGroups.map((group) => (
+            <div key={group.intent} className="pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <p className="mb-1 text-xs uppercase tracking-[0.12em]" style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-body)' }}>
+                {group.intent}
+              </p>
+              <p className="mb-2 text-xs" style={{ color: 'rgba(255,255,255,0.32)' }}>
+                {group.summary}
+              </p>
+              <div className="grid gap-2">
+                {group.apps.map((app) => {
+                  const Icon = app.icon
+                  const isActive = isActivePath(pathname, app.href)
+                  return (
+                    <Link
+                      key={app.href}
+                      href={app.href}
+                      prefetch={false}
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors"
+                      style={{
+                        color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
+                        background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
+                        textDecoration: 'none',
+                        fontFamily: 'var(--font-heading)',
+                      }}
+                    >
+                      <span
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                        style={{ color: app.accent, background: `${app.accent}18`, border: `1px solid ${app.accent}40` }}
+                      >
+                        <Icon size={16} />
+                      </span>
+                      <span>
+                        <span className="block text-lg font-light tracking-wide">{app.label}</span>
+                        <span className="block text-xs" style={{ color: 'rgba(255,255,255,0.36)' }}>{app.description}</span>
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          ))}
 
-          <div className="py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-            <p
-              className="mb-2 text-xs uppercase tracking-[0.12em]"
-              style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-body)' }}
-            >
-              DEX
-            </p>
-            <div className="flex flex-col gap-1">
-              {dexLinks.map(({ href, label }) => {
-                const isActive = pathname === href || pathname.startsWith(href + '/')
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    prefetch={false}
-                    onClick={() => setMobileOpen(false)}
-                    className="py-2 text-lg font-light tracking-wide transition-colors duration-300"
-                    style={{
-                      color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
-                      fontFamily: 'var(--font-heading)',
-                    }}
-                  >
-                    {label}
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-
-          {navLinks.map(({ href, label }) => {
-            const isActive = pathname === href || pathname.startsWith(href + '/')
+          {directLinks.filter(({ href }) => href === '/tutorials').map(({ href, label }) => {
+            const isActive = isActivePath(pathname, href)
             return (
               <Link
                 key={href}
                 href={href}
                 prefetch={false}
                 onClick={() => setMobileOpen(false)}
-                className="py-3 text-xl font-light tracking-wide transition-colors duration-300"
+                className="py-2 text-xl font-light tracking-wide transition-colors duration-300"
                 style={{
                   color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
-                  borderBottom: '1px solid rgba(255,255,255,0.04)',
                   fontFamily: 'var(--font-heading)',
                 }}
               >

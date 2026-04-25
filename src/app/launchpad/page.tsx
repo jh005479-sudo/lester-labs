@@ -1089,6 +1089,7 @@ export default function LaunchpadPage() {
         imagePosition="center 18%"
         imageTopFade={false}
         compact
+        flowKey="launchpad"
         stats={[
           { label: 'Mode', value: 'Permissionless' },
           { label: 'LP', value: 'Auto-created' },

@@ -1,7 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { CheckCircle, XCircle, Loader2, ExternalLink, X } from 'lucide-react'
+import { ArrowUpRight, Check, CheckCircle, Copy, ExternalLink, Loader2, X, XCircle } from 'lucide-react'
 
 interface TxStatusModalProps {
   isOpen: boolean
@@ -11,11 +12,33 @@ interface TxStatusModalProps {
   contractAddress?: string
   message?: string
   onRetry?: () => void
+  nextActions?: { href: string; label: string }[]
 }
 
 const EXPLORER_BASE = '/explorer'
 
-export function TxStatusModal({ isOpen, onClose, status, txHash, contractAddress, message, onRetry }: TxStatusModalProps) {
+export function TxStatusModal({
+  isOpen,
+  onClose,
+  status,
+  txHash,
+  contractAddress,
+  message,
+  onRetry,
+  nextActions = [
+    { href: '/portfolio', label: 'Open Portfolio' },
+    { href: '/analytics', label: 'View Analytics' },
+  ],
+}: TxStatusModalProps) {
+  const [copied, setCopied] = useState(false)
+
+  const copyHash = async () => {
+    if (!txHash) return
+    await navigator.clipboard.writeText(txHash)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1400)
+  }
+
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
@@ -46,10 +69,29 @@ export function TxStatusModal({ isOpen, onClose, status, txHash, contractAddress
             {status === 'pending' && !message && <p className="text-sm" style={{ color: 'var(--foreground-dim)' }}>Waiting for confirmation…</p>}
 
             {txHash && (
-              <a href={`${EXPLORER_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-[13px] hover:underline" style={{ color: 'var(--accent)' }}>
-                View transaction <ExternalLink size={11} />
-              </a>
+              <div
+                className="w-full px-5 py-4 text-left"
+                style={{ background: 'var(--surface-1)', border: '1px solid var(--surface-border)', borderRadius: '12px' }}
+              >
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--foreground-muted)' }}>
+                    Transaction proof
+                  </p>
+                  <button
+                    type="button"
+                    onClick={copyHash}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold transition-opacity hover:opacity-80"
+                    style={{ color: copied ? 'var(--success)' : 'var(--accent)' }}
+                  >
+                    {copied ? <Check size={12} /> : <Copy size={12} />}
+                    {copied ? 'Copied' : 'Copy hash'}
+                  </button>
+                </div>
+                <a href={`${EXPLORER_BASE}/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1 font-mono text-[12px] hover:underline break-all" style={{ color: 'var(--accent)' }}>
+                  {txHash} <ExternalLink size={10} className="shrink-0" />
+                </a>
+              </div>
             )}
 
             {contractAddress && (
@@ -60,6 +102,26 @@ export function TxStatusModal({ isOpen, onClose, status, txHash, contractAddress
                   className="flex items-center gap-1 font-mono text-[12px] hover:underline break-all" style={{ color: 'var(--accent)' }}>
                   {contractAddress} <ExternalLink size={10} className="shrink-0" />
                 </a>
+              </div>
+            )}
+
+            {status === 'success' && (
+              <div className="w-full text-left">
+                <p className="mb-2 text-[11px] uppercase tracking-wider" style={{ color: 'var(--foreground-muted)' }}>
+                  Recommended next step
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {nextActions.map((action) => (
+                    <a
+                      key={action.href}
+                      href={action.href}
+                      className="inline-flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-[12px] font-semibold text-white/70 transition-colors hover:border-white/20 hover:text-white"
+                    >
+                      {action.label}
+                      <ArrowUpRight size={12} />
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
 

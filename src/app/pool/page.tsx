@@ -906,6 +906,7 @@ export default function PoolPage() {
         imagePosition="center 65px"
         imageTopFade={false}
         compact
+        flowKey="pool"
         stats={[
           { label: 'Factory pairs', value: totalPairs.toString() },
           { label: 'Displayed', value: `${displayedCount}/${maxDisplay}` },

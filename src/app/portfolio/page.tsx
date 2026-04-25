@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAccount, useReadContract, useBalance } from 'wagmi'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { Wallet, Copy, Check, ExternalLink } from 'lucide-react'
+import { Copy, Check, ExternalLink } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
+import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
+import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
 import {
   ILO_FACTORY_ADDRESS,
   TOKEN_FACTORY_ADDRESS,
@@ -684,23 +685,19 @@ export default function PortfolioPage() {
         <Navbar />
         <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
           <div className="flex min-h-[40vh] items-center justify-center">
-            <div className="w-full max-w-sm text-center">
-              <div
-                className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl"
-                style={{ background: 'var(--accent-muted)', border: '1px solid rgba(107,79,255,0.08)' }}
-              >
-                <Wallet size={24} strokeWidth={1.5} style={{ color: 'var(--accent)' }} />
-              </div>
-              <h3 className="mb-2 text-xl font-semibold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-                Connect your wallet
-              </h3>
-              <p className="mb-8 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                Connect to view your on-chain footprint across Lester Labs.
-              </p>
-              <div className="flex justify-center">
-                <ConnectButton />
-              </div>
-            </div>
+            <ConnectWalletPrompt
+              body="Connect to view your tokens, presales, LP positions, locks, vesting schedules, and swap history across Lester Labs."
+              previewTitle="Portfolio preview"
+              previewItems={[
+                { label: 'Assets', value: 'Tokens + LP', detail: 'See deployed assets and pool positions.' },
+                { label: 'Protection', value: 'Locks + vesting', detail: 'Audit trust commitments from one wallet.' },
+                { label: 'Activity', value: 'Swaps + presales', detail: 'Trace your Lester Labs footprint.' },
+              ]}
+              nextActions={[
+                { href: '/launch', label: 'Deploy token' },
+                { href: '/explorer', label: 'Search wallet' },
+              ]}
+            />
           </div>
         </div>
       </main>
@@ -723,6 +720,8 @@ export default function PortfolioPage() {
             <AddressChip address={address!} />
           </div>
         </div>
+
+        <LiveActivityRail surface="portfolio" />
 
         {/* Tab bar */}
         <div className="flex items-end gap-0 border-b border-white/10 mb-8">

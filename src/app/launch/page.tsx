@@ -33,6 +33,7 @@ export default function LaunchPage() {
         color={COLOR}
         image="/images/carousel/token-factory.png"
         compact
+        flowKey="minter"
         stats={[
           { label: 'Type', value: 'ERC-20' },
           { label: 'Speed', value: '< 1 min' },

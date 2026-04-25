@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
 import { ShareModal } from '@/components/ShareModal'
+import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
 import { Search } from 'lucide-react'
 import { formatAddress, formatEtherFromHex, getLatestBlockNumber, getRecentBlocks, getTransactionReceipt, getTransactionByHash, hexToNumber, LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 
@@ -135,6 +136,8 @@ export default function ExplorerPage() {
           <h1 className="text-2xl font-bold tracking-tight">Explorer</h1>
           <p className="text-white/50 text-sm mt-1">Live LitVM chain data — blocks, transactions, and network stats</p>
         </div>
+
+        <LiveActivityRail surface="explorer" />
 
         {/* Network Stats Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
@@ -283,4 +286,3 @@ export default function ExplorerPage() {
     </div>
   )
 }
-
