@@ -17,6 +17,7 @@ import { wagmiConfig } from '@/config/wagmi'
 import { useTokenMetadata, getTokenLogoUrl } from '@/hooks/useTokenMetadata'
 import { useTokenImageUrls } from '@/hooks/useTokenImageUrls'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+import { getRecentWindowIndices } from '@/lib/launchpadPagination'
 
 // ABI for fetching token decimals (RP-001)
 const ERC20_DECIMALS_ABI = [
@@ -44,19 +45,22 @@ const ILO_CREATED_EVENT_ABI = [
 ] as const
 
 type Tab = 'browse' | 'create'
+const INITIAL_PRESALE_VISIBLE_COUNT = 24
+const PRESALE_PAGE_SIZE = 24
 
-// Fetches all ILO addresses by count then batch-reading them
-function useAllILOAddresses(count: number) {
-  const calls = Array.from({ length: count }, (_, i) => ({
+// Fetches the newest visible ILO addresses by count instead of eagerly loading the full factory history.
+function useAllILOAddresses(count: number, visibleCount: number) {
+  const indices = getRecentWindowIndices(count, visibleCount)
+  const calls = indices.map((index) => ({
     address: ILO_FACTORY_ADDRESS,
     abi: ILO_FACTORY_ABI,
     functionName: 'allILOs',
-    args: [BigInt(i)],
+    args: [index],
   }))
 
   const { data: results, isLoading } = useReadContracts({
     contracts: calls,
-    query: { enabled: isValidContractAddress(ILO_FACTORY_ADDRESS) && count > 0 },
+    query: { enabled: isValidContractAddress(ILO_FACTORY_ADDRESS) && indices.length > 0 },
   })
 
   const addresses = (results ?? [])
@@ -80,7 +84,7 @@ type ILOData = {
   cancelled: boolean | null
 }
 
-// Batch-fetch ALL data for all ILOs in ONE multicall request (9 calls × N ILOs → 1 request)
+// Batch-fetch data for visible ILOs in one multicall request.
 function useAllILOData(addresses: `0x${string}`[]) {
   const calls = addresses.flatMap((addr) => [
     { address: addr, abi: ILO_ABI, functionName: 'token' as const },
@@ -124,7 +128,7 @@ function useAllILOData(addresses: `0x${string}`[]) {
 
 // Live ILO card — receives pre-fetched data as props (no individual contract reads)
 function LiveILOCard({ address, data: d, meta, imageUrl, now }: { address: `0x${string}`; data: ILOData; meta?: { name: string; symbol: string }; imageUrl?: string | null; now: number }) {
-  const logoUrl = imageUrl ?? getTokenLogoUrl(address)
+  const logoUrl = imageUrl ?? (d.token ? getTokenLogoUrl(d.token) : undefined)
   const livePresale = {
     address,
     name: meta?.name ?? (d.token ? `${d.token.slice(0, 6)}…` : 'Loading…'),
@@ -812,9 +816,14 @@ function CreatePresaleForm() {
 }
 
 function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
+  const raisedValue = parseFloat(presale.raised)
+  const hardCapValue = parseFloat(presale.hardCap)
   const progress =
-    parseFloat(presale.raised) / parseFloat(presale.hardCap)
+    Number.isFinite(raisedValue) && Number.isFinite(hardCapValue) && hardCapValue > 0
+      ? raisedValue / hardCapValue
+      : 0
   const progressPct = Math.min(100, parseFloat((progress * 100).toFixed(2)))
+  const marketCap = Number.isFinite(raisedValue) ? raisedValue * 50 : 0
   const timeLeft = presale.endTime - now
   const daysLeft = Math.max(0, Math.floor(timeLeft / 86400000))
   const hoursLeft = Math.max(
@@ -939,7 +948,7 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
       >
         <span style={{ color: '#9ca3af' }}>Market Cap</span>
         <span style={{ color: '#e5e7eb', fontWeight: 500 }}>
-          {'$'}{(parseFloat(presale.raised) * 50).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          {'$'}{marketCap.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </span>
       </div>
 
@@ -1031,6 +1040,7 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
 export default function LaunchpadPage() {
   const [tab, setTab] = useState<Tab>('browse')
   const [now, setNow] = useState(() => Date.now())
+  const [presaleLimit, setPresaleLimit] = useState(INITIAL_PRESALE_VISIBLE_COUNT)
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -1047,10 +1057,15 @@ export default function LaunchpadPage() {
     query: { enabled: isValidContractAddress(ILO_FACTORY_ADDRESS) },
   })
   const liveCount = Number(iloCount.data ?? 0)
-  const { addresses: liveAddresses, isLoading: iloLoading } = useAllILOAddresses(liveCount)
+  const iloCountLoading = iloCount.isLoading
+  const visiblePresaleCount = Math.min(liveCount, presaleLimit)
+  const { addresses: liveAddresses, isLoading: iloLoading } = useAllILOAddresses(liveCount, visiblePresaleCount)
+  const hasMorePresales = visiblePresaleCount < liveCount
+  const raisedLabel = hasMorePresales ? 'Loaded Raised' : 'Total Raised'
 
-  // Batch-fetch all ILO data in ONE multicall (replaces per-card individual reads)
+  // Batch-fetch visible ILO data in ONE multicall (replaces per-card individual reads)
   const { iloMap, isLoading: iloDataLoading } = useAllILOData(liveAddresses)
+  const presalesLoading = iloCountLoading || iloLoading || iloDataLoading
 
   // Extract token addresses from ILO data for metadata lookup
   const tokenAddresses = Array.from(new Set(
@@ -1059,7 +1074,7 @@ export default function LaunchpadPage() {
       .filter((t): t is `0x${string}` => t !== null)
   ))
 
-  // Fetch token name/symbol from TokenFactory events (keyed by token address)
+  // Fetch token name/symbol for the visible sale tokens only.
   const { metaMap: tokenMetaMap } = useTokenMetadata(tokenAddresses)
 
   // Load user-uploaded token logos from IndexedDB
@@ -1112,8 +1127,8 @@ export default function LaunchpadPage() {
         >
           {(
             [
-              ['Total Presales', iloLoading ? '…' : liveCount.toString()],
-              ['Total Raised', iloLoading ? '…' : totalRaised],
+              ['Total Presales', iloCountLoading ? '…' : liveCount.toString()],
+              [raisedLabel, iloDataLoading ? '…' : totalRaised],
               ['Platform Fee', '2%'],
             ] as [string, string][]
           ).map(([label, value], i, arr) => (
@@ -1209,7 +1224,7 @@ export default function LaunchpadPage() {
         {/* Content */}
         {tab === 'browse' ? (
           <div>
-            {iloLoading || iloDataLoading ? (
+            {presalesLoading ? (
               <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
                 Loading presales from contract…
               </div>
@@ -1260,6 +1275,26 @@ export default function LaunchpadPage() {
                     />
                   )
                 })}
+              </div>
+            )}
+            {hasMorePresales && !presalesLoading && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '28px' }}>
+                <button
+                  type="button"
+                  onClick={() => setPresaleLimit((current) => Math.min(liveCount, current + PRESALE_PAGE_SIZE))}
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(94,106,210,0.45)',
+                    background: 'rgba(94,106,210,0.12)',
+                    color: '#d8dcff',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Load more presales
+                </button>
               </div>
             )}
           </div>

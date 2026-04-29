@@ -23,22 +23,31 @@ const TOKEN_CREATED_EVENT = parseAbiItem(
   'event TokenCreated(address indexed tokenAddress, address indexed creator, string name, string symbol)',
 )
 
-// Singleton cache — loaded once, refreshed every 1000 blocks
+const ERC20_META_ABI = [
+  { name: 'name', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
+  { name: 'symbol', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
+] as const
+
+// Singleton cache — cold starts load a recent factory window, then refresh incrementally.
 let _metaCache: Map<string, TokenMeta> | null = null
 let _metaLatestBlock: bigint | null = null
 let _metaLoadPromise: Promise<Map<string, TokenMeta>> | null = null
+let _metaCacheComplete = false
 
 const TOKEN_META_SESSION_KEY = 'lester_token_meta_v2'
 const TOKEN_CREATED_BATCH_SIZE = 50_000n
+const TOKEN_META_RECENT_LOOKBACK_BLOCKS = 100_000n
+const TOKEN_META_DIRECT_READ_CHUNK_SIZE = 8
 
-function persistTokenMetaCache() {
-  if (typeof window === 'undefined' || _metaCache === null || _metaLatestBlock === null) return
+function persistTokenMetaCache(complete = _metaCacheComplete) {
+  if (typeof window === 'undefined' || _metaCache === null) return
 
   try {
     sessionStorage.setItem(
       TOKEN_META_SESSION_KEY,
       JSON.stringify({
-        latestBlock: _metaLatestBlock.toString(),
+        latestBlock: (_metaLatestBlock ?? 0n).toString(),
+        complete,
         tokens: Array.from(_metaCache.values()),
       }),
     )
@@ -56,6 +65,7 @@ function hydrateTokenMetaCache() {
 
     const parsed = JSON.parse(raw) as {
       latestBlock?: string
+      complete?: boolean
       tokens?: TokenMeta[]
     }
 
@@ -72,9 +82,11 @@ function hydrateTokenMetaCache() {
       ]),
     )
     _metaLatestBlock = BigInt(parsed.latestBlock)
+    _metaCacheComplete = parsed.complete ?? _metaLatestBlock > 0n
   } catch {
     _metaCache = null
     _metaLatestBlock = null
+    _metaCacheComplete = false
   }
 }
 
@@ -125,7 +137,8 @@ async function refreshTokenMeta(): Promise<Map<string, TokenMeta>> {
 
   const existing = _metaCache ?? new Map<string, TokenMeta>()
   const latest = await client.getBlockNumber()
-  const fromBlock = _metaLatestBlock === null ? 0n : _metaLatestBlock + 1n
+  const recentWindowStart = latest > TOKEN_META_RECENT_LOOKBACK_BLOCKS ? latest - TOKEN_META_RECENT_LOOKBACK_BLOCKS : 0n
+  const fromBlock = _metaCacheComplete && _metaLatestBlock !== null ? _metaLatestBlock + 1n : recentWindowStart
 
   if (fromBlock <= latest) {
     const logs = await getTokenCreatedLogs(fromBlock, latest)
@@ -134,14 +147,15 @@ async function refreshTokenMeta(): Promise<Map<string, TokenMeta>> {
 
   _metaCache = existing
   _metaLatestBlock = latest
-  persistTokenMetaCache()
+  _metaCacheComplete = true
+  persistTokenMetaCache(true)
 
   return existing
 }
 
 async function loadTokenMeta(): Promise<Map<string, TokenMeta>> {
   hydrateTokenMetaCache()
-  if (_metaCache) return _metaCache
+  if (_metaCache && _metaCacheComplete) return _metaCache
   if (_metaLoadPromise) return _metaLoadPromise
 
   _metaLoadPromise = refreshTokenMeta()
@@ -151,6 +165,55 @@ async function loadTokenMeta(): Promise<Map<string, TokenMeta>> {
     })
 
   return _metaLoadPromise
+}
+
+async function readTokenMetaDirect(address: `0x${string}`): Promise<TokenMeta | null> {
+  try {
+    const [name, symbol] = await Promise.all([
+      client.readContract({ address, abi: ERC20_META_ABI, functionName: 'name' }),
+      client.readContract({ address, abi: ERC20_META_ABI, functionName: 'symbol' }),
+    ])
+
+    if (!name || !symbol) return null
+
+    return {
+      address: address.toLowerCase() as `0x${string}`,
+      name: String(name),
+      symbol: String(symbol),
+    }
+  } catch {
+    return null
+  }
+}
+
+async function fetchTokenMetadataForAddresses(addresses: `0x${string}`[]): Promise<Map<string, TokenMeta>> {
+  hydrateTokenMetaCache()
+
+  const requested = Array.from(new Set(addresses.map((address) => address.toLowerCase() as `0x${string}`)))
+  const existing = _metaCache ?? new Map<string, TokenMeta>()
+  const missing = requested.filter((address) => !existing.has(address))
+
+  for (let index = 0; index < missing.length; index += TOKEN_META_DIRECT_READ_CHUNK_SIZE) {
+    const batch = missing.slice(index, index + TOKEN_META_DIRECT_READ_CHUNK_SIZE)
+    const results = await Promise.allSettled(batch.map((address) => readTokenMetaDirect(address)))
+
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        existing.set(result.value.address.toLowerCase(), result.value)
+      }
+    }
+  }
+
+  _metaCache = existing
+  persistTokenMetaCache(_metaCacheComplete)
+
+  const filtered = new Map<string, TokenMeta>()
+  for (const address of requested) {
+    const meta = existing.get(address)
+    if (meta) filtered.set(address, meta)
+  }
+
+  return filtered
 }
 
 export async function fetchAllTokenMetadata(): Promise<TokenMeta[]> {
@@ -171,14 +234,8 @@ export function useTokenMetadata(addresses: `0x${string}`[]): {
   useEffect(() => {
     let cancelled = false
 
-    loadTokenMeta().then((all) => {
+    fetchTokenMetadataForAddresses(addresses).then((filtered) => {
       if (cancelled) return
-      const filtered = new Map<string, TokenMeta>()
-      for (const addr of addresses) {
-        const key = addr.toLowerCase()
-        const meta = all.get(key)
-        if (meta) filtered.set(key, meta)
-      }
       setMetaMap(filtered)
       setLoading(false)
     })
@@ -200,13 +257,12 @@ export function useAllTokenMetadata(): {
 } {
   const [tokens, setTokens] = useState<TokenMeta[]>([])
   const [loading, setLoading] = useState(true)
-  const [cacheStatus, setCacheStatus] = useState<TokenCacheStatus>('idle')
+  const [cacheStatus, setCacheStatus] = useState<TokenCacheStatus>('scanning')
 
   // First load — no cache exists yet
   useEffect(() => {
     let cancelled = false
 
-    setCacheStatus('scanning')
     fetchAllTokenMetadata()
       .then((all) => {
         if (cancelled) return

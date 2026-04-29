@@ -11,6 +11,7 @@ import {
 } from '@/config/contracts'
 import { ILO_FACTORY_ABI, LEDGER_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
 import { RPC_URL } from '@/lib/rpcClient'
+import { tokenCountFromFactoryNonce } from '@/lib/factoryNonce'
 
 const LEGACY_ILO_FACTORY_ADDRESS = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB' as const
 const DEFAULT_TOKEN_FACTORY_ADDRESS = '0x93acc61fcdc2e3407A0c03450Adfd8aE78964948' as const
@@ -21,15 +22,15 @@ const DEFAULT_UNISWAP_V2_ROUTER_ADDRESS = '0xD56a623890b083d876D47c3b1c5343b7f98
 
 // Full historical log scans are too slow for the landing API, so these audited
 // totals anchor launch-to-block counts and the live API only adds new deltas.
-const TOKEN_COUNT_AUDIT_BLOCK = 2_282_519n
-const TOKEN_COUNT_AUDIT_TOTAL = 44_124
-const SWAP_COUNT_AUDIT_BLOCK = 2_282_842n
-const SWAP_COUNT_AUDIT_TOTAL = 9_750
-const AIRDROP_WALLET_AUDIT_BLOCK = 2_278_304n
-const AIRDROP_WALLET_AUDIT_TOTAL = 8_471
+const TOKEN_COUNT_AUDIT_BLOCK = 3_412_247n
+const TOKEN_COUNT_AUDIT_TOTAL = 72_882
+const SWAP_COUNT_AUDIT_BLOCK = 3_412_247n
+const SWAP_COUNT_AUDIT_TOTAL = 12_975
+const AIRDROP_WALLET_AUDIT_BLOCK = 3_412_247n
+const AIRDROP_WALLET_AUDIT_TOTAL = 16_433
 
 const FALLBACK_STATS = {
-  tokensMinted: 44_130,
+  tokensMinted: TOKEN_COUNT_AUDIT_TOTAL,
   walletsAirdropped: AIRDROP_WALLET_AUDIT_TOTAL,
   presalesCreated: 77,
   swapsCompleted: SWAP_COUNT_AUDIT_TOTAL,
@@ -39,7 +40,7 @@ const FALLBACK_STATS = {
 const RESPONSE_TTL_MS = 60_000
 const RPC_TIMEOUT_MS = 3_000
 const METRIC_TIMEOUT_MS = 3_500
-const SWAP_ADDRESS_BATCH_SIZE = 20
+const SWAP_ADDRESS_BATCH_SIZE = 50
 
 const TOKEN_CREATED_EVENT = parseAbiItem(
   'event TokenCreated(address indexed tokenAddress, address indexed creator, string name, string symbol)',
@@ -103,6 +104,11 @@ function resolveContractAddress(configuredAddress: Address, fallbackAddress?: Ad
   return null
 }
 
+function preserveCounterFloor(value: number, floor: number): number {
+  if (!Number.isFinite(value)) return floor
+  return Math.max(value, floor)
+}
+
 async function safeReadCount(address: Address, abi: typeof ILO_FACTORY_ABI, functionName: 'getILOCount'): Promise<number>
 async function safeReadCount(address: Address, abi: typeof LEDGER_ABI, functionName: 'messageCount'): Promise<number>
 async function safeReadCount(
@@ -127,6 +133,17 @@ async function safeReadCount(
 async function getTokenCount(): Promise<number> {
   const tokenFactoryAddress = resolveContractAddress(TOKEN_FACTORY_ADDRESS, DEFAULT_TOKEN_FACTORY_ADDRESS)
   if (!tokenFactoryAddress) return 0
+
+  try {
+    const nonce = await client.getTransactionCount({
+      address: tokenFactoryAddress,
+      blockTag: 'latest',
+    })
+
+    return tokenCountFromFactoryNonce(nonce)
+  } catch {
+    // Fall back to the event-log audit path if the RPC cannot return contract nonce.
+  }
 
   const useAuditBaseline = tokenFactoryAddress.toLowerCase() === DEFAULT_TOKEN_FACTORY_ADDRESS.toLowerCase()
   const logs = await client.getLogs({
@@ -281,11 +298,26 @@ async function computeSnapshot(): Promise<PlatformStatsSnapshot> {
   ])
 
   return {
-    tokensMinted: tokensResult.status === 'fulfilled' ? tokensResult.value : floor.tokensMinted,
-    presalesCreated: presalesResult.status === 'fulfilled' ? presalesResult.value : floor.presalesCreated,
-    swapsCompleted: swapsResult.status === 'fulfilled' ? swapsResult.value : floor.swapsCompleted,
-    walletsAirdropped: airdropsResult.status === 'fulfilled' ? airdropsResult.value : floor.walletsAirdropped,
-    onChainMessages: messagesResult.status === 'fulfilled' ? messagesResult.value : floor.onChainMessages,
+    tokensMinted: preserveCounterFloor(
+      tokensResult.status === 'fulfilled' ? tokensResult.value : floor.tokensMinted,
+      floor.tokensMinted,
+    ),
+    presalesCreated: preserveCounterFloor(
+      presalesResult.status === 'fulfilled' ? presalesResult.value : floor.presalesCreated,
+      floor.presalesCreated,
+    ),
+    swapsCompleted: preserveCounterFloor(
+      swapsResult.status === 'fulfilled' ? swapsResult.value : floor.swapsCompleted,
+      floor.swapsCompleted,
+    ),
+    walletsAirdropped: preserveCounterFloor(
+      airdropsResult.status === 'fulfilled' ? airdropsResult.value : floor.walletsAirdropped,
+      floor.walletsAirdropped,
+    ),
+    onChainMessages: preserveCounterFloor(
+      messagesResult.status === 'fulfilled' ? messagesResult.value : floor.onChainMessages,
+      floor.onChainMessages,
+    ),
     fetchedAt: new Date().toISOString(),
   }
 }
