@@ -1921,7 +1921,7 @@ function SwapPageInner() {
                   </span>
                 )}
                 {!tokensLoading && cacheStatus === 'cached' && (
-                  <span>Loaded from cache · {tokenOptions.length} tokens</span>
+                  <span>Loaded recent factory cache · {tokenOptions.length} tokens</span>
                 )}
                 {!tokensLoading && cacheStatus === 'idle' && (
                   <span>{tokenOptions.length} swappable assets detected, including native zkLTC.</span>
