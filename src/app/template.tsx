@@ -137,7 +137,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
     }
     const onDocMove = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null
-      const card = target?.closest?.('.analytics-card') as HTMLElement | null
+      const card = target?.closest?.('.analytics-card:not([data-disable-tilt="true"])') as HTMLElement | null
 
       if (activeTiltCard && activeTiltCard !== card) resetTilt(activeTiltCard)
       activeTiltCard = card
