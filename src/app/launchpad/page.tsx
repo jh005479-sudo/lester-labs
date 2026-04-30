@@ -18,7 +18,7 @@ import { useTokenMetadata, getTokenLogoUrl } from '@/hooks/useTokenMetadata'
 import { useTokenImageUrls } from '@/hooks/useTokenImageUrls'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getRecentWindowIndices } from '@/lib/launchpadPagination'
-import { shouldLoadPresaleBrowseData, type LaunchpadTab } from '@/lib/launchpadTab'
+import { getLaunchpadReadPlan, type LaunchpadTab } from '@/lib/launchpadTab'
 
 // ABI for fetching token decimals (RP-001)
 const ERC20_DECIMALS_ABI = [
@@ -1043,7 +1043,7 @@ export default function LaunchpadPage() {
   const [tab, setTab] = useState<Tab>('browse')
   const [now, setNow] = useState(() => Date.now())
   const [presaleLimit, setPresaleLimit] = useState(INITIAL_PRESALE_VISIBLE_COUNT)
-  const loadBrowseData = shouldLoadPresaleBrowseData(tab)
+  const readPlan = getLaunchpadReadPlan(tab)
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -1057,21 +1057,21 @@ export default function LaunchpadPage() {
     address: ILO_FACTORY_ADDRESS,
     abi: ILO_FACTORY_ABI,
     functionName: 'getILOCount',
-    query: { enabled: isValidContractAddress(ILO_FACTORY_ADDRESS) },
+    query: { enabled: readPlan.factoryCount && isValidContractAddress(ILO_FACTORY_ADDRESS) },
   })
   const liveCount = Number(iloCount.data ?? 0)
   const iloCountLoading = iloCount.isLoading
-  const visiblePresaleCount = loadBrowseData ? Math.min(liveCount, presaleLimit) : 0
-  const { addresses: liveAddresses, isLoading: iloLoading } = useAllILOAddresses(liveCount, visiblePresaleCount, loadBrowseData)
-  const hasMorePresales = loadBrowseData && visiblePresaleCount < liveCount
+  const visiblePresaleCount = readPlan.presaleAddresses ? Math.min(liveCount, presaleLimit) : 0
+  const { addresses: liveAddresses, isLoading: iloLoading } = useAllILOAddresses(liveCount, visiblePresaleCount, readPlan.presaleAddresses)
+  const hasMorePresales = readPlan.presaleAddresses && visiblePresaleCount < liveCount
   const raisedLabel = hasMorePresales ? 'Loaded Raised' : 'Total Raised'
 
   // Batch-fetch visible ILO data in ONE multicall (replaces per-card individual reads)
-  const { iloMap, isLoading: iloDataLoading } = useAllILOData(liveAddresses, loadBrowseData)
-  const presalesLoading = loadBrowseData && (iloCountLoading || iloLoading || iloDataLoading)
+  const { iloMap, isLoading: iloDataLoading } = useAllILOData(liveAddresses, readPlan.presaleData)
+  const presalesLoading = readPlan.presaleData && (iloCountLoading || iloLoading || iloDataLoading)
 
   // Extract token addresses from ILO data for metadata lookup
-  const tokenAddresses = loadBrowseData ? Array.from(new Set(
+  const tokenAddresses = readPlan.tokenMetadata ? Array.from(new Set(
     Array.from(iloMap.values())
       .map(d => d.token)
       .filter((t): t is `0x${string}` => t !== null)
@@ -1081,14 +1081,14 @@ export default function LaunchpadPage() {
   const { metaMap: tokenMetaMap } = useTokenMetadata(tokenAddresses)
 
   // Load user-uploaded token logos from IndexedDB
-  const tokenImageUrls = useTokenImageUrls(loadBrowseData)
+  const tokenImageUrls = useTokenImageUrls(readPlan.tokenImages)
 
   // Compute total raised from batch-fetched data (no additional requests)
   const totalRaisedBigint = Array.from(iloMap.values()).reduce<bigint>(
     (sum, d) => sum + (d.totalRaised ?? 0n),
     0n,
   )
-  const totalRaised = loadBrowseData && totalRaisedBigint > 0n ? formatEther(totalRaisedBigint) : '—'
+  const totalRaised = readPlan.presaleData && totalRaisedBigint > 0n ? formatEther(totalRaisedBigint) : '—'
 
   return (
     <div
@@ -1130,7 +1130,7 @@ export default function LaunchpadPage() {
         >
           {(
             [
-              ['Total Presales', iloCountLoading ? '…' : liveCount.toString()],
+              ['Total Presales', readPlan.factoryCount ? (iloCountLoading ? '…' : liveCount.toString()) : '—'],
               [raisedLabel, iloDataLoading ? '…' : totalRaised],
               ['Platform Fee', '2%'],
             ] as [string, string][]
