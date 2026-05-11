@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { type Address, type Hex } from 'viem'
 import { isValidContractAddress } from '@/config/contracts'
 import { getLatestBlockNumber, getTransactionReceipt, rpc } from '@/lib/rpcClient'
+import { getDescendingLedgerIndexPage, padUint256Topic } from '@/lib/ledgerPagination'
 import {
   compareLedgerMessages,
   decodeLedgerLog,
@@ -59,7 +60,8 @@ export function useLedgerFeed({
   const viewerAddressRef = useRef<Address | undefined>(viewerAddress)
   const messageMapRef = useRef(new Map<string, LedgerMessage>())
   const historyBufferRef = useRef<LedgerMessage[]>([])
-  const historyCursorRef = useRef<number | null>(null)
+  const historyBlockCursorRef = useRef<number | null>(null)
+  const historyIndexCursorRef = useRef<bigint | null>(null)
   const latestSeenBlockRef = useRef(0)
   const loadInFlightRef = useRef(false)
   const pollInFlightRef = useRef(false)
@@ -86,7 +88,7 @@ export function useLedgerFeed({
       return
     }
 
-    setHasMore(historyBufferRef.current.length > 0 || (historyCursorRef.current ?? 0) > 0)
+    setHasMore(historyBufferRef.current.length > 0 || (historyBlockCursorRef.current ?? 0) > 0)
   }
 
   function scheduleHighlightClear(messageId: string, session: number) {
@@ -162,14 +164,14 @@ export function useLedgerFeed({
   }
 
   async function bufferHistoryUntilPageFilled(session: number) {
-    if (historyCursorRef.current === null) {
-      historyCursorRef.current = await getLatestBlockNumber()
+    if (historyBlockCursorRef.current === null) {
+      historyBlockCursorRef.current = await getLatestBlockNumber()
     }
 
-    while (historyBufferRef.current.length < LEDGER_PAGE_SIZE && (historyCursorRef.current ?? 0) > 0) {
+    while (historyBufferRef.current.length < LEDGER_PAGE_SIZE && (historyBlockCursorRef.current ?? 0) > 0) {
       if (session !== sessionRef.current) return
 
-      const toBlock = historyCursorRef.current ?? 0
+      const toBlock = historyBlockCursorRef.current ?? 0
       const fromBlock = Math.max(1, toBlock - LEDGER_HISTORY_BLOCK_WINDOW + 1)
 
       const logs = await rpc<LedgerRpcLog[]>('eth_getLogs', [
@@ -183,7 +185,7 @@ export function useLedgerFeed({
 
       if (session !== sessionRef.current) return
 
-      historyCursorRef.current = fromBlock > 1 ? fromBlock - 1 : 0
+      historyBlockCursorRef.current = fromBlock > 1 ? fromBlock - 1 : 0
 
       const decoded = logs
         .map((log) => decodeLedgerLog(log))
@@ -203,6 +205,33 @@ export function useLedgerFeed({
 
       updateHasMoreState()
     }
+  }
+
+  async function loadIndexedHistoryPage(session: number, totalKnown: bigint): Promise<LedgerMessage[]> {
+    if (historyIndexCursorRef.current === null) {
+      historyIndexCursorRef.current = totalKnown
+    }
+
+    const indices = getDescendingLedgerIndexPage(historyIndexCursorRef.current, LEDGER_PAGE_SIZE)
+    if (!indices.length) return []
+
+    const logs = await rpc<LedgerRpcLog[]>('eth_getLogs', [
+      {
+        address,
+        topics: [LEDGER_MESSAGE_POSTED_TOPIC, null, indices.map(padUint256Topic)],
+        fromBlock: '0x1',
+        toBlock: 'latest',
+      },
+    ])
+
+    if (session !== sessionRef.current) return []
+
+    historyIndexCursorRef.current = indices[indices.length - 1] ?? 0n
+
+    return logs
+      .map((log) => decodeLedgerLog(log))
+      .filter((message): message is LedgerMessage => Boolean(message))
+      .sort(compareLedgerMessages)
   }
 
   async function loadMore() {
@@ -228,10 +257,16 @@ export function useLedgerFeed({
         return
       }
 
-      await bufferHistoryUntilPageFilled(session)
+      const nextBatch = totalKnown !== undefined
+        ? await loadIndexedHistoryPage(session, totalKnown)
+        : await (async () => {
+          await bufferHistoryUntilPageFilled(session)
+          if (session !== sessionRef.current) return []
+          return historyBufferRef.current.splice(0, LEDGER_PAGE_SIZE)
+        })()
+
       if (session !== sessionRef.current) return
 
-      const nextBatch = historyBufferRef.current.splice(0, LEDGER_PAGE_SIZE)
       upsertMessages(nextBatch, false, session)
       hasLoadedInitialRef.current = true
       updateHasMoreState()
@@ -379,7 +414,8 @@ export function useLedgerFeed({
 
     messageMapRef.current = new Map()
     historyBufferRef.current = []
-    historyCursorRef.current = null
+    historyBlockCursorRef.current = null
+    historyIndexCursorRef.current = null
     latestSeenBlockRef.current = 0
     loadInFlightRef.current = false
     pollInFlightRef.current = false
@@ -528,7 +564,7 @@ export function useLedgerFeed({
     void (async () => {
       try {
         latestSeenBlockRef.current = await getLatestBlockNumber()
-        historyCursorRef.current = latestSeenBlockRef.current
+        historyBlockCursorRef.current = latestSeenBlockRef.current
 
         await loadMore()
         if (disposed || session !== sessionRef.current) return

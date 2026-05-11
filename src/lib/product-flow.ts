@@ -82,7 +82,7 @@ export const launchFlow: {
   accent: string
 }[] = [
   { key: 'minter', href: '/launch', label: 'Minter', verb: 'Deploy token', description: 'Create the ERC-20 asset.', icon: Sparkles, accent: '#6B4FFF' },
-  { key: 'launchpad', href: '/launchpad', label: 'Launchpad', verb: 'Run presale', description: 'Configure raise and LP rules.', icon: Rocket, accent: '#5E6AD2' },
+  { key: 'launchpad', href: '/launchpad?tab=create', label: 'Launchpad', verb: 'Run presale', description: 'Configure raise and LP rules.', icon: Rocket, accent: '#5E6AD2' },
   { key: 'pool', href: '/pool', label: 'Pool', verb: 'Seed liquidity', description: 'Create the tradable pair.', icon: Droplets, accent: '#E44FB5' },
   { key: 'locker', href: '/locker', label: 'Lockup', verb: 'Lock LP', description: 'Publish a trust certificate.', icon: LockKeyhole, accent: '#2DCE89' },
   { key: 'analytics', href: '/analytics', label: 'Analytics', verb: 'Track market', description: 'Watch health and demand.', icon: BarChart3, accent: '#2DCE89' },
@@ -90,5 +90,6 @@ export const launchFlow: {
 ]
 
 export function isActivePath(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`)
+  const hrefPath = href.split('?')[0]
+  return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`)
 }
