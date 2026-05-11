@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createPublicClient, http, parseAbiItem } from 'viem'
 import { RPC_URL } from '@/lib/rpcClient'
 import { TOKEN_FACTORY_ADDRESS } from '@/config/contracts'
+import { getTokenMetadataRequestKey, normalizeTokenMetadataAddresses } from '@/lib/tokenMetadataRequest'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -12,6 +13,8 @@ export interface TokenMeta {
   name: string
   symbol: string
 }
+
+const EMPTY_TOKEN_META_MAP = new Map<string, TokenMeta>()
 
 // ── On-chain metadata reader ───────────────────────────────────────────────
 
@@ -189,7 +192,7 @@ async function readTokenMetaDirect(address: `0x${string}`): Promise<TokenMeta | 
 async function fetchTokenMetadataForAddresses(addresses: `0x${string}`[]): Promise<Map<string, TokenMeta>> {
   hydrateTokenMetaCache()
 
-  const requested = Array.from(new Set(addresses.map((address) => address.toLowerCase() as `0x${string}`)))
+  const requested = normalizeTokenMetadataAddresses(addresses)
   const existing = _metaCache ?? new Map<string, TokenMeta>()
   const missing = requested.filter((address) => !existing.has(address))
 
@@ -227,25 +230,38 @@ export function useTokenMetadata(addresses: `0x${string}`[]): {
   metaMap: Map<string, TokenMeta>
   loading: boolean
 } {
-  const [metaMap, setMetaMap] = useState<Map<string, TokenMeta>>(new Map())
-  const [loading, setLoading] = useState(true)
-  const addressesKey = addresses.join(',')
+  const [metadataState, setMetadataState] = useState<{
+    key: string
+    metaMap: Map<string, TokenMeta>
+  }>({ key: '', metaMap: EMPTY_TOKEN_META_MAP })
+  const addressesKey = getTokenMetadataRequestKey(addresses)
 
   useEffect(() => {
     let cancelled = false
+    const requested = addressesKey ? (addressesKey.split(',') as `0x${string}`[]) : []
 
-    fetchTokenMetadataForAddresses(addresses).then((filtered) => {
+    if (!requested.length) {
+      return
+    }
+
+    fetchTokenMetadataForAddresses(requested).then((filtered) => {
       if (cancelled) return
-      setMetaMap(filtered)
-      setLoading(false)
+      setMetadataState({ key: addressesKey, metaMap: filtered })
     })
 
     return () => {
       cancelled = true
     }
-  }, [addresses, addressesKey])
+  }, [addressesKey])
 
-  return { metaMap, loading }
+  if (!addressesKey) {
+    return { metaMap: EMPTY_TOKEN_META_MAP, loading: false }
+  }
+
+  return {
+    metaMap: metadataState.key === addressesKey ? metadataState.metaMap : EMPTY_TOKEN_META_MAP,
+    loading: metadataState.key !== addressesKey,
+  }
 }
 
 export type TokenCacheStatus = 'idle' | 'scanning' | 'cached' | 'refreshing'

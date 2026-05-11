@@ -48,6 +48,33 @@ const ILO_CREATED_EVENT_ABI = [
 type Tab = LaunchpadTab
 const INITIAL_PRESALE_VISIBLE_COUNT = 24
 const PRESALE_PAGE_SIZE = 24
+const DISABLED_LAUNCHPAD_READ_PLAN = {
+  factoryCount: false,
+  presaleAddresses: false,
+  presaleData: false,
+  tokenMetadata: false,
+  tokenImages: false,
+}
+
+function getInitialLaunchpadTab(): Tab {
+  if (typeof window === 'undefined') return 'browse'
+
+  const tabParam = new URLSearchParams(window.location.search).get('tab')
+  return tabParam === 'create' ? 'create' : 'browse'
+}
+
+function replaceLaunchpadTabParam(tab: Tab) {
+  if (typeof window === 'undefined') return
+
+  const url = new URL(window.location.href)
+  if (tab === 'create') {
+    url.searchParams.set('tab', 'create')
+  } else {
+    url.searchParams.delete('tab')
+  }
+
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
 
 // Fetches the newest visible ILO addresses by count instead of eagerly loading the full factory history.
 function useAllILOAddresses(count: number, visibleCount: number, enabled: boolean) {
@@ -1040,10 +1067,15 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
   )
 }
 export default function LaunchpadPage() {
-  const [tab, setTab] = useState<Tab>('browse')
+  const [tab, setTab] = useState<Tab | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [presaleLimit, setPresaleLimit] = useState(INITIAL_PRESALE_VISIBLE_COUNT)
-  const readPlan = getLaunchpadReadPlan(tab)
+  const activeTab = tab ?? 'browse'
+  const readPlan = tab === null ? DISABLED_LAUNCHPAD_READ_PLAN : getLaunchpadReadPlan(tab)
+
+  useEffect(() => {
+    setTab(getInitialLaunchpadTab())
+  }, [])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -1200,15 +1232,18 @@ export default function LaunchpadPage() {
           {(['browse', 'create'] as Tab[]).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => {
+                setTab(t)
+                replaceLaunchpadTabParam(t)
+              }}
               className="launchpad-tab-btn"
               style={{
                 padding: '8px 20px',
                 background:
-                  tab === t ? 'var(--accent)' : 'transparent',
+                  activeTab === t ? 'var(--accent)' : 'transparent',
                 border: 'none',
                 borderRadius: '7px',
-                color: tab === t ? '#fff' : 'rgba(255,255,255,0.5)',
+                color: activeTab === t ? '#fff' : 'rgba(255,255,255,0.5)',
                 fontSize: '14px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -1225,7 +1260,11 @@ export default function LaunchpadPage() {
         </div>
 
         {/* Content */}
-        {tab === 'browse' ? (
+        {tab === null ? (
+          <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
+            Preparing launchpad…
+          </div>
+        ) : tab === 'browse' ? (
           <div>
             {presalesLoading ? (
               <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>

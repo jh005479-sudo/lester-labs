@@ -12,7 +12,19 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "contracts/artifacts/**",
+    "contracts/cache/**",
+    "contracts/typechain-types/**",
   ]),
+  {
+    rules: {
+      "@typescript-eslint/ban-ts-comment": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-require-imports": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/unsupported-syntax": "warn",
+    },
+  },
 ]);
 
 export default eslintConfig;

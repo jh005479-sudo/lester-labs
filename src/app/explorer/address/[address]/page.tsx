@@ -110,18 +110,8 @@ const PAGE_SIZE = 20
 export default function AddressPage() {
   const params = useParams()
   const rawAddress = params.address as string
-  if (!/^0x[0-9a-fA-F]{40}$/.test(rawAddress)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">Invalid Address</h1>
-          <p className="text-white/60">Addresses must be 42 hexadecimal characters starting with 0x</p>
-          <Link href="/explorer" className="text-[var(--accent)] mt-4 inline-block">Return to Explorer</Link>
-        </div>
-      </div>
-    )
-  }
-  const address = rawAddress.toLowerCase()
+  const isValidAddress = /^0x[0-9a-fA-F]{40}$/.test(rawAddress)
+  const address = isValidAddress ? rawAddress.toLowerCase() : ''
 
   const [balance, setBalance] = useState<string>('0')
   const [label, setLabel] = useState<{ label: string; type: string; description: string } | null>(null)
@@ -144,11 +134,15 @@ export default function AddressPage() {
   const [lastSeen, setLastSeen] = useState<number | null>(null)
 
   useEffect(() => {
+    if (!isValidAddress) return
+
     const watched: string[] = JSON.parse(localStorage.getItem('watchedAddresses') || '[]')
     setWatching(watched.includes(address))
-  }, [address])
+  }, [address, isValidAddress])
 
   useEffect(() => {
+    if (!isValidAddress) return
+
     let active = true
     const load = async () => {
       setLoading(true)
@@ -321,7 +315,19 @@ export default function AddressPage() {
     }
     load()
     return () => { active = false }
-  }, [address])
+  }, [address, isValidAddress])
+
+  if (!isValidAddress) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-2">Invalid Address</h1>
+          <p className="text-white/60">Addresses must be 42 hexadecimal characters starting with 0x</p>
+          <Link href="/explorer" className="text-[var(--accent)] mt-4 inline-block">Return to Explorer</Link>
+        </div>
+      </div>
+    )
+  }
 
   const toggleWatch = () => {
     const watched = JSON.parse(localStorage.getItem('watchedAddresses') || '[]') as string[]

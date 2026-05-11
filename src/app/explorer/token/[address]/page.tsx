@@ -245,18 +245,8 @@ function SafetyScorePanel({ tokenAddress }: { tokenAddress: string }) {
 export default function TokenDetailPage() {
   const params = useParams()
   const rawAddress = params.address as string
-  if (!/^0x[0-9a-fA-F]{40}$/.test(rawAddress)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">Invalid Address</h1>
-          <p className="text-white/60">Addresses must be 42 hexadecimal characters starting with 0x</p>
-          <Link href="/explorer" className="text-[var(--accent)] mt-4 inline-block">Return to Explorer</Link>
-        </div>
-      </div>
-    )
-  }
-  const address = rawAddress
+  const isValidAddress = /^0x[0-9a-fA-F]{40}$/.test(rawAddress)
+  const address = isValidAddress ? rawAddress : ''
 
   const [details, setDetails] = useState<TokenDetails | null>(null)
   const [transfers, setTransfers] = useState<TokenTransfer[]>([])
@@ -265,7 +255,7 @@ export default function TokenDetailPage() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    if (!address) return
+    if (!isValidAddress) return
     setLoading(true)
     Promise.all([
       getTokenDetails(address).catch(e => { throw new Error(`Details: ${e.message}`) }),
@@ -274,7 +264,7 @@ export default function TokenDetailPage() {
       .then(([d, t]) => { setDetails(d); setTransfers(t) })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [address])
+  }, [address, isValidAddress])
 
   const copyAddress = () => {
     navigator.clipboard.writeText(address)
@@ -286,6 +276,18 @@ export default function TokenDetailPage() {
     if (!details) return
     const text = `🪙 ${details.name} ($${details.symbol}) on LitVM\n\nHolders: ${details.holderCount} | Supply: ${details.totalSupply}\n\nTrack it: ${window.location.href}`
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
+  if (!isValidAddress) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-2">Invalid Address</h1>
+          <p className="text-white/60">Addresses must be 42 hexadecimal characters starting with 0x</p>
+          <Link href="/explorer" className="text-[var(--accent)] mt-4 inline-block">Return to Explorer</Link>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
