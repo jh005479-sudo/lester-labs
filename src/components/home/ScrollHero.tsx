@@ -161,7 +161,10 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
               className="hero-btn-ghost"
               onClick={() => {
                 const suiteSection = document.getElementById('suite-section')
-                if (suiteSection) suiteSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                if (suiteSection) {
+                  const top = suiteSection.getBoundingClientRect().top + window.scrollY - 88
+                  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+                }
               }}
             >
               Explore Suite
