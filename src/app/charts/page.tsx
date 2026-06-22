@@ -1,9 +1,9 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
 import { useReadContract, useReadContracts } from 'wagmi'
 import { formatUnits } from 'viem'
 import { ArrowUpRight, BarChart3, Droplets, ExternalLink, Loader2, RefreshCw, Search } from 'lucide-react'
@@ -182,6 +182,8 @@ function ChartsContent() {
   const [history, setHistory] = useState<PriceHistoryPoint[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const chartFrameRef = useRef<HTMLDivElement | null>(null)
+  const [chartSize, setChartSize] = useState({ width: 0, height: 0 })
 
   const isDexConfigured = isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS)
   const allPairsLengthRead = useReadContract({
@@ -357,6 +359,24 @@ function ChartsContent() {
       enabled: Boolean(selectedMarket?.base.address && selectedMarket.base.address.toLowerCase() !== WRAPPED_ZKLTC_ADDRESS.toLowerCase()),
     },
   })
+
+  useEffect(() => {
+    const node = chartFrameRef.current
+    if (!node) return
+
+    const updateSize = () => {
+      const rect = node.getBoundingClientRect()
+      setChartSize({
+        width: Math.max(0, Math.floor(rect.width)),
+        height: Math.max(0, Math.floor(rect.height)),
+      })
+    }
+
+    updateSize()
+    const observer = new ResizeObserver(updateSize)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!selectedMarket) return
@@ -592,9 +612,14 @@ function ChartsContent() {
                 </button>
               </div>
 
-              <div className="h-[360px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+              <div ref={chartFrameRef} className="h-[360px] min-w-0">
+                {chartSize.width > 0 && chartSize.height > 0 ? (
+                  <AreaChart
+                    width={chartSize.width}
+                    height={chartSize.height}
+                    data={chartData}
+                    margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+                  >
                     <defs>
                       <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#36D1DC" stopOpacity={0.32} />
@@ -611,7 +636,11 @@ function ChartsContent() {
                     />
                     <Area type="monotone" dataKey="price" stroke="#36D1DC" strokeWidth={2} fill="url(#chartFill)" dot={false} activeDot={{ r: 4 }} />
                   </AreaChart>
-                </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center rounded-lg border border-white/8 bg-white/[0.025] text-sm text-white/35">
+                    Loading chart...
+                  </div>
+                )}
               </div>
               {historyError && (
                 <p className="mt-3 text-xs text-amber-300/80">
