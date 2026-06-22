@@ -2,66 +2,264 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import {
+  Activity,
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  Coins,
+  Droplets,
+  Gift,
+  Landmark,
+  LineChart,
+  Lock,
+  MessageSquareText,
+  Rocket,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react'
 import ScrollHero from '@/components/home/ScrollHero'
 import { ResumeDashboard } from '@/components/shared/ResumeDashboard'
 
-const tools = [
+type ProductLink = {
+  name: string
+  href: string
+  note: string
+}
+
+type EcosystemStage = {
+  key: string
+  title: string
+  eyebrow: string
+  description: string
+  href: string
+  cta: string
+  color: string
+  icon: LucideIcon
+  products: ProductLink[]
+}
+
+type DirectoryTool = ProductLink & {
+  group: string
+  icon: LucideIcon
+}
+
+const ecosystemStages: EcosystemStage[] = [
   {
-    name: 'Lester Minter', label: 'Token Creation',
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B4FFF" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v12"/><path d="M8 10h8"/><path d="M9 14h6"/></svg>`,
-    tagline: 'Deploy ERC-20 tokens in 3 steps',
-    desc: 'Configure supply, name, and features — deploy in under a minute.',
-    fee: '0.05 zkLTC', color: '#6B4FFF', href: '/launch',
-    stats: [['Type','ERC-20'],['Speed','< 1 min'],['Code','None']],
-    imgPos: '30%', img: '/images/carousel/token-factory.png'
+    key: 'discover',
+    title: 'Discover',
+    eyebrow: 'Market context',
+    description: 'Find assets, inspect chain activity, and understand what is moving before taking action.',
+    href: '/explorer',
+    cta: 'Start with proof',
+    color: '#36D1DC',
+    icon: Search,
+    products: [
+      { name: 'Explorer', href: '/explorer', note: 'blocks, txs, addresses' },
+      { name: 'Analytics', href: '/analytics', note: 'network and market panels' },
+      { name: 'Charts', href: '/charts', note: 'token and pool views' },
+    ],
   },
   {
-    name: 'Lester Lockup', label: 'LP Security',
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2DCE89" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
-    tagline: 'Lock LP tokens with proof',
-    desc: 'Lock liquidity on-chain and generate a shareable certificate.',
-    fee: '0.03 zkLTC', color: '#2DCE89', href: '/locker',
-    stats: [['Proof','On-chain'],['Certificate','Shareable'],['Trust','Day one']],
-    imgPos: '30%', img: '/images/carousel/liquidity-locker.png'
+    key: 'create',
+    title: 'Create',
+    eyebrow: 'Builder launch flow',
+    description: 'Move from token deployment into launch, distribution, and public proof without leaving the suite.',
+    href: '/launch',
+    cta: 'Build a token',
+    color: '#6B4FFF',
+    icon: Rocket,
+    products: [
+      { name: 'Minter', href: '/launch', note: 'ERC-20 deployment' },
+      { name: 'Launchpad', href: '/launchpad', note: 'presales and LP seed' },
+      { name: 'Airdrop', href: '/airdrop', note: 'CSV and address book' },
+    ],
   },
   {
-    name: 'Lester Vester', label: 'Token Distribution',
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-    tagline: 'Linear & cliff schedules',
-    desc: 'Set vesting schedules for teams and investors. Beneficiaries release vested tokens on demand.',
-    fee: '0.03 zkLTC', color: '#F5A623', href: '/vesting',
-    stats: [['Schedules','Linear + Cliff'],['Release','On demand'],['Claims','Beneficiary']],
-    imgPos: '50%', img: '/images/carousel/token-vesting.png'
+    key: 'trade',
+    title: 'Trade',
+    eyebrow: 'Fee capture layer',
+    description: 'Route liquidity and repeat usage into native LitVM swap, pool, and chart surfaces.',
+    href: '/swap',
+    cta: 'Open swap',
+    color: '#E44FB5',
+    icon: Droplets,
+    products: [
+      { name: 'Swap', href: '/swap', note: 'route trades' },
+      { name: 'Pools', href: '/pool', note: 'LP depth and health' },
+      { name: 'Charts', href: '/charts', note: 'price and reserves' },
+    ],
   },
   {
-    name: 'Lester Dropper', label: 'Mass Distribution',
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#36D1DC" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`,
-    tagline: 'Batch send in one transaction',
-    desc: 'Send tokens to hundreds of wallets at once. CSV supported.',
-    fee: '0.01 zkLTC', color: '#36D1DC', href: '/airdrop',
-    stats: [['Wallets','Hundreds'],['Import','CSV'],['Tx','Single']],
-    imgPos: '50%', img: '/images/carousel/airdrop.png'
+    key: 'protect',
+    title: 'Protect',
+    eyebrow: 'Trust commitments',
+    description: 'Turn liquidity locks and vesting schedules into visible confidence signals for communities.',
+    href: '/locker',
+    cta: 'Lock liquidity',
+    color: '#2DCE89',
+    icon: ShieldCheck,
+    products: [
+      { name: 'Locker', href: '/locker', note: 'LP lock proof' },
+      { name: 'Vesting', href: '/vesting', note: 'linear and cliff schedules' },
+      { name: 'Portfolio', href: '/portfolio', note: 'wallet objects' },
+    ],
   },
   {
-    name: 'Lester Gov', label: 'Community Voting',
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E44FB5" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
-    tagline: 'Gasless community voting',
-    desc: 'Draft governance proposals and publish Snapshot-style votes with off-chain signatures.',
-    fee: 'Free', color: '#E44FB5', href: '/governance',
-    stats: [['Voting','Off-chain'],['Style','Snapshot'],['Cost','No vote gas']],
-    imgPos: '50%', img: '/images/carousel/governance.png'
+    key: 'publish',
+    title: 'Publish',
+    eyebrow: 'Public activity',
+    description: 'Give launches a readable heartbeat with ledger updates, governance, and documentation routes.',
+    href: '/ledger',
+    cta: 'Post an update',
+    color: '#F5A623',
+    icon: MessageSquareText,
+    products: [
+      { name: 'Ledger', href: '/ledger', note: 'on-chain updates' },
+      { name: 'Governance', href: '/governance', note: 'Snapshot-style votes' },
+      { name: 'Docs', href: '/docs', note: 'builder guidance' },
+    ],
   },
   {
-    name: 'Lester Launch', label: 'Presale Platform',
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E6AD2" stroke-width="1.5"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 3 0 3 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-3 0-3"/></svg>`,
-    tagline: 'Permissionless presales',
-    desc: 'Community presales with automatic LP creation on LitVM\'s native dex.',
-    fee: '0.03 zkLTC + 2%', color: '#5E6AD2', href: '/launchpad',
-    stats: [['LP','Auto-created'],['Access','Open']],
-    imgPos: '50%', img: '/images/carousel/launchpad.png'
+    key: 'return',
+    title: 'Return',
+    eyebrow: 'Repeat use',
+    description: 'Resume the last session, watch markets, and act from wallet-specific next steps.',
+    href: '/portfolio',
+    cta: 'Open dashboard',
+    color: '#8B74FF',
+    icon: Wallet,
+    products: [
+      { name: 'Portfolio', href: '/portfolio', note: 'wallet home' },
+      { name: 'Token Tracker', href: '/explorer/tokens', note: 'new assets' },
+      { name: 'Watchlists', href: '/charts', note: 'saved markets' },
+    ],
   },
 ]
 
+const ecosystemDirectory: DirectoryTool[] = [
+  { name: 'Explorer', href: '/explorer', note: 'Search blocks, txs, addresses, and tokens.', group: 'Discover', icon: Search },
+  { name: 'Analytics', href: '/analytics', note: 'Network, market, and activity panels.', group: 'Discover', icon: Activity },
+  { name: 'Charts', href: '/charts', note: 'Token price, reserves, and active markets.', group: 'Discover', icon: LineChart },
+  { name: 'Minter', href: '/launch', note: 'Deploy ERC-20 tokens on LitVM.', group: 'Create', icon: Coins },
+  { name: 'Launchpad', href: '/launchpad', note: 'Create and browse presales with LP flow.', group: 'Create', icon: Rocket },
+  { name: 'Airdrop', href: '/airdrop', note: 'Batch distribute tokens with CSV tools.', group: 'Create', icon: Gift },
+  { name: 'Swap', href: '/swap', note: 'Trade native LitVM markets.', group: 'Trade', icon: Sparkles },
+  { name: 'Pool', href: '/pool', note: 'Inspect, create, and add liquidity.', group: 'Trade', icon: Droplets },
+  { name: 'Locker', href: '/locker', note: 'Lock LP and share proof.', group: 'Protect', icon: Lock },
+  { name: 'Vesting', href: '/vesting', note: 'Create linear and cliff schedules.', group: 'Protect', icon: Landmark },
+  { name: 'Ledger', href: '/ledger', note: 'Post public launch updates.', group: 'Publish', icon: MessageSquareText },
+  { name: 'Governance', href: '/governance', note: 'Draft community votes.', group: 'Publish', icon: BarChart3 },
+  { name: 'Portfolio', href: '/portfolio', note: 'Your tokens, LP, presales, and actions.', group: 'Return', icon: Wallet },
+  { name: 'Docs', href: '/docs', note: 'Guides and contract references.', group: 'Learn', icon: BookOpen },
+]
+
+function EcosystemSuite() {
+  return (
+    <section id="suite-section" className="ecosystem-section">
+      <div className="ecosystem-header reveal">
+        <div className="title-glow" />
+        <div className="title-lines" />
+        <div className="title-particles">
+          <span /><span /><span /><span /><span /><span />
+        </div>
+        <div className="section-label">The Suite</div>
+        <h2 className="suite-title title-reveal">
+          <span className="word">LitVM&apos;s Number #1</span>&nbsp;
+          <span className="word highlight">DeFi suite</span>
+        </h2>
+        <p className="suite-sub sub-reveal">
+          Discover, create, trade, protect, publish, and return through one connected Lester Labs product stack.
+        </p>
+      </div>
+
+      <div className="ecosystem-map reveal-scale" data-disable-tilt="true">
+        <div className="ecosystem-hub">
+          <div className="ecosystem-hub-mark">
+            <Sparkles size={18} />
+          </div>
+          <div>
+            <p>Native LitVM loop</p>
+            <strong>Each tool routes users toward the next useful action.</strong>
+          </div>
+        </div>
+
+        <div className="ecosystem-flow">
+          {ecosystemStages.map((stage, index) => {
+            const Icon = stage.icon
+            return (
+              <article
+                key={stage.key}
+                className="ecosystem-stage"
+                style={{ '--stage-accent': stage.color } as React.CSSProperties}
+              >
+                <div className="ecosystem-stage-top">
+                  <div className="ecosystem-stage-icon">
+                    <Icon size={18} />
+                  </div>
+                  <div className="ecosystem-stage-index">{String(index + 1).padStart(2, '0')}</div>
+                </div>
+                <p className="ecosystem-eyebrow">{stage.eyebrow}</p>
+                <h3>{stage.title}</h3>
+                <p className="ecosystem-stage-copy">{stage.description}</p>
+                <div className="ecosystem-products">
+                  {stage.products.map((product) => (
+                    <Link
+                      key={`${stage.key}-${product.href}`}
+                      prefetch={false}
+                      href={product.href}
+                      className="ecosystem-product"
+                    >
+                      <span>{product.name}</span>
+                      <small>{product.note}</small>
+                    </Link>
+                  ))}
+                </div>
+                <Link prefetch={false} href={stage.href} className="ecosystem-stage-cta">
+                  {stage.cta}
+                  <ArrowRight size={14} />
+                </Link>
+              </article>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="ecosystem-directory reveal">
+        <div className="ecosystem-directory-head">
+          <div>
+            <div className="section-label">Tool Directory</div>
+            <h3>Jump straight into any Lester Labs surface.</h3>
+          </div>
+          <p>Compact access for returning users who already know where they are going.</p>
+        </div>
+
+        <div className="ecosystem-tool-grid">
+          {ecosystemDirectory.map((tool) => {
+            const Icon = tool.icon
+            return (
+              <Link key={tool.href} prefetch={false} href={tool.href} className="ecosystem-tool">
+                <span className="ecosystem-tool-icon">
+                  <Icon size={16} />
+                </span>
+                <span className="ecosystem-tool-body">
+                  <span className="ecosystem-tool-row">
+                    <strong>{tool.name}</strong>
+                    <em>{tool.group}</em>
+                  </span>
+                  <small>{tool.note}</small>
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
 export default function HomePage() {
   const [introComplete, setIntroComplete] = useState(false)
 
@@ -72,90 +270,6 @@ export default function HomePage() {
     fontLink.rel = 'stylesheet'
     fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Sora:wght@600;700;800&display=swap'
     document.head.appendChild(fontLink)
-
-    // ─── Carousel ────────────────────────────────────────
-    const track = document.getElementById('carousel-track') as HTMLElement
-    const dotsWrap = document.getElementById('carousel-dots') as HTMLElement
-    let currentSlide = 0
-
-    if (track && dotsWrap) {
-      tools.forEach((t, i) => {
-        const r = parseInt(t.color.slice(1,3),16)
-        const g = parseInt(t.color.slice(3,5),16)
-        const b = parseInt(t.color.slice(5,7),16)
-
-        const slide = document.createElement('div')
-        slide.className = 'carousel-slide' + (i===0 ? ' active' : '')
-        slide.style.setProperty('--card-color', t.color)
-        slide.style.setProperty('--card-glow', `rgba(${r},${g},${b},.1)`)
-        slide.style.setProperty('--card-glow-sm', `rgba(${r},${g},${b},.05)`)
-        slide.style.setProperty('--card-color-25', `rgba(${r},${g},${b},.25)`)
-        slide.style.setProperty('--card-color-15', `rgba(${r},${g},${b},.15)`)
-        slide.innerHTML = `
-          <div class="c-card" onclick="window.location.href='${t.href}'" style="cursor:pointer">
-            <div class="c-card-body">
-              <div>
-                <div class="c-card-label" style="color:${t.color}">${t.label}</div>
-                <div class="c-card-title" style="margin-top:12px">
-                  <div class="c-icon" style="background:rgba(${r},${g},${b},.12);border:1px solid rgba(${r},${g},${b},.15)">${t.icon}</div>
-                  <h3>${t.name}</h3>
-                </div>
-              </div>
-              <div class="c-card-stats">
-                ${t.stats.map(([k,v]) => `<div class="c-card-stat"><span>${k}</span><span>${v}</span></div>`).join('')}
-              </div>
-              <div>
-                <div style="font-size:12px;color:rgba(240,238,245,.5);margin-bottom:16px;line-height:1.55">${t.desc}</div>
-                <a href="${t.href}" class="c-card-link" style="color:${t.color};text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px">↗ Open ${t.name}</a>
-              </div>
-            </div>
-            <div class="c-card-visual">
-              <div class="c-card-visual-grid"></div>
-              <div class="c-card-visual-glow" style="background:${t.color}"></div>
-              <img src="${t.img}" alt="${t.name}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:${t.imgPos} center;z-index:1;border-radius:0">
-            </div>
-          </div>`
-        track.appendChild(slide)
-
-        const dot = document.createElement('div')
-        dot.className = 'c-dot' + (i===0 ? ' active' : '')
-        dot.onclick = () => goSlide(i)
-        dotsWrap.appendChild(dot)
-      })
-    }
-
-    function goSlide(i: number) {
-      i = ((i % tools.length) + tools.length) % tools.length
-      currentSlide = i
-      const slides = track.querySelectorAll('.carousel-slide')
-      const wrapW = (document.getElementById('carousel-wrap') as HTMLElement).offsetWidth
-      slides.forEach((s,j) => s.classList.toggle('active', j===i))
-      dotsWrap.querySelectorAll('.c-dot').forEach((d: Element, j: number) => {
-        d.classList.toggle('active', j===i);
-        (d as HTMLElement).style.background = j===i ? tools[i].color : ''
-      })
-      requestAnimationFrame(() => {
-        const activeSlide = slides[i] as HTMLElement
-        const slideLeft = activeSlide.offsetLeft
-        const slideW = activeSlide.offsetWidth
-        const offset = slideLeft - (wrapW - slideW) / 2;
-        (track as HTMLElement).style.transform = `translateX(${-offset}px)`
-      })
-    }
-
-    window.addEventListener('resize', () => goSlide(currentSlide))
-    setTimeout(() => goSlide(0), 50)
-
-    // Arrow buttons
-    const prevBtn = document.getElementById('carousel-prev')
-    const nextBtn = document.getElementById('carousel-next')
-    prevBtn?.addEventListener('click', () => goSlide(currentSlide - 1))
-    nextBtn?.addEventListener('click', () => goSlide(currentSlide + 1))
-
-    let autoTimer = setInterval(() => goSlide(currentSlide + 1), 4000)
-    const wrap = document.getElementById('carousel-wrap')
-    wrap?.addEventListener('mouseenter', () => clearInterval(autoTimer))
-    wrap?.addEventListener('mouseleave', () => { autoTimer = setInterval(() => goSlide(currentSlide + 1), 4000) })
 
     // ─── Scroll-triggered reveals ─────────────────────────
     const revealObserver = new IntersectionObserver((entries) => {
@@ -222,8 +336,6 @@ export default function HomePage() {
     return () => {
       document.body.classList.remove('home-page-active')
       window.removeEventListener('scroll', updateProgress)
-      window.removeEventListener('resize', () => goSlide(currentSlide))
-      clearInterval(autoTimer)
     }
   }, [])
 
@@ -260,35 +372,8 @@ export default function HomePage() {
           <ResumeDashboard />
         </section>
 
-        {/* ── TOOL SHOWCASE CAROUSEL ─────────────────────── */}
-        <section id="suite-section" className="carousel-section">
-          <div className="carousel-header reveal">
-            <div className="title-glow" />
-            <div className="title-lines" />
-            <div className="title-particles">
-              <span /><span /><span /><span /><span /><span />
-            </div>
-            <div className="section-label">The Suite</div>
-            <h2 className="suite-title title-reveal">
-              <span className="word">Six tools.</span>&nbsp;
-              <span className="word highlight">One platform.</span>
-            </h2>
-            <p className="suite-sub sub-reveal">From token creation to governance — deploy, lock, vest, airdrop, vote, and launch.</p>
-          </div>
-
-          <div className="carousel-wrap" id="carousel-wrap">
-            <div className="carousel-track" id="carousel-track" />
-            <div className="carousel-nav">
-              <div className="carousel-arrow" id="carousel-prev">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
-              </div>
-              <div className="carousel-arrow" id="carousel-next">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 6 15 12 9 18"/></svg>
-              </div>
-            </div>
-          </div>
-          <div className="carousel-dots" id="carousel-dots" />
-        </section>
+        {/* ── CONNECTED PRODUCT STACK ─────────────────────── */}
+        <EcosystemSuite />
 
         <div style={{ padding: '0 clamp(16px,4vw,40px)' }}>
           <div style={{ maxWidth: 1100, margin: '0 auto' }}><div className="divider" /></div>
