@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import ScrollHero from '@/components/home/ScrollHero'
+import { ResumeDashboard } from '@/components/shared/ResumeDashboard'
 
 const tools = [
   {
@@ -254,6 +255,10 @@ export default function HomePage() {
             transition: 'opacity 500ms ease',
           }}
         >
+
+        <section className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
+          <ResumeDashboard />
+        </section>
 
         {/* ── TOOL SHOWCASE CAROUSEL ─────────────────────── */}
         <section id="suite-section" className="carousel-section">

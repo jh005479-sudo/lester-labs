@@ -120,6 +120,12 @@ export default function PresalePage() {
     functionName: 'totalRaised',
     query: { enabled: Boolean(iloAddress) },
   })
+  const totalClaimedContributionsRead = useReadContract({
+    address: iloAddress,
+    abi: ILO_ABI,
+    functionName: 'totalClaimedContributions',
+    query: { enabled: Boolean(iloAddress) },
+  })
   const liquidityBpsRead = useReadContract({
     address: iloAddress,
     abi: ILO_ABI,
@@ -233,6 +239,7 @@ export default function PresalePage() {
   const softCap = (softCapRead.data ?? 0n) as bigint
   const hardCap = (hardCapRead.data ?? 0n) as bigint
   const totalRaised = (totalRaisedRead.data ?? 0n) as bigint
+  const totalClaimedContributions = (totalClaimedContributionsRead.data ?? 0n) as bigint
   const tokensPerEth = (tokensPerEthRead.data ?? 0n) as bigint
   const startTime = Number(startTimeRead.data ?? 0n)
   const endTime = Number(endTimeRead.data ?? 0n)
@@ -259,6 +266,12 @@ export default function PresalePage() {
   const canClaim = finalized && userContribution > 0n
   const canRefund = userContribution > 0n && (cancelled || (hasEnded && !softCapMet) || (now > endTime + 7 * 24 * 60 * 60 && !finalized))
   const canClaimLp = isOwner && finalized && lpTokensLocked > 0n && now >= lpUnlockTime
+  const failedOrRefundable = cancelled || (hasEnded && !softCapMet) || (now > endTime + 7 * 24 * 60 * 60 && !finalized)
+  const unclaimedContributions = totalRaised > totalClaimedContributions ? totalRaised - totalClaimedContributions : 0n
+  const reservedClaimTokens = finalized ? (unclaimedContributions * tokensPerEth) / 1_000_000_000_000_000_000n : 0n
+  const supportsTokenSweep = totalClaimedContributionsRead.isSuccess
+  const canSweepExcessTokens =
+    supportsTokenSweep && isOwner && (finalized || failedOrRefundable) && contractTokenBalance > reservedClaimTokens
   const canSweepExcess = isOwner && finalized
   const status = finalized
     ? 'Finalized'
@@ -326,6 +339,7 @@ export default function PresalePage() {
       startTimeRead.refetch(),
       endTimeRead.refetch(),
       totalRaisedRead.refetch(),
+      totalClaimedContributionsRead.refetch(),
       liquidityBpsRead.refetch(),
       lpLockDurationRead.refetch(),
       lpUnlockTimeRead.refetch(),
@@ -545,6 +559,21 @@ export default function PresalePage() {
           address: iloAddress,
           abi: ILO_ABI,
           functionName: 'sweepExcessETH',
+        }),
+    })
+  }
+
+  async function handleSweepExcessTokens() {
+    if (!iloAddress) return
+
+    await submitTransaction({
+      pendingMessage: 'Sweeping recoverable sale tokens…',
+      successMessage: 'Excess sale tokens swept to the presale owner.',
+      request: () =>
+        writeContractAsync({
+          address: iloAddress,
+          abi: ILO_ABI,
+          functionName: 'sweepExcessTokens',
         }),
     })
   }
@@ -947,6 +976,20 @@ export default function PresalePage() {
                     }}
                   >
                     Sweep Excess zkLTC
+                  </button>
+                  <button
+                    onClick={() => { void handleSweepExcessTokens() }}
+                    disabled={!canSweepExcessTokens}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.04)',
+                      color: '#fff',
+                      cursor: canSweepExcessTokens ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    Sweep Excess Sale Tokens
                   </button>
                   <button
                     onClick={() => { void handleCancel() }}

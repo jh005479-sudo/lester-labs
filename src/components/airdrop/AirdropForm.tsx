@@ -506,6 +506,24 @@ export function AirdropForm() {
                 Two-step flow: you&apos;ll first approve the token spend, then confirm the airdrop transaction.
               </div>
             )}
+            <div className="rounded-md border border-white/10 bg-black/15 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/40">Transaction preflight</p>
+              <div className="grid gap-2 text-xs sm:grid-cols-2">
+                {[
+                  { label: 'Network', value: isWrongNetwork ? 'Switch required' : 'LitVM Testnet', ok: !isWrongNetwork },
+                  { label: 'Disperse contract', value: isContractConfigured ? 'Configured' : 'Unavailable', ok: isContractConfigured },
+                  { label: 'Recipients', value: `${validRecipients.length} valid`, ok: validRecipients.length > 0 },
+                  { label: 'Amount', value: totalAmount > 0 ? `${totalAmount.toLocaleString()} ${mode === 'native' ? 'zkLTC' : 'tokens'}` : 'Missing', ok: totalAmount > 0 },
+                  { label: 'Token decimals', value: decimalsReady ? 'Ready' : 'Loading', ok: decimalsReady },
+                  { label: 'Wallet result', value: mode === 'token' ? 'Approve, then send' : 'Send native batch', ok: true },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2">
+                    <span className="text-white/40">{item.label}</span>
+                    <span className={item.ok ? 'text-green-300' : 'text-amber-300'}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {batchCount > 1 && (

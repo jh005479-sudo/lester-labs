@@ -34,6 +34,7 @@ contract ILO is ReentrancyGuard {
     bool public cancelled;
 
     uint256 public totalRaised;
+    uint256 public totalClaimedContributions;
     uint256 public lpTokensLocked;
     address public lpToken;
 
@@ -48,6 +49,7 @@ contract ILO is ReentrancyGuard {
     event Claimed(address indexed user, uint256 tokens);
     event Refunded(address indexed user, uint256 amount);
     event LPClaimed(address indexed owner, uint256 amount);
+    event ExcessTokensSwept(address indexed owner, uint256 amount);
     event Whitelisted(address indexed user, bool status);
 
     // ── Modifiers ──────────────────────────────────────────────────────
@@ -192,6 +194,7 @@ contract ILO is ReentrancyGuard {
         require(contribution > 0, "Nothing to claim");
 
         contributions[msg.sender] = 0;
+        totalClaimedContributions += contribution;
         uint256 tokens = (contribution * tokensPerEth) / 1e18;
         token.safeTransfer(msg.sender, tokens);
 
@@ -237,6 +240,29 @@ contract ILO is ReentrancyGuard {
         require(balance > 0, "No excess ETH");
         (bool ok,) = owner.call{value: balance}("");
         require(ok, "Transfer failed");
+    }
+
+    // ── Sweep excess sale tokens (owner only, preserves contributor claims) ──
+    function sweepExcessTokens() external onlyOwner nonReentrant {
+        bool failedOrRefundable =
+            cancelled ||
+            (block.timestamp > endTime && totalRaised < softCap) ||
+            (block.timestamp > endTime + 7 days && !finalized);
+        require(finalized || failedOrRefundable, "Tokens still reserved");
+
+        uint256 reservedForClaims = 0;
+        if (finalized) {
+            uint256 unclaimedContributions = totalRaised - totalClaimedContributions;
+            reservedForClaims = (unclaimedContributions * tokensPerEth) / 1e18;
+        }
+
+        uint256 balance = token.balanceOf(address(this));
+        require(balance > reservedForClaims, "No excess tokens");
+
+        uint256 amount = balance - reservedForClaims;
+        token.safeTransfer(owner, amount);
+
+        emit ExcessTokensSwept(owner, amount);
     }
 
     // ── Whitelist management (owner only) ──────────────────────────────

@@ -7,7 +7,7 @@ import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Wallet, X, ArrowLeft
 import { useAccount, useBalance, useReadContract, useReadContracts, useWaitForTransactionReceipt } from 'wagmi'
 import { CurrencyAmount, Token } from '@uniswap/sdk-core'
 import { Pair, Route, Trade } from '@uniswap/v2-sdk'
-import { encodeFunctionData, formatUnits, isAddress, maxUint256, parseUnits, zeroAddress } from 'viem'
+import { encodeFunctionData, formatUnits, isAddress, parseUnits, zeroAddress } from 'viem'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
@@ -444,7 +444,7 @@ function CreatePoolPanel({
           address: token0.address,
           abi: ERC20_ABI,
           functionName: 'approve',
-          args: [UNISWAP_V2_ROUTER_ADDRESS, maxUint256],
+          args: [UNISWAP_V2_ROUTER_ADDRESS, a0],
         }, 150000n)
         await confirmHash(approvalHash, `${token0.symbol} approved. Continuing…`)
       }
@@ -455,7 +455,7 @@ function CreatePoolPanel({
           address: token1.address,
           abi: ERC20_ABI,
           functionName: 'approve',
-          args: [UNISWAP_V2_ROUTER_ADDRESS, maxUint256],
+          args: [UNISWAP_V2_ROUTER_ADDRESS, a1],
         }, 150000n)
         await confirmHash(approvalHash, `${token1.symbol} approved. Continuing…`)
       }
@@ -1578,7 +1578,7 @@ function SwapPageInner() {
           address: resolvedInput.address,
           abi: ERC20_ABI,
           functionName: 'approve',
-          args: [UNISWAP_V2_ROUTER_ADDRESS, maxUint256],
+          args: [UNISWAP_V2_ROUTER_ADDRESS, parsedAmountIn],
           gas: 500000n,
         })
         setTxHash(hash)

@@ -18,7 +18,7 @@ export function ShareModal({ open, onClose, stats }: ShareModalProps) {
 
   const handlePostToX = async () => {
     const text = `LitVM Network Stats\n\nBlock: #${stats.blockHeight.toLocaleString()}\n24h Txs: ${stats.txCount24h.toLocaleString()}\n\nhttps://lester-labs-psi.vercel.app/explorer\n\n#LitVM #Litecoin #DeFi`
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank')
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
   }
 
   const handleCopyImage = async () => {

@@ -32,6 +32,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.lester-labs.com'),
   title: {
     default: 'Lester Labs — DeFi Utilities for LitVM',
     template: '%s | Lester Labs on LitVM',
@@ -51,6 +52,12 @@ export const metadata: Metadata = {
     'Lester-Labs',
   ],
   alternates: { canonical: 'https://www.lester-labs.com' },
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/icon-192.png',
+  },
+  manifest: '/site.webmanifest',
   openGraph: {
     title: 'Lester Labs — DeFi Utilities for LitVM',
     description: 'The first native DeFi suite for LitVM. DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, and governance.',
