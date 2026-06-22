@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  LineChart,
   Droplets,
   FileText,
   Layers3,
@@ -39,6 +40,7 @@ export const appGroups: { intent: AppIntent; summary: string; apps: LesterApp[] 
     summary: 'Move and seed LitVM liquidity.',
     apps: [
       { href: '/swap', label: 'Swap', description: 'Trade LitVM assets.', accent: '#E44FB5', icon: Droplets },
+      { href: '/charts', label: 'Charts', description: 'Search LitVM market charts.', accent: '#36D1DC', icon: LineChart },
       { href: '/pool', label: 'Pool', description: 'Create and manage LP.', accent: '#E44FB5', icon: Layers3 },
     ],
   },

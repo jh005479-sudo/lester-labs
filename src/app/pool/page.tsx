@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { Droplets, ExternalLink, Layers3, Loader2, Minus, Plus, Wallet, X } from 'lucide-react'
+import { BarChart3, Droplets, ExternalLink, Layers3, Loader2, Minus, Plus, Wallet, X } from 'lucide-react'
 import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { formatUnits, parseUnits } from 'viem'
@@ -12,10 +12,11 @@ import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
 import { UNISWAP_V2_FACTORY_ADDRESS, UNISWAP_V2_ROUTER_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+import { filterPools, getRecentPoolIndices } from '@/lib/poolDisplay'
 
 const ACCENT = '#E44FB5'
 const PAGE_SIZE = 10
-const MAX_DISPLAY = 100
+const MAX_DISPLAY = 250
 
 function ZERO_ADDRESS(): string {
   return '0x0000000000000000000000000000000000000000'
@@ -96,6 +97,13 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
           >
             <Plus size={12} />
             Add Liquidity
+          </Link>
+          <Link
+            href={`/charts?pair=${pairAddress}`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:border-cyan-200/35 hover:text-white"
+          >
+            <BarChart3 size={12} />
+            Chart
           </Link>
           <a
             href={`https://liteforge.explorer.caldera.xyz/address/${pairAddress}`}
@@ -663,15 +671,16 @@ export default function PoolPage() {
   } | null>(null)
 
   const displayedCount = Math.min(loadedBatches * PAGE_SIZE, maxDisplay)
+  const displayedIndices = getRecentPoolIndices(totalPairs, displayedCount)
 
   // ── Batch-fetch pair addresses ───────────────────────────────────────────
   const pairAddressReads = useReadContracts({
     contracts: isDexConfigured
-      ? Array.from({ length: displayedCount }, (_, index) => ({
+      ? displayedIndices.map((index) => ({
           address: UNISWAP_V2_FACTORY_ADDRESS,
           abi: UNISWAP_V2_FACTORY_ABI,
           functionName: 'allPairs' as const,
-          args: [BigInt(index)],
+          args: [index],
         }))
       : [],
     query: { enabled: isDexConfigured && displayedCount > 0 },
@@ -850,17 +859,7 @@ export default function PoolPage() {
     })
 
   const searchLower = poolSearch.trim().toLowerCase()
-  const visiblePools = pools.filter((p) => {
-    if (p.lpBalance > 0n && p.totalSupply > 0n) return false
-    if (!searchLower) return true
-    return (
-      p.token0Meta.symbol.toLowerCase().includes(searchLower) ||
-      p.token1Meta.symbol.toLowerCase().includes(searchLower) ||
-      p.token0Meta.name.toLowerCase().includes(searchLower) ||
-      p.token1Meta.name.toLowerCase().includes(searchLower) ||
-      p.pairAddress.toLowerCase().includes(searchLower)
-    )
-  })
+  const visiblePools = filterPools(pools, searchLower, true)
 
   function handleAddLiquidity(
     pairAddress: `0x${string}`,
@@ -909,7 +908,7 @@ export default function PoolPage() {
         flowKey="pool"
         stats={[
           { label: 'Factory pairs', value: totalPairs.toString() },
-          { label: 'Displayed', value: `${displayedCount}/${maxDisplay}` },
+          { label: 'Newest scanned', value: `${displayedCount}/${maxDisplay}` },
           { label: 'Your positions', value: positions.length.toString() },
         ]}
       />
@@ -930,7 +929,7 @@ export default function PoolPage() {
             <p className="mt-1 text-sm text-white/45">
               {isConnected
                 ? `${positions.length} position${positions.length !== 1 ? 's' : ''} found for ${address?.slice(0, 6)}…`
-                : `${visiblePools.length} pool${visiblePools.length !== 1 ? 's' : ''} available to explore`}
+                : `${visiblePools.length} pool${visiblePools.length !== 1 ? 's' : ''} available in the newest scanned window`}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -1028,7 +1027,7 @@ export default function PoolPage() {
 
               {maxDisplay < totalPairs && (
                 <p className="text-center text-xs text-white/30">
-                  Showing {maxDisplay} of {totalPairs} total pairs. Connect to view your positions.
+                  Scanning newest {maxDisplay} of {totalPairs} total pairs. Connect to view your positions.
                 </p>
               )}
             </div>
@@ -1057,7 +1056,7 @@ export default function PoolPage() {
                 <p className="mt-3 text-3xl font-semibold text-white">{displayedCount}</p>
                 <p className="mt-2 text-sm text-white/45">
                   {totalPairs > MAX_DISPLAY
-                    ? `Displaying first ${MAX_DISPLAY} pools.`
+                    ? `Scanning newest ${MAX_DISPLAY} pools.`
                     : `Showing ${displayedCount} of ${totalPairs} pools.`}
                 </p>
               </div>
@@ -1189,7 +1188,7 @@ export default function PoolPage() {
 
                   {maxDisplay < totalPairs && (
                     <p className="text-center text-xs text-white/30">
-                      Showing {maxDisplay} of {totalPairs} total pairs.
+                      Scanning newest {maxDisplay} of {totalPairs} total pairs. Load more expands the visible window.
                     </p>
                   )}
                 </div>
