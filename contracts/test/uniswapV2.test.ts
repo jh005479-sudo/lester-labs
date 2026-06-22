@@ -243,6 +243,37 @@ describe("Lester Labs Uniswap V2 fork", function () {
     expect(TREASURY_FEE_TARGET).to.equal("0xDD221FBbCb0f6092AfE51183d964AA89A968eE13");
   });
 
+  it("rejects unsafe launchpad factory deployment parameters", async function () {
+    const { treasury, projectOwner, router } = await loadFixture(deployLaunchpadFixture);
+    const ILOFactory = await ethers.getContractFactory("ILOFactory", treasury);
+
+    await expect(
+      ILOFactory.deploy(projectOwner.address, treasury.address, 200, ethers.parseEther("0.03")),
+    ).to.be.revertedWith("Invalid router");
+
+    await expect(
+      ILOFactory.deploy(ethers.ZeroAddress, treasury.address, 200, ethers.parseEther("0.03")),
+    ).to.be.revertedWith("Invalid router");
+
+    await expect(
+      ILOFactory.deploy(await router.getAddress(), ethers.ZeroAddress, 200, ethers.parseEther("0.03")),
+    ).to.be.revertedWith("Invalid treasury");
+
+    await expect(
+      ILOFactory.deploy(await router.getAddress(), treasury.address, 501, ethers.parseEther("0.03")),
+    ).to.be.revertedWith("Max 5%");
+  });
+
+  it("rejects unsafe launchpad factory admin updates", async function () {
+    const { projectOwner, iloFactory } = await loadFixture(deployLaunchpadFixture);
+
+    await expect(iloFactory.setRouter(projectOwner.address)).to.be.revertedWith("Invalid router");
+    await expect(iloFactory.setRouter(ethers.ZeroAddress)).to.be.revertedWith("Invalid router");
+    await expect(iloFactory.setConnector(projectOwner.address)).to.be.revertedWith("Invalid connector");
+    await expect(iloFactory.setConnector(ethers.ZeroAddress)).to.be.revertedWith("Invalid connector");
+    await expect(iloFactory.setTreasury(ethers.ZeroAddress)).to.be.revertedWith("Invalid treasury");
+  });
+
   it("rejects launchpad sales that point at a non-contract token address", async function () {
     const { projectOwner, iloFactory } = await loadFixture(deployLaunchpadFixture);
     const now = await time.latest();

@@ -340,7 +340,7 @@ export default function HomePage() {
   }, [])
 
   return (
-    <div className="noise-overlay" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
+    <div className="home-shell noise-overlay" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
       {/* Fixed UI elements */}
       <div className="scroll-progress" id="scroll-progress" />
       <div className="back-to-top" id="back-to-top">

@@ -1,8 +1,6 @@
 'use client'
 
 import { useAccount, useReadContract } from 'wagmi'
-import { Navbar } from '@/components/layout/Navbar'
-import { LTCBanner } from '@/components/LTCBanner'
 import { LedgerStats } from '@/components/ledger/LedgerStats'
 import { MessageComposer } from '@/components/ledger/MessageComposer'
 import { MessageFeed } from '@/components/ledger/MessageFeed'
@@ -71,9 +69,6 @@ export default function LedgerPage() {
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
-      <LTCBanner />
-      <Navbar />
-
       <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>

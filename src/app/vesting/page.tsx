@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { Navbar } from '@/components/layout/Navbar'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { VestingForm } from '@/components/vesting/VestingForm'
 import { MySchedules } from '@/components/vesting/MySchedules'
@@ -21,7 +20,6 @@ export default function VestingPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
-      <Navbar />
       <ToolHero
         category="Token Distribution"
         title="Lester"

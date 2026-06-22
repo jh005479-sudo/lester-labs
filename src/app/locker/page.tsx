@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { Navbar } from '@/components/layout/Navbar'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { LockForm } from '@/components/locker/LockForm'
 import { MyLocks } from '@/components/locker/MyLocks'
@@ -21,7 +20,6 @@ export default function LockerPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
-      <Navbar />
       <ToolHero
         category="LP Security"
         title="Lester"

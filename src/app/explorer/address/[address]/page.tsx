@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Navbar } from '@/components/layout/Navbar'
-import { LTCBanner } from '@/components/LTCBanner'
 import { Copy, ExternalLink, Eye, EyeOff, Check, ArrowRight, FileCode, Coins } from 'lucide-react'
 import {
   formatEtherFromHex, hexToNumber, hexToBigInt,
@@ -365,7 +363,6 @@ export default function AddressPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-        <Navbar /><LTCBanner />
         <main className="mx-auto max-w-7xl px-4 pt-40 pb-20 sm:px-6 lg:px-8">
           <div className="text-center text-white/40 py-20">Loading address data...</div>
         </main>
@@ -375,8 +372,6 @@ export default function AddressPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <Navbar /><LTCBanner />
-
       <main className="mx-auto max-w-7xl px-4 pt-40 pb-20 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 mb-6">

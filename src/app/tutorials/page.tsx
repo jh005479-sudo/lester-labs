@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { Navbar } from '@/components/layout/Navbar'
 import { Zap, Shield, ArrowRight, Layers, Clock } from 'lucide-react'
 import { TUTORIALS } from '@/lib/tutorials-content'
 
@@ -98,7 +97,6 @@ function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
 export default function TutorialsPage() {
   return (
     <div className="min-h-screen bg-[var(--background)] text-white">
-      <Navbar />
       <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
 
         {/* Header */}

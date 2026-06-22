@@ -28,6 +28,10 @@ contract ILOFactory is Ownable {
         uint256 _platformFeeBps,
         uint256 _creationFee
     ) Ownable(msg.sender) {
+        require(_router != address(0) && _router.code.length > 0, "Invalid router");
+        require(_treasury != address(0), "Invalid treasury");
+        require(_platformFeeBps <= 500, "Max 5%");
+
         router         = _router;
         treasury       = _treasury;
         platformFeeBps = _platformFeeBps;
@@ -95,9 +99,21 @@ contract ILOFactory is Ownable {
     }
 
     // Admin
-    function setRouter(address _router)         external onlyOwner { router = _router; }
-    function setConnector(address _connector)   external onlyOwner { connector = _connector; }
-    function setTreasury(address _treasury)     external onlyOwner { treasury = _treasury; }
+    function setRouter(address _router) external onlyOwner {
+        require(_router != address(0) && _router.code.length > 0, "Invalid router");
+        router = _router;
+    }
+
+    function setConnector(address _connector) external onlyOwner {
+        require(_connector != address(0) && _connector.code.length > 0, "Invalid connector");
+        connector = _connector;
+    }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "Invalid treasury");
+        treasury = _treasury;
+    }
+
     function setPlatformFee(uint256 _bps)       external onlyOwner { require(_bps <= 500, "Max 5%"); platformFeeBps = _bps; }
     function setCreationFee(uint256 _fee)       external onlyOwner { creationFee = _fee; }
 }

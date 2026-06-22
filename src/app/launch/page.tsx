@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Navbar } from '@/components/layout/Navbar'
 import { TokenWizard } from '@/components/launch/TokenWizard'
 import { BuilderChecklist } from '@/components/shared/BuilderChecklist'
 import { ToolHero } from '@/components/shared/ToolHero'
@@ -24,8 +23,6 @@ export default function LaunchPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0818', color: '#f0eef5' }}>
-      <Navbar />
-
       <ToolHero
         category="Token Creation"
         title="Lester"

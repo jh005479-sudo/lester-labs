@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { Navbar } from '@/components/layout/Navbar'
-import { LTCBanner } from '@/components/LTCBanner'
 import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { getTokenDetails, getTokenTransfers, type TokenDetails, type TokenTransfer } from '@/lib/token-indexer'
 import { formatAddress, LITVM_EXPLORER_URL, LITVM_RPC_URL } from '@/lib/explorerRpc'
@@ -307,7 +305,6 @@ export default function TokenDetailPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-[var(--background)] text-white">
-        <LTCBanner /><Navbar />
         <div className="pt-[120px] max-w-5xl mx-auto px-4 text-center py-20 text-white/50">Loading token details...</div>
       </main>
     )
@@ -316,7 +313,6 @@ export default function TokenDetailPage() {
   if (error || !details) {
     return (
       <main className="min-h-screen bg-[var(--background)] text-white">
-        <LTCBanner /><Navbar />
         <div className="pt-[120px] max-w-5xl mx-auto px-4">
           <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error || 'Token not found'}</div>
         </div>
@@ -326,8 +322,6 @@ export default function TokenDetailPage() {
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
-      <LTCBanner />
-      <Navbar />
       <div className="pt-[120px] max-w-5xl mx-auto px-4 pb-20">
         {/* Back link */}
         <Link href="/explorer/tokens" className="inline-flex items-center gap-1.5 text-sm text-white/50 hover:text-white/70 mb-6 transition">

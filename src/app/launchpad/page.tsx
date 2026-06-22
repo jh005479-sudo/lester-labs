@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import Link from 'next/link'
-import { Navbar } from '@/components/layout/Navbar'
 import { BuilderChecklist } from '@/components/shared/BuilderChecklist'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { useLocalEngagement } from '@/hooks/useLocalEngagement'
@@ -1273,7 +1272,6 @@ export default function LaunchpadPage() {
       className="min-h-screen"
       style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >
-      <Navbar />
       <ToolHero
         category="Presale Platform"
         title="Lester"

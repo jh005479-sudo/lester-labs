@@ -7,8 +7,6 @@ import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
 import { useReadContract, useReadContracts } from 'wagmi'
 import { formatUnits } from 'viem'
 import { ArrowUpRight, BarChart3, BookmarkCheck, BookmarkPlus, Droplets, ExternalLink, Loader2, RefreshCw, Search } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
-import { LTCBanner } from '@/components/LTCBanner'
 import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI } from '@/config/abis'
 import { UNISWAP_V2_FACTORY_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
@@ -171,8 +169,6 @@ function getMarketQuoteLiquidity(market: PairMarket) {
 function ChartsFallback() {
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
-      <LTCBanner />
-      <Navbar />
       <div className="mx-auto max-w-7xl px-4 pb-20 pt-[120px]">
         <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-8 text-center text-sm text-white/45">
           Loading LitVM charts...
@@ -463,8 +459,6 @@ function ChartsContent() {
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
-      <LTCBanner />
-      <Navbar />
       <div className="mx-auto max-w-7xl px-4 pb-20 pt-[120px]">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>

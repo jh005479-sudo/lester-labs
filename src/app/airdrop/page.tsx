@@ -1,13 +1,11 @@
 'use client'
 
-import { Navbar } from '@/components/layout/Navbar'
 import { AirdropForm } from '@/components/airdrop/AirdropForm'
 import { ToolHero } from '@/components/shared/ToolHero'
 
 export default function AirdropPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
-      <Navbar />
       <ToolHero
         category="Mass Distribution"
         title="Lester"
