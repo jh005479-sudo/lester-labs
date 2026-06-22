@@ -7,6 +7,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
+import { ResumeDashboard } from '@/components/shared/ResumeDashboard'
 import {
   ILO_FACTORY_ADDRESS,
   TOKEN_FACTORY_ADDRESS,
@@ -722,6 +723,10 @@ export default function PortfolioPage() {
         </div>
 
         <LiveActivityRail surface="portfolio" />
+
+        <div className="mb-8">
+          <ResumeDashboard />
+        </div>
 
         {/* Tab bar */}
         <div className="flex items-end gap-0 border-b border-white/10 mb-8">

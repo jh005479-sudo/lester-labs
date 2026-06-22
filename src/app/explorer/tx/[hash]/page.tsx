@@ -184,9 +184,9 @@ export default function TransactionDetailsPage({ params }: { params: Promise<{ h
       <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-6 text-sm">
         <p className="mb-3 text-zinc-500 uppercase tracking-wider">Quick links</p>
         <div className="flex flex-col gap-2 font-mono text-cyan-400">
-          <Link href={`${LITVM_EXPLORER_URL}/address/${tx.from}`} target="_blank">From: {formatAddress(tx.from)}</Link>
-          {tx.to && <Link href={`${LITVM_EXPLORER_URL}/address/${tx.to}`} target="_blank">To: {formatAddress(tx.to)}</Link>}
-          <Link href={`${LITVM_EXPLORER_URL}/block/${hexToNumber(tx.blockNumber)}`} target="_blank">Block: {hexToNumber(tx.blockNumber).toLocaleString()}</Link>
+          <Link href={`${LITVM_EXPLORER_URL}/address/${tx.from}`} target="_blank" rel="noopener noreferrer">From: {formatAddress(tx.from)}</Link>
+          {tx.to && <Link href={`${LITVM_EXPLORER_URL}/address/${tx.to}`} target="_blank" rel="noopener noreferrer">To: {formatAddress(tx.to)}</Link>}
+          <Link href={`${LITVM_EXPLORER_URL}/block/${hexToNumber(tx.blockNumber)}`} target="_blank" rel="noopener noreferrer">Block: {hexToNumber(tx.blockNumber).toLocaleString()}</Link>
 
         </div>
       </div>

@@ -1,4 +1,6 @@
 export type PresaleStatus = 'All' | 'Live' | 'Upcoming' | 'Ended' | 'Finalized' | 'Cancelled'
+export type PresaleQualityFilter = 'All' | 'Ending soon' | 'Funded' | 'Participated' | 'Creator' | 'Liquidity ready'
+export type PresaleReminder = 'Claim available' | 'Refund available' | 'Ending soon' | 'LP unlock available' | null
 
 export interface LaunchpadDisplayPresale {
   address: string
@@ -17,12 +19,17 @@ export interface LaunchpadDisplayPresale {
   contributorCount: string | number
   logoUrl?: string
   userContribution?: bigint
+  owner?: string | null
+  lpUnlockTime?: number
+  lpTokensLocked?: bigint
 }
 
 export interface PresaleFilterOptions {
   query: string
   status: PresaleStatus
   participatedOnly: boolean
+  quality?: PresaleQualityFilter
+  userAddress?: string
 }
 
 const STATUS_RANK: Record<Exclude<PresaleStatus, 'All'>, number> = {
@@ -82,9 +89,51 @@ export function filterPresales(
     if (filters.participatedOnly && (presale.userContribution ?? 0n) <= 0n) return false
     const status = getPresaleStatus(presale, now)
     if (filters.status !== 'All' && status !== filters.status) return false
+    if (filters.quality && !matchesPresaleQualityFilter(presale, filters.quality, now, filters.userAddress)) return false
     if (!query) return true
     return getPresaleSearchText(presale).includes(query)
   })
+}
+
+export function matchesPresaleQualityFilter(
+  presale: LaunchpadDisplayPresale,
+  filter: PresaleQualityFilter,
+  now: number,
+  userAddress?: string,
+): boolean {
+  if (filter === 'All') return true
+  if (filter === 'Ending soon') {
+    return getPresaleStatus(presale, now) === 'Live' && presale.endTime - now <= 6 * 60 * 60 * 1000
+  }
+  if (filter === 'Funded') return getPresaleProgress(presale) >= 50
+  if (filter === 'Participated') return (presale.userContribution ?? 0n) > 0n
+  if (filter === 'Creator') {
+    return Boolean(userAddress && presale.owner && presale.owner.toLowerCase() === userAddress.toLowerCase())
+  }
+  if (filter === 'Liquidity ready') {
+    return presale.liquidityBps >= 5_000 && Number.parseFloat(presale.raised) > 0
+  }
+  return true
+}
+
+export function getPresaleReminder(
+  presale: LaunchpadDisplayPresale,
+  now: number,
+  isOwner: boolean,
+): PresaleReminder {
+  const raised = Number.parseFloat(presale.raised)
+  const softCap = Number.parseFloat(presale.softCap)
+  if (isOwner && presale.finalized && (presale.lpTokensLocked ?? 0n) > 0n && (presale.lpUnlockTime ?? Number.MAX_SAFE_INTEGER) <= Math.floor(now / 1000)) {
+    return 'LP unlock available'
+  }
+  if (presale.finalized && (presale.userContribution ?? 0n) > 0n) return 'Claim available'
+  if (!presale.finalized && !presale.cancelled && now > presale.endTime && Number.isFinite(raised) && Number.isFinite(softCap) && raised < softCap && (presale.userContribution ?? 0n) > 0n) {
+    return 'Refund available'
+  }
+  if (getPresaleStatus(presale, now) === 'Live' && presale.endTime - now <= 6 * 60 * 60 * 1000) {
+    return 'Ending soon'
+  }
+  return null
 }
 
 export function sortPresales(presales: LaunchpadDisplayPresale[], now: number): LaunchpadDisplayPresale[] {

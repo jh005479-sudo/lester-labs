@@ -3,8 +3,10 @@ import { describe, it } from 'node:test'
 
 import {
   filterPresales,
+  getPresaleReminder,
   getPresaleStatus,
   getPresaleTimeLabel,
+  matchesPresaleQualityFilter,
   sortPresales,
 } from './launchpadDisplay.ts'
 
@@ -24,6 +26,17 @@ const basePresale = {
   lpLockDuration: 15_552_000,
   contributorCount: '—',
   userContribution: 0n,
+}
+
+const NOW = 150_000_000
+
+function makePresale(overrides = {}) {
+  return {
+    ...basePresale,
+    startTime: NOW - 60 * 60 * 1000,
+    endTime: NOW + 24 * 60 * 60 * 1000,
+    ...overrides,
+  }
 }
 
 describe('getPresaleStatus', () => {
@@ -68,6 +81,46 @@ describe('filterPresales', () => {
 
   it('filters to connected-wallet participation', () => {
     assert.deepEqual(filterPresales(presales, { query: '', status: 'All', participatedOnly: true }, 150_000_000).map((p) => p.symbol), ['BETA'])
+  })
+})
+
+describe('matchesPresaleQualityFilter', () => {
+  it('detects ending soon, funded, participated, creator, and liquidity-ready presales', () => {
+    const presale = makePresale({
+      raised: '50',
+      hardCap: '100',
+      endTime: NOW + 3 * 60 * 60 * 1000,
+      userContribution: 1n,
+      owner: '0xabc',
+      liquidityBps: 6_000,
+    })
+
+    assert.equal(matchesPresaleQualityFilter(presale, 'Ending soon', NOW, '0xdef'), true)
+    assert.equal(matchesPresaleQualityFilter(presale, 'Funded', NOW, '0xdef'), true)
+    assert.equal(matchesPresaleQualityFilter(presale, 'Participated', NOW, '0xdef'), true)
+    assert.equal(matchesPresaleQualityFilter(presale, 'Creator', NOW, '0xABC'), true)
+    assert.equal(matchesPresaleQualityFilter(presale, 'Liquidity ready', NOW, '0xdef'), true)
+  })
+})
+
+describe('getPresaleReminder', () => {
+  it('surfaces actionable reminders for participants and creators', () => {
+    assert.equal(
+      getPresaleReminder(makePresale({ finalized: true, userContribution: 1n }), NOW, false),
+      'Claim available',
+    )
+    assert.equal(
+      getPresaleReminder(makePresale({ endTime: NOW - 1000, raised: '1', softCap: '10', userContribution: 1n }), NOW, false),
+      'Refund available',
+    )
+    assert.equal(
+      getPresaleReminder(makePresale({ endTime: NOW + 2 * 60 * 60 * 1000 }), NOW, false),
+      'Ending soon',
+    )
+    assert.equal(
+      getPresaleReminder(makePresale({ finalized: true, lpUnlockTime: Math.floor(NOW / 1000) - 10, lpTokensLocked: 1n }), NOW, true),
+      'LP unlock available',
+    )
   })
 })
 

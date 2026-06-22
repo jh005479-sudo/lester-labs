@@ -6,113 +6,55 @@ import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
 import { ShareModal } from '@/components/ShareModal'
 import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
-import { BarChart3, Coins, Droplets, Search } from 'lucide-react'
-import { formatEtherFromHex, getLatestBlockNumber, getRecentBlocks, getTransactionReceipt, getTransactionByHash, hexToNumber, LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
-
-interface Block {
-  number: number
-  time: string
-  txCount: number
-  validator: string
-  sizeKB: number
-}
-
-interface Transaction {
-  hash: string
-  from: string
-  to: string
-  value: string
-  time: string
-  status: 'Success' | 'Pending'
-}
-
-type ExplorerRpcTransaction = string | {
-  hash?: string
-  from?: string
-  to?: string | null
-  value?: string
-}
-
-type ExplorerRpcBlock = {
-  number?: string
-  timestamp?: string
-  transactions?: ExplorerRpcTransaction[]
-  miner?: string
-  author?: string
-  size?: string
-}
-
-function timeAgoFromHex(hexTimestamp?: string) {
-  const ts = hexToNumber(hexTimestamp)
-  if (!ts) return 'Unknown'
-  const delta = Math.max(0, Math.floor(Date.now() / 1000) - ts)
-  if (delta < 60) return `${delta}s ago`
-  if (delta < 3600) return `${Math.floor(delta / 60)}m ago`
-  return `${Math.floor(delta / 3600)}h ago`
-}
+import { BarChart3, BookmarkPlus, Coins, Droplets, Search } from 'lucide-react'
+import { useLocalEngagement } from '@/hooks/useLocalEngagement'
+import { createEmptyExplorerSummary, type ExplorerSummary } from '@/lib/explorerSummary'
+import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 
 function truncateAddress(addr: string) {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-function transactionHash(tx: ExplorerRpcTransaction) {
-  return typeof tx === 'string' ? tx : tx.hash
-}
-
 export default function ExplorerPage() {
-  const [blocks, setBlocks] = useState<Block[]>([])
-  const [txs, setTxs] = useState<Transaction[]>([])
-  const [latestBlock, setLatestBlock] = useState(0)
+  const [summary, setSummary] = useState<ExplorerSummary>(() => createEmptyExplorerSummary())
+  const [loadingBlocks, setLoadingBlocks] = useState(true)
+  const [loadingTransactions, setLoadingTransactions] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [shareOpen, setShareOpen] = useState(false)
+  const { saveSearch, addActivity, scopedSearches } = useLocalEngagement()
+  const savedExplorerSearches = scopedSearches('explorer')
 
   useEffect(() => {
     let active = true
-    const load = async () => {
+    const loadStage = async (stage: 'blocks' | 'transactions') => {
       try {
-        const recentBlocks = await getRecentBlocks(8) as ExplorerRpcBlock[]
         if (!active) return
-        setBlocks(recentBlocks.map((block) => ({
-          number: hexToNumber(block.number),
-          time: timeAgoFromHex(block.timestamp),
-          txCount: Array.isArray(block.transactions) ? block.transactions.length : 0,
-          validator: block.miner || block.author || 'Unknown',
-          sizeKB: Math.max(1, Math.round(hexToNumber(block.size) / 1024)),
-        })))
-        const latest = await getLatestBlockNumber()
+        const res = await fetch(`/api/explorer/summary?stage=${stage}`, {
+          cache: 'no-store',
+        })
+        const data = await res.json() as ExplorerSummary
         if (!active) return
-        setLatestBlock(latest)
-
-        const txCandidates = recentBlocks
-          .flatMap((block) => Array.isArray(block.transactions) ? block.transactions.slice(0, 2) : [])
-          .slice(0, 8)
-        const txDetails = await Promise.all(txCandidates.map(async (tx): Promise<Transaction | null> => {
-          const hash = transactionHash(tx)
-          if (!hash) return null
-          const txData = typeof tx === 'string'
-            ? await getTransactionByHash(hash) as ExplorerRpcTransaction
-            : tx
-          const txObject = typeof txData === 'string' ? null : txData
-          const receipt = await getTransactionReceipt(hash).catch(() => null)
-          const txBlock = recentBlocks.find((block) => (
-            Array.isArray(block.transactions) &&
-            block.transactions.some((candidate) => transactionHash(candidate) === hash)
-          ))
-          return {
-            hash,
-            from: txObject?.from ?? '0x0000000000000000000000000000000000000000',
-            to: txObject?.to || '0x0000000000000000000000000000000000000000',
-            value: formatEtherFromHex(txObject?.value),
-            time: timeAgoFromHex(txBlock?.timestamp),
-            status: receipt?.status === '0x1' ? 'Success' : 'Pending',
-          }
+        setSummary((current) => ({
+          latestBlock: data.latestBlock || current.latestBlock,
+          blocks: data.blocks.length > 0 ? data.blocks : current.blocks,
+          transactions: stage === 'transactions' ? data.transactions : current.transactions,
+          updatedAt: data.updatedAt ?? current.updatedAt,
         }))
-        if (!active) return
-        setTxs(txDetails.filter((tx): tx is Transaction => tx !== null))
       } catch (e) {
         console.error('Failed to load live explorer data', e)
+      } finally {
+        if (!active) return
+        if (stage === 'blocks') setLoadingBlocks(false)
+        if (stage === 'transactions') setLoadingTransactions(false)
       }
     }
+
+    const load = () => {
+      setLoadingBlocks(true)
+      setLoadingTransactions(true)
+      loadStage('blocks').then(() => loadStage('transactions'))
+    }
+
     load()
     const interval = setInterval(load, 15000)
     return () => {
@@ -121,10 +63,24 @@ export default function ExplorerPage() {
     }
   }, [])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const q = params.get('q')
+    if (q) setSearchQuery(q)
+  }, [])
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     const q = searchQuery.trim()
     if (!q) return
+    saveSearch('explorer', q)
+    addActivity({
+      type: 'wallet',
+      id: q,
+      label: q.length > 24 ? `${q.slice(0, 10)}...${q.slice(-8)}` : q,
+      href: `/explorer?q=${encodeURIComponent(q)}`,
+      action: 'Search explorer',
+    })
     if (/^0x[a-fA-F0-9]{64}$/.test(q)) {
       window.location.href = `/explorer/tx/${q}`
       return
@@ -137,14 +93,14 @@ export default function ExplorerPage() {
       window.location.href = `/explorer/address/${q}`
       return
     }
-    window.open(`${LITVM_EXPLORER_URL}/search?q=${encodeURIComponent(q)}`, '_blank')
+    window.open(`${LITVM_EXPLORER_URL}/search?q=${encodeURIComponent(q)}`, '_blank', 'noopener,noreferrer')
   }
 
   const stats = [
-    { label: 'Latest Block', value: latestBlock ? `#${latestBlock.toLocaleString()}` : 'Loading' },
-    { label: 'Block Time', value: blocks.length > 1 ? 'Live' : 'Loading' },
-    { label: 'Recent Blocks', value: blocks.length.toString() },
-    { label: 'Sampled Txs', value: txs.length.toString() },
+    { label: 'Latest Block', value: summary.latestBlock ? `#${summary.latestBlock.toLocaleString()}` : 'Ready' },
+    { label: 'Block Time', value: summary.blocks.length > 1 ? 'Live' : loadingBlocks ? 'Syncing' : '—' },
+    { label: 'Recent Blocks', value: loadingBlocks && summary.blocks.length === 0 ? 'Syncing' : summary.blocks.length.toString() },
+    { label: 'Sampled Txs', value: loadingTransactions && summary.transactions.length === 0 ? 'Syncing' : summary.transactions.length.toString() },
     { label: 'Chain ID', value: '4441' },
     { label: 'Network', value: 'LitVM Testnet' },
   ]
@@ -187,6 +143,27 @@ export default function ExplorerPage() {
             className="analytics-card w-full rounded-lg border border-white/10 bg-[var(--surface-1)] py-3 pl-12 pr-4 text-sm text-white placeholder:text-white/30 focus:border-[var(--accent)] focus:outline-none transition-colors font-mono"
           />
         </form>
+        <div className="-mt-5 mb-8 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => saveSearch('explorer', searchQuery)}
+            disabled={!searchQuery.trim()}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <BookmarkPlus size={13} />
+            Save search
+          </button>
+          {savedExplorerSearches.slice(0, 4).map((search) => (
+            <button
+              key={`${search.query}:${search.updatedAt}`}
+              type="button"
+              onClick={() => setSearchQuery(search.query)}
+              className="rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2 text-xs text-white/45 transition hover:border-white/15 hover:text-white/75"
+            >
+              {search.query.length > 24 ? `${search.query.slice(0, 12)}...${search.query.slice(-8)}` : search.query}
+            </button>
+          ))}
+        </div>
 
         {/* Explorer actions */}
         <div className="mb-8 grid gap-3 sm:grid-cols-3">
@@ -234,7 +211,7 @@ export default function ExplorerPage() {
               <span className="text-xs text-white/40">Auto-refreshing</span>
             </div>
             <div className="divide-y divide-white/5">
-              {blocks.map((block) => (
+              {summary.blocks.map((block) => (
                 <div
                   key={block.number}
                   className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-5 py-3 hover:bg-white/5 transition-colors"
@@ -259,6 +236,17 @@ export default function ExplorerPage() {
                   </div>
                 </div>
               ))}
+              {summary.blocks.length === 0 && (
+                Array.from({ length: 5 }, (_, index) => (
+                  <div key={index} className="flex items-center justify-between gap-4 px-5 py-4">
+                    <div className="space-y-2">
+                      <div className="h-4 w-24 animate-pulse rounded bg-white/8" />
+                      <div className="h-3 w-16 animate-pulse rounded bg-white/5" />
+                    </div>
+                    <div className="h-4 w-20 animate-pulse rounded bg-white/8" />
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -269,7 +257,7 @@ export default function ExplorerPage() {
               <span className="text-xs text-white/40">Auto-refreshing</span>
             </div>
             <div className="divide-y divide-white/5">
-              {txs.map((tx, i) => (
+              {summary.transactions.map((tx, i) => (
                 <div
                   key={`${tx.hash}-${i}`}
                   className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-5 py-3 hover:bg-white/5 transition-colors"
@@ -304,6 +292,17 @@ export default function ExplorerPage() {
                   </div>
                 </div>
               ))}
+              {summary.transactions.length === 0 && (
+                Array.from({ length: 5 }, (_, index) => (
+                  <div key={index} className="flex items-center justify-between gap-4 px-5 py-4">
+                    <div className="space-y-2">
+                      <div className="h-4 w-32 animate-pulse rounded bg-white/8" />
+                      <div className="h-3 w-44 animate-pulse rounded bg-white/5" />
+                    </div>
+                    <div className="h-4 w-20 animate-pulse rounded bg-white/8" />
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -314,9 +313,9 @@ export default function ExplorerPage() {
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         stats={{
-          blockHeight: latestBlock,
-          txCount24h: txs.length * 3000, // estimated from recent sample
-          activeAddresses24h: txs.length * 200,
+          blockHeight: summary.latestBlock,
+          txCount24h: summary.transactions.length * 3000, // estimated from recent sample
+          activeAddresses24h: summary.transactions.length * 200,
           avgBlockTime: 2.1,
           gasPrice: '0.001 Gwei',
           networkName: 'LitVM Testnet',

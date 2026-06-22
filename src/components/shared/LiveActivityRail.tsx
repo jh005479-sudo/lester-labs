@@ -95,7 +95,7 @@ export function LiveActivityRail({ surface, className = '' }: LiveActivityRailPr
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: config.accent }}>
               {config.eyebrow}
             </p>
-            <h2 className="mt-1 text-lg font-semibold leading-tight tracking-tight text-white">
+            <h2 className="mt-1 break-words text-lg font-semibold leading-tight tracking-tight text-white">
               {config.title}
             </h2>
           </div>

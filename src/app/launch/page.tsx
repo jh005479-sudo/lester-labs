@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Navbar } from '@/components/layout/Navbar'
 import { TokenWizard } from '@/components/launch/TokenWizard'
+import { BuilderChecklist } from '@/components/shared/BuilderChecklist'
 import { ToolHero } from '@/components/shared/ToolHero'
 
 const COLOR = '#6B4FFF'
@@ -41,6 +42,10 @@ export default function LaunchPage() {
           { label: 'Fee', value: '0.05 zkLTC' },
         ]}
       />
+
+      <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
+        <BuilderChecklist />
+      </div>
 
       {/* WORKSPACE */}
       <div className="tool-workspace-wrap">

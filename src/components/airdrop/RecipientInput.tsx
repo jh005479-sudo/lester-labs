@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import * as Tabs from '@radix-ui/react-tabs'
-import { Upload, List, Equal, CheckCircle2 } from 'lucide-react'
+import { BookOpen, Trash2, Upload, List, Equal, CheckCircle2 } from 'lucide-react'
+import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import type { Recipient } from './RecipientTable'
 import { parseCSVRecipients, parseManualRecipients } from '@/lib/airdropRecipients'
 
@@ -25,6 +26,10 @@ export function RecipientInput({ onChange }: RecipientInputProps) {
   const [equalTotal, setEqualTotal] = useState('')
   const [equalAddresses, setEqualAddresses] = useState('')
   const [activeTab, setActiveTab] = useState('manual')
+  const [addressCsv, setAddressCsv] = useState('')
+  const [addressBookAmount, setAddressBookAmount] = useState('')
+  const [importedCount, setImportedCount] = useState<number | null>(null)
+  const { addressBook, importAddressCsv, removeAddress, addAddress } = useLocalEngagement()
 
   const handleManualChange = useCallback(
     (text: string) => {
@@ -74,6 +79,24 @@ export function RecipientInput({ onChange }: RecipientInputProps) {
     [onChange],
   )
 
+  const handleAddressBookAmount = useCallback(
+    (amount: string) => {
+      setAddressBookAmount(amount)
+      const totalNum = parseFloat(amount)
+      if (!Number.isFinite(totalNum) || totalNum <= 0) {
+        onChange([])
+        return
+      }
+      onChange(addressBook.map((entry) => ({ address: entry.address, amount })))
+    },
+    [addressBook, onChange],
+  )
+
+  useEffect(() => {
+    if (activeTab !== 'addressBook' || !addressBookAmount) return
+    queueMicrotask(() => handleAddressBookAmount(addressBookAmount))
+  }, [activeTab, addressBook, addressBookAmount, handleAddressBookAmount])
+
   // Equal distribution preview
   const equalAddressList = equalAddresses
     .split('\n')
@@ -113,6 +136,10 @@ export function RecipientInput({ onChange }: RecipientInputProps) {
         <Tabs.Trigger value="equal" className={tabClass(activeTab === 'equal')}>
           <Equal size={14} />
           Equal Distribution
+        </Tabs.Trigger>
+        <Tabs.Trigger value="addressBook" className={tabClass(activeTab === 'addressBook')}>
+          <BookOpen size={14} />
+          Address Book
         </Tabs.Trigger>
       </Tabs.List>
 
@@ -200,6 +227,84 @@ export function RecipientInput({ onChange }: RecipientInputProps) {
             </p>
           </div>
         )}
+      </Tabs.Content>
+
+      <Tabs.Content value="addressBook" className="space-y-4">
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+          <label className="text-sm font-medium text-white/70">Import contacts</label>
+          <textarea
+            value={addressCsv}
+            onChange={(event) => setAddressCsv(event.target.value)}
+            placeholder={`Label,0xAddress\n0xAddress,Label`}
+            rows={4}
+            className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 font-mono text-sm text-white placeholder:text-white/20 focus:border-[var(--accent)]/50 focus:outline-none resize-y"
+          />
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const count = importAddressCsv(addressCsv)
+                setImportedCount(count)
+              }}
+              disabled={!addressCsv.trim()}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/65 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Import contacts
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                parseManualText(manualText).forEach((recipient) => addAddress(recipient.address, recipient.address))
+              }}
+              disabled={!manualText.trim()}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/65 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Save manual recipients
+            </button>
+            {importedCount !== null && (
+              <span className="text-xs text-green-400">{importedCount} contact{importedCount === 1 ? '' : 's'} imported</span>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-white/70">Amount per saved address</label>
+          <input
+            type="number"
+            value={addressBookAmount}
+            onChange={(event) => handleAddressBookAmount(event.target.value)}
+            placeholder="e.g. 100"
+            min="0"
+            step="any"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-[var(--accent)]/50 focus:outline-none"
+          />
+          <p className="text-xs text-white/35">
+            Uses {addressBook.length} locally saved contact{addressBook.length === 1 ? '' : 's'} on this device.
+          </p>
+        </div>
+
+        <div className="max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-white/[0.025]">
+          {addressBook.length === 0 ? (
+            <div className="p-5 text-center text-sm text-white/35">No saved contacts yet.</div>
+          ) : (
+            addressBook.map((entry) => (
+              <div key={entry.address} className="flex items-center justify-between gap-3 border-b border-white/5 px-3 py-2 last:border-b-0">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white/75">{entry.label}</p>
+                  <p className="truncate font-mono text-xs text-white/35">{entry.address}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeAddress(entry.address)}
+                  className="rounded-lg border border-white/10 bg-white/5 p-2 text-white/45 transition hover:text-white"
+                  aria-label={`Remove ${entry.label}`}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
       </Tabs.Content>
     </Tabs.Root>
   )

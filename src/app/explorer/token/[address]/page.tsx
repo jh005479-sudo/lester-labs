@@ -6,10 +6,11 @@ import Link from 'next/link'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
+import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { getTokenDetails, getTokenTransfers, type TokenDetails, type TokenTransfer } from '@/lib/token-indexer'
 import { formatAddress, LITVM_EXPLORER_URL, LITVM_RPC_URL } from '@/lib/explorerRpc'
 import { checkTokenSafety, type SafetyReport } from '@/lib/token-safety'
-import { Copy, ExternalLink, Share2, ArrowLeft, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react'
+import { BarChart3, BookmarkCheck, BookmarkPlus, Copy, Droplets, ExternalLink, Share2, ArrowLeft, ShieldCheck, ShieldAlert, ShieldX, Users } from 'lucide-react'
 
 // ─── Holder distribution ──────────────────────────────────────────────────
 
@@ -253,6 +254,8 @@ export default function TokenDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const { addActivity, isWatched, toggleWatchlist } = useLocalEngagement()
+  const watched = isWatched('token', address)
 
   useEffect(() => {
     if (!isValidAddress) return
@@ -266,6 +269,17 @@ export default function TokenDetailPage() {
       .finally(() => setLoading(false))
   }, [address, isValidAddress])
 
+  useEffect(() => {
+    if (!details) return
+    addActivity({
+      type: 'token',
+      id: address,
+      label: `${details.name} ($${details.symbol})`,
+      href: `/explorer/token/${address}`,
+      action: 'View token market',
+    })
+  }, [addActivity, address, details])
+
   const copyAddress = () => {
     navigator.clipboard.writeText(address)
     setCopied(true)
@@ -275,7 +289,7 @@ export default function TokenDetailPage() {
   const shareTweet = () => {
     if (!details) return
     const text = `🪙 ${details.name} ($${details.symbol}) on LitVM\n\nHolders: ${details.holderCount} | Supply: ${details.totalSupply}\n\nTrack it: ${window.location.href}`
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank')
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
   }
 
   if (!isValidAddress) {
@@ -339,12 +353,30 @@ export default function TokenDetailPage() {
                 </a>
               </div>
             </div>
-            <button
-              onClick={shareTweet}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1DA1F2]/20 border border-[#1DA1F2]/30 text-[#1DA1F2] text-sm hover:bg-[#1DA1F2]/30 transition"
-            >
-              <Share2 className="w-4 h-4" /> Share Token
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => toggleWatchlist({
+                  type: 'token',
+                  id: address,
+                  label: `${details.name} ($${details.symbol})`,
+                  href: `/explorer/token/${address}`,
+                })}
+                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition ${
+                  watched
+                    ? 'border-violet-300/30 bg-violet-300/12 text-violet-100'
+                    : 'border-white/10 bg-white/5 text-white/65 hover:border-white/20 hover:text-white'
+                }`}
+              >
+                {watched ? <BookmarkCheck className="w-4 h-4" /> : <BookmarkPlus className="w-4 h-4" />}
+                {watched ? 'Watching' : 'Watch'}
+              </button>
+              <button
+                onClick={shareTweet}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1DA1F2]/20 border border-[#1DA1F2]/30 text-[#1DA1F2] text-sm hover:bg-[#1DA1F2]/30 transition"
+              >
+                <Share2 className="w-4 h-4" /> Share Token
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
@@ -352,6 +384,41 @@ export default function TokenDetailPage() {
             <Stat label="Total Supply" value={`${details.totalSupply} ${details.symbol}`} />
             <Stat label="Holders" value={String(details.holderCount)} />
             <Stat label="Txns (24h)" value={String(details.txCount24h)} />
+          </div>
+        </div>
+
+        <div className="p-5 rounded-xl bg-[var(--surface-1)] border border-white/10 mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-sm font-medium text-white/50">Market Actions</h2>
+              <p className="mt-1 text-xs text-white/35">Chart, trade, liquidity, presale, holders, contract, and creator activity in one place.</p>
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Link href={`/charts?q=${address}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
+              <BarChart3 className="w-4 h-4 text-cyan-200" /> Chart
+            </Link>
+            <Link href={`/swap?token1=${address}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
+              <Droplets className="w-4 h-4 text-pink-200" /> Swap
+            </Link>
+            <Link href={`/pool?q=${address}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
+              <Droplets className="w-4 h-4 text-emerald-200" /> Add LP
+            </Link>
+            <Link href={`/launchpad?q=${address}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
+              <ExternalLink className="w-4 h-4 text-violet-200" /> Presales
+            </Link>
+            <a href={`${LITVM_EXPLORER_URL}/token/${address}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
+              <Users className="w-4 h-4 text-blue-200" /> Holders
+            </a>
+            <a href={`${LITVM_EXPLORER_URL}/address/${address}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
+              <ExternalLink className="w-4 h-4 text-white/50" /> Contract
+            </a>
+            <Link href={`/explorer/address/${details.deployer}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
+              <ExternalLink className="w-4 h-4 text-amber-200" /> Creator
+            </Link>
+            <Link href="/ledger" className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
+              <ExternalLink className="w-4 h-4 text-fuchsia-200" /> Ledger update
+            </Link>
           </div>
         </div>
 

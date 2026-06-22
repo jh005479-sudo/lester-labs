@@ -180,6 +180,35 @@ describe("Lester Labs Uniswap V2 fork", function () {
     expect(await ilo.lpTokensLocked()).to.be.gt(0n);
   });
 
+  it("lets the owner recover excess sale tokens after preserving finalized contributor claims", async function () {
+    const { projectOwner, contributor, saleToken, ilo, startTime, endTime } = await loadFixture(deployLaunchpadFixture);
+
+    await time.increaseTo(startTime + 1);
+    await ilo.connect(contributor).contribute({ value: ethers.parseEther("5") });
+    await time.increaseTo(endTime + 1);
+    await ilo.connect(projectOwner).finalize();
+
+    const ownerBalanceBefore = await saleToken.balanceOf(projectOwner.address);
+    await expect(ilo.connect(projectOwner).sweepExcessTokens()).to.emit(ilo, "ExcessTokensSwept");
+    expect(await saleToken.balanceOf(projectOwner.address)).to.be.gt(ownerBalanceBefore);
+
+    await ilo.connect(contributor).claim();
+    expect(await saleToken.balanceOf(contributor.address)).to.equal(ethers.parseEther("500"));
+  });
+
+  it("lets the owner recover funded sale tokens after a failed presale", async function () {
+    const { projectOwner, contributor, saleToken, ilo, startTime, endTime } = await loadFixture(deployLaunchpadFixture);
+
+    await time.increaseTo(startTime + 1);
+    await ilo.connect(contributor).contribute({ value: ethers.parseEther("1") });
+    await time.increaseTo(endTime + 1);
+    await ilo.connect(projectOwner).cancel();
+
+    const ownerBalanceBefore = await saleToken.balanceOf(projectOwner.address);
+    await ilo.connect(projectOwner).sweepExcessTokens();
+    expect(await saleToken.balanceOf(projectOwner.address)).to.be.gt(ownerBalanceBefore);
+  });
+
   it("refuses to finalize an ILO into a skewed pre-existing pair", async function () {
     const { projectOwner, contributor, router, saleToken, ilo, startTime } = await loadFixture(deployLaunchpadFixture);
 

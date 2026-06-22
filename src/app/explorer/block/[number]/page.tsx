@@ -45,7 +45,7 @@ export default function BlockDetailsPage({ params }: { params: Promise<{ number:
           <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Block</p>
           <h1 className="mt-2 font-mono text-2xl">#{blockNumber.toLocaleString()}</h1>
         </div>
-        <Link href={`${LITVM_EXPLORER_URL}/block/${blockNumber}`} target="_blank" className="inline-flex items-center gap-2 text-sm text-cyan-400">
+        <Link href={`${LITVM_EXPLORER_URL}/block/${blockNumber}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-cyan-400">
           Open in Lester Labs Explorer <ExternalLink className="h-4 w-4" />
         </Link>
       </div>

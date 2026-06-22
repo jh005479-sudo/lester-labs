@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { BarChart3, Droplets, ExternalLink, Layers3, Loader2, Minus, Plus, Wallet, X } from 'lucide-react'
+import { BarChart3, BookmarkCheck, BookmarkPlus, Droplets, ExternalLink, Layers3, Loader2, Minus, Plus, Wallet, X } from 'lucide-react'
 import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { formatUnits, parseUnits } from 'viem'
@@ -11,8 +11,10 @@ import { ToolHero } from '@/components/shared/ToolHero'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
 import { UNISWAP_V2_FACTORY_ADDRESS, UNISWAP_V2_ROUTER_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
+import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { filterPools, getRecentPoolIndices } from '@/lib/poolDisplay'
+import { getPoolHealth } from '@/lib/poolHealth'
 
 const ACCENT = '#E44FB5'
 const PAGE_SIZE = 10
@@ -70,7 +72,7 @@ function PoolCardSkeleton() {
 }
 
 // ── Pool card for unauthenticated view ──────────────────────────────────────
-function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Address, r0, r1 }: {
+function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Address, r0, r1, totalSupply, watched, onToggleWatch }: {
   pairAddress: `0x${string}`
   token0Meta: TokenMeta
   token1Meta: TokenMeta
@@ -78,7 +80,22 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
   token1Address: `0x${string}`
   r0: bigint
   r1: bigint
+  totalSupply: bigint
+  watched?: boolean
+  onToggleWatch?: () => void
 }) {
+  const health = getPoolHealth({
+    reserve0: r0,
+    reserve1: r1,
+    token0Decimals: token0Meta.decimals,
+    token1Decimals: token1Meta.decimals,
+    token0Name: token0Meta.name,
+    token1Name: token1Meta.name,
+    token0Symbol: token0Meta.symbol,
+    token1Symbol: token1Meta.symbol,
+    hasRecentSync: totalSupply > 0n,
+  })
+
   return (
     <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
       <div className="flex items-start justify-between gap-4">
@@ -91,6 +108,20 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {onToggleWatch && (
+            <button
+              type="button"
+              onClick={onToggleWatch}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                watched
+                  ? 'border-violet-300/30 bg-violet-300/12 text-violet-100'
+                  : 'border-white/10 bg-white/5 text-white/70 hover:border-white/20 hover:text-white'
+              }`}
+            >
+              {watched ? <BookmarkCheck size={12} /> : <BookmarkPlus size={12} />}
+              {watched ? 'Watching' : 'Watch'}
+            </button>
+          )}
           <Link
             href={`/swap?addLiquidity=${pairAddress}&token0=${token0Address}&token1=${token1Address}`}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
@@ -136,6 +167,15 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
             {pairAddress.slice(0, 6)}…{pairAddress.slice(-4)}
           </p>
         </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 font-semibold text-emerald-100">
+          Health {health.score}/100
+        </span>
+        <span className="rounded-full border border-white/8 bg-white/[0.025] px-2.5 py-1 text-white/45">
+          {health.label}
+        </span>
+        <span className="text-white/30">{health.reasons.slice(0, 2).join(' · ')}</span>
       </div>
     </div>
   )
@@ -640,6 +680,8 @@ function RemoveLiquidityPanel({
 
 export default function PoolPage() {
   const { address, isConnected } = useAccount()
+  const { isWatched, saveSearch, scopedSearches, toggleWatchlist } = useLocalEngagement()
+  const savedPoolSearches = scopedSearches('pool')
 
   const isDexConfigured = isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) && isValidContractAddress(WRAPPED_ZKLTC_ADDRESS)
 
@@ -658,6 +700,11 @@ export default function PoolPage() {
   const [loadedBatches, setLoadedBatches] = useState(2) // start with 2 batches (20 pairs)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [poolSearch, setPoolSearch] = useState('')
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q')
+    if (q) setPoolSearch(q)
+  }, [])
 
   // ── Remove liquidity modal state ────────────────────────────────────────
   const [showRemoveLiq, setShowRemoveLiq] = useState(false)
@@ -932,22 +979,31 @@ export default function PoolPage() {
                 : `${visiblePools.length} pool${visiblePools.length !== 1 ? 's' : ''} available in the newest scanned window`}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
             <input
               value={poolSearch}
               onChange={(e) => setPoolSearch(e.target.value)}
               placeholder="Search pools..."
               type="text"
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-white/20"
+              className="w-full min-w-0 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-white/20 sm:w-auto sm:min-w-[220px]"
             />
+            <button
+              type="button"
+              onClick={() => saveSearch('pool', poolSearch)}
+              disabled={!poolSearch.trim()}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/55 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
+            >
+              <BookmarkPlus size={14} />
+              Save search
+            </button>
             {!isConnected && (
-              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/45">
+              <div className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-2 text-center text-sm text-white/45 sm:w-auto">
                 Connect wallet to see your positions
               </div>
             )}
             <Link
               href="/swap?createPool=1"
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition sm:flex-none"
               style={{
                 background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
                 boxShadow: '0 8px 24px rgba(228,79,181,0.25)',
@@ -958,6 +1014,20 @@ export default function PoolPage() {
             </Link>
           </div>
         </div>
+        {savedPoolSearches.length > 0 && (
+          <div className="-mt-4 flex flex-wrap gap-2">
+            {savedPoolSearches.slice(0, 5).map((search) => (
+              <button
+                key={`${search.query}:${search.updatedAt}`}
+                type="button"
+                onClick={() => setPoolSearch(search.query)}
+                className="rounded-full border border-white/8 bg-white/[0.025] px-3 py-1.5 text-xs text-white/45 transition hover:border-white/15 hover:text-white/75"
+              >
+                {search.query}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ── Not connected: show all pools ───────────────────────────────── */}
         {!isConnected ? (
@@ -993,6 +1063,14 @@ export default function PoolPage() {
                   token1Address={pool.token1Address}
                   r0={pool.reserves[0]}
                   r1={pool.reserves[1]}
+                  totalSupply={pool.totalSupply}
+                  watched={isWatched('pool', pool.pairAddress)}
+                  onToggleWatch={() => toggleWatchlist({
+                    type: 'pool',
+                    id: pool.pairAddress,
+                    label: `${pool.token0Meta.symbol} / ${pool.token1Meta.symbol}`,
+                    href: `/charts?pair=${pool.pairAddress}`,
+                  })}
                 />
               ))}
 
@@ -1154,6 +1232,14 @@ export default function PoolPage() {
                       token1Address={pool.token1Address}
                       r0={pool.reserves[0]}
                       r1={pool.reserves[1]}
+                      totalSupply={pool.totalSupply}
+                      watched={isWatched('pool', pool.pairAddress)}
+                      onToggleWatch={() => toggleWatchlist({
+                        type: 'pool',
+                        id: pool.pairAddress,
+                        label: `${pool.token0Meta.symbol} / ${pool.token1Meta.symbol}`,
+                        href: `/charts?pair=${pool.pairAddress}`,
+                      })}
                     />
                   ))}
 

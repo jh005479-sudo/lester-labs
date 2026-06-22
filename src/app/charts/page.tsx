@@ -6,9 +6,10 @@ import { useSearchParams } from 'next/navigation'
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts'
 import { useReadContract, useReadContracts } from 'wagmi'
 import { formatUnits } from 'viem'
-import { ArrowUpRight, BarChart3, Droplets, ExternalLink, Loader2, RefreshCw, Search } from 'lucide-react'
+import { ArrowUpRight, BarChart3, BookmarkCheck, BookmarkPlus, Droplets, ExternalLink, Loader2, RefreshCw, Search } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
+import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI } from '@/config/abis'
 import { UNISWAP_V2_FACTORY_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { LITVM_EXPLORER_URL, rpc, hexToNumber } from '@/lib/explorerRpc'
@@ -160,6 +161,13 @@ function marketSearchText(market: PairMarket) {
   ].join(' ').toLowerCase()
 }
 
+function getMarketQuoteLiquidity(market: PairMarket) {
+  const quoteReserve = market.quote.address.toLowerCase() === market.token0.address.toLowerCase()
+    ? market.reserve0
+    : market.reserve1
+  return Number(formatUnits(quoteReserve, market.quote.decimals)) * 2
+}
+
 function ChartsFallback() {
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
@@ -177,6 +185,7 @@ function ChartsFallback() {
 function ChartsContent() {
   const searchParams = useSearchParams()
   const pairParam = searchParams.get('pair')
+  const queryParam = searchParams.get('q')
   const [search, setSearch] = useState('')
   const [selectedPair, setSelectedPair] = useState<`0x${string}` | null>(null)
   const [history, setHistory] = useState<PriceHistoryPoint[]>([])
@@ -184,6 +193,8 @@ function ChartsContent() {
   const [historyError, setHistoryError] = useState<string | null>(null)
   const chartFrameRef = useRef<HTMLDivElement | null>(null)
   const [chartSize, setChartSize] = useState({ width: 0, height: 0 })
+  const { addActivity, isWatched, saveSearch, scopedSearches, toggleWatchlist } = useLocalEngagement()
+  const savedChartSearches = scopedSearches('charts')
 
   const isDexConfigured = isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS)
   const allPairsLengthRead = useReadContract({
@@ -329,6 +340,15 @@ function ChartsContent() {
     if (!query) return true
     return marketSearchText(market).includes(query)
   }), [markets, search])
+  const activeMarkets = useMemo(() => (
+    [...markets]
+      .sort((a, b) => getMarketQuoteLiquidity(b) - getMarketQuoteLiquidity(a))
+      .slice(0, 3)
+  ), [markets])
+
+  useEffect(() => {
+    if (queryParam) setSearch(queryParam)
+  }, [queryParam])
 
   useEffect(() => {
     if (!pairParam || !/^0x[a-fA-F0-9]{40}$/.test(pairParam)) return
@@ -350,6 +370,18 @@ function ChartsContent() {
   const selectedMarketKey = selectedMarket
     ? `${selectedMarket.pairAddress}:${selectedMarket.reserve0.toString()}:${selectedMarket.reserve1.toString()}:${selectedMarket.price ?? 'na'}`
     : ''
+  const selectedWatched = selectedMarket ? isWatched('pool', selectedMarket.pairAddress) : false
+
+  useEffect(() => {
+    if (!selectedMarket) return
+    addActivity({
+      type: 'pool',
+      id: selectedMarket.pairAddress,
+      label: getPairDisplaySymbol(selectedMarket.base.symbol, selectedMarket.quote.symbol),
+      href: `/charts?pair=${selectedMarket.pairAddress}`,
+      action: 'View market chart',
+    })
+  }, [addActivity, selectedMarket])
 
   const selectedBaseSupplyRead = useReadContract({
     address: selectedMarket?.base.address,
@@ -457,6 +489,31 @@ function ChartsContent() {
 
         <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <aside className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-4">
+            {activeMarkets.length > 0 && (
+              <div className="mb-4 rounded-lg border border-white/8 bg-white/[0.025] p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-200/65">Active markets</p>
+                  <span className="text-[11px] text-white/35">by reserves</span>
+                </div>
+                <div className="space-y-2">
+                  {activeMarkets.map((market) => (
+                    <button
+                      key={market.pairAddress}
+                      type="button"
+                      onClick={() => setSelectedPair(market.pairAddress)}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2 text-left transition hover:border-cyan-300/25"
+                    >
+                      <span className="min-w-0 truncate text-xs font-semibold text-white/75">
+                        {getPairDisplaySymbol(market.base.symbol, market.quote.symbol)}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-white/40">
+                        {getMarketQuoteLiquidity(market).toLocaleString(undefined, { maximumFractionDigits: 2 })} {market.quote.symbol}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
               <input
@@ -465,6 +522,27 @@ function ChartsContent() {
                 placeholder="Ticker, token, pair, or address"
                 className="w-full rounded-lg border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-cyan-300/35"
               />
+            </div>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => saveSearch('charts', search)}
+                disabled={!search.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-white/55 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <BookmarkPlus size={12} />
+                Save
+              </button>
+              {savedChartSearches.slice(0, 3).map((item) => (
+                <button
+                  key={`${item.query}:${item.updatedAt}`}
+                  type="button"
+                  onClick={() => setSearch(item.query)}
+                  className="rounded-lg border border-white/8 bg-white/[0.025] px-2.5 py-1.5 text-xs text-white/45 transition hover:border-white/15 hover:text-white/75"
+                >
+                  {item.query}
+                </button>
+              ))}
             </div>
 
             <div className="mb-3 flex items-center justify-between text-xs text-white/40">
@@ -530,6 +608,23 @@ function ChartsContent() {
                 </div>
                 {selectedMarket && (
                   <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleWatchlist({
+                        type: 'pool',
+                        id: selectedMarket.pairAddress,
+                        label: getPairDisplaySymbol(selectedMarket.base.symbol, selectedMarket.quote.symbol),
+                        href: `/charts?pair=${selectedMarket.pairAddress}`,
+                      })}
+                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                        selectedWatched
+                          ? 'border-violet-300/35 bg-violet-300/12 text-violet-100'
+                          : 'border-white/10 bg-white/5 text-white/65 hover:border-white/20 hover:text-white'
+                      }`}
+                    >
+                      {selectedWatched ? <BookmarkCheck size={15} /> : <BookmarkPlus size={15} />}
+                      {selectedWatched ? 'Watching' : 'Watch'}
+                    </button>
                     <Link
                       href={`/swap?token0=${selectedMarket.quote.address}&token1=${selectedMarket.base.address}`}
                       className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/45"

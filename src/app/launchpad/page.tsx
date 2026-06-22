@@ -5,10 +5,12 @@ import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import Link from 'next/link'
 import { Navbar } from '@/components/layout/Navbar'
+import { BuilderChecklist } from '@/components/shared/BuilderChecklist'
 import { ToolHero } from '@/components/shared/ToolHero'
+import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { useAccount, useReadContract, useReadContracts } from 'wagmi'
 import { decodeEventLog, parseEther, parseUnits, isAddress, formatEther } from 'viem'
-import { AlertTriangle, CircleCheck, Moon, Radio, Rocket, Search, SlidersHorizontal } from 'lucide-react'
+import { AlertTriangle, BookmarkCheck, BookmarkPlus, CircleCheck, Moon, Radio, Rocket, Search, SlidersHorizontal } from 'lucide-react'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
@@ -23,11 +25,13 @@ import { getLaunchpadReadPlan, type LaunchpadTab } from '@/lib/launchpadTab'
 import {
   filterPresales,
   formatPresaleMarketCap,
+  getPresaleReminder,
   getPresaleProgress,
   getPresaleStatus,
   getPresaleTimeLabel,
   sortPresales,
   type LaunchpadDisplayPresale,
+  type PresaleQualityFilter,
   type PresaleStatus,
 } from '@/lib/launchpadDisplay'
 
@@ -121,6 +125,9 @@ type ILOData = {
   lpLockDuration: bigint | null
   finalized: boolean | null
   cancelled: boolean | null
+  owner: `0x${string}` | null
+  lpUnlockTime: bigint | null
+  lpTokensLocked: bigint | null
 }
 
 // Batch-fetch data for visible ILOs in one multicall request.
@@ -136,6 +143,9 @@ function useAllILOData(addresses: `0x${string}`[], enabled: boolean) {
     { address: addr, abi: ILO_ABI, functionName: 'lpLockDuration' as const },
     { address: addr, abi: ILO_ABI, functionName: 'finalized' as const },
     { address: addr, abi: ILO_ABI, functionName: 'cancelled' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'owner' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'lpUnlockTime' as const },
+    { address: addr, abi: ILO_ABI, functionName: 'lpTokensLocked' as const },
   ]) : []
 
   const { data: results, isLoading } = useReadContracts({
@@ -145,9 +155,9 @@ function useAllILOData(addresses: `0x${string}`[], enabled: boolean) {
 
   const iloMap = new Map<`0x${string}`, ILOData>()
   for (let i = 0; i < addresses.length; i++) {
-    const base = i * 10
-    const [token, totalRaised, softCap, hardCap, startTime, endTime, liquidityBps, lpLockDuration, finalized, cancelled] =
-      results?.slice(base, base + 10) ?? []
+    const base = i * 13
+    const [token, totalRaised, softCap, hardCap, startTime, endTime, liquidityBps, lpLockDuration, finalized, cancelled, owner, lpUnlockTime, lpTokensLocked] =
+      results?.slice(base, base + 13) ?? []
     iloMap.set(addresses[i], {
       token: token?.status === 'success' ? (token.result as `0x${string}`) : null,
       totalRaised: totalRaised?.status === 'success' ? (totalRaised.result as bigint) : null,
@@ -159,6 +169,9 @@ function useAllILOData(addresses: `0x${string}`[], enabled: boolean) {
       lpLockDuration: lpLockDuration?.status === 'success' ? (lpLockDuration.result as bigint) : null,
       finalized: finalized?.status === 'success' ? (finalized.result as boolean) : null,
       cancelled: cancelled?.status === 'success' ? (cancelled.result as boolean) : null,
+      owner: owner?.status === 'success' ? (owner.result as `0x${string}`) : null,
+      lpUnlockTime: lpUnlockTime?.status === 'success' ? (lpUnlockTime.result as bigint) : null,
+      lpTokensLocked: lpTokensLocked?.status === 'success' ? (lpTokensLocked.result as bigint) : null,
     })
   }
 
@@ -182,6 +195,9 @@ function buildLivePresale({ address, data: d, meta, imageUrl, now, userContribut
     cancelled: d.cancelled ?? false,
     liquidityBps: Number(d.liquidityBps ?? 0n),
     lpLockDuration: Number(d.lpLockDuration ?? 0n),
+    owner: d.owner,
+    lpUnlockTime: Number(d.lpUnlockTime ?? 0n),
+    lpTokensLocked: d.lpTokensLocked ?? 0n,
     contributorCount: '—',
     logoUrl,
     userContribution: userContribution ?? 0n,
@@ -857,10 +873,25 @@ function CreatePresaleForm() {
   )
 }
 
-function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
+function PresaleCard({
+  presale,
+  now,
+  isOwner,
+  watched,
+  onToggleWatch,
+  onView,
+}: {
+  presale: MockPresale
+  now: number
+  isOwner: boolean
+  watched: boolean
+  onToggleWatch: () => void
+  onView: () => void
+}) {
   const progressPct = getPresaleProgress(presale)
   const status = getPresaleStatus(presale, now)
   const timeLabel = getPresaleTimeLabel(presale, now)
+  const reminder = getPresaleReminder(presale, now, isOwner)
   const statusColor =
     status === 'Live'
       ? '#4ade80'
@@ -879,8 +910,7 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
     .join(' ')
 
   return (
-    <Link
-      href={'/launchpad/' + presale.address}
+    <div
       className="analytics-card"
       style={{
         background: '#12192e',
@@ -892,7 +922,6 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
         gap: '12px',
         cursor: 'pointer',
         transition: 'border-color 0.2s',
-        textDecoration: 'none',
       }}
       onMouseEnter={e => (e.currentTarget.style.borderColor = '#2d3a55')}
       onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e2a45')}
@@ -958,18 +987,38 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
         </div>
 
         {/* zkLTC badge */}
-        <span
-          style={{
-            fontSize: '11px',
-            color: '#6b7280',
-            background: 'rgba(255,255,255,0.05)',
-            padding: '3px 8px',
-            borderRadius: '20px',
-            flexShrink: 0,
-          }}
-        >
-          zkLTC
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={onToggleWatch}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '28px',
+              height: '28px',
+              borderRadius: '8px',
+              border: watched ? '1px solid rgba(167,139,250,0.42)' : '1px solid rgba(255,255,255,0.08)',
+              background: watched ? 'rgba(167,139,250,0.14)' : 'rgba(255,255,255,0.04)',
+              color: watched ? '#ddd6fe' : 'rgba(255,255,255,0.48)',
+              cursor: 'pointer',
+            }}
+            aria-label={watched ? 'Remove presale from watchlist' : 'Add presale to watchlist'}
+          >
+            {watched ? <BookmarkCheck size={14} /> : <BookmarkPlus size={14} />}
+          </button>
+          <span
+            style={{
+              fontSize: '11px',
+              color: '#6b7280',
+              background: 'rgba(255,255,255,0.05)',
+              padding: '3px 8px',
+              borderRadius: '20px',
+            }}
+          >
+            zkLTC
+          </span>
+        </div>
       </div>
 
       {/* Market cap row */}
@@ -1080,9 +1129,24 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
             fontWeight: 600,
           }}
         >
-          View →
+          <Link href={'/launchpad/' + presale.address} onClick={onView} style={{ color: 'inherit', textDecoration: 'none' }}>
+            View →
+          </Link>
         </span>
       </div>
+      {reminder && (
+        <div style={{
+          marginTop: '-4px',
+          borderRadius: '8px',
+          border: '1px solid rgba(251,191,36,0.25)',
+          background: 'rgba(251,191,36,0.08)',
+          color: '#fcd34d',
+          fontSize: '12px',
+          padding: '7px 9px',
+        }}>
+          Reminder: {reminder}
+        </div>
+      )}
       {(presale.userContribution ?? 0n) > 0n && (
         <div style={{
           marginTop: '-4px',
@@ -1096,7 +1160,7 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
           You participated: {formatEther(presale.userContribution ?? 0n)} zkLTC
         </div>
       )}
-    </Link>
+    </div>
   )
 }
 export default function LaunchpadPage() {
@@ -1106,12 +1170,17 @@ export default function LaunchpadPage() {
   const [presaleLimit, setPresaleLimit] = useState(INITIAL_PRESALE_VISIBLE_COUNT)
   const [presaleSearch, setPresaleSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<PresaleStatus>('All')
+  const [qualityFilter, setQualityFilter] = useState<PresaleQualityFilter>('All')
   const [participatedOnly, setParticipatedOnly] = useState(false)
+  const { addActivity, isWatched, saveSearch, scopedSearches, toggleWatchlist } = useLocalEngagement()
+  const savedLaunchpadSearches = scopedSearches('launchpad')
   const activeTab = tab ?? 'browse'
   const readPlan = tab === null ? DISABLED_LAUNCHPAD_READ_PLAN : getLaunchpadReadPlan(tab)
 
   useEffect(() => {
     setTab(getInitialLaunchpadTab())
+    const q = new URLSearchParams(window.location.search).get('q')
+    if (q) setPresaleSearch(q)
   }, [])
 
   useEffect(() => {
@@ -1193,6 +1262,8 @@ export default function LaunchpadPage() {
       query: presaleSearch,
       status: statusFilter,
       participatedOnly,
+      quality: qualityFilter,
+      userAddress,
     }, now),
     now,
   )
@@ -1394,6 +1465,28 @@ export default function LaunchpadPage() {
                     {status}
                   </button>
                 ))}
+                {(['Ending soon', 'Funded', 'Creator', 'Liquidity ready'] as PresaleQualityFilter[]).map((quality) => (
+                  <button
+                    key={quality}
+                    type="button"
+                    onClick={() => setQualityFilter((current) => current === quality ? 'All' : quality)}
+                    disabled={quality === 'Creator' && !isConnected}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: qualityFilter === quality ? '1px solid rgba(167,139,250,0.55)' : '1px solid rgba(255,255,255,0.08)',
+                      background: qualityFilter === quality ? 'rgba(167,139,250,0.16)' : 'rgba(255,255,255,0.035)',
+                      color: quality === 'Creator' && !isConnected
+                        ? 'rgba(255,255,255,0.25)'
+                        : qualityFilter === quality ? '#ddd6fe' : 'rgba(255,255,255,0.55)',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: quality === 'Creator' && !isConnected ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {quality}
+                  </button>
+                ))}
                 <button
                   type="button"
                   onClick={() => setParticipatedOnly((value) => !value)}
@@ -1411,8 +1504,51 @@ export default function LaunchpadPage() {
                 >
                   Participated
                 </button>
+                <button
+                  type="button"
+                  onClick={() => saveSearch('launchpad', presaleSearch)}
+                  disabled={!presaleSearch.trim()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.035)',
+                    color: presaleSearch.trim() ? 'rgba(255,255,255,0.62)' : 'rgba(255,255,255,0.25)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: presaleSearch.trim() ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  <BookmarkPlus size={13} />
+                  Save
+                </button>
               </div>
             </div>
+            {savedLaunchpadSearches.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', margin: '-10px 0 20px' }}>
+                {savedLaunchpadSearches.slice(0, 5).map((search) => (
+                  <button
+                    key={`${search.query}:${search.updatedAt}`}
+                    type="button"
+                    onClick={() => setPresaleSearch(search.query)}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: '999px',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      background: 'rgba(255,255,255,0.025)',
+                      color: 'rgba(255,255,255,0.45)',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {search.query}
+                  </button>
+                ))}
+              </div>
+            )}
             {presalesLoading ? (
               <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
                 Loading presales from contract…
@@ -1455,7 +1591,26 @@ export default function LaunchpadPage() {
                 }}
               >
                 {visiblePresales.map((presale) => (
-                  <PresaleCard key={presale.address} presale={presale} now={now} />
+                  <PresaleCard
+                    key={presale.address}
+                    presale={presale}
+                    now={now}
+                    isOwner={Boolean(userAddress && presale.owner && presale.owner.toLowerCase() === userAddress.toLowerCase())}
+                    watched={isWatched('presale', presale.address)}
+                    onView={() => addActivity({
+                      type: 'presale',
+                      id: presale.address,
+                      label: `${presale.name} ($${presale.symbol})`,
+                      href: `/launchpad/${presale.address}`,
+                      action: 'View presale',
+                    })}
+                    onToggleWatch={() => toggleWatchlist({
+                      type: 'presale',
+                      id: presale.address,
+                      label: `${presale.name} ($${presale.symbol})`,
+                      href: `/launchpad/${presale.address}`,
+                    })}
+                  />
                 ))}
               </div>
             )}
@@ -1481,7 +1636,10 @@ export default function LaunchpadPage() {
             )}
           </div>
         ) : (
-          <CreatePresaleForm />
+          <div className="space-y-6">
+            <BuilderChecklist />
+            <CreatePresaleForm />
+          </div>
         )}
       </div>
     </div>

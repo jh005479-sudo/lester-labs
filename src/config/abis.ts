@@ -69,6 +69,7 @@ export const ILO_ABI = [
   { inputs: [], name: 'lpLockDuration', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'lpUnlockTime', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'totalRaised', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'totalClaimedContributions', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'finalized', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'cancelled', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'whitelistEnabled', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
@@ -84,6 +85,7 @@ export const ILO_ABI = [
   { inputs: [], name: 'refund', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'claimLP', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'sweepExcessETH', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [], name: 'sweepExcessTokens', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'users', type: 'address[]' }, { name: 'status', type: 'bool' }], name: 'setWhitelist', outputs: [], stateMutability: 'nonpayable', type: 'function' },
 ] as const
 

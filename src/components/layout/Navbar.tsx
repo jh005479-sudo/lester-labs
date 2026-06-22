@@ -48,8 +48,8 @@ export function Navbar() {
         transition: 'all 0.35s ease',
       }}
     >
-      <div className="mx-auto flex h-12 max-w-[1560px] items-center justify-between px-4 sm:px-8 md:h-14 lg:px-10">
-        <Link prefetch={false} href="/" className="transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
+      <div className="mx-auto flex h-12 max-w-[1560px] items-center justify-between gap-3 px-4 sm:px-8 md:h-14 lg:px-10">
+        <Link prefetch={false} href="/" className="shrink-0 transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
           <span className="text-sm font-bold uppercase tracking-widest" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
             Lester<span style={{ color: 'var(--accent)' }}>Labs</span>
           </span>
@@ -164,7 +164,7 @@ export function Navbar() {
           })}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4">
           <ConnectButton.Custom>
             {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
               const connected = mounted && account && chain
@@ -174,7 +174,7 @@ export function Navbar() {
                   <button
                     onClick={openConnectModal}
                     type="button"
-                    className="rounded-[14px] px-4 py-2 text-[14px] font-semibold"
+                    className="rounded-[14px] px-3 py-2 text-[13px] font-semibold sm:px-4 sm:text-[14px]"
                     style={{
                       color: '#f6f4ff',
                       background: 'linear-gradient(135deg, #6B4FFF 0%, #5B3FF0 100%)',
@@ -182,7 +182,8 @@ export function Navbar() {
                       border: 'none',
                     }}
                   >
-                    Connect Wallet
+                    <span className="sm:hidden">Connect</span>
+                    <span className="hidden sm:inline">Connect Wallet</span>
                   </button>
                 )
               }
@@ -192,7 +193,7 @@ export function Navbar() {
                   <button
                     onClick={openChainModal}
                     type="button"
-                    className="inline-flex items-center gap-2 rounded-[14px] px-4 py-2 text-[14px] font-semibold"
+                    className="hidden items-center gap-2 rounded-[14px] px-4 py-2 text-[14px] font-semibold sm:inline-flex"
                     style={{
                       color: '#f6f4ff',
                       background: 'rgba(74, 49, 220, 0.22)',
