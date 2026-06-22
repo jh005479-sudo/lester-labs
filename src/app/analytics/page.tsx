@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Navbar } from '@/components/layout/Navbar'
-import { LTCBanner } from '@/components/LTCBanner'
 import { TrendingPanel } from '@/components/analytics/TrendingPanel'
 import { TokenTracker } from '@/components/analytics/TokenTracker'
 import { HealthPanel } from '@/components/analytics/HealthPanel'
@@ -31,8 +29,6 @@ export default function AnalyticsPage() {
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
-      <LTCBanner />
-      <Navbar />
       <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
         {/* Page header */}
         <div className="mb-6">

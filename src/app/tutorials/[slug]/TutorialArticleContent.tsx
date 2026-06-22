@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Navbar } from '@/components/layout/Navbar'
 import { ArrowLeft, Clock, BookOpen, ArrowRight, Info, AlertTriangle, Lightbulb, CheckCircle } from 'lucide-react'
 import { type TutorialArticle, type TutorialSection, getRelatedArticles } from '@/lib/tutorials-content'
 
@@ -309,7 +308,6 @@ export function TutorialArticleContent({ article }: { article: TutorialArticle }
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--background)', color: 'white' }}>
-      <Navbar />
       <ReadingProgress />
       <ArticleHero article={article} />
 

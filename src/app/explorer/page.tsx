@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Navbar } from '@/components/layout/Navbar'
-import { LTCBanner } from '@/components/LTCBanner'
 import { ShareModal } from '@/components/ShareModal'
 import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
 import { BarChart3, BookmarkPlus, Coins, Droplets, Search } from 'lucide-react'
@@ -107,9 +105,6 @@ export default function ExplorerPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <LTCBanner />
-      <Navbar />
-
       <main className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
         {/* Header */}
         <div className="mb-6">

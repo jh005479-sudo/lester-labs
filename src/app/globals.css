@@ -99,6 +99,18 @@ body.home-page-active {
   background-image: none;
 }
 
+.home-shell {
+  position: relative;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+@supports (overflow: clip) {
+  .home-shell {
+    overflow-x: clip;
+  }
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   letter-spacing: -0.02em;
@@ -110,6 +122,42 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+.ltc-banner-metrics {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 20px;
+  white-space: nowrap;
+}
+
+.ltc-banner-metric {
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  #ltc-banner {
+    gap: 8px !important;
+    font-size: 10px !important;
+  }
+
+  .ltc-banner-metrics {
+    width: 100%;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .ltc-banner-tertiary {
+    display: none !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .ltc-banner-secondary {
+    display: none !important;
+  }
+}
 
 /* ─── Reveal animation ───────────────────────────────────────────────── */
 @keyframes fadeUp {

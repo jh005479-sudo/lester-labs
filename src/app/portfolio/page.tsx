@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAccount, useReadContract, useBalance } from 'wagmi'
 import { Copy, Check, ExternalLink } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
-import { LTCBanner } from '@/components/LTCBanner'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
 import { ResumeDashboard } from '@/components/shared/ResumeDashboard'
@@ -682,8 +680,6 @@ export default function PortfolioPage() {
   if (!isConnected) {
     return (
       <main className="min-h-screen bg-[var(--background)] text-white">
-        <LTCBanner />
-        <Navbar />
         <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
           <div className="flex min-h-[40vh] items-center justify-center">
             <ConnectWalletPrompt
@@ -707,8 +703,6 @@ export default function PortfolioPage() {
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
-      <LTCBanner />
-      <Navbar />
       <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
         {/* Header */}
         <div className="mb-6 flex items-end justify-between">

@@ -11,24 +11,22 @@ function ruleBody(selector) {
   return match[1]
 }
 
-describe('suite carousel mobile sizing', () => {
-  it('uses explicit flex sizing so card width cannot depend on each tool card content', () => {
-    const baseSlide = ruleBody('.carousel-slide')
-    const mobileSlide = css.match(/@media\(max-width:640px\)\{\.carousel-slide\{([^}]*)\}\}/)?.[1]
+describe('suite ecosystem responsive sizing', () => {
+  it('uses stable grid tracks so product stages do not depend on content width', () => {
+    const flow = ruleBody('.ecosystem-flow')
+    const product = ruleBody('.ecosystem-product')
 
-    assert.ok(baseSlide.includes('flex:0 0 70%'), 'desktop/base slide should have fixed flex basis')
-    assert.ok(baseSlide.includes('width:70%'), 'desktop/base slide should have explicit width')
-    assert.ok(mobileSlide, 'Expected mobile carousel slide override')
-    assert.ok(mobileSlide.includes('flex-basis:90%'), 'mobile slide should keep a fixed flex basis')
-    assert.ok(mobileSlide.includes('width:90%'), 'mobile slide should keep a fixed width')
-    assert.ok(mobileSlide.includes('max-width:none'), 'mobile slide should not inherit desktop max width')
+    assert.ok(flow.includes('grid-template-columns:repeat(6,minmax(0,1fr))'), 'desktop ecosystem flow should use six bounded tracks')
+    assert.ok(product.includes('display:block'), 'product links should have stable block boxes')
+    assert.ok(product.includes('min-width:0'), 'product links should be allowed to shrink without overflowing')
   })
 
-  it('keeps the mobile visual preview tall enough to avoid cropping wide tool artwork', () => {
-    const mobileVisual = css.match(/@media\(max-width:700px\)\{[^}]*\.c-card-visual\{([^}]*)\}/)?.[1]
-
-    assert.ok(mobileVisual, 'Expected mobile visual card override')
-    assert.ok(mobileVisual.includes('aspect-ratio:16/9'), 'mobile artwork should keep the source image ratio')
-    assert.ok(mobileVisual.includes('min-height:160px'), 'mobile artwork should preserve a usable preview height')
+  it('stacks the ecosystem map and directory cleanly on mobile', () => {
+    assert.ok(css.includes('@media(max-width:768px)'), 'Expected tablet/mobile ecosystem rules')
+    assert.ok(css.includes('.ecosystem-flow{grid-template-columns:1fr}'), 'mobile flow should stack to one column')
+    assert.ok(css.includes('.ecosystem-stage{min-height:0}'), 'mobile stages should not retain desktop height')
+    assert.ok(css.includes('.ecosystem-tool-grid{grid-template-columns:1fr 1fr}'), 'mobile directory should use two compact columns')
+    assert.ok(css.includes('@media(max-width:430px)'), 'Expected narrow-phone ecosystem rules')
+    assert.ok(css.includes('.ecosystem-tool-grid{grid-template-columns:1fr}'), 'narrow phones should use one directory column')
   })
 })

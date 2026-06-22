@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Navbar } from '@/components/layout/Navbar'
 import { SpacesTab } from '@/components/governance/SpacesTab'
 import { CreateProposalTab } from '@/components/governance/CreateProposalTab'
 import { VoteTab } from '@/components/governance/VoteTab'
@@ -20,7 +19,6 @@ export default function GovernancePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
-      <Navbar />
       <ToolHero
         category="Community Voting"
         title="Lester"

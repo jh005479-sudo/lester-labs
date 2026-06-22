@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react'
 import { useAccount, useReadContract } from 'wagmi'
 import { formatEther, formatUnits, isAddress, parseEther, parseUnits, zeroAddress } from 'viem'
 import { AlertTriangle, CircleCheck, ExternalLink, ShieldCheck, Upload } from 'lucide-react'
-import { Navbar } from '@/components/layout/Navbar'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
 import { ERC20_ABI, ILO_ABI } from '@/config/abis'
@@ -596,7 +595,6 @@ export default function PresalePage() {
   if (!iloAddress) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}>
-        <Navbar />
         <div style={{ maxWidth: '720px', margin: '0 auto', padding: '40px 24px 80px' }}>
           <div style={{ ...cardStyle, border: '1px solid rgba(248,113,113,0.25)', background: 'rgba(248,113,113,0.08)' }}>
             <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '10px' }}>Invalid presale address</h1>
@@ -616,7 +614,6 @@ export default function PresalePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}>
-      <Navbar />
       <div style={{ maxWidth: '860px', margin: '0 auto', padding: '40px 24px 80px' }}>
         <div style={{ marginBottom: '28px' }}>
           <Link href="/launchpad" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '20px' }}>

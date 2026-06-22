@@ -70,7 +70,7 @@ export function LTCBanner() {
   return (
     <div
       id="ltc-banner"
-      className="fixed top-0 left-0 right-0 z-[80] flex w-full items-center justify-between gap-4 overflow-x-auto px-4 sm:px-6"
+      className="fixed top-0 left-0 right-0 z-[80] flex w-full items-center justify-between gap-4 overflow-hidden px-3 sm:px-6"
       style={{
         background: 'linear-gradient(90deg, rgba(28,22,64,0.9) 0%, rgba(21,15,53,0.9) 100%)',
         backdropFilter: 'blur(12px) saturate(140%)',
@@ -82,7 +82,7 @@ export function LTCBanner() {
       }}
     >
       {/* Left metrics */}
-      <div className="flex items-center gap-5 whitespace-nowrap">
+      <div className="ltc-banner-metrics">
         {/* Live dot */}
         <span
           className="h-2 w-2 shrink-0 rounded-full animate-pulse"
@@ -90,7 +90,7 @@ export function LTCBanner() {
         />
 
         {/* Price */}
-        <span className="flex items-center gap-1.5">
+        <span className="ltc-banner-metric flex items-center gap-1.5">
           <span style={{ color: 'var(--accent)' }}>LTC/USD</span>
           <span style={{ color: 'var(--foreground)' }}>
             ${data.price != null ? data.price.toFixed(2) : '--'}
@@ -103,7 +103,7 @@ export function LTCBanner() {
         </span>
 
         {/* Tx fee */}
-        <span className="flex items-center gap-1.5">
+        <span className="ltc-banner-metric ltc-banner-secondary flex items-center gap-1.5">
           <span style={{ color: 'rgba(237,237,237,0.5)' }}>LTC Tx Fee</span>
           <span style={{ color: 'var(--foreground)' }}>
             {data.txFee != null ? data.txFee : '--'} sat/byte
@@ -111,7 +111,7 @@ export function LTCBanner() {
         </span>
 
         {/* Block */}
-        <span className="flex items-center gap-1.5">
+        <span className="ltc-banner-metric ltc-banner-tertiary flex items-center gap-1.5">
           <span style={{ color: 'rgba(237,237,237,0.5)' }}>LTC Block</span>
           <span style={{ color: 'var(--foreground)' }}>
             #{data.blockHeight != null ? data.blockHeight.toLocaleString() : '--'}
@@ -119,7 +119,7 @@ export function LTCBanner() {
         </span>
 
         {/* Hashrate */}
-        <span className="flex items-center gap-1.5">
+        <span className="ltc-banner-metric ltc-banner-tertiary flex items-center gap-1.5">
           <span style={{ color: 'rgba(237,237,237,0.5)' }}>Hashrate</span>
           <span style={{ color: 'var(--foreground)' }}>
             {data.hashrate != null ? data.hashrate.toLocaleString() : '--'} TH/s
@@ -129,10 +129,10 @@ export function LTCBanner() {
 
       {/* Right note */}
       <span
-        className="hidden shrink-0 whitespace-nowrap lg:block"
+        className="ltc-banner-note hidden shrink-0 whitespace-nowrap lg:block"
         style={{ color: 'rgba(237,237,237,0.36)', fontSize: 10 }}
       >
-        Data via Bitaps · zkLTC data coming at LitVM mainnet
+        Data via CoinGecko + BlockCypher · zkLTC data coming at LitVM mainnet
       </span>
     </div>
   )

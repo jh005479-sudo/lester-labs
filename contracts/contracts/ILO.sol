@@ -80,9 +80,10 @@ contract ILO is ReentrancyGuard {
         require(_startTime < _endTime, "Invalid times");
         require(_liquidityBps >= 5000 && _liquidityBps <= 10000, "Liquidity 50-100%");
         require(_lpLockDuration >= 30 days, "Lock min 30 days");
-        require(_router != address(0), "Invalid router");
-        require(_connector != address(0), "Invalid connector");
+        require(_router != address(0) && _router.code.length > 0, "Invalid router");
+        require(_connector != address(0) && _connector.code.length > 0, "Invalid connector");
         require(_treasury != address(0), "Invalid treasury");
+        require(_platformFeeBps <= 500, "Max 5%");
 
         owner          = _owner;
         factory        = msg.sender;
