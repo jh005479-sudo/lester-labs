@@ -11,6 +11,7 @@ const directLinks = [
   { href: '/ledger', label: 'Ledger' },
   { href: '/explorer', label: 'Explorer' },
   { href: '/analytics', label: 'Analytics' },
+  { href: '/charts', label: 'Charts' },
   { href: '/portfolio', label: 'Portfolio' },
   { href: '/tutorials', label: 'Tutorials' },
   { href: '/docs', label: 'Docs' },

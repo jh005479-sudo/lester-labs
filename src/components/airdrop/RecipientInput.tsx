@@ -4,32 +4,18 @@ import { useState, useCallback } from 'react'
 import * as Tabs from '@radix-ui/react-tabs'
 import { Upload, List, Equal, CheckCircle2 } from 'lucide-react'
 import type { Recipient } from './RecipientTable'
+import { parseCSVRecipients, parseManualRecipients } from '@/lib/airdropRecipients'
 
 interface RecipientInputProps {
   onChange: (recipients: Recipient[]) => void
 }
 
 function parseManualText(text: string): Recipient[] {
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      // Support: "address, amount" or "address amount" or "address\tamount"
-      const parts = line.split(/[\s,\tab]+/).map((p) => p.trim()).filter(Boolean)
-      return { address: (parts[0] ?? '').trim().toLowerCase(), amount: (parts[1] ?? '').trim() }
-    })
+  return parseManualRecipients(text)
 }
 
 function parseCSVText(text: string): Recipient[] {
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-  // Skip header row if first cell is not an address-like value
-  const start =
-    lines[0] && !lines[0].startsWith('0x') ? 1 : 0
-  return lines.slice(start).map((line) => {
-    const [address = '', amount = ''] = line.split(',').map((s) => s.trim())
-    return { address: address.trim().toLowerCase(), amount }
-  })
+  return parseCSVRecipients(text)
 }
 
 export function RecipientInput({ onChange }: RecipientInputProps) {

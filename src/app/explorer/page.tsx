@@ -6,8 +6,8 @@ import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
 import { ShareModal } from '@/components/ShareModal'
 import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
-import { Search } from 'lucide-react'
-import { formatAddress, formatEtherFromHex, getLatestBlockNumber, getRecentBlocks, getTransactionReceipt, getTransactionByHash, hexToNumber, LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
+import { BarChart3, Coins, Droplets, Search } from 'lucide-react'
+import { formatEtherFromHex, getLatestBlockNumber, getRecentBlocks, getTransactionReceipt, getTransactionByHash, hexToNumber, LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 
 interface Block {
   number: number
@@ -26,6 +26,22 @@ interface Transaction {
   status: 'Success' | 'Pending'
 }
 
+type ExplorerRpcTransaction = string | {
+  hash?: string
+  from?: string
+  to?: string | null
+  value?: string
+}
+
+type ExplorerRpcBlock = {
+  number?: string
+  timestamp?: string
+  transactions?: ExplorerRpcTransaction[]
+  miner?: string
+  author?: string
+  size?: string
+}
+
 function timeAgoFromHex(hexTimestamp?: string) {
   const ts = hexToNumber(hexTimestamp)
   if (!ts) return 'Unknown'
@@ -39,21 +55,24 @@ function truncateAddress(addr: string) {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
+function transactionHash(tx: ExplorerRpcTransaction) {
+  return typeof tx === 'string' ? tx : tx.hash
+}
+
 export default function ExplorerPage() {
   const [blocks, setBlocks] = useState<Block[]>([])
   const [txs, setTxs] = useState<Transaction[]>([])
   const [latestBlock, setLatestBlock] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
-  const [toastVisible, setToastVisible] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     let active = true
     const load = async () => {
       try {
-        const recentBlocks = await getRecentBlocks(8)
+        const recentBlocks = await getRecentBlocks(8) as ExplorerRpcBlock[]
         if (!active) return
-        setBlocks(recentBlocks.map((block: any) => ({
+        setBlocks(recentBlocks.map((block) => ({
           number: hexToNumber(block.number),
           time: timeAgoFromHex(block.timestamp),
           txCount: Array.isArray(block.transactions) ? block.transactions.length : 0,
@@ -64,22 +83,32 @@ export default function ExplorerPage() {
         if (!active) return
         setLatestBlock(latest)
 
-        const txCandidates = recentBlocks.flatMap((block: any) => Array.isArray(block.transactions) ? block.transactions.slice(0, 2) : []).slice(0, 8)
-        const txDetails = await Promise.all(txCandidates.map(async (tx: any) => {
-          const hash = typeof tx === 'string' ? tx : tx.hash
-          const txData = typeof tx === 'string' ? await getTransactionByHash(hash) : tx
+        const txCandidates = recentBlocks
+          .flatMap((block) => Array.isArray(block.transactions) ? block.transactions.slice(0, 2) : [])
+          .slice(0, 8)
+        const txDetails = await Promise.all(txCandidates.map(async (tx): Promise<Transaction | null> => {
+          const hash = transactionHash(tx)
+          if (!hash) return null
+          const txData = typeof tx === 'string'
+            ? await getTransactionByHash(hash) as ExplorerRpcTransaction
+            : tx
+          const txObject = typeof txData === 'string' ? null : txData
           const receipt = await getTransactionReceipt(hash).catch(() => null)
+          const txBlock = recentBlocks.find((block) => (
+            Array.isArray(block.transactions) &&
+            block.transactions.some((candidate) => transactionHash(candidate) === hash)
+          ))
           return {
             hash,
-            from: txData.from,
-            to: txData.to || '0x0000000000000000000000000000000000000000',
-            value: formatEtherFromHex(txData.value),
-            time: timeAgoFromHex(recentBlocks.find((b: any) => Array.isArray(b.transactions) && b.transactions.some((it: any) => (typeof it === 'string' ? it : it.hash) === hash))?.timestamp),
-            status: receipt?.status === '0x1' ? 'Success' : 'Pending' as 'Success' | 'Pending',
+            from: txObject?.from ?? '0x0000000000000000000000000000000000000000',
+            to: txObject?.to || '0x0000000000000000000000000000000000000000',
+            value: formatEtherFromHex(txObject?.value),
+            time: timeAgoFromHex(txBlock?.timestamp),
+            status: receipt?.status === '0x1' ? 'Success' : 'Pending',
           }
         }))
         if (!active) return
-        setTxs(txDetails)
+        setTxs(txDetails.filter((tx): tx is Transaction => tx !== null))
       } catch (e) {
         console.error('Failed to load live explorer data', e)
       }
@@ -111,16 +140,11 @@ export default function ExplorerPage() {
     window.open(`${LITVM_EXPLORER_URL}/search?q=${encodeURIComponent(q)}`, '_blank')
   }
 
-  const handleTweet = () => {
-    const text = `LitVM Network Stats via @LesterLabs\n\nBlock: #${latestBlock.toLocaleString()}\nTPS: 47.3\n24h Txs: 128,440\nBlock Time: 2.1s\n\nBuilding on LitVM\n\nlesterlabs.vercel.app/explorer\n\n#LitVM #Litecoin #DeFi`
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank')
-  }
-
   const stats = [
     { label: 'Latest Block', value: latestBlock ? `#${latestBlock.toLocaleString()}` : 'Loading' },
     { label: 'Block Time', value: blocks.length > 1 ? 'Live' : 'Loading' },
     { label: 'Recent Blocks', value: blocks.length.toString() },
-    { label: 'Recent Txs', value: txs.length.toString() },
+    { label: 'Sampled Txs', value: txs.length.toString() },
     { label: 'Chain ID', value: '4441' },
     { label: 'Network', value: 'LitVM Testnet' },
   ]
@@ -164,17 +188,40 @@ export default function ExplorerPage() {
           />
         </form>
 
-        {/* Toast */}
-        {toastVisible && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 rounded-lg border border-[var(--warning)]/30 bg-[var(--surface-2)] px-5 py-3 text-sm text-[var(--warning)] shadow-lg">
-            RPC not yet connected — check back at mainnet launch
-          </div>
-        )}
-
-        {/* Token Tracker Link */}
-        <div className="mb-8">
-          <Link href="/explorer/tokens" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--surface-1)] border border-white/10 text-sm text-white/70 hover:text-white hover:border-white/20 transition">
-            <span>🪙</span> Token Launch Tracker
+        {/* Explorer actions */}
+        <div className="mb-8 grid gap-3 sm:grid-cols-3">
+          <Link href="/explorer/tokens" className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] p-4 no-underline transition hover:border-white/20">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
+                <Coins size={18} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-white">Token Launch Tracker</p>
+                <p className="mt-1 text-xs text-white/40">Search new LitVM assets.</p>
+              </div>
+            </div>
+          </Link>
+          <Link href="/charts" className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] p-4 no-underline transition hover:border-white/20">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-violet-300/20 bg-violet-300/10 text-violet-200">
+                <BarChart3 size={18} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-white">Market Charts</p>
+                <p className="mt-1 text-xs text-white/40">Price and reserve views.</p>
+              </div>
+            </div>
+          </Link>
+          <Link href="/pool" className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] p-4 no-underline transition hover:border-white/20">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-pink-300/20 bg-pink-300/10 text-pink-200">
+                <Droplets size={18} />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-white">DEX Pools</p>
+                <p className="mt-1 text-xs text-white/40">Inspect pairs and liquidity.</p>
+              </div>
+            </div>
           </Link>
         </div>
 

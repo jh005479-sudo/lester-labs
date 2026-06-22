@@ -8,8 +8,9 @@ import { Navbar } from '@/components/layout/Navbar'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { useAccount, useReadContract, useReadContracts } from 'wagmi'
 import { decodeEventLog, parseEther, parseUnits, isAddress, formatEther } from 'viem'
-import { AlertTriangle, CircleCheck, Moon, Radio, Rocket } from 'lucide-react'
+import { AlertTriangle, CircleCheck, Moon, Radio, Rocket, Search, SlidersHorizontal } from 'lucide-react'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
+import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI, ILO_ABI } from '@/config/abis'
@@ -19,6 +20,16 @@ import { useTokenImageUrls } from '@/hooks/useTokenImageUrls'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getRecentWindowIndices } from '@/lib/launchpadPagination'
 import { getLaunchpadReadPlan, type LaunchpadTab } from '@/lib/launchpadTab'
+import {
+  filterPresales,
+  formatPresaleMarketCap,
+  getPresaleProgress,
+  getPresaleStatus,
+  getPresaleTimeLabel,
+  sortPresales,
+  type LaunchpadDisplayPresale,
+  type PresaleStatus,
+} from '@/lib/launchpadDisplay'
 
 // ABI for fetching token decimals (RP-001)
 const ERC20_DECIMALS_ABI = [
@@ -155,10 +166,11 @@ function useAllILOData(addresses: `0x${string}`[], enabled: boolean) {
 }
 
 // Live ILO card — receives pre-fetched data as props (no individual contract reads)
-function LiveILOCard({ address, data: d, meta, imageUrl, now }: { address: `0x${string}`; data: ILOData; meta?: { name: string; symbol: string }; imageUrl?: string | null; now: number }) {
+function buildLivePresale({ address, data: d, meta, imageUrl, now, userContribution }: { address: `0x${string}`; data: ILOData; meta?: { name: string; symbol: string }; imageUrl?: string | null; now: number; userContribution?: bigint }): MockPresale {
   const logoUrl = imageUrl ?? (d.token ? getTokenLogoUrl(d.token) : undefined)
-  const livePresale = {
+  return {
     address,
+    token: d.token,
     name: meta?.name ?? (d.token ? `${d.token.slice(0, 6)}…` : 'Loading…'),
     symbol: meta?.symbol ?? '…',
     softCap: d.softCap ? formatEther(d.softCap) : '0',
@@ -172,17 +184,11 @@ function LiveILOCard({ address, data: d, meta, imageUrl, now }: { address: `0x${
     lpLockDuration: Number(d.lpLockDuration ?? 0n),
     contributorCount: '—',
     logoUrl,
+    userContribution: userContribution ?? 0n,
   }
-
-  return <PresaleCard presale={livePresale as unknown as MockPresale} now={now} />
 }
 
-type MockPresale = {
-  address: string; name: string; symbol: string; softCap: string; hardCap: string;
-  raised: string; startTime: number; endTime: number; finalized: boolean;
-  cancelled: boolean; liquidityBps: number; lpLockDuration: number;
-  contributorCount: string | number; logoUrl?: string;
-}
+type MockPresale = LaunchpadDisplayPresale
 
 interface CreatedPresaleState {
   address: string
@@ -228,6 +234,7 @@ function CreatePresaleForm() {
     liquidityPct: '60',
     lpLockDays: '180',
     whitelist: false,
+    logoUrl: '',
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -480,6 +487,12 @@ function CreatePresaleForm() {
             />
             {errors.tokenAddress && <div style={errorStyle}>{errors.tokenAddress}</div>}
           </div>
+
+          <TokenLogoUpload
+            tokenAddress={isAddress(form.tokenAddress) ? form.tokenAddress : undefined}
+            currentUrl={form.logoUrl}
+            onUrlChange={(url) => setForm((current) => ({ ...current, logoUrl: url }))}
+          />
 
           {/* Caps */}
           <div
@@ -815,7 +828,7 @@ function CreatePresaleForm() {
                 </Link>
                 <button
                   onClick={() => {
-                    setForm({ tokenAddress: '', softCap: '', hardCap: '', tokensPerEth: '', startDate: '', endDate: '', liquidityPct: '60', lpLockDays: '180', whitelist: false })
+                    setForm({ tokenAddress: '', softCap: '', hardCap: '', tokensPerEth: '', startDate: '', endDate: '', liquidityPct: '60', lpLockDays: '180', whitelist: false, logoUrl: '' })
                     setCurrentTxHash(undefined)
                     setSuccessResult(null)
                     setTxMessage(undefined)
@@ -845,33 +858,25 @@ function CreatePresaleForm() {
 }
 
 function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
-  const raisedValue = parseFloat(presale.raised)
-  const hardCapValue = parseFloat(presale.hardCap)
-  const progress =
-    Number.isFinite(raisedValue) && Number.isFinite(hardCapValue) && hardCapValue > 0
-      ? raisedValue / hardCapValue
-      : 0
-  const progressPct = Math.min(100, parseFloat((progress * 100).toFixed(2)))
-  const marketCap = Number.isFinite(raisedValue) ? raisedValue * 50 : 0
-  const timeLeft = presale.endTime - now
-  const daysLeft = Math.max(0, Math.floor(timeLeft / 86400000))
-  const hoursLeft = Math.max(
-    0,
-    Math.floor((timeLeft % 86400000) / 3600000),
-  )
-  const status = presale.finalized
-    ? 'Finalized'
-    : presale.cancelled
-      ? 'Cancelled'
-      : timeLeft > 0
-        ? 'Live'
-        : 'Ended'
+  const progressPct = getPresaleProgress(presale)
+  const status = getPresaleStatus(presale, now)
+  const timeLabel = getPresaleTimeLabel(presale, now)
   const statusColor =
     status === 'Live'
       ? '#4ade80'
       : status === 'Finalized'
         ? '#818cf8'
+        : status === 'Upcoming'
+          ? '#fbbf24'
         : '#f87171'
+  const sparkPoints = [6, 12, 9, 16, 14, 22, 18, Math.max(20, progressPct)]
+  const sparkPath = sparkPoints
+    .map((value, index) => {
+      const x = 6 + index * 19
+      const y = 42 - Math.min(34, value * 0.34)
+      return `${index === 0 ? 'M' : 'L'}${x},${y.toFixed(1)}`
+    })
+    .join(' ')
 
   return (
     <Link
@@ -977,8 +982,25 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
       >
         <span style={{ color: '#9ca3af' }}>Market Cap</span>
         <span style={{ color: '#e5e7eb', fontWeight: 500 }}>
-          {'$'}{marketCap.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          {formatPresaleMarketCap(presale)}
         </span>
+      </div>
+
+      <div
+        aria-hidden="true"
+        style={{
+          height: '54px',
+          borderRadius: '10px',
+          border: '1px solid rgba(255,255,255,0.06)',
+          background: 'linear-gradient(180deg, rgba(94,106,210,0.13), rgba(54,209,220,0.04))',
+          overflow: 'hidden',
+          position: 'relative',
+        }}
+      >
+        <svg viewBox="0 0 150 54" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+          <path d={`${sparkPath} L139,54 L6,54 Z`} fill="rgba(54,209,220,0.12)" />
+          <path d={sparkPath} fill="none" stroke="#36D1DC" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </div>
 
       {/* Multi-color gradient progress bar */}
@@ -1044,9 +1066,7 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
             ● {status}
           </span>
           <span style={{ color: '#6b7280' }}>
-            {status === 'Live'
-              ? daysLeft + 'd ' + hoursLeft + 'h left'
-              : '—'}
+            {timeLabel}
           </span>
         </div>
         <span
@@ -1063,13 +1083,30 @@ function PresaleCard({ presale, now }: { presale: MockPresale; now: number }) {
           View →
         </span>
       </div>
+      {(presale.userContribution ?? 0n) > 0n && (
+        <div style={{
+          marginTop: '-4px',
+          borderRadius: '8px',
+          border: '1px solid rgba(45,206,137,0.25)',
+          background: 'rgba(45,206,137,0.08)',
+          color: '#86efac',
+          fontSize: '12px',
+          padding: '7px 9px',
+        }}>
+          You participated: {formatEther(presale.userContribution ?? 0n)} zkLTC
+        </div>
+      )}
     </Link>
   )
 }
 export default function LaunchpadPage() {
+  const { address: userAddress, isConnected } = useAccount()
   const [tab, setTab] = useState<Tab | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [presaleLimit, setPresaleLimit] = useState(INITIAL_PRESALE_VISIBLE_COUNT)
+  const [presaleSearch, setPresaleSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<PresaleStatus>('All')
+  const [participatedOnly, setParticipatedOnly] = useState(false)
   const activeTab = tab ?? 'browse'
   const readPlan = tab === null ? DISABLED_LAUNCHPAD_READ_PLAN : getLaunchpadReadPlan(tab)
 
@@ -1102,6 +1139,18 @@ export default function LaunchpadPage() {
   const { iloMap, isLoading: iloDataLoading } = useAllILOData(liveAddresses, readPlan.presaleData)
   const presalesLoading = readPlan.presaleData && (iloCountLoading || iloLoading || iloDataLoading)
 
+  const userContributionReads = useReadContracts({
+    contracts: isConnected && userAddress
+      ? liveAddresses.map((addr) => ({
+          address: addr,
+          abi: ILO_ABI,
+          functionName: 'contributions' as const,
+          args: [userAddress],
+        }))
+      : [],
+    query: { enabled: readPlan.presaleData && isConnected && Boolean(userAddress) && liveAddresses.length > 0 },
+  })
+
   // Extract token addresses from ILO data for metadata lookup
   const tokenAddresses = readPlan.tokenMetadata ? Array.from(new Set(
     Array.from(iloMap.values())
@@ -1121,6 +1170,32 @@ export default function LaunchpadPage() {
     0n,
   )
   const totalRaised = readPlan.presaleData && totalRaisedBigint > 0n ? formatEther(totalRaisedBigint) : '—'
+  const presales = liveAddresses
+    .map((addr, index) => {
+      const iloData = iloMap.get(addr)
+      if (!iloData || !iloData.token) return null
+      const userContribution =
+        userContributionReads.data?.[index]?.status === 'success'
+          ? (userContributionReads.data[index].result as bigint)
+          : 0n
+      return buildLivePresale({
+        address: addr,
+        data: iloData,
+        meta: tokenMetaMap.get(iloData.token.toLowerCase()),
+        imageUrl: tokenImageUrls.get(iloData.token.toLowerCase()) ?? null,
+        now,
+        userContribution,
+      })
+    })
+    .filter((presale): presale is MockPresale => presale !== null)
+  const visiblePresales = sortPresales(
+    filterPresales(presales, {
+      query: presaleSearch,
+      status: statusFilter,
+      participatedOnly,
+    }, now),
+    now,
+  )
 
   return (
     <div
@@ -1266,11 +1341,83 @@ export default function LaunchpadPage() {
           </div>
         ) : tab === 'browse' ? (
           <div>
+            <div
+              className="analytics-card"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) auto',
+                gap: '12px',
+                alignItems: 'center',
+                marginBottom: '22px',
+                padding: '14px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.03)',
+              }}
+            >
+              <div style={{ position: 'relative' }}>
+                <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.35)' }} />
+                <input
+                  value={presaleSearch}
+                  onChange={(event) => setPresaleSearch(event.target.value)}
+                  placeholder="Search by token, project, presale, or token address"
+                  style={{
+                    width: '100%',
+                    padding: '11px 12px 11px 38px',
+                    borderRadius: '9px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.04)',
+                    color: '#fff',
+                    outline: 'none',
+                    fontSize: '14px',
+                  }}
+                />
+              </div>
+              <div className="launchpad-filter-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <SlidersHorizontal size={15} color="rgba(255,255,255,0.45)" />
+                {(['All', 'Live', 'Upcoming', 'Ended', 'Finalized'] as PresaleStatus[]).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setStatusFilter(status)}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: statusFilter === status ? '1px solid rgba(94,106,210,0.55)' : '1px solid rgba(255,255,255,0.08)',
+                      background: statusFilter === status ? 'rgba(94,106,210,0.18)' : 'rgba(255,255,255,0.035)',
+                      color: statusFilter === status ? '#d8dcff' : 'rgba(255,255,255,0.55)',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {status}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setParticipatedOnly((value) => !value)}
+                  disabled={!isConnected}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    border: participatedOnly ? '1px solid rgba(45,206,137,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                    background: participatedOnly ? 'rgba(45,206,137,0.12)' : 'rgba(255,255,255,0.035)',
+                    color: !isConnected ? 'rgba(255,255,255,0.25)' : participatedOnly ? '#86efac' : 'rgba(255,255,255,0.55)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: isConnected ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Participated
+                </button>
+              </div>
+            </div>
             {presalesLoading ? (
               <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
                 Loading presales from contract…
               </div>
-            ) : liveAddresses.length === 0 ? (
+            ) : presales.length === 0 ? (
               <div
                 style={{
                   textAlign: 'center',
@@ -1294,6 +1441,10 @@ export default function LaunchpadPage() {
                   Be the first to launch on LitVM
                 </div>
               </div>
+            ) : visiblePresales.length === 0 ? (
+              <div className="analytics-card" style={{ textAlign: 'center', padding: '54px 20px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.45)' }}>
+                No presales match your filters.
+              </div>
             ) : (
               <div
                 style={{
@@ -1303,20 +1454,9 @@ export default function LaunchpadPage() {
                   gap: '20px',
                 }}
               >
-                {liveAddresses.map((addr) => {
-                  const iloData = iloMap.get(addr)
-                  if (!iloData || !iloData.token) return null
-                  return (
-                    <LiveILOCard
-                      key={addr}
-                      address={addr}
-                      data={iloData}
-                      meta={tokenMetaMap.get(iloData.token.toLowerCase())}
-                      imageUrl={tokenImageUrls.get(iloData.token.toLowerCase()) ?? null}
-                      now={now}
-                    />
-                  )
-                })}
+                {visiblePresales.map((presale) => (
+                  <PresaleCard key={presale.address} presale={presale} now={now} />
+                ))}
               </div>
             )}
             {hasMorePresales && !presalesLoading && (

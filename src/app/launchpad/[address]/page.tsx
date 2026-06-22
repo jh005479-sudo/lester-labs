@@ -9,10 +9,12 @@ import { formatEther, formatUnits, isAddress, parseEther, parseUnits, zeroAddres
 import { AlertTriangle, CircleCheck, ExternalLink, ShieldCheck, Upload } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
+import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
 import { ERC20_ABI, ILO_ABI } from '@/config/abis'
 import { wagmiConfig } from '@/config/wagmi'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+import { useTokenImageUrls } from '@/hooks/useTokenImageUrls'
 import { litvm } from '@/config/chains'
 
 function shortAddress(address: string) {
@@ -56,6 +58,7 @@ export default function PresalePage() {
   const [contributionAmount, setContributionAmount] = useState('')
   const [fundingAmount, setFundingAmount] = useState('')
   const [whitelistInput, setWhitelistInput] = useState('')
+  const [localLogoUrl, setLocalLogoUrl] = useState<string | null>(null)
   const [txOpen, setTxOpen] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
@@ -187,6 +190,9 @@ export default function PresalePage() {
   })
 
   const tokenAddress = tokenRead.data as `0x${string}` | undefined
+  const tokenImageUrls = useTokenImageUrls(Boolean(tokenAddress))
+  const storedLogoUrl = tokenAddress ? tokenImageUrls.get(tokenAddress.toLowerCase()) ?? null : null
+  const logoUrl = localLogoUrl ?? storedLogoUrl
   const tokenNameRead = useReadContract({
     address: tokenAddress,
     abi: ERC20_ABI,
@@ -588,13 +594,37 @@ export default function PresalePage() {
             ← Back to Launchpad
           </Link>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '4px' }}>
-                {tokenName} <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>${tokenSymbol}</span>
-              </h1>
-              <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                {iloAddress}
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+              <div style={{
+                width: 58,
+                height: 58,
+                flexShrink: 0,
+                borderRadius: '14px',
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'linear-gradient(135deg, rgba(94,106,210,0.24), rgba(54,209,220,0.08))',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                color: '#d8dcff',
+                fontWeight: 800,
+                fontSize: 22,
+              }}>
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoUrl} alt={`${tokenName} logo`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  tokenSymbol.slice(0, 1).toUpperCase()
+                )}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '4px' }}>
+                  {tokenName} <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>${tokenSymbol}</span>
+                </h1>
+                <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                  {iloAddress}
+                </p>
+              </div>
             </div>
             <span style={{
               padding: '6px 14px',
@@ -667,6 +697,24 @@ export default function PresalePage() {
           </div>
         </div>
 
+        <div style={{ ...cardStyle, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '14px' }}>
+          {[
+            ['Token price', tokensPerEth > 0n ? `${formatTokenValue(tokensPerEth, tokenDecimals, 2)} / zkLTC` : '—'],
+            ['LP allocation', `${(liquidityBps / 100).toFixed(0)}%`],
+            ['Lock duration', `${Math.round(lpLockDuration / 86400)} days`],
+          ].map(([label, value]) => (
+            <div key={label} style={{
+              borderRadius: '10px',
+              border: '1px solid rgba(255,255,255,0.07)',
+              background: 'linear-gradient(180deg, rgba(94,106,210,0.09), rgba(255,255,255,0.025))',
+              padding: '14px',
+            }}>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.38)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</p>
+              <p style={{ marginTop: '8px', fontSize: '16px', fontWeight: 700, color: '#fff' }}>{value}</p>
+            </div>
+          ))}
+        </div>
+
         <div style={cardStyle}>
           <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>Presale Details</h2>
           <StatRow label="Token" value={`${tokenName} (${tokenSymbol})`} />
@@ -737,6 +785,16 @@ export default function PresalePage() {
           <div style={cardStyle}>
             <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Creator Controls</h2>
             <div style={{ display: 'grid', gap: '16px' }}>
+              {tokenAddress && (
+                <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '16px', background: 'rgba(255,255,255,0.03)' }}>
+                  <TokenLogoUpload
+                    tokenAddress={tokenAddress}
+                    currentUrl={logoUrl}
+                    onUrlChange={(url) => setLocalLogoUrl(url || null)}
+                  />
+                </div>
+              )}
+
               <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '16px', background: 'rgba(255,255,255,0.03)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                   <Upload size={16} color="#a78bfa" />
