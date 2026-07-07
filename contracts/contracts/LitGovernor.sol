@@ -165,7 +165,7 @@ contract LitGovernor {
     function castVoteWithReason(
         uint256 proposalId,
         uint8 support,
-        string calldata reason
+        string calldata /* reason */
     ) external {
         require(support <= ABSTAIN, "Governor: invalid vote type");
         _castVote(proposalId, msg.sender, support);
