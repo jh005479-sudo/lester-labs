@@ -140,6 +140,11 @@ export function AirdropForm() {
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successState, setSuccessState] = useState<SuccessState | null>(null)
+  // Guard: prevent double-submit if page reloads mid-batch
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    try { return sessionStorage.getItem('lester_airdrop_submitting') === '1' } catch { return false }
+  })
 
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
   void receipt // used as dependency for re-renders
@@ -192,10 +197,11 @@ export function AirdropForm() {
     validRecipients.length > 0 &&
     tokenAddressValid &&
     totalAmount > 0 &&
-    decimalsReady
+    decimalsReady &&
+    !isSubmitting
 
   const handleSend = useCallback(async () => {
-    if (!canSubmit) return
+    if (!canSubmit || isSubmitting) return
     if (!(await ensureLitvmWrite({
       action: mode === 'token' ? 'approving and sending a token airdrop' : 'sending a zkLTC airdrop',
       onError: (message) => {
@@ -210,6 +216,8 @@ export function AirdropForm() {
     setModalOpen(true)
     setTxStatus('pending')
     setTxMessage(undefined)
+    setIsSubmitting(true)
+    try { sessionStorage.setItem('lester_airdrop_submitting', '1') } catch {}
 
     const batches: Recipient[][] = []
     for (let i = 0; i < validRecipients.length; i += BATCH_SIZE) {
@@ -306,6 +314,8 @@ export function AirdropForm() {
       // Only set success after ALL batch receipts confirm (F-007)
       setTxStatus('success')
       setTxMessage(undefined)
+      setIsSubmitting(false)
+      try { sessionStorage.removeItem('lester_airdrop_submitting') } catch {}
       setSuccessState({
         batches: batchResults,
         totalRecipients: validRecipients.length,
@@ -315,8 +325,10 @@ export function AirdropForm() {
     } catch (err: unknown) {
       setTxStatus('error')
       setTxMessage(getWalletErrorMessage(err))
+      setIsSubmitting(false)
+      try { sessionStorage.removeItem('lester_airdrop_submitting') } catch {}
     }
-  }, [canSubmit, ensureLitvmWrite, mode, tokenAddress, validRecipients, totalAmount, totalAmountWei, parsedRecipients, writeContractAsync])
+  }, [canSubmit, isSubmitting, ensureLitvmWrite, mode, tokenAddress, validRecipients, totalAmount, totalAmountWei, parsedRecipients, writeContractAsync])
 
   const handleSwitchNetwork = useCallback(async () => {
     const result = await switchToLitvm()
@@ -352,6 +364,14 @@ export function AirdropForm() {
 
   return (
     <div className="space-y-6">
+      {/* Double-submit guard: show banner if page was reloaded mid-batch */}
+      {isSubmitting && (
+        <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
+          <Loader2 size={14} className="animate-spin" />
+          A previous airdrop submission is still in progress. Please wait for it to complete.
+        </div>
+      )}
+
       {/* Mode Toggle */}
       <div className="flex gap-2">
         {(
