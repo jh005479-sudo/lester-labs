@@ -47,7 +47,10 @@ contract ILO is ReentrancyGuard {
     event Finalized(address lpToken, uint256 lpAmount);
     event Cancelled();
     event Claimed(address indexed user, uint256 tokens);
+    event ContributionClaimed(address indexed user, uint256 ethRef, uint256 tokens);
     event Refunded(address indexed user, uint256 amount);
+    event ContributionRefunded(address indexed user, uint256 amount);
+    event ExcessTokensSweptEvent(address indexed owner, uint256 amount);
     event LPClaimed(address indexed owner, uint256 amount);
     event ExcessTokensSwept(address indexed owner, uint256 amount);
     event Whitelisted(address indexed user, bool status);
@@ -127,6 +130,8 @@ contract ILO is ReentrancyGuard {
         require(totalRaised >= softCap, "Soft cap not met");
         // Owner can always finalize; others can only finalize after endTime
         require(msg.sender == owner || block.timestamp > endTime, "Only owner before endTime");
+        // Prevent finalizing after cancellation
+        require(!cancelled, "Already cancelled");
 
         finalized = true;
 
@@ -200,6 +205,7 @@ contract ILO is ReentrancyGuard {
         token.safeTransfer(msg.sender, tokens);
 
         emit Claimed(msg.sender, tokens);
+        emit ContributionClaimed(msg.sender, contribution, tokens);
     }
 
     // ── Refund (contributors, after cancel or emergency) ────────────────
@@ -217,6 +223,7 @@ contract ILO is ReentrancyGuard {
         require(ok, "Refund failed");
 
         emit Refunded(msg.sender, amount);
+        emit ContributionRefunded(msg.sender, amount);
     }
 
     // ── Claim LP (owner, after lock expires) ───────────────────────────
@@ -264,6 +271,7 @@ contract ILO is ReentrancyGuard {
         token.safeTransfer(owner, amount);
 
         emit ExcessTokensSwept(owner, amount);
+        emit ExcessTokensSweptEvent(owner, amount);
     }
 
     // ── Whitelist management (owner only) ──────────────────────────────

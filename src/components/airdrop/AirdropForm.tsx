@@ -170,8 +170,10 @@ export function AirdropForm() {
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successState, setSuccessState] = useState<SuccessState | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [resumeProgress, setResumeProgress] = useState<AirdropProgress | null>(null)
   const [progressConflict, setProgressConflict] = useState(false)
+  const submissionLockRef = useRef(false)
   const lastProgressKeyRef = useRef<string | null>(null)
 
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
@@ -227,7 +229,8 @@ export function AirdropForm() {
     validRecipients.length > 0 &&
     tokenAddressValid &&
     totalAmount > 0 &&
-    decimalsReady
+    decimalsReady &&
+    !isSubmitting
 
   const progressStorageKey = useMemo(
     () => address
@@ -253,7 +256,10 @@ export function AirdropForm() {
   }, [progressStorageKey, validRecipients])
 
   const handleSend = useCallback(async () => {
-    if (!canSubmit) return
+    if (!canSubmit || submissionLockRef.current) return
+    submissionLockRef.current = true
+    setIsSubmitting(true)
+
     if (!(await ensureLitvmWrite({
       action: mode === 'token' ? 'approving and sending a token airdrop' : 'sending a zkLTC airdrop',
       onError: (message) => {
@@ -262,6 +268,8 @@ export function AirdropForm() {
         setTxMessage(message)
       },
     }))) {
+      submissionLockRef.current = false
+      setIsSubmitting(false)
       return
     }
 
@@ -272,6 +280,8 @@ export function AirdropForm() {
     if (!progressStorageKey) {
       setTxStatus('error')
       setTxMessage('Connect a wallet before preparing an airdrop.')
+      submissionLockRef.current = false
+      setIsSubmitting(false)
       return
     }
 
@@ -435,6 +445,9 @@ export function AirdropForm() {
     } catch (err: unknown) {
       setTxStatus('error')
       setTxMessage(getWalletErrorMessage(err))
+    } finally {
+      submissionLockRef.current = false
+      setIsSubmitting(false)
     }
   }, [canSubmit, ensureLitvmWrite, mode, tokenAddress, validRecipients, totalAmount, totalAmountWei, parsedRecipients, progressStorageKey, writeContractAsync])
 
@@ -495,6 +508,14 @@ export function AirdropForm() {
 
   return (
     <div className="space-y-6">
+      {/* Same-page submissions are locked; reload recovery uses durable progress. */}
+      {isSubmitting && (
+        <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
+          <Loader2 size={14} className="animate-spin" />
+          Airdrop submission in progress. Confirm or reject the active wallet request before continuing.
+        </div>
+      )}
+
       {/* Mode Toggle */}
       <div className="flex gap-2">
         {(
