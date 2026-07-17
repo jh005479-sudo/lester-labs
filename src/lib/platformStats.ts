@@ -12,6 +12,14 @@ import {
 import { ILO_FACTORY_ABI, LEDGER_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
 import { RPC_URL } from '@/lib/rpcClient'
 import { tokenCountFromFactoryNonce } from '@/lib/factoryNonce'
+import {
+  applyCounterFloor,
+  describeSwapCoverage,
+  getAuditedCounterBaseline,
+  getBoundedStatsLogRange,
+  selectNewestPairIndices,
+  sumCompleteCounts,
+} from '@/lib/platformStatsBounds'
 
 const LEGACY_ILO_FACTORY_ADDRESS = '0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB' as const
 const DEFAULT_TOKEN_FACTORY_ADDRESS = '0x93acc61fcdc2e3407A0c03450Adfd8aE78964948' as const
@@ -35,17 +43,19 @@ const FALLBACK_STATS = {
   presalesCreated: 77,
   swapsCompleted: SWAP_COUNT_AUDIT_TOTAL,
   onChainMessages: 3_392,
-} satisfies Omit<PlatformStatsSnapshot, 'fetchedAt'>
+}
 
 const RESPONSE_TTL_MS = 60_000
 const RPC_TIMEOUT_MS = 3_000
 const METRIC_TIMEOUT_MS = 3_500
 const SWAP_ADDRESS_BATCH_SIZE = 50
+const MAX_PAIR_ENUMERATION = 200
+const MAX_STATS_LOG_BLOCKS = 10_000n
+const MAX_METRIC_LOGS = 25_000
 
 const TOKEN_CREATED_EVENT = parseAbiItem(
   'event TokenCreated(address indexed tokenAddress, address indexed creator, string name, string symbol)',
 )
-const TRANSFER_EVENT = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)')
 const SWAP_EVENT = parseAbiItem(
   'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
 )
@@ -65,6 +75,24 @@ export interface PlatformStatsSnapshot {
   swapsCompleted: number
   onChainMessages: number
   fetchedAt: string
+  coverage: Record<PlatformMetricName, PlatformMetricCoverage>
+}
+
+export type PlatformMetricName = 'tokensMinted' | 'walletsAirdropped' | 'presalesCreated' | 'swapsCompleted' | 'onChainMessages'
+export type PlatformMetricCoverageStatus = 'live' | 'bounded' | 'audited-baseline' | 'fallback'
+
+export interface PlatformMetricCoverage {
+  status: PlatformMetricCoverageStatus
+  note: string
+}
+
+interface CountMetric {
+  value: number
+  coverage: PlatformMetricCoverage
+}
+
+function countMetric(value: number, status: PlatformMetricCoverageStatus, note: string): CountMetric {
+  return { value, coverage: { status, note } }
 }
 
 let responseCache:
@@ -104,19 +132,14 @@ function resolveContractAddress(configuredAddress: Address, fallbackAddress?: Ad
   return null
 }
 
-function preserveCounterFloor(value: number, floor: number): number {
-  if (!Number.isFinite(value)) return floor
-  return Math.max(value, floor)
-}
-
-async function safeReadCount(address: Address, abi: typeof ILO_FACTORY_ABI, functionName: 'getILOCount'): Promise<number>
-async function safeReadCount(address: Address, abi: typeof LEDGER_ABI, functionName: 'messageCount'): Promise<number>
+async function safeReadCount(address: Address, abi: typeof ILO_FACTORY_ABI, functionName: 'getILOCount'): Promise<number | null>
+async function safeReadCount(address: Address, abi: typeof LEDGER_ABI, functionName: 'messageCount'): Promise<number | null>
 async function safeReadCount(
   address: Address,
   abi: typeof ILO_FACTORY_ABI | typeof LEDGER_ABI,
   functionName: 'getILOCount' | 'messageCount',
-): Promise<number> {
-  if (!isValidContractAddress(address)) return 0
+): Promise<number | null> {
+  if (!isValidContractAddress(address)) return null
 
   try {
     const result = await client.readContract({
@@ -126,13 +149,13 @@ async function safeReadCount(
     })
     return Number(result)
   } catch {
-    return 0
+    return null
   }
 }
 
-async function getTokenCount(): Promise<number> {
+async function getTokenCount(): Promise<CountMetric> {
   const tokenFactoryAddress = resolveContractAddress(TOKEN_FACTORY_ADDRESS, DEFAULT_TOKEN_FACTORY_ADDRESS)
-  if (!tokenFactoryAddress) return 0
+  if (!tokenFactoryAddress) return countMetric(0, 'fallback', 'Token factory is not configured.')
 
   try {
     const nonce = await client.getTransactionCount({
@@ -140,23 +163,33 @@ async function getTokenCount(): Promise<number> {
       blockTag: 'latest',
     })
 
-    return tokenCountFromFactoryNonce(nonce)
+    return countMetric(tokenCountFromFactoryNonce(nonce), 'live', 'Factory deployment nonce read at latest block.')
   } catch {
     // Fall back to the event-log audit path if the RPC cannot return contract nonce.
   }
 
   const useAuditBaseline = tokenFactoryAddress.toLowerCase() === DEFAULT_TOKEN_FACTORY_ADDRESS.toLowerCase()
+  const latestBlock = await client.getBlockNumber()
+  const range = getBoundedStatsLogRange(
+    useAuditBaseline ? TOKEN_COUNT_AUDIT_BLOCK + 1n : 0n,
+    latestBlock,
+    MAX_STATS_LOG_BLOCKS,
+  )
   const logs = await client.getLogs({
     address: tokenFactoryAddress,
     event: TOKEN_CREATED_EVENT,
-    fromBlock: useAuditBaseline ? TOKEN_COUNT_AUDIT_BLOCK + 1n : 0n,
-    toBlock: 'latest',
+    fromBlock: range.scannedFromBlock,
+    toBlock: range.toBlock,
   })
 
-  return (useAuditBaseline ? TOKEN_COUNT_AUDIT_TOTAL : 0) + logs.length
+  return countMetric(
+    (useAuditBaseline ? TOKEN_COUNT_AUDIT_TOTAL : 0) + logs.length,
+    range.truncated ? 'bounded' : 'live',
+    range.truncated ? 'Factory log fallback is limited to the newest 10,000 blocks.' : 'Factory creation logs cover the requested range.',
+  )
 }
 
-async function getPresalesCount(): Promise<number> {
+async function getPresalesCount(): Promise<CountMetric> {
   const addresses = new Map<string, Address>()
 
   const currentFactory = resolveContractAddress(ILO_FACTORY_ADDRESS, LEGACY_ILO_FACTORY_ADDRESS)
@@ -167,8 +200,10 @@ async function getPresalesCount(): Promise<number> {
   const counts = await Promise.all(
     Array.from(addresses.values()).map((address) => safeReadCount(address, ILO_FACTORY_ABI, 'getILOCount')),
   )
+  const total = sumCompleteCounts(counts)
+  if (total === null) throw new Error('Unable to read every canonical launchpad factory counter.')
 
-  return counts.reduce((sum, value) => sum + value, 0)
+  return countMetric(total, 'live', 'Canonical launchpad factory counters.')
 }
 
 async function resolveUniswapFactoryAddress(): Promise<Address | null> {
@@ -196,7 +231,12 @@ async function resolveUniswapFactoryAddress(): Promise<Address | null> {
   return DEFAULT_UNISWAP_V2_FACTORY_ADDRESS
 }
 
-async function getPairAddresses(factoryAddress: Address): Promise<Address[]> {
+async function getPairAddresses(factoryAddress: Address): Promise<{
+  addresses: Address[]
+  total: number
+  pairEnumerationCapped: boolean
+  pairResolutionIncomplete: boolean
+}> {
   const pairCount = Number(
     await client.readContract({
       address: factoryAddress,
@@ -205,9 +245,16 @@ async function getPairAddresses(factoryAddress: Address): Promise<Address[]> {
     }),
   )
 
-  if (pairCount === 0) return []
+  if (pairCount === 0) {
+    return {
+      addresses: [],
+      total: 0,
+      pairEnumerationCapped: false,
+      pairResolutionIncomplete: false,
+    }
+  }
 
-  const indices = Array.from({ length: pairCount }, (_, index) => BigInt(index))
+  const indices = selectNewestPairIndices(pairCount, MAX_PAIR_ENUMERATION)
   const pairAddresses: Address[] = []
 
   for (const batch of chunk(indices, SWAP_ADDRESS_BATCH_SIZE)) {
@@ -229,96 +276,139 @@ async function getPairAddresses(factoryAddress: Address): Promise<Address[]> {
     }
   }
 
-  return pairAddresses
+  return {
+    addresses: pairAddresses,
+    total: pairCount,
+    pairEnumerationCapped: pairCount > indices.length,
+    pairResolutionIncomplete: pairAddresses.length < indices.length,
+  }
 }
 
-async function getSwapCount(): Promise<number> {
+async function getSwapCount(): Promise<CountMetric> {
   const factoryAddress = await resolveUniswapFactoryAddress()
-  if (!factoryAddress) return 0
+  if (!factoryAddress) return countMetric(0, 'fallback', 'DEX factory is not configured.')
 
   const useAuditBaseline = factoryAddress.toLowerCase() === DEFAULT_UNISWAP_V2_FACTORY_ADDRESS.toLowerCase()
-  const pairAddresses = await getPairAddresses(factoryAddress)
-  if (pairAddresses.length === 0) return 0
+  const pairResult = await getPairAddresses(factoryAddress)
+  if (pairResult.total === 0) return countMetric(0, 'live', 'Canonical factory currently has no pairs.')
+  if (pairResult.addresses.length === 0) throw new Error('Unable to resolve canonical factory pair addresses.')
+  const latestBlock = await client.getBlockNumber()
+  const range = getBoundedStatsLogRange(
+    useAuditBaseline ? SWAP_COUNT_AUDIT_BLOCK + 1n : 0n,
+    latestBlock,
+    MAX_STATS_LOG_BLOCKS,
+  )
 
   let count = useAuditBaseline ? SWAP_COUNT_AUDIT_TOTAL : 0
+  let countedLogs = 0
+  let logLimitReached = false
 
-  for (const batch of chunk(pairAddresses, SWAP_ADDRESS_BATCH_SIZE)) {
+  for (const batch of chunk(pairResult.addresses, SWAP_ADDRESS_BATCH_SIZE)) {
     const logs = await client.getLogs({
       address: batch,
       event: SWAP_EVENT,
-      fromBlock: useAuditBaseline ? SWAP_COUNT_AUDIT_BLOCK + 1n : 0n,
-      toBlock: 'latest',
+      fromBlock: range.scannedFromBlock,
+      toBlock: range.toBlock,
     })
-    count += logs.length
+    const remaining = MAX_METRIC_LOGS - countedLogs
+    countedLogs += Math.min(logs.length, remaining)
+    count += Math.min(logs.length, remaining)
+    if (logs.length >= remaining) {
+      logLimitReached = true
+      break
+    }
   }
 
-  return count
-}
-
-async function getAirdropWalletCount(): Promise<number> {
-  const disperseAddress = resolveContractAddress(DISPERSE_ADDRESS, DEFAULT_DISPERSE_ADDRESS)
-  if (!disperseAddress) return 0
-
-  const useAuditBaseline = disperseAddress.toLowerCase() === DEFAULT_DISPERSE_ADDRESS.toLowerCase()
-  const logs = await client.getLogs({
-    event: TRANSFER_EVENT,
-    args: {
-      from: disperseAddress,
-    },
-    fromBlock: useAuditBaseline ? AIRDROP_WALLET_AUDIT_BLOCK + 1n : 0n,
-    toBlock: 'latest',
+  const coverageNote = describeSwapCoverage({
+    scannedPairs: pairResult.addresses.length,
+    totalPairs: pairResult.total,
+    pairEnumerationCapped: pairResult.pairEnumerationCapped,
+    pairResolutionIncomplete: pairResult.pairResolutionIncomplete,
+    logWindowCapped: range.truncated,
+    logCountCapped: logLimitReached,
   })
-
-  const recipients = new Set<string>()
-  for (const log of logs) {
-    const recipient = log.args.to
-    if (recipient) recipients.add(recipient.toLowerCase())
-  }
-
-  return (useAuditBaseline ? AIRDROP_WALLET_AUDIT_TOTAL : 0) + recipients.size
+  const partial = pairResult.pairEnumerationCapped
+    || pairResult.pairResolutionIncomplete
+    || range.truncated
+    || logLimitReached
+  return countMetric(
+    count,
+    partial ? 'bounded' : 'live',
+    coverageNote,
+  )
 }
 
-async function getOnChainMessageCount(): Promise<number> {
-  const ledgerAddress = resolveContractAddress(LEDGER_ADDRESS, DEFAULT_LEDGER_ADDRESS)
-  if (!ledgerAddress) return 0
+async function getAirdropWalletCount(): Promise<CountMetric> {
+  const disperseAddress = resolveContractAddress(DISPERSE_ADDRESS, DEFAULT_DISPERSE_ADDRESS)
+  if (!disperseAddress) return countMetric(0, 'fallback', 'Disperse contract is not configured.')
 
-  return safeReadCount(ledgerAddress, LEDGER_ABI, 'messageCount')
+  // ERC-20 Transfer topics can be emitted by arbitrary contracts. Until the
+  // Disperse contract emits an authenticated recipient event, retain the
+  // audited baseline rather than allowing third parties to inflate this count.
+  const baseline = getAuditedCounterBaseline(AIRDROP_WALLET_AUDIT_TOTAL, AIRDROP_WALLET_AUDIT_BLOCK)
+  return countMetric(
+    baseline.value,
+    'audited-baseline',
+    baseline.note,
+  )
+}
+
+async function getOnChainMessageCount(): Promise<CountMetric> {
+  const ledgerAddress = resolveContractAddress(LEDGER_ADDRESS, DEFAULT_LEDGER_ADDRESS)
+  if (!ledgerAddress) return countMetric(0, 'fallback', 'Ledger contract is not configured.')
+  const count = await safeReadCount(ledgerAddress, LEDGER_ABI, 'messageCount')
+  if (count === null) throw new Error('Unable to read the canonical Ledger message counter.')
+
+  return countMetric(count, 'live', 'Canonical Ledger message counter.')
 }
 
 async function computeSnapshot(): Promise<PlatformStatsSnapshot> {
   const previous = responseCache?.snapshot
   const floor = previous ?? FALLBACK_STATS
+  const fallbackMetric = (value: number, note: string) => countMetric(value, 'fallback', note)
 
   const [tokensResult, presalesResult, swapsResult, airdropsResult, messagesResult] = await Promise.allSettled([
-    withMetricTimeout(getTokenCount(), floor.tokensMinted),
-    withMetricTimeout(getPresalesCount(), floor.presalesCreated),
-    withMetricTimeout(getSwapCount(), floor.swapsCompleted),
-    withMetricTimeout(getAirdropWalletCount(), floor.walletsAirdropped),
-    withMetricTimeout(getOnChainMessageCount(), floor.onChainMessages),
+    withMetricTimeout(getTokenCount(), fallbackMetric(floor.tokensMinted, 'Token metric timed out; serving the last known value.')),
+    withMetricTimeout(getPresalesCount(), fallbackMetric(floor.presalesCreated, 'Presale metric timed out; serving the last known value.')),
+    withMetricTimeout(getSwapCount(), fallbackMetric(floor.swapsCompleted, 'Swap metric timed out; serving the last known value.')),
+    withMetricTimeout(getAirdropWalletCount(), fallbackMetric(floor.walletsAirdropped, 'Airdrop metric timed out; serving the audited baseline.')),
+    withMetricTimeout(getOnChainMessageCount(), fallbackMetric(floor.onChainMessages, 'Ledger metric timed out; serving the last known value.')),
   ])
 
+  const tokens = tokensResult.status === 'fulfilled' ? tokensResult.value : fallbackMetric(floor.tokensMinted, 'Token metric failed.')
+  const presales = presalesResult.status === 'fulfilled' ? presalesResult.value : fallbackMetric(floor.presalesCreated, 'Presale metric failed.')
+  const swaps = swapsResult.status === 'fulfilled' ? swapsResult.value : fallbackMetric(floor.swapsCompleted, 'Swap metric failed.')
+  const airdrops = airdropsResult.status === 'fulfilled' ? airdropsResult.value : fallbackMetric(floor.walletsAirdropped, 'Airdrop metric failed.')
+  const messages = messagesResult.status === 'fulfilled' ? messagesResult.value : fallbackMetric(floor.onChainMessages, 'Ledger metric failed.')
+  const applyMetricFloor = (metric: CountMetric, valueFloor: number): CountMetric => {
+    const result = applyCounterFloor(metric.value, valueFloor)
+    if (!result.floorApplied) return metric
+    return countMetric(
+      result.value,
+      'fallback',
+      `Serving the last known counter floor because the current ${metric.coverage.status} result was lower. ${metric.coverage.note}`,
+    )
+  }
+  const displayedTokens = applyMetricFloor(tokens, floor.tokensMinted)
+  const displayedPresales = applyMetricFloor(presales, floor.presalesCreated)
+  const displayedSwaps = applyMetricFloor(swaps, floor.swapsCompleted)
+  const displayedAirdrops = applyMetricFloor(airdrops, floor.walletsAirdropped)
+  const displayedMessages = applyMetricFloor(messages, floor.onChainMessages)
+
   return {
-    tokensMinted: preserveCounterFloor(
-      tokensResult.status === 'fulfilled' ? tokensResult.value : floor.tokensMinted,
-      floor.tokensMinted,
-    ),
-    presalesCreated: preserveCounterFloor(
-      presalesResult.status === 'fulfilled' ? presalesResult.value : floor.presalesCreated,
-      floor.presalesCreated,
-    ),
-    swapsCompleted: preserveCounterFloor(
-      swapsResult.status === 'fulfilled' ? swapsResult.value : floor.swapsCompleted,
-      floor.swapsCompleted,
-    ),
-    walletsAirdropped: preserveCounterFloor(
-      airdropsResult.status === 'fulfilled' ? airdropsResult.value : floor.walletsAirdropped,
-      floor.walletsAirdropped,
-    ),
-    onChainMessages: preserveCounterFloor(
-      messagesResult.status === 'fulfilled' ? messagesResult.value : floor.onChainMessages,
-      floor.onChainMessages,
-    ),
+    tokensMinted: displayedTokens.value,
+    presalesCreated: displayedPresales.value,
+    swapsCompleted: displayedSwaps.value,
+    walletsAirdropped: displayedAirdrops.value,
+    onChainMessages: displayedMessages.value,
     fetchedAt: new Date().toISOString(),
+    coverage: {
+      tokensMinted: displayedTokens.coverage,
+      presalesCreated: displayedPresales.coverage,
+      swapsCompleted: displayedSwaps.coverage,
+      walletsAirdropped: displayedAirdrops.coverage,
+      onChainMessages: displayedMessages.coverage,
+    },
   }
 }
 

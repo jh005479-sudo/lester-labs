@@ -17,9 +17,10 @@ describe('getPoolHealth', () => {
       hasRecentSync: true,
     })
 
-    assert.equal(health.label, 'Strong')
+    assert.equal(health.label, 'Higher signals')
     assert.ok(health.score >= 80)
     assert.ok(health.reasons.includes('recent reserve activity'))
+    assert.match(health.disclaimer, /do not prove token safety/i)
   })
 
   it('flags thin and incomplete pools', () => {
@@ -36,7 +37,7 @@ describe('getPoolHealth', () => {
       hasRecentSync: false,
     })
 
-    assert.equal(health.label, 'Thin')
+    assert.equal(health.label, 'Thin reserves')
     assert.ok(health.score < 40)
     assert.ok(health.reasons.includes('metadata needs review'))
   })

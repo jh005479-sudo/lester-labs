@@ -7,7 +7,11 @@ import Link from 'next/link'
 import { BuilderChecklist } from '@/components/shared/BuilderChecklist'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { useLocalEngagement } from '@/hooks/useLocalEngagement'
-import { useAccount, useReadContract, useReadContracts } from 'wagmi'
+import {
+  useAccount,
+  useReadContract as useWagmiReadContract,
+  useReadContracts,
+} from 'wagmi'
 import { decodeEventLog, parseEther, parseUnits, isAddress, formatEther } from 'viem'
 import { AlertTriangle, BookmarkCheck, BookmarkPlus, CircleCheck, Moon, Radio, Rocket, Search, SlidersHorizontal } from 'lucide-react'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
@@ -15,12 +19,14 @@ import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { ILO_FACTORY_ABI, ILO_ABI } from '@/config/abis'
+import { litvm } from '@/config/chains'
 import { wagmiConfig } from '@/config/wagmi'
 import { useTokenMetadata, getTokenLogoUrl } from '@/hooks/useTokenMetadata'
 import { useTokenImageUrls } from '@/hooks/useTokenImageUrls'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getRecentWindowIndices } from '@/lib/launchpadPagination'
 import { getLaunchpadReadPlan, type LaunchpadTab } from '@/lib/launchpadTab'
+import { isTrustedIloFactoryConfigured } from '@/lib/launchpadProvenance'
 import {
   filterPresales,
   formatPresaleMarketCap,
@@ -60,6 +66,8 @@ const ILO_CREATED_EVENT_ABI = [
 ] as const
 
 type Tab = LaunchpadTab
+const useReadContract: typeof useWagmiReadContract = ((parameters: Parameters<typeof useWagmiReadContract>[0]) =>
+  useWagmiReadContract({ ...parameters, chainId: litvm.id } as never)) as typeof useWagmiReadContract
 const INITIAL_PRESALE_VISIBLE_COUNT = 24
 const PRESALE_PAGE_SIZE = 24
 const DISABLED_LAUNCHPAD_READ_PLAN = {
@@ -101,8 +109,8 @@ function useAllILOAddresses(count: number, visibleCount: number, enabled: boolea
   }))
 
   const { data: results, isLoading } = useReadContracts({
-    contracts: calls,
-    query: { enabled: enabled && isValidContractAddress(ILO_FACTORY_ADDRESS) && indices.length > 0 },
+    contracts: calls.map((contract) => ({ ...contract, chainId: litvm.id })),
+    query: { enabled: enabled && isTrustedIloFactoryConfigured() && indices.length > 0 },
   })
 
   const addresses = (results ?? [])
@@ -148,7 +156,7 @@ function useAllILOData(addresses: `0x${string}`[], enabled: boolean) {
   ]) : []
 
   const { data: results, isLoading } = useReadContracts({
-    contracts: calls,
+    contracts: calls.map((contract) => ({ ...contract, chainId: litvm.id })),
     query: { enabled: enabled && addresses.length > 0 },
   })
 
@@ -275,7 +283,7 @@ function CreatePresaleForm() {
     abi: ILO_FACTORY_ABI,
     functionName: 'creationFee',
     query: {
-      enabled: isValidContractAddress(ILO_FACTORY_ADDRESS),
+      enabled: isTrustedIloFactoryConfigured(),
     },
   })
 
@@ -331,7 +339,7 @@ function CreatePresaleForm() {
     marginTop: '4px',
   }
 
-  const iloFactoryValid = isValidContractAddress(ILO_FACTORY_ADDRESS)
+  const iloFactoryValid = isValidContractAddress(ILO_FACTORY_ADDRESS) && isTrustedIloFactoryConfigured()
 
   // Gate submit on successful decimals fetch (RP-001)
   const decimalsReady = tokenDecimals !== undefined && !isDecimalsError
@@ -994,8 +1002,8 @@ function PresaleCard({
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '28px',
-              height: '28px',
+              width: '44px',
+              height: '44px',
               borderRadius: '8px',
               border: watched ? '1px solid rgba(167,139,250,0.42)' : '1px solid rgba(255,255,255,0.08)',
               background: watched ? 'rgba(167,139,250,0.14)' : 'rgba(255,255,255,0.04)',
@@ -1194,7 +1202,7 @@ export default function LaunchpadPage() {
     address: ILO_FACTORY_ADDRESS,
     abi: ILO_FACTORY_ABI,
     functionName: 'getILOCount',
-    query: { enabled: readPlan.factoryCount && isValidContractAddress(ILO_FACTORY_ADDRESS) },
+    query: { enabled: readPlan.factoryCount && isTrustedIloFactoryConfigured() },
   })
   const liveCount = Number(iloCount.data ?? 0)
   const iloCountLoading = iloCount.isLoading
@@ -1214,6 +1222,7 @@ export default function LaunchpadPage() {
           abi: ILO_ABI,
           functionName: 'contributions' as const,
           args: [userAddress],
+          chainId: litvm.id,
         }))
       : [],
     query: { enabled: readPlan.presaleData && isConnected && Boolean(userAddress) && liveAddresses.length > 0 },
@@ -1383,6 +1392,7 @@ export default function LaunchpadPage() {
               className="launchpad-tab-btn"
               style={{
                 padding: '8px 20px',
+                minHeight: '44px',
                 background:
                   activeTab === t ? 'var(--accent)' : 'transparent',
                 border: 'none',

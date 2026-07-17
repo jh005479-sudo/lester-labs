@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import Link from 'next/link'
+import { ArrowRight, LayoutGrid } from 'lucide-react'
 import { PlatformStats } from './PlatformStats'
 
 export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () => void }) {
@@ -15,30 +17,50 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
   }, [onIntroComplete])
 
   useEffect(() => {
-    const heroH = window.innerHeight
+    const heroImage = bgImgRef.current
+    const heroContent = contentRef.current
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let frame: number | null = null
 
-    const onScroll = () => {
+    const updateHero = () => {
+      frame = null
       const y = window.scrollY
-      const p = Math.min(y / heroH, 1)
+      const p = Math.min(y / Math.max(window.innerHeight, 1), 1)
 
-      if (bgImgRef.current) {
-        bgImgRef.current.style.transform = `scale(${1 + p * 0.12})`
-        bgImgRef.current.style.opacity = String(Math.max(0.45, 0.9 - p * 0.35))
+      if (heroImage) {
+        heroImage.style.transform = reduceMotion ? 'none' : `scale(${1 + p * 0.12})`
+        heroImage.style.opacity = String(Math.max(0.45, 0.9 - p * 0.35))
       }
 
-      if (contentRef.current) {
-        contentRef.current.style.transform = `translateY(${-y * 0.18}px)`
-        contentRef.current.style.opacity = String(Math.max(0, 1 - p * 1.7))
+      if (heroContent) {
+        heroContent.style.transform = reduceMotion ? 'none' : `translateY(${-y * 0.18}px)`
+        heroContent.style.opacity = String(Math.max(0, 1 - p * 1.7))
       }
+    }
+    const onScroll = () => {
+      if (frame === null) frame = window.requestAnimationFrame(updateHero)
     }
 
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    updateHero()
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      if (heroImage) {
+        heroImage.style.transform = ''
+        heroImage.style.opacity = ''
+      }
+      if (heroContent) {
+        heroContent.style.transform = ''
+        heroContent.style.opacity = ''
+      }
+    }
   }, [])
 
   return (
     <>
       <div
+        className="scroll-hero-fixed"
         style={{
           position: 'fixed',
           inset: 0,
@@ -91,6 +113,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
 
         <div
           ref={contentRef}
+          className="scroll-hero-content"
           style={{
             position: 'absolute',
             inset: 0,
@@ -104,10 +127,11 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
           }}
         >
           <div
+            className="scroll-hero-eyebrow"
             style={{
-              fontFamily: "'Sora', sans-serif",
+              fontFamily: 'var(--font-heading)',
               fontWeight: 600,
-              fontSize: 'clamp(14px,1.8vw,18px)',
+              fontSize: 18,
               letterSpacing: '0.35em',
               textTransform: 'uppercase',
               color: 'rgba(255,255,255,.85)',
@@ -119,10 +143,11 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
           </div>
 
           <div
+            className="scroll-hero-title"
             style={{
-              fontFamily: "'Sora', sans-serif",
+              fontFamily: 'var(--font-heading)',
               fontWeight: 800,
-              fontSize: 'clamp(56px,11vw,120px)',
+              fontSize: 120,
               lineHeight: 0.92,
               textAlign: 'center',
               color: '#8B74FF',
@@ -141,42 +166,47 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
             }}
           >
             <span
+              className="scroll-hero-tagline"
               style={{
                 display: 'block',
-                fontSize: 'clamp(16px,2vw,22px)',
+                fontSize: 22,
                 color: 'rgba(240,238,245,.62)',
                 fontWeight: 400,
                 fontStyle: 'italic',
-                fontFamily: "'Inter', sans-serif",
-                letterSpacing: '.02em',
+                fontFamily: 'var(--font-body)',
+                letterSpacing: 0,
               }}
             >
               The DeFi Utility Suite for LitVM
             </span>
           </div>
 
-          <div className="hero-cta-group" style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 36 }}>
-            <button className="hero-btn-primary" onClick={() => { window.location.href = '/launch' }}>Launch App -&gt;</button>
+          <div className="scroll-hero-actions hero-cta-group" style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 36 }}>
+            <Link className="hero-btn-primary" href="/launch" prefetch={false}>
+              Launch App <ArrowRight size={15} aria-hidden="true" />
+            </Link>
             <button
               className="hero-btn-ghost"
               onClick={() => {
                 const suiteSection = document.getElementById('suite-section')
                 if (suiteSection) {
                   const top = suiteSection.getBoundingClientRect().top + window.scrollY - 88
-                  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+                  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+                  window.scrollTo({ top: Math.max(0, top), behavior: reduceMotion ? 'auto' : 'smooth' })
                 }
               }}
             >
-              Explore Suite
+              <LayoutGrid size={15} aria-hidden="true" /> Explore Suite
             </button>
           </div>
 
-          <div style={{ marginTop: 18 }}>
+          <div className="scroll-hero-stats" style={{ marginTop: 18 }}>
             <PlatformStats />
           </div>
         </div>
 
         <div
+          className="scroll-hero-indicator"
           style={{
             position: 'absolute',
             bottom: 28,
@@ -198,7 +228,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
         </div>
       </div>
 
-      <div style={{ height: '100vh', position: 'relative', zIndex: 0 }} />
+      <div className="scroll-hero-spacer" style={{ position: 'relative', zIndex: 0 }} />
     </>
   )
 }

@@ -4,7 +4,7 @@ import { waitForTransactionReceipt } from '@wagmi/core'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { useAccount, useReadContract } from 'wagmi'
+import { useAccount, useReadContract as useWagmiReadContract } from 'wagmi'
 import { formatEther, formatUnits, isAddress, parseEther, parseUnits, zeroAddress } from 'viem'
 import { AlertTriangle, CircleCheck, ExternalLink, ShieldCheck, Upload } from 'lucide-react'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
@@ -15,6 +15,10 @@ import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { useTokenImageUrls } from '@/hooks/useTokenImageUrls'
 import { litvm } from '@/config/chains'
+import { isFactoryCreatedIlo } from '@/lib/launchpadProvenance'
+
+const useReadContract: typeof useWagmiReadContract = ((parameters: Parameters<typeof useWagmiReadContract>[0]) =>
+  useWagmiReadContract({ ...parameters, chainId: litvm.id } as never)) as typeof useWagmiReadContract
 
 function shortAddress(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`
@@ -48,7 +52,7 @@ function StatRow({ label, value }: { label: string; value: string }) {
 export default function PresalePage() {
   const params = useParams<{ address: string }>()
   const rawAddress = params?.address ?? ''
-  const iloAddress = isAddress(rawAddress) ? (rawAddress as `0x${string}`) : undefined
+  const routeIloAddress = isAddress(rawAddress) ? (rawAddress as `0x${string}`) : undefined
 
   const { address: userAddress, isConnected } = useAccount()
   const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, switchChainAsync, writeContractAsync } = useSafeWriteContract()
@@ -62,6 +66,35 @@ export default function PresalePage() {
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
+  const [provenanceStatus, setProvenanceStatus] = useState<'checking' | 'verified' | 'unverified' | 'error'>(
+    routeIloAddress ? 'checking' : 'unverified',
+  )
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!routeIloAddress) {
+      setProvenanceStatus('unverified')
+      return () => {
+        cancelled = true
+      }
+    }
+
+    setProvenanceStatus('checking')
+    void isFactoryCreatedIlo(routeIloAddress)
+      .then((verified) => {
+        if (!cancelled) setProvenanceStatus(verified ? 'verified' : 'unverified')
+      })
+      .catch(() => {
+        if (!cancelled) setProvenanceStatus('error')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [routeIloAddress])
+
+  const iloAddress = provenanceStatus === 'verified' ? routeIloAddress : undefined
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -369,6 +402,13 @@ export default function PresalePage() {
     onSuccess?: () => void
     request: () => Promise<`0x${string}`>
   }) {
+    if (!iloAddress || provenanceStatus !== 'verified') {
+      setTxOpen(true)
+      setTxStatus('error')
+      setTxMessage('This address is not verified as a presale created by the canonical Lester Labs factory.')
+      return
+    }
+
     if (!(await ensureLitvmWrite({
       action: 'submitting a presale transaction',
       onError: (message) => {
@@ -592,7 +632,7 @@ export default function PresalePage() {
     })
   }
 
-  if (!iloAddress) {
+  if (!routeIloAddress) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}>
         <div style={{ maxWidth: '720px', margin: '0 auto', padding: '40px 24px 80px' }}>
@@ -601,6 +641,38 @@ export default function PresalePage() {
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.65)' }}>
               The URL does not contain a valid ILO contract address.
             </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (provenanceStatus !== 'verified') {
+    const isChecking = provenanceStatus === 'checking'
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--background)', color: 'var(--foreground)' }}>
+        <div style={{ maxWidth: '720px', margin: '0 auto', padding: '40px 24px 80px' }}>
+          <div style={{ ...cardStyle, border: '1px solid rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.08)' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '10px' }}>
+              {isChecking ? 'Verifying presale' : 'Unverified presale address'}
+            </h1>
+            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
+              {isChecking
+                ? 'Checking this contract against the canonical Lester Labs ILO factory on LitVM.'
+                : provenanceStatus === 'error'
+                  ? 'The LitVM provenance check is temporarily unavailable. Transaction controls remain disabled until verification succeeds.'
+                  : 'This contract was not found in the canonical Lester Labs ILO factory. Lester Labs will not offer contribution, funding, or settlement controls for it.'}
+            </p>
+            {!isChecking && (
+              <a
+                href={`${LITVM_EXPLORER_URL}/address/${routeIloAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '16px', color: '#fcd34d', textDecoration: 'none' }}
+              >
+                Inspect address on explorer <ExternalLink size={14} />
+              </a>
+            )}
           </div>
         </div>
       </div>

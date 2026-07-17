@@ -102,6 +102,7 @@ async function rawRpc<T>(method: string, params: unknown[]): Promise<T> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: ++requestId, method, params }),
     cache: 'no-store',
+    signal: AbortSignal.timeout(6_000),
   })
   if (res.status === 429) throw new RpcRateLimitError(res.statusText)
   if (!res.ok) throw new Error(`RPC HTTP ${res.status}: ${res.statusText}`)

@@ -13,8 +13,9 @@ export interface PoolHealthInput {
 
 export interface PoolHealth {
   score: number
-  label: 'Strong' | 'Healthy' | 'Thin'
+  label: 'Higher signals' | 'Mixed signals' | 'Thin reserves'
   reasons: string[]
+  disclaimer: string
 }
 
 function amount(value: bigint, decimals: number) {
@@ -68,7 +69,8 @@ export function getPoolHealth(input: PoolHealthInput): PoolHealth {
   const bounded = Math.max(0, Math.min(100, score))
   return {
     score: bounded,
-    label: bounded >= 80 ? 'Strong' : bounded >= 45 ? 'Healthy' : 'Thin',
+    label: bounded >= 80 ? 'Higher signals' : bounded >= 45 ? 'Mixed signals' : 'Thin reserves',
     reasons,
+    disclaimer: 'Automated pool signals are informational and do not prove token safety or locked liquidity.',
   }
 }

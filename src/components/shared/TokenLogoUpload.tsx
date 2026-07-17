@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useId } from 'react'
 import { Upload, X, Image as ImageIcon } from 'lucide-react'
-import { uploadToImgbb, fileToDataUrl, validateImageFile } from '@/lib/imgbb'
-import { setTokenImageUrl } from '@/lib/tokenImageStore'
+import { fileToDataUrl, validateImageFile } from '@/lib/imgbb'
+import { deleteTokenImageUrl, setTokenImageUrl } from '@/lib/tokenImageStore'
 
 interface TokenLogoUploadProps {
   tokenAddress?: string // if provided, saves URL to IndexedDB on deploy
@@ -11,7 +11,7 @@ interface TokenLogoUploadProps {
   currentUrl?: string | null
 }
 
-type UploadState = 'idle' | 'preview' | 'uploading' | 'done' | 'error'
+type UploadState = 'idle' | 'done' | 'error'
 
 export function TokenLogoUpload({
   tokenAddress,
@@ -22,40 +22,32 @@ export function TokenLogoUpload({
     currentUrl ? 'done' : 'idle',
   )
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentUrl ?? null)
-  const [finalUrl, setFinalUrl] = useState<string | null>(currentUrl ?? null)
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const inputId = useId()
 
   const handleFile = useCallback(async (file: File) => {
     setError(null)
 
-    const validationError = validateImageFile(file)
+    const validationError = await validateImageFile(file)
     if (validationError) {
       setError(validationError)
+      setState('error')
       return
     }
 
-    // Show local preview immediately
-    const dataUrl = await fileToDataUrl(file)
-    setPreviewUrl(dataUrl)
-    setState('preview')
-
-    // Upload to imgbb
-    setState('uploading')
-    const result = await uploadToImgbb(file)
-
-    if (result.success && result.url) {
-      setFinalUrl(result.url)
+    try {
+      const dataUrl = await fileToDataUrl(file)
+      setPreviewUrl(dataUrl)
       setState('done')
-      onUrlChange?.(result.url)
+      onUrlChange?.(dataUrl)
 
-      // Persist to IndexedDB if token address is available
       if (tokenAddress) {
-        await setTokenImageUrl(tokenAddress, result.url)
+        await setTokenImageUrl(tokenAddress, dataUrl)
       }
-    } else {
-      setError(result.error ?? 'Upload failed')
+    } catch {
+      setError('Logo could not be saved locally')
       setState('error')
     }
   }, [tokenAddress, onUrlChange])
@@ -74,18 +66,20 @@ export function TokenLogoUpload({
 
   const handleRemove = () => {
     setPreviewUrl(null)
-    setFinalUrl(null)
     setError(null)
     setState('idle')
     onUrlChange?.('')
     if (inputRef.current) inputRef.current.value = ''
+    if (tokenAddress) {
+      void deleteTokenImageUrl(tokenAddress).catch(() => {
+        setError('Logo was removed from this view but could not be removed from browser storage')
+      })
+    }
   }
-
-  const isLoading = state === 'uploading'
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-white/80">
+      <label htmlFor={inputId} className="block text-sm font-medium text-white/80">
         Token Logo
         <span className="ml-1.5 text-xs font-normal text-white/30">
           (optional)
@@ -99,6 +93,15 @@ export function TokenLogoUpload({
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              inputRef.current?.click()
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Choose a token logo image"
           className={`
             group relative flex h-28 cursor-pointer flex-col items-center justify-center
             rounded-xl border-2 border-dashed border-white/10
@@ -110,8 +113,10 @@ export function TokenLogoUpload({
         >
           <input
             ref={inputRef}
+            id={inputId}
             type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept="image/jpeg,image/png,image/webp"
+            aria-label="Choose a token logo image"
             className="hidden"
             onChange={handleInputChange}
           />
@@ -126,21 +131,16 @@ export function TokenLogoUpload({
               </span>
               {' '}or drag and drop
               <br />
-              JPEG, PNG, GIF, WebP · max 8MB
+              JPEG, PNG, WebP · max 1MB · 32–2048px
             </div>
           </div>
         </div>
-      ) : state === 'uploading' ? (
-        <div className="flex h-28 items-center justify-center rounded-xl border border-white/10 bg-white/[0.02]">
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--accent)]/30 border-t-[var(--accent)]" />
-            <span className="text-xs text-white/40">Uploading…</span>
-          </div>
-        </div>
       ) : (
-        /* Preview state (preview | done | error with preview) */
+        /* Locally persisted preview */
         <div className="relative flex h-28 items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
           {/* Image preview */}
+          {/* Data URLs are already local and cannot benefit from Next Image optimization. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={previewUrl ?? undefined}
             alt="Token logo preview"
@@ -170,14 +170,16 @@ export function TokenLogoUpload({
           {/* Done badge */}
           {state === 'done' && (
             <div className="absolute top-2 right-2 rounded-full bg-green-500/90 px-2 py-0.5 text-[10px] font-semibold text-white">
-              ✓ Uploaded
+              Saved locally
             </div>
           )}
 
           <input
             ref={inputRef}
+            id={inputId}
             type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept="image/jpeg,image/png,image/webp"
+            aria-label="Choose a token logo image"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0]
@@ -204,12 +206,7 @@ export function TokenLogoUpload({
         </p>
       )}
 
-      {/* imgbb not configured notice */}
-      {state === 'idle' && !process.env.NEXT_PUBLIC_IMGBB_API_KEY && (
-        <p className="text-xs text-white/20">
-          Logo upload available after adding NEXT_PUBLIC_IMGBB_API_KEY
-        </p>
-      )}
+      <p className="text-xs text-white/30">Stored only in this browser; no account key or remote upload is used.</p>
     </div>
   )
 }

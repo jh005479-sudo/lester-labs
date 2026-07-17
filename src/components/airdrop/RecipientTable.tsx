@@ -1,6 +1,8 @@
 'use client'
 
-import { isAddress } from 'viem'
+import { useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { getRecipientPage, isValidAirdropAddress, isValidAirdropAmount } from '@/lib/airdropRecipients'
 
 export interface Recipient {
   address: string
@@ -10,15 +12,19 @@ export interface Recipient {
 interface RecipientTableProps {
   recipients: Recipient[]
   tokenSymbol?: string
+  maxDecimals?: number
 }
 
-const PREVIEW_LIMIT = 10
+const PAGE_SIZE = 50
 
-export function RecipientTable({ recipients, tokenSymbol = 'tokens' }: RecipientTableProps) {
+export function RecipientTable({ recipients, tokenSymbol = 'tokens', maxDecimals }: RecipientTableProps) {
+  const [requestedPage, setRequestedPage] = useState(0)
+  const recipientPage = useMemo(
+    () => getRecipientPage(recipients, requestedPage, PAGE_SIZE),
+    [recipients, requestedPage],
+  )
+
   if (recipients.length === 0) return null
-
-  const preview = recipients.slice(0, PREVIEW_LIMIT)
-  const overflow = recipients.length - PREVIEW_LIMIT
 
   return (
     <div className="space-y-2">
@@ -35,19 +41,19 @@ export function RecipientTable({ recipients, tokenSymbol = 'tokens' }: Recipient
             </tr>
           </thead>
           <tbody>
-            {preview.map((row, i) => {
-              const valid = isAddress(row.address)
-              const amountNum = parseFloat(row.amount)
-              const amountOk = !isNaN(amountNum) && amountNum > 0
+            {recipientPage.rows.map((row, i) => {
+              const valid = isValidAirdropAddress(row.address)
+              const amountOk = isValidAirdropAmount(row.amount, maxDecimals)
+              const rowNumber = recipientPage.startIndex + i + 1
 
               return (
                 <tr
-                  key={i}
+                  key={`${rowNumber}:${row.address}:${row.amount}`}
                   className={`border-b border-white/5 last:border-0 transition-colors ${
                     !valid || !amountOk ? 'bg-red-500/10' : 'hover:bg-white/5'
                   }`}
                 >
-                  <td className="px-3 py-2 text-white/30 text-xs">{i + 1}</td>
+                  <td className="px-3 py-2 text-white/30 text-xs">{rowNumber}</td>
                   <td className="px-3 py-2">
                     <span
                       className={`font-mono text-xs break-all ${
@@ -80,10 +86,35 @@ export function RecipientTable({ recipients, tokenSymbol = 'tokens' }: Recipient
         </table>
       </div>
 
-      {overflow > 0 && (
-        <p className="text-xs text-white/40 text-center">
-          + {overflow} more {overflow === 1 ? 'address' : 'addresses'} not shown
-        </p>
+      {recipientPage.pageCount > 1 && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-white/40">
+            Rows {recipientPage.startIndex + 1}-{recipientPage.endIndex} of {recipientPage.totalRows}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setRequestedPage(recipientPage.page - 1)}
+              disabled={recipientPage.page === 0}
+              aria-label="Previous recipient page"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="min-w-20 text-center text-xs text-white/50">
+              Page {recipientPage.page + 1} of {recipientPage.pageCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setRequestedPage(recipientPage.page + 1)}
+              disabled={recipientPage.page === recipientPage.pageCount - 1}
+              aria-label="Next recipient page"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

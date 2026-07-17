@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { parseCSVRecipients, parseManualRecipients } from './airdropRecipients.ts'
+import {
+  buildValidatedRecipientSnapshot,
+  getRecipientPage,
+  parseCSVRecipients,
+  parseManualRecipients,
+} from './airdropRecipients.ts'
 
 describe('parseManualRecipients', () => {
   it('does not split EVM addresses at lowercase b characters', () => {
@@ -41,6 +46,43 @@ describe('parseCSVRecipients', () => {
         address: '0xbb00000000000000000000000000000000000002',
         amount: '5',
       },
+    ])
+  })
+})
+
+describe('validated recipient review', () => {
+  it('paginates the complete exact snapshot without hiding submitted recipients', () => {
+    const recipients = Array.from({ length: 125 }, (_, index) => ({
+      address: `0x${index.toString(16).padStart(40, '0')}`,
+      amount: `${index + 1}.25`,
+    }))
+    recipients.splice(60, 0, { address: 'not-an-address', amount: '10' })
+    recipients.push({ address: `0x${'f'.repeat(40)}`, amount: '10tokens' })
+
+    const snapshot = buildValidatedRecipientSnapshot(recipients)
+    const reviewed = [0, 1, 2].flatMap((page) => getRecipientPage(snapshot, page, 50).rows)
+
+    assert.equal(snapshot.length, 125)
+    assert.deepEqual(reviewed, snapshot)
+    assert.deepEqual(getRecipientPage(snapshot, 2, 50), {
+      rows: snapshot.slice(100),
+      page: 2,
+      pageCount: 3,
+      startIndex: 100,
+      endIndex: 125,
+      totalRows: 125,
+    })
+  })
+
+  it('keeps the exact trimmed address and display amount used by submission', () => {
+    const snapshot = buildValidatedRecipientSnapshot([
+      { address: `  0x${'a'.repeat(40)}  `, amount: '  0.005  ' },
+      { address: `0x${'b'.repeat(40)}`, amount: '0' },
+      { address: `0x${'c'.repeat(40)}`, amount: '0.0001' },
+    ], 3)
+
+    assert.deepEqual(snapshot, [
+      { address: `0x${'a'.repeat(40)}`, amount: '0.005' },
     ])
   })
 })

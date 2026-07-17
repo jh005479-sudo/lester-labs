@@ -27,7 +27,7 @@ const features = [
   },
   {
     title: 'Claim test zkLTC from the faucet',
-    body: 'Get free test zkLTC from the LitVM testnet faucet. Test transactions cost nothing — you can deploy tokens, swap, lock liquidity, and run airdrops without spending real funds.',
+    body: 'Get test zkLTC from the LitVM faucet to pay testnet gas. Test assets are not presented as real-value funds, but each transaction still consumes testnet gas.',
   },
   {
     title: 'Explore the full DeFi stack',
@@ -38,8 +38,8 @@ const features = [
     body: 'Every transaction is recorded on the LitVM testnet block explorer. Verify contract deployments, token transfers, and liquidity locks directly on-chain at liteforge.explorer.caldera.xyz.',
   },
   {
-    title: 'Identical to mainnet mechanics',
-    body: 'Testnet mirrors the intended mainnet mechanics — same EVM, same contract APIs, and the same fee model. Mainnet deployments will use their own verified addresses.',
+    title: 'Mainnet-like development environment',
+    body: 'Testnet provides an EVM-compatible environment for development and rehearsal. Mainnet contracts, addresses, parameters, and fee behavior must be verified separately when deployed.',
   },
   {
     title: 'No KYC, no account needed',
@@ -56,7 +56,7 @@ const steps = [
   {
     n: '02',
     title: 'Claim test zkLTC',
-    body: 'Visit the LitVM testnet faucet to claim free test zkLTC. You will need a small amount to deploy contracts and pay gas. The faucet is open and no-wallet-limit for testnet purposes.',
+    body: 'Visit the LitVM testnet faucet to request test zkLTC. You need a small amount to deploy contracts and pay gas; current faucet limits and cooldowns are controlled by the faucet provider.',
   },
   {
     n: '03',

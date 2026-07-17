@@ -1,6 +1,6 @@
 'use client'
 
-import { waitForTransactionReceipt } from '@wagmi/core'
+import { getBalance, readContract, waitForTransactionReceipt } from '@wagmi/core'
 import Link from 'next/link'
 import { Suspense, useEffect, useRef, useState, startTransition } from 'react'
 import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Wallet, X, ArrowLeftRight } from 'lucide-react'
@@ -25,10 +25,20 @@ import {
   isValidContractAddress,
 } from '@/config/contracts'
 import { useAllTokenMetadata } from '@/hooks/useTokenMetadata'
-import { useRpcCallReadContract } from '@/hooks/useRpcCall'
 import { useSearchParams } from 'next/navigation'
 import { wagmiConfig } from '@/config/wagmi'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+import { litvm } from '@/config/chains'
+import {
+  attestFreshDexRuntime,
+  isCanonicalDexDeployment,
+  readFreshCanonicalPair,
+} from '@/lib/dexTransactionReads'
+import {
+  applySlippageMinimum,
+  computeAddLiquidityMinimums,
+  sameAddress,
+} from '@/lib/dexTransactionSafety'
 
 const ACCENT = '#E44FB5'
 const NATIVE_GAS_RESERVE = parseUnits('0.01', 18)
@@ -134,7 +144,7 @@ function SlippageSelector({
           <button
             key={bps}
             onClick={() => handlePreset(bps)}
-            className="rounded-full border px-3 py-1.5 text-xs font-medium transition"
+            className="min-h-11 rounded-full border px-3 py-1.5 text-xs font-medium transition"
             style={{
               borderColor: active ? ACCENT : 'rgba(255,255,255,0.12)',
               background: active ? `${ACCENT}22` : 'rgba(255,255,255,0.04)',
@@ -145,8 +155,9 @@ function SlippageSelector({
           </button>
         )
       })}
-      <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/4 px-2 py-1">
+      <div className="flex min-h-11 items-center gap-1 rounded-full border border-white/10 bg-white/4 px-2">
         <input
+          aria-label="Custom slippage tolerance percentage"
           value={customValue}
           onChange={(e) => handleCustom(e.target.value)}
           placeholder={displayPct % 1 === 0 ? `${displayPct.toFixed(0)}` : `${displayPct.toFixed(1)}`}
@@ -154,7 +165,7 @@ function SlippageSelector({
           min="0.01"
           max="50"
           step="0.1"
-          className="w-12 bg-transparent text-right text-xs text-white outline-none placeholder:text-white/30"
+          className="h-11 w-12 bg-transparent text-right text-xs text-white outline-none placeholder:text-white/30"
         />
         <span className="text-xs text-white/45">%</span>
       </div>
@@ -187,14 +198,7 @@ function CreatePoolPanel({
   const [token1, setToken1] = useState<TokenOption | null>(initialToken1 ?? null)
   const [amount0, setAmount0] = useState('')
   const [amount1, setAmount1] = useState('')
-
-  // Detect existing pool and pre-fill amounts from reserves
-  const reservesRead = useReadContract({
-    address: isValidContractAddress(existingPairAddress ?? '') ? existingPairAddress : undefined,
-    abi: UNISWAP_V2_PAIR_ABI,
-    functionName: 'getReserves',
-    query: { enabled: Boolean(existingPairAddress && isValidContractAddress(existingPairAddress)) },
-  })
+  const [addLiquiditySlippageBps, setAddLiquiditySlippageBps] = useState(50n)
   const [pickerMode, setPickerMode] = useState<'token0' | 'token1' | null>(null)
   const [creating, setCreating] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
@@ -229,11 +233,33 @@ function CreatePoolPanel({
     .map((token) => token.address.toLowerCase())
     .filter((address, index, all) => all.indexOf(address) === index) as `0x${string}`[]
 
+  const token0ContractAddress = token0?.isNative ? WRAPPED_ZKLTC_ADDRESS : token0?.address
+  const token1ContractAddress = token1?.isNative ? WRAPPED_ZKLTC_ADDRESS : token1?.address
+  const pairLookupEnabled = Boolean(
+    isCanonicalDexDeployment &&
+    token0ContractAddress &&
+    token1ContractAddress &&
+    !sameAddress(token0ContractAddress, token1ContractAddress),
+  )
+  const pairAddressRead = useReadContract({
+    address: UNISWAP_V2_FACTORY_ADDRESS,
+    abi: UNISWAP_V2_FACTORY_ABI,
+    functionName: 'getPair',
+    args: pairLookupEnabled ? [token0ContractAddress!, token1ContractAddress!] : undefined,
+    chainId: litvm.id,
+    query: { enabled: pairLookupEnabled },
+  })
+  const authenticatedPairAddress = (pairAddressRead.data ?? ZERO_ADDRESS) as `0x${string}`
+  const pairExists = isValidContractAddress(authenticatedPairAddress)
+  const suppliedPairMatchesFactory = !existingPairAddress || (
+    pairAddressRead.isSuccess && pairExists && sameAddress(existingPairAddress, authenticatedPairAddress)
+  )
   const selectedTokenDecimalReads = useReadContracts({
     contracts: selectedTokenAddresses.map((address) => ({
       address,
       abi: ERC20_ABI,
       functionName: 'decimals' as const,
+      chainId: litvm.id,
     })),
     query: { enabled: selectedTokenAddresses.length > 0 },
   })
@@ -253,12 +279,13 @@ function CreatePoolPanel({
     (token1 === null || token1Decimals !== undefined)
 
   // Balance reads for max buttons
-  const nativeBal = useBalance({ address })
+  const nativeBal = useBalance({ address, chainId: litvm.id })
   const token0BalRead = useReadContract({
     address: token0 && !token0.isNative ? token0.address : undefined,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
+    chainId: litvm.id,
     query: { enabled: Boolean(address && token0 && !token0.isNative) },
   })
   const token1BalRead = useReadContract({
@@ -266,6 +293,7 @@ function CreatePoolPanel({
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
+    chainId: litvm.id,
     query: { enabled: Boolean(address && token1 && !token1.isNative) },
   })
   const token0Balance = token0?.isNative
@@ -279,6 +307,7 @@ function CreatePoolPanel({
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: address ? [address, UNISWAP_V2_ROUTER_ADDRESS] : undefined,
+    chainId: litvm.id,
     query: { enabled: Boolean(address && token0 && !token0.isNative) },
   })
   const token1AllowanceRead = useReadContract({
@@ -286,6 +315,7 @@ function CreatePoolPanel({
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: address ? [address, UNISWAP_V2_ROUTER_ADDRESS] : undefined,
+    chainId: litvm.id,
     query: { enabled: Boolean(address && token1 && !token1.isNative) },
   })
   const token0Allowance = (token0AllowanceRead.data ?? 0n) as bigint
@@ -335,6 +365,9 @@ function CreatePoolPanel({
     token0 !== null &&
     token1 !== null &&
     token0.address.toLowerCase() !== token1.address.toLowerCase() &&
+    isCanonicalDexDeployment &&
+    pairAddressRead.isSuccess &&
+    suppliedPairMatchesFactory &&
     decimalsReady &&
     parseFloat(amount0) > 0 &&
     parseFloat(amount1) > 0
@@ -370,29 +403,84 @@ function CreatePoolPanel({
       setTxOpen(true)
       setTxStatus('pending')
       setTxMessage(undefined)
-
-      const t0Decimals = token0Decimals ?? 18
-      const t1Decimals = token1Decimals ?? 18
-      const a0 = parseUnits(amount0, t0Decimals)
-      const a1 = parseUnits(amount1, t1Decimals)
+      setTxHash(undefined)
 
       const isToken0Native = token0!.isNative
       const isToken1Native = token1!.isNative
       const token0Addr = isToken0Native ? WRAPPED_ZKLTC_ADDRESS : token0!.address
       const token1Addr = isToken1Native ? WRAPPED_ZKLTC_ADDRESS : token1!.address
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
+      await attestFreshDexRuntime()
+
+      const [freshToken0Decimals, freshToken1Decimals] = await Promise.all([
+        isToken0Native
+          ? Promise.resolve(18)
+          : readContract(wagmiConfig, {
+              address: token0!.address,
+              abi: ERC20_ABI,
+              functionName: 'decimals',
+              chainId: litvm.id,
+            }).then(Number),
+        isToken1Native
+          ? Promise.resolve(18)
+          : readContract(wagmiConfig, {
+              address: token1!.address,
+              abi: ERC20_ABI,
+              functionName: 'decimals',
+              chainId: litvm.id,
+            }).then(Number),
+      ])
+      const a0 = parseUnits(amount0, freshToken0Decimals)
+      const a1 = parseUnits(amount1, freshToken1Decimals)
+      await readFreshCanonicalPair(token0Addr, token1Addr, existingPairAddress)
+
+      const [freshBalance0, freshBalance1, freshAllowance0, freshAllowance1] = await Promise.all([
+        isToken0Native
+          ? getBalance(wagmiConfig, { address, chainId: litvm.id }).then((balance) => balance.value)
+          : readContract(wagmiConfig, {
+              address: token0!.address,
+              abi: ERC20_ABI,
+              functionName: 'balanceOf',
+              args: [address],
+              chainId: litvm.id,
+            }) as Promise<bigint>,
+        isToken1Native
+          ? getBalance(wagmiConfig, { address, chainId: litvm.id }).then((balance) => balance.value)
+          : readContract(wagmiConfig, {
+              address: token1!.address,
+              abi: ERC20_ABI,
+              functionName: 'balanceOf',
+              args: [address],
+              chainId: litvm.id,
+            }) as Promise<bigint>,
+        isToken0Native
+          ? Promise.resolve(0n)
+          : readContract(wagmiConfig, {
+              address: token0!.address,
+              abi: ERC20_ABI,
+              functionName: 'allowance',
+              args: [address, UNISWAP_V2_ROUTER_ADDRESS],
+              chainId: litvm.id,
+            }) as Promise<bigint>,
+        isToken1Native
+          ? Promise.resolve(0n)
+          : readContract(wagmiConfig, {
+              address: token1!.address,
+              abi: ERC20_ABI,
+              functionName: 'allowance',
+              args: [address, UNISWAP_V2_ROUTER_ADDRESS],
+              chainId: litvm.id,
+            }) as Promise<bigint>,
+      ])
+      if (freshBalance0 < a0 || freshBalance1 < a1) {
+        throw new Error('Your LitVM balance changed. Refresh the amounts before adding liquidity.')
+      }
 
       let hash: `0x${string}`
 
       const to: `0x${string}` = address as `0x${string}`
 
-      // Reserves from the pair (if existing pool) — read before walletCall so isNewPair is known
-      const pairReserves = reservesRead.isSuccess && reservesRead.data ? reservesRead.data : null
-      const [pairR0, pairR1] = pairReserves ? pairReserves : [0n, 0n]
-
       // New pair creation triggers factory.createPair() (CREATE2) inside the router, which
       // costs ~200k gas extra. Bump cap to 800k to cover both deployment + first add.
-      const isNewPair = pairR0 === 0n && pairR1 === 0n
       // Wrap wallet call with 30s timeout + explicit gas cap to prevent infinite spinner / bad estimates
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const walletCall = (cfg: any, gas: bigint) =>
@@ -403,42 +491,16 @@ function CreatePoolPanel({
           ),
         ])
 
-      const SLIPPAGE_NUMERATOR = 995n
-      const SLIPPAGE_DENOM = 1000n
-      const computeOptimal = (desired: bigint, reserveDesired: bigint, reserveOther: bigint) =>
-        reserveDesired > 0n ? (desired * reserveOther) / reserveDesired : desired
-      const computeMinAmounts = (desiredA: bigint, desiredB: bigint, reserveA: bigint, reserveB: bigint) => {
-        if (reserveA === 0n || reserveB === 0n) {
-          return {
-            amountAMin: (desiredA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
-            amountBMin: (desiredB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
-          }
-        }
-
-        const optimalB = computeOptimal(desiredA, reserveA, reserveB)
-        if (optimalB <= desiredB) {
-          return {
-            amountAMin: (desiredA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
-            amountBMin: (optimalB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
-          }
-        }
-
-        const optimalA = computeOptimal(desiredB, reserveB, reserveA)
-        return {
-          amountAMin: (optimalA * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
-          amountBMin: (desiredB * SLIPPAGE_NUMERATOR) / SLIPPAGE_DENOM,
-        }
-      }
       const confirmHash = async (submittedHash: `0x${string}`, confirmationMessage: string) => {
         setTxHash(submittedHash)
-        const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: submittedHash })
+        const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: submittedHash, chainId: litvm.id })
         if (receipt.status === 'reverted') {
           throw new Error('Transaction reverted on-chain.')
         }
         setTxMessage(confirmationMessage)
       }
 
-      if (token0 && !token0.isNative && token0Allowance < a0) {
+      if (token0 && !token0.isNative && freshAllowance0 < a0) {
         setTxMessage(`Approve ${token0.symbol} so the Lester router can add liquidity…`)
         const approvalHash = await walletCall({
           address: token0.address,
@@ -449,7 +511,7 @@ function CreatePoolPanel({
         await confirmHash(approvalHash, `${token0.symbol} approved. Continuing…`)
       }
 
-      if (token1 && !token1.isNative && token1Allowance < a1) {
+      if (token1 && !token1.isNative && freshAllowance1 < a1) {
         setTxMessage(`Approve ${token1.symbol} so the Lester router can add liquidity…`)
         const approvalHash = await walletCall({
           address: token1.address,
@@ -460,30 +522,63 @@ function CreatePoolPanel({
         await confirmHash(approvalHash, `${token1.symbol} approved. Continuing…`)
       }
 
+      await attestFreshDexRuntime()
+      const submissionPair = await readFreshCanonicalPair(token0Addr, token1Addr, existingPairAddress)
+      const isNewPair = submissionPair === null
+      const token0IsPair0 = submissionPair ? sameAddress(submissionPair.token0, token0Addr) : true
+      const reserveForToken0 = submissionPair
+        ? (token0IsPair0 ? submissionPair.reserves[0] : submissionPair.reserves[1])
+        : 0n
+      const reserveForToken1 = submissionPair
+        ? (token0IsPair0 ? submissionPair.reserves[1] : submissionPair.reserves[0])
+        : 0n
+      const { amountAMin: token0Min, amountBMin: token1Min } = computeAddLiquidityMinimums({
+        desiredA: a0,
+        desiredB: a1,
+        reserveA: reserveForToken0,
+        reserveB: reserveForToken1,
+        slippageBps: addLiquiditySlippageBps,
+      })
+      const [submissionBalance0, submissionBalance1] = await Promise.all([
+        isToken0Native
+          ? getBalance(wagmiConfig, { address, chainId: litvm.id }).then((balance) => balance.value)
+          : readContract(wagmiConfig, {
+              address: token0!.address,
+              abi: ERC20_ABI,
+              functionName: 'balanceOf',
+              args: [address],
+              chainId: litvm.id,
+            }) as Promise<bigint>,
+        isToken1Native
+          ? getBalance(wagmiConfig, { address, chainId: litvm.id }).then((balance) => balance.value)
+          : readContract(wagmiConfig, {
+              address: token1!.address,
+              abi: ERC20_ABI,
+              functionName: 'balanceOf',
+              args: [address],
+              chainId: litvm.id,
+            }) as Promise<bigint>,
+      ])
+      if (submissionBalance0 < a0 || submissionBalance1 < a1) {
+        throw new Error('Your LitVM balance changed while approving. Review the amounts before adding liquidity.')
+      }
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
       setTxMessage(isNewPair ? 'Confirm the pool creation transaction in your wallet…' : 'Confirm the add-liquidity transaction in your wallet…')
 
       if (isToken0Native) {
-        const nativeSortedFirst = token0Addr.toLowerCase() < token1Addr.toLowerCase()
-        const reserveNative = nativeSortedFirst ? pairR0 : pairR1
-        const reserveToken = nativeSortedFirst ? pairR1 : pairR0
-        const { amountAMin: amountETHMin, amountBMin: amountTokenMin } = computeMinAmounts(a0, a1, reserveNative, reserveToken)
         hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidityETH',
-          args: [token1Addr, a1, amountTokenMin, amountETHMin, to, deadline],
+          args: [token1Addr, a1, token1Min, token0Min, to, deadline],
           value: a0,
         }, isNewPair ? 800000n : 500000n)
       } else if (isToken1Native) {
-        const tokenSortedFirst = token0Addr.toLowerCase() < token1Addr.toLowerCase()
-        const reserveToken = tokenSortedFirst ? pairR0 : pairR1
-        const reserveNative = tokenSortedFirst ? pairR1 : pairR0
-        const { amountAMin: amountTokenMin, amountBMin: amountETHMin } = computeMinAmounts(a0, a1, reserveToken, reserveNative)
         hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'addLiquidityETH',
-          args: [token0Addr, a0, amountTokenMin, amountETHMin, to, deadline],
+          args: [token0Addr, a0, token0Min, token1Min, to, deadline],
           value: a1,
         }, isNewPair ? 800000n : 500000n)
       } else {
@@ -494,8 +589,9 @@ function CreatePoolPanel({
         const [amountA, amountB] = isToken0SortedFirst
           ? [a0, a1] as const
           : [a1, a0] as const
-
-        const { amountAMin, amountBMin } = computeMinAmounts(amountA, amountB, pairR0, pairR1)
+        const [amountAMin, amountBMin] = isToken0SortedFirst
+          ? [token0Min, token1Min] as const
+          : [token1Min, token0Min] as const
         hash = await walletCall({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
@@ -526,6 +622,7 @@ function CreatePoolPanel({
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-white">Create Pool</h2>
         <button
+          aria-label="Close pool form"
           onClick={onClose}
           className="rounded-full border border-white/10 bg-white/5 p-2 text-white/55 transition hover:border-white/20 hover:text-white"
         >
@@ -561,6 +658,7 @@ function CreatePoolPanel({
               </div>
               <div className="flex gap-2">
                 <input
+                  aria-label="Token 1 liquidity amount"
                   value={amount0}
                   onChange={(e) => setAmount0(formatInputAmount(e.target.value))}
                   placeholder="0.0"
@@ -569,6 +667,7 @@ function CreatePoolPanel({
                   className="flex-1 bg-transparent text-lg font-semibold text-white outline-none placeholder:text-white/20"
                 />
                 <button
+                  aria-label="Select token 1"
                   onClick={() => setPickerMode('token0')}
                   className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white"
                 >
@@ -603,6 +702,7 @@ function CreatePoolPanel({
               </div>
               <div className="flex gap-2">
                 <input
+                  aria-label="Token 2 liquidity amount"
                   value={amount1}
                   onChange={(e) => setAmount1(formatInputAmount(e.target.value))}
                   placeholder="0.0"
@@ -611,6 +711,7 @@ function CreatePoolPanel({
                   className="flex-1 bg-transparent text-lg font-semibold text-white outline-none placeholder:text-white/20"
                 />
                 <button
+                  aria-label="Select token 2"
                   onClick={() => setPickerMode('token1')}
                   className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white"
                 >
@@ -633,6 +734,26 @@ function CreatePoolPanel({
             </p>
           )}
 
+          {!isCanonicalDexDeployment && (
+            <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              Liquidity actions are disabled because the configured DEX targets do not match the canonical LitVM deployment.
+            </p>
+          )}
+
+          {existingPairAddress && pairAddressRead.isSuccess && !suppliedPairMatchesFactory && (
+            <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              The requested pair link does not match the pair registered by the canonical LitVM factory.
+            </p>
+          )}
+
+          <div className="space-y-2 rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+            <p className="text-xs uppercase tracking-[0.12em] text-white/35">Minimum received tolerance</p>
+            <SlippageSelector valueBps={addLiquiditySlippageBps} onChange={setAddLiquiditySlippageBps} />
+            <p className="text-xs leading-5 text-white/40">
+              Both minimum deposit amounts are rebuilt from fresh canonical pair reserves before your wallet opens.
+            </p>
+          </div>
+
           <button
             onClick={handleCreate}
             disabled={!canCreate || creating}
@@ -647,8 +768,8 @@ function CreatePoolPanel({
               {creating
                 ? 'Submitting…'
                 : needsToken0Approval || needsToken1Approval
-                  ? (reservesRead.isSuccess ? 'Approve & Add Liquidity' : 'Approve & Create Pool')
-                  : reservesRead.isSuccess
+                  ? (pairExists ? 'Approve & Add Liquidity' : 'Approve & Create Pool')
+                  : pairExists
                     ? 'Add Liquidity'
                     : 'Create Pool'}
             </span>
@@ -818,6 +939,7 @@ function TokenPicker({
         </div>
 
         <input
+          aria-label="Search tokens"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search name, symbol, or address"
@@ -905,7 +1027,7 @@ function TokenButton({
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/10"
+      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/10"
     >
       <span className="text-white/45">{label}</span>
       <span>{token?.symbol ?? 'Select'}</span>
@@ -925,12 +1047,13 @@ function WrapUnwrapPanel() {
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
 
-  const nativeBal = useBalance({ address })
+  const nativeBal = useBalance({ address, chainId: litvm.id })
   const wzklteBal = useReadContract({
     address: WRAPPED_ZKLTC_ADDRESS,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
+    chainId: litvm.id,
     query: { enabled: isConnected && Boolean(address) },
   })
 
@@ -940,6 +1063,7 @@ function WrapUnwrapPanel() {
 
   const { isLoading: isConfirming, isSuccess: txConfirmed, error: txError } = useWaitForTransactionReceipt({
     hash: txHash,
+    chainId: litvm.id,
     query: { enabled: Boolean(txHash) },
   })
 
@@ -974,6 +1098,10 @@ function WrapUnwrapPanel() {
     try {
       setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
       const value = parseUnits(amount, 18)
+      const freshBalance = (await getBalance(wagmiConfig, { address, chainId: litvm.id })).value
+      if (!isCanonicalDexDeployment || freshBalance < value) {
+        throw new Error('The canonical wrapped token target or fresh LitVM balance could not be verified.')
+      }
       const hash = await writeContractAsync({
         address: WRAPPED_ZKLTC_ADDRESS,
         abi: [
@@ -1007,6 +1135,16 @@ function WrapUnwrapPanel() {
     try {
       setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
       const value = parseUnits(amount, 18)
+      const freshBalance = await readContract(wagmiConfig, {
+        address: WRAPPED_ZKLTC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [address],
+        chainId: litvm.id,
+      }) as bigint
+      if (!isCanonicalDexDeployment || freshBalance < value) {
+        throw new Error('The canonical wrapped token target or fresh LitVM balance could not be verified.')
+      }
       const hash = await writeContractAsync({
         address: WRAPPED_ZKLTC_ADDRESS,
         abi: [
@@ -1084,6 +1222,7 @@ function WrapUnwrapPanel() {
           </button>
         </div>
         <input
+          aria-label={mode === 'wrap' ? 'zkLTC amount to wrap' : 'wzkLTC amount to unwrap'}
           value={amount}
           onChange={(e) => setAmount(formatInputAmount(e.target.value))}
           placeholder="0.0"
@@ -1098,7 +1237,7 @@ function WrapUnwrapPanel() {
 
       <button
         onClick={mode === 'wrap' ? handleWrap : handleUnwrap}
-        disabled={!isConnected || !amount || parseFloat(amount) <= 0 || isConfirming}
+        disabled={!isConnected || !isCanonicalDexDeployment || !amount || parseFloat(amount) <= 0 || isConfirming}
         className="flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
         style={{
           background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
@@ -1169,6 +1308,11 @@ function SwapPageInner() {
   const [showWrap, setShowWrap] = useState(false)
   const [showSettlementPreview, setShowSettlementPreview] = useState(false)
   const [settlementConfirming, setSettlementConfirming] = useState(false)
+  const [settlementQuote, setSettlementQuote] = useState<{
+    pairAddress: `0x${string}`
+    quotedAmountOut: bigint
+    minimumAmountOut: bigint
+  } | null>(null)
 
   useEffect(() => {
     if (!createPoolRequested && !addLiquidityPairAddress) return
@@ -1189,8 +1333,8 @@ function SwapPageInner() {
 
   const urlTokenMetadataReads = useReadContracts({
     contracts: urlLookupAddresses.flatMap((tokenAddress) => [
-      { address: tokenAddress, abi: ERC20_ABI, functionName: 'name' as const },
-      { address: tokenAddress, abi: ERC20_ABI, functionName: 'symbol' as const },
+      { address: tokenAddress, abi: ERC20_ABI, functionName: 'name' as const, chainId: litvm.id },
+      { address: tokenAddress, abi: ERC20_ABI, functionName: 'symbol' as const, chainId: litvm.id },
     ]),
     query: { enabled: urlLookupAddresses.length > 0 },
   })
@@ -1260,7 +1404,7 @@ function SwapPageInner() {
     return () => clearTimeout(timer)
   }, [inputToken, outputToken, amountIn, slippageBps])
 
-  const isDexConfigured =
+  const isDexConfigured = isCanonicalDexDeployment &&
     isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) &&
     isValidContractAddress(UNISWAP_V2_ROUTER_ADDRESS) &&
     isValidContractAddress(WRAPPED_ZKLTC_ADDRESS)
@@ -1285,18 +1429,21 @@ function SwapPageInner() {
     address: !inputToken.isNative ? inputToken.address : undefined,
     abi: ERC20_ABI,
     functionName: 'name',
+    chainId: litvm.id,
     query: { enabled: !inputToken.isNative },
   })
   const inputSymbolRead = useReadContract({
     address: !inputToken.isNative ? inputToken.address : undefined,
     abi: ERC20_ABI,
     functionName: 'symbol',
+    chainId: litvm.id,
     query: { enabled: !inputToken.isNative },
   })
   const inputDecimalsRead = useReadContract({
     address: !inputToken.isNative ? inputToken.address : undefined,
     abi: ERC20_ABI,
     functionName: 'decimals',
+    chainId: litvm.id,
     query: { enabled: !inputToken.isNative },
   })
 
@@ -1304,18 +1451,21 @@ function SwapPageInner() {
     address: outputToken && !outputToken.isNative ? outputToken.address : undefined,
     abi: ERC20_ABI,
     functionName: 'name',
+    chainId: litvm.id,
     query: { enabled: Boolean(outputToken && !outputToken.isNative) },
   })
   const outputSymbolRead = useReadContract({
     address: outputToken && !outputToken.isNative ? outputToken.address : undefined,
     abi: ERC20_ABI,
     functionName: 'symbol',
+    chainId: litvm.id,
     query: { enabled: Boolean(outputToken && !outputToken.isNative) },
   })
   const outputDecimalsRead = useReadContract({
     address: outputToken && !outputToken.isNative ? outputToken.address : undefined,
     abi: ERC20_ABI,
     functionName: 'decimals',
+    chainId: litvm.id,
     query: { enabled: Boolean(outputToken && !outputToken.isNative) },
   })
 
@@ -1362,18 +1512,19 @@ function SwapPageInner() {
     resolvedOutput !== null &&
     wrappedInputAddress.toLowerCase() !== wrappedOutputAddress.toLowerCase()
 
-  const pairAddressRead = useRpcCallReadContract({
+  const pairAddressRead = useReadContract({
     address: UNISWAP_V2_FACTORY_ADDRESS,
     abi: UNISWAP_V2_FACTORY_ABI,
     functionName: 'getPair',
     args: pairLookupEnabled ? [wrappedInputAddress, wrappedOutputAddress] : undefined,
+    chainId: litvm.id,
     query: { enabled: pairLookupEnabled },
   })
 
   const pairAddress = ((pairAddressRead as unknown as { data?: `0x${string}` }).data ?? ZERO_ADDRESS) as `0x${string}`
   const pairExists = isValidContractAddress(pairAddress)
 
-  const quoteRead = useRpcCallReadContract({
+  const quoteRead = useReadContract({
     address: UNISWAP_V2_ROUTER_ADDRESS,
     abi: UNISWAP_V2_ROUTER_ABI,
     functionName: 'getAmountsOut',
@@ -1381,26 +1532,28 @@ function SwapPageInner() {
       pairExists && resolvedOutput && parsedAmountIn !== null
         ? [parsedAmountIn, [wrappedInputAddress, wrappedOutputAddress]]
         : undefined,
+    chainId: litvm.id,
     query: { enabled: pairExists && resolvedOutput !== null && parsedAmountIn !== null },
   })
 
   const pairState = useReadContracts({
     contracts: pairExists
       ? [
-          { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' },
-          { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token1' },
-          { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' },
+          { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0', chainId: litvm.id },
+          { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token1', chainId: litvm.id },
+          { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves', chainId: litvm.id },
         ]
       : [],
     query: { enabled: pairExists },
   })
 
-  const nativeBalance = useBalance({ address })
+  const nativeBalance = useBalance({ address, chainId: litvm.id })
   const inputTokenBalanceRead = useReadContract({
     address: !resolvedInput.isNative ? resolvedInput.address : undefined,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
+    chainId: litvm.id,
     query: { enabled: Boolean(address && !resolvedInput.isNative) },
   })
 
@@ -1409,6 +1562,7 @@ function SwapPageInner() {
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: address ? [address, UNISWAP_V2_ROUTER_ADDRESS] : undefined,
+    chainId: litvm.id,
     query: { enabled: Boolean(address && !resolvedInput.isNative && isDexConfigured) },
   })
 
@@ -1466,11 +1620,18 @@ function SwapPageInner() {
       : ((inputTokenBalanceRead.data ?? 0n) as bigint)
 
   // Use user-selected slippage (default 0.5%)
-  const minimumAmountOut =
-    quotedAmountOut === null ? null : (quotedAmountOut * (10_000n - slippageBps)) / 10_000n
+  let minimumAmountOut: bigint | null = null
+  if (quotedAmountOut !== null) {
+    try {
+      minimumAmountOut = applySlippageMinimum(quotedAmountOut, slippageBps)
+    } catch {
+      minimumAmountOut = null
+    }
+  }
 
   const { isLoading: isConfirming, isSuccess: txConfirmed, error: txError } = useWaitForTransactionReceipt({
     hash: txHash,
+    chainId: litvm.id,
     query: { enabled: Boolean(txHash) },
   })
   const refetchAllowance = allowanceRead.refetch
@@ -1497,16 +1658,75 @@ function SwapPageInner() {
     setTxMessage(txError.message.slice(0, 180))
   }, [txError, txHash])
 
+  async function readFreshSwapIntent() {
+    if (!address || !resolvedOutput || parsedAmountIn === null) {
+      throw new Error('Complete the swap details before requesting a fresh quote.')
+    }
+    await attestFreshDexRuntime()
+
+    const freshDecimals = resolvedInput.isNative
+      ? 18
+      : Number(await readContract(wagmiConfig, {
+          address: resolvedInput.address,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+          chainId: litvm.id,
+        }))
+    const freshAmountIn = parseUnits(normalizedAmountIn, freshDecimals)
+    if (freshAmountIn <= 0n || freshAmountIn !== parsedAmountIn) {
+      throw new Error('Token metadata changed while preparing the swap. Review the amount and try again.')
+    }
+
+    const freshPair = await readFreshCanonicalPair(wrappedInputAddress, wrappedOutputAddress)
+    if (!freshPair) throw new Error('No canonical direct pair is available for this swap.')
+
+    const amounts = await readContract(wagmiConfig, {
+      address: UNISWAP_V2_ROUTER_ADDRESS,
+      abi: UNISWAP_V2_ROUTER_ABI,
+      functionName: 'getAmountsOut',
+      args: [freshAmountIn, [wrappedInputAddress, wrappedOutputAddress]],
+      chainId: litvm.id,
+    }) as readonly bigint[]
+    const freshAmountOut = amounts.at(-1) ?? 0n
+    const freshMinimumAmountOut = applySlippageMinimum(freshAmountOut, slippageBps)
+    const freshBalance = resolvedInput.isNative
+      ? (await getBalance(wagmiConfig, { address, chainId: litvm.id })).value
+      : await readContract(wagmiConfig, {
+          address: resolvedInput.address,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [address],
+          chainId: litvm.id,
+        }) as bigint
+    if (freshBalance < freshAmountIn) {
+      throw new Error('Your LitVM balance changed. Review the input amount before swapping.')
+    }
+
+    return {
+      pairAddress: freshPair.pairAddress,
+      quotedAmountOut: freshAmountOut,
+      minimumAmountOut: freshMinimumAmountOut,
+    }
+  }
+
   async function handleSwapClick() {
-    if (!(await ensureLitvmWrite({
-      action: 'preparing a swap',
-      onError: (message) => {
-        setTxMessage(message)
-        setTxOpen(true)
-        setTxStatus('error')
-      },
-    }))) return
-    setShowSettlementPreview(true)
+    try {
+      if (!(await ensureLitvmWrite({
+        action: 'preparing a swap',
+        onError: (message) => {
+          setTxMessage(message)
+          setTxOpen(true)
+          setTxStatus('error')
+        },
+      }))) return
+      const freshQuote = await readFreshSwapIntent()
+      setSettlementQuote(freshQuote)
+      setShowSettlementPreview(true)
+    } catch (error) {
+      setTxMessage(error instanceof Error ? error.message.slice(0, 220) : 'Unable to authenticate a fresh LitVM quote.')
+      setTxStatus('error')
+      setTxOpen(true)
+    }
   }
 
   async function handleSettlementConfirm() {
@@ -1521,6 +1741,8 @@ function SwapPageInner() {
     if (resolvedOutput === null) return { fn: '', data: '0x', target: UNISWAP_V2_ROUTER_ADDRESS }
     const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
     const path = [wrappedInputAddress, wrappedOutputAddress] as `0x${string}`[]
+    const previewMinimumAmountOut = settlementQuote?.minimumAmountOut
+    if (!previewMinimumAmountOut) return { fn: '', data: '0x', target: UNISWAP_V2_ROUTER_ADDRESS }
     if (resolvedInput.isNative) {
       return {
         fn: 'swapExactETHForTokens',
@@ -1528,7 +1750,7 @@ function SwapPageInner() {
         data: encodeFunctionData({
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'swapExactETHForTokens',
-          args: [minimumAmountOut!, path, address!, deadline],
+          args: [previewMinimumAmountOut, path, address!, deadline],
         }),
       }
     }
@@ -1539,7 +1761,7 @@ function SwapPageInner() {
         data: encodeFunctionData({
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'swapExactTokensForETH',
-          args: [parsedAmountIn!, minimumAmountOut!, path, address!, deadline],
+          args: [parsedAmountIn!, previewMinimumAmountOut, path, address!, deadline],
         }),
       }
     }
@@ -1549,13 +1771,13 @@ function SwapPageInner() {
       data: encodeFunctionData({
         abi: UNISWAP_V2_ROUTER_ABI,
         functionName: 'swapExactTokensForTokens',
-        args: [parsedAmountIn!, minimumAmountOut!, path, address!, deadline],
+        args: [parsedAmountIn!, previewMinimumAmountOut, path, address!, deadline],
       }),
     }
   }
 
   async function handlePrimaryAction() {
-    if (!isConnected || !address || !resolvedOutput || parsedAmountIn === null || !isDexConfigured) return
+    if (!isConnected || !address || !resolvedOutput || parsedAmountIn === null || !isDexConfigured || !settlementQuote) return
     if (!(await ensureLitvmWrite({
       action: needsApproval ? 'approving swap input tokens' : 'submitting a swap',
       onError: (message) => {
@@ -1565,14 +1787,40 @@ function SwapPageInner() {
       },
     }))) return
     if (wrappedInputAddress.toLowerCase() === wrappedOutputAddress.toLowerCase()) return
-    if (!pairExists || minimumAmountOut === null) return
+    if (!pairExists) return
 
     try {
       setTxOpen(true)
       setTxStatus('pending')
       setTxMessage(undefined)
+      setTxHash(undefined)
 
-      if (needsApproval) {
+      await attestFreshDexRuntime()
+      await readFreshCanonicalPair(wrappedInputAddress, wrappedOutputAddress, settlementQuote.pairAddress)
+      const freshBalance = resolvedInput.isNative
+        ? (await getBalance(wagmiConfig, { address, chainId: litvm.id })).value
+        : await readContract(wagmiConfig, {
+            address: resolvedInput.address,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [address],
+            chainId: litvm.id,
+          }) as bigint
+      if (freshBalance < parsedAmountIn) {
+        throw new Error('Your LitVM balance changed. Review the input amount before swapping.')
+      }
+      const freshAllowance = resolvedInput.isNative
+        ? parsedAmountIn
+        : await readContract(wagmiConfig, {
+            address: resolvedInput.address,
+            abi: ERC20_ABI,
+            functionName: 'allowance',
+            args: [address, UNISWAP_V2_ROUTER_ADDRESS],
+            chainId: litvm.id,
+          }) as bigint
+      const freshNeedsApproval = !resolvedInput.isNative && freshAllowance < parsedAmountIn
+
+      if (freshNeedsApproval) {
         setTxAction('approve')
         const hash = await writeContractAsync({
           address: resolvedInput.address,
@@ -1585,6 +1833,15 @@ function SwapPageInner() {
         return
       }
 
+      const submissionQuote = await readFreshSwapIntent()
+      if (!sameAddress(submissionQuote.pairAddress, settlementQuote.pairAddress)) {
+        throw new Error('The canonical pair changed after preview. Review a fresh quote before swapping.')
+      }
+      const submissionMinimumAmountOut = submissionQuote.minimumAmountOut > settlementQuote.minimumAmountOut
+        ? submissionQuote.minimumAmountOut
+        : settlementQuote.minimumAmountOut
+      setSettlementQuote(submissionQuote)
+
       const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
       const path = [wrappedInputAddress, wrappedOutputAddress] as `0x${string}`[]
       setTxAction('swap')
@@ -1594,7 +1851,7 @@ function SwapPageInner() {
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'swapExactETHForTokens',
-          args: [minimumAmountOut, path, address, deadline],
+          args: [submissionMinimumAmountOut, path, address, deadline],
           value: parsedAmountIn,
           gas: 500000n,
         })
@@ -1607,7 +1864,7 @@ function SwapPageInner() {
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_ABI,
           functionName: 'swapExactTokensForETH',
-          args: [parsedAmountIn, minimumAmountOut, path, address, deadline],
+          args: [parsedAmountIn, submissionMinimumAmountOut, path, address, deadline],
           gas: 500000n,
         })
         setTxHash(hash)
@@ -1618,7 +1875,7 @@ function SwapPageInner() {
         address: UNISWAP_V2_ROUTER_ADDRESS,
         abi: UNISWAP_V2_ROUTER_ABI,
         functionName: 'swapExactTokensForTokens',
-        args: [parsedAmountIn, minimumAmountOut, path, address, deadline],
+        args: [parsedAmountIn, submissionMinimumAmountOut, path, address, deadline],
         gas: 500000n,
       })
       setTxHash(hash)
@@ -1648,7 +1905,7 @@ function SwapPageInner() {
   const primaryButtonText = !isConnected
     ? 'Connect wallet to swap'
     : isWrongNetwork
-      ? 'Wrong network'
+      ? 'Switch to LitVM'
       : resolvedOutput === null
       ? 'Select an output token'
       : wrappedInputAddress.toLowerCase() === wrappedOutputAddress.toLowerCase()
@@ -1667,13 +1924,14 @@ function SwapPageInner() {
 
   const primaryButtonDisabled =
     !isConnected ||
-    isWrongNetwork ||
+    !isDexConfigured ||
     resolvedOutput === null ||
     normalizedAmountIn.length === 0 ||
     parsedAmountIn === null ||
     parsedAmountIn <= 0n ||
     parsedAmountIn > inputBalance ||
     !pairExists ||
+    minimumAmountOut === null ||
     wrappedInputAddress.toLowerCase() === wrappedOutputAddress.toLowerCase()
 
   return (
@@ -1776,7 +2034,7 @@ function SwapPageInner() {
                     <SlippageSelector valueBps={slippageBps} onChange={setSlippageBps} />
                     <Link
                       href="/pool"
-                      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65 transition hover:border-white/20 hover:text-white"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65 transition hover:border-white/20 hover:text-white"
                     >
                       <Droplets size={14} />
                       Pool
@@ -1793,6 +2051,7 @@ function SwapPageInner() {
                     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                       <div>
                         <input
+                          aria-label={`Amount of ${resolvedInput.symbol} to swap`}
                           value={amountIn}
                           onChange={(event) => setAmountIn(formatInputAmount(event.target.value))}
                           placeholder="0.0"
@@ -1805,7 +2064,7 @@ function SwapPageInner() {
                       </div>
                       <button
                         onClick={setMaxBalance}
-                        className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/70 transition hover:border-white/20 hover:text-white"
+                        className="min-h-11 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/70 transition hover:border-white/20 hover:text-white"
                       >
                         Max
                       </button>
@@ -1842,13 +2101,13 @@ function SwapPageInner() {
                 </div>
 
                 {/* RPC rate-limit warning banner */}
-                {(pairAddressRead.rpcState.error || quoteRead.rpcState.error) && (
+                {(pairAddressRead.error || quoteRead.error) && (
                   <div className="flex items-center gap-3 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
                     <Loader2 size={14} className="animate-spin shrink-0" />
                     <span>
-                      {pairAddressRead.rpcState.error === 'rate_limited' || quoteRead.rpcState.error === 'rate_limited'
+                      {/429|rate\s*limit|too\s*many\s*requests/i.test(`${pairAddressRead.error?.message ?? ''} ${quoteRead.error?.message ?? ''}`)
                         ? 'RPC rate limited — retrying…'
-                        : pairAddressRead.rpcState.error === 'network' || quoteRead.rpcState.error === 'network'
+                        : /network|fetch|conn|offline|timeout/i.test(`${pairAddressRead.error?.message ?? ''} ${quoteRead.error?.message ?? ''}`)
                           ? 'Network error — check your connection.'
                           : 'RPC error — retrying…'}
                     </span>
@@ -1989,7 +2248,7 @@ function SwapPageInner() {
       />
 
       {(() => {
-        if (!showSettlementPreview || parsedAmountIn === null || minimumAmountOut === null || resolvedOutput === null) return null
+        if (!showSettlementPreview || parsedAmountIn === null || !settlementQuote || resolvedOutput === null) return null
         const { fn, data, target } = buildSwapCallData()
         return (
           <SettlementPreview
@@ -2001,10 +2260,10 @@ function SwapPageInner() {
             inputAmount={normalizedAmountIn || '0'}
             inputAmountRaw={parsedAmountIn.toString()}
             outputSymbol={resolvedOutput.symbol}
-            outputAmount={formatTokenAmount(minimumAmountOut, resolvedOutput.decimals)}
-            outputAmountRaw={minimumAmountOut.toString()}
+            outputAmount={formatTokenAmount(settlementQuote.minimumAmountOut, resolvedOutput.decimals)}
+            outputAmountRaw={settlementQuote.minimumAmountOut.toString()}
             priceImpact={priceImpactText}
-            pairAddress={pairAddress}
+            pairAddress={settlementQuote.pairAddress}
             route="Direct pair"
             estimatedGas="≈ gas"
             callData={data}

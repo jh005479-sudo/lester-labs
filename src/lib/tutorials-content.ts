@@ -393,7 +393,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Why use the Token Factory?',
-        body: 'You could write your own Solidity ERC-20 contract, audit it, and deploy it manually. Or you could use the Token Factory: a factory contract that deploys a standard OpenZeppelin ERC-20 implementation in a single transaction.\n\nThe contracts are battle-tested OpenZeppelin code — the same library used by most DeFi protocols in production. The factory emits a TokenCreated event so explorers and dashboards can surface your token automatically.',
+        body: 'You could write, review, and deploy an ERC-20 contract manually, or use the Token Factory to deploy a LesterToken in one transaction. LesterToken composes OpenZeppelin ERC-20 modules with custom decimals and optional owner minting, holder burning, and owner pause controls.\n\nUpstream OpenZeppelin provenance does not constitute an audit of Lester Labs or a token creator’s selected configuration. The factory emits a TokenCreated event so explorers and dashboards can surface the deployment.',
       },
       {
         type: 'step',
@@ -534,7 +534,7 @@ export const TUTORIALS: TutorialArticle[] = [
   {
     slug: 'airdrop-tool-guide',
     title: 'LitVM Airdrop Tool — Batch Token Distribution on LitVM',
-    subtitle: 'How to use the LitVM Airdrop Tool to send tokens to thousands of wallets in a single transaction. CSV upload, merkle proof mode, and on-chain verification for LitVM token distributions.',
+    subtitle: 'How to use the LitVM Airdrop Tool to review and send direct token or zkLTC distributions in resumable on-chain batches.',
     badge: 'Airdrop',
     badgeColor: '#f97316',
     readTime: '6 min read',
@@ -545,13 +545,13 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Why batch airdrops matter',
-        body: 'Airdrops are one of the most effective token distribution mechanisms in crypto. They reward early users, bootstrap liquidity, and drive network effects. But doing them manually — copying addresses, sending one transaction at a time — does not scale.\n\nThe Lester Labs Airdrop Tool lets you upload a CSV of recipient addresses and amounts, review everything before signing, and send to thousands of wallets in a single transaction. The contract handles the math and distribution atomically — if any transfer fails, the whole batch reverts.',
+        body: 'Airdrops are one of the most effective token distribution mechanisms in crypto. They reward early users, bootstrap liquidity, and drive network effects. But doing them manually — copying addresses, sending one transfer at a time — does not scale.\n\nThe Lester Labs Airdrop Tool lets you upload a CSV of recipient addresses and display amounts, inspect the complete validated send list, and distribute ERC-20 tokens or zkLTC in batches of up to 200 recipients. Each batch is a separate transaction. A failed batch reverts without changing that batch, while any earlier confirmed batches remain complete and are skipped when you resume.',
       },
       {
         type: 'callout',
         callout: {
           type: 'info',
-          text: 'The Airdrop Tool on LitVM testnet uses test tokens only. No real value is transferred. The flow is identical to mainnet — the only difference is the token you are distributing.',
+          text: 'The current Airdrop Tool targets LitVM testnet and test assets. Future mainnet contracts, addresses, limits, and fees must be verified separately before distributing assets with real value.',
         },
       },
       {
@@ -564,23 +564,19 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Prepare your recipient list',
-            body: 'Create a CSV file with two columns: recipient address and amount.\n\naddress,amount\n0x1234...abcd,1000\n0x5678...wxyz,2500\n\nMake sure addresses are valid Ethereum-format (42 characters starting with 0x) and amounts are in the smallest unit of your token.',
+            body: 'Create a CSV file with two columns: recipient address and amount.\n\naddress,amount\n0x1234...abcd,1000\n0x5678...wxyz,2500\n\nMake sure addresses are valid Ethereum-format (42 characters starting with 0x). Enter normal display amounts, such as 1.5 or 1000; the tool reads the token decimals and converts each amount to base units exactly once when building the transaction.',
           },
           {
             title: 'Upload your CSV',
-            body: 'Click Upload CSV and select your file. The tool parses it and shows a preview table: address, amount, and a validation status for each row. Invalid addresses are flagged in red — fix these before proceeding.',
+            body: 'Click Upload CSV and select your file. Parsing stays in your browser; the CSV is not uploaded to a Lester Labs server. The complete review table shows each address, amount, and validation status. Use its page controls to inspect every row that will be submitted, and fix any entries flagged in red before proceeding.',
           },
           {
             title: 'Review the distribution summary',
-            body: 'The tool shows the total token amount you will be sending, the number of unique recipients, and an estimated gas cost. Review carefully — airdrops are irreversible once the transaction confirms.',
-          },
-          {
-            title: 'Set your parameters',
-            body: 'Choose between merkle root mode (for larger distributions where you want to save gas) or direct transfer mode (simpler, recommended for under 500 recipients). Set an optional start time if you want to schedule the airdrop.',
+            body: 'The tool shows the total amount, validated recipient count, batch count, network, contract readiness, and the wallet confirmations that will be requested. Review carefully: each confirmed batch is irreversible.',
           },
           {
             title: 'Sign and broadcast',
-            body: 'Click Distribute and confirm the transaction in your wallet. Once confirmed, tokens appear in each recipient wallet almost instantly. Share the transaction hash as proof of distribution.',
+            body: 'For ERC-20 tokens, approve the exact total first, then confirm each direct-distribution batch. Native zkLTC distributions request one confirmation per batch. The tool saves confirmed batch hashes and the next batch cursor on this device, so Retry resumes at the unconfirmed suffix instead of replaying successful sends.',
           },
         ],
       },
@@ -588,13 +584,13 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'tip',
-          text: 'For large airdrops (1000+ recipients), use merkle root mode. It posts one proof to the chain instead of thousands of individual transfers — saving significant gas. Recipients claim their tokens themselves, so there is no gas cost to you for the distribution itself.',
+          text: 'For a large list, complete a smaller test batch first and verify its recipients and amounts on the explorer. Keep the browser storage for this site intact until every batch confirms; it contains the local resume cursor and confirmed transaction hashes.',
         },
       },
       {
         type: 'text',
         heading: 'Verifying the airdrop on-chain',
-        body: 'After the transaction confirms, verify the distribution by searching your address on the LitVM block explorer. The Airdrop contract emits a Transfer event for each successful distribution, making it easy to audit exactly who received what.\n\nFor merkle root mode, the contract stores the merkle root on-chain. Share the merkle proof data with recipients so they can independently verify their inclusion in the tree.',
+        body: 'After each transaction confirms, open its hash in the LitVM block explorer. For ERC-20 distributions, inspect the token contract’s Transfer logs and verify the recipients and base-unit values against your report. For native zkLTC, inspect the transaction value and internal balance changes supported by the explorer. The downloadable report maps every submitted recipient to its confirmed batch hash.',
       },
     ],
     related: ['token-factory-guide', 'token-vesting-guide'],
@@ -650,7 +646,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Deploy and deposit',
-            body: 'Review the schedule summary and pay the deployment fee. After deployment, transfer the total vested allocation to the newly created vesting contract address. The contract holds the tokens and releases them automatically according to the schedule.',
+            body: 'Review the schedule summary, approve the Vesting Factory to transfer the exact allocation, then confirm schedule creation and its deployment fee. The factory moves the allocation into the new vesting wallet during creation; do not send the same allocation a second time afterward.',
           },
         ],
       },
@@ -663,8 +659,8 @@ export const TUTORIALS: TutorialArticle[] = [
       },
       {
         type: 'text',
-        heading: 'How beneficiaries claim vested tokens',
-        body: 'Beneficiaries visit the Vesting Factory page, connect their wallet, and the UI shows their vesting schedule: total allocated, amount vested so far, amount claimed, and amount remaining. They click Claim and any vested-but-unclaimed tokens are transferred to their wallet instantly.\n\nNo admin can revoke or redirect tokens once the schedule is set. The contract is the authority.',
+        heading: 'How vested tokens are released',
+        body: 'The current Lester Labs UI records the resulting vesting wallet but does not expose a dedicated claim button. Once tokens are releasable, call the OpenZeppelin VestingWallet `release(token)` function on that wallet; anyone may trigger the call and the vested amount is sent to the configured beneficiary.\n\nNo Lester Labs admin can revoke or redirect the funded schedule.',
       },
     ],
     related: ['token-factory-guide', 'launchpad-how-it-works'],
@@ -697,7 +693,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Which wallet to use on LitVM testnet',
-        body: 'Any EVM-compatible wallet works on LitVM testnet. MetaMask is the most widely supported and recommended choice. Rabby, Coinbase Wallet, and Trust Wallet also work. Hardware wallets (Ledger, Trezor) can be used via WalletConnect or by importing the private key into a software wallet for testnet-only use.\n\nFor development workflows, `wagmi` + `viem` integrations work out of the box. For Hardhat or Foundry testing, you can fork testnet state by pointing your JSON-RPC URL at the LitVM testnet RPC.',
+        body: 'Any EVM-compatible wallet works on LitVM testnet. MetaMask is the most widely supported and recommended choice. Rabby, Coinbase Wallet, and Trust Wallet also work. Hardware wallets (Ledger, Trezor) should only be connected through their supported wallet integration or WalletConnect flow. Never type a hardware-wallet seed phrase or private key into a software wallet, website, message, or support form.\n\nFor development workflows, `wagmi` + `viem` integrations work out of the box. For Hardhat or Foundry testing, you can fork testnet state by pointing your JSON-RPC URL at the LitVM testnet RPC.',
       },
       {
         type: 'step',

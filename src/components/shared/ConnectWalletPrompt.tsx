@@ -99,7 +99,7 @@ export function ConnectWalletPrompt({
             <Link
               key={action.href}
               href={action.href}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-semibold text-white/68 transition-colors hover:border-white/20 hover:text-white"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-semibold text-white/68 transition-colors hover:border-white/20 hover:text-white"
             >
               {action.label}
               <ArrowUpRight size={12} />

@@ -35,9 +35,10 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://www.lester-labs.com'),
   title: {
     default: 'Lester Labs — DeFi Utilities for LitVM',
-    template: '%s | Lester Labs on LitVM',
+    // Route metadata already includes the brand. Keep it from being appended twice.
+    template: '%s',
   },
-  description: 'Lester Labs is the first native DeFi suite for LitVM — featuring a DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, and governance. Deploy, swap, and launch on LitVM testnet.',
+  description: 'Lester Labs is a native DeFi suite for LitVM featuring a DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, governance, charts, analytics, and a block explorer. Deploy, swap, and launch on LitVM testnet.',
   keywords: [
     'Lester Labs',
     'LitVM DEX',
@@ -60,7 +61,7 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
   openGraph: {
     title: 'Lester Labs — DeFi Utilities for LitVM',
-    description: 'The first native DeFi suite for LitVM. DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, and governance.',
+    description: 'A native DeFi suite for LitVM. DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, governance, charts, analytics, and a block explorer.',
     url: 'https://www.lester-labs.com',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -69,7 +70,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Lester Labs — DeFi Utilities for LitVM',
-    description: 'The first native DeFi suite for LitVM. DEX swap, token launchpad, airdrop tool, and more.',
+    description: 'A native DeFi suite for LitVM with swap, launchpad, airdrop, liquidity, charts, analytics, and explorer tools.',
   },
 }
 
@@ -83,7 +84,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${poppins.variable} ${geistMono.variable} antialiased`}
         style={{
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: 'var(--font-body)',
         }}
       >
         <script
@@ -95,7 +96,7 @@ export default function RootLayout({
               name: 'Lester Labs',
               url: 'https://www.lester-labs.com',
               logo: 'https://www.lester-labs.com/favicon.ico',
-              description: 'The first native DeFi suite for LitVM — featuring a DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, and governance.',
+              description: 'A native DeFi suite for LitVM featuring swap, launchpad, airdrop, liquidity, vesting, governance, charts, analytics, and explorer tools.',
               sameAs: [
                 'https://x.com/lesterlabshq',
               ],

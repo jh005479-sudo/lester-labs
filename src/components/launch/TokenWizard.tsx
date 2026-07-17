@@ -14,7 +14,8 @@ import {
   TOKEN_FACTORY_ABI,
   TOKEN_FACTORY_ADDRESS,
 } from '@/lib/contracts/tokenFactory'
-import { isValidContractAddress } from '@/config/contracts'
+import { isCanonicalLitvmContract, LITVM_TESTNET_CONTRACTS } from '@/config/contracts'
+import { litvm } from '@/config/chains'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
 
@@ -77,7 +78,10 @@ function isBasicsValid(basics: TokenBasics): boolean {
   )
 }
 
-const isContractConfigured = isValidContractAddress(TOKEN_FACTORY_ADDRESS)
+const isContractConfigured = isCanonicalLitvmContract(
+  TOKEN_FACTORY_ADDRESS,
+  LITVM_TESTNET_CONTRACTS.tokenFactory,
+)
 
 interface SuccessState {
   tokenAddress: string
@@ -209,16 +213,18 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
     address: TOKEN_FACTORY_ADDRESS,
     abi: TOKEN_FACTORY_ABI,
     functionName: 'creationFee',
+    chainId: litvm.id,
     query: {
       enabled: isContractConfigured,
     },
   })
 
-  const feeReady = creationFee !== undefined && !isFeeLoading
+  const feeReady = isContractConfigured && creationFee !== undefined && !isFeeLoading
   const feeDisplay = creationFee ? formatEther(creationFee) : '...'
 
   const { data: receipt } = useWaitForTransactionReceipt({
     hash: currentTxHash,
+    chainId: litvm.id,
   })
 
   const applyReceiptSuccess = useEffectEvent(async (hash: `0x${string}`, contractAddress: string) => {
@@ -273,6 +279,12 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
   }, [receipt, currentTxHash, txStatus])
 
   const handleDeploy = async () => {
+    if (!isContractConfigured) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage('Token Factory address does not match the canonical LitVM deployment. Deployment was blocked.')
+      return
+    }
     if (!feeReady) return // RP-003: Block submit until fee loaded
     if (!(await ensureLitvmWrite({
       action: 'deploying a token',
@@ -360,8 +372,8 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
 
         {/* Contract not configured warning */}
         {!isContractConfigured && (
-          <div className="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-400">
-            Token Factory contract not configured. Please set NEXT_PUBLIC_TOKEN_FACTORY_ADDRESS.
+          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+            Token deployment is disabled because the configured factory is not the canonical LitVM deployment.
           </div>
         )}
 

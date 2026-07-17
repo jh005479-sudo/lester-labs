@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getTokenDetails, getTokenTransfers, type TokenDetails, type TokenTransfer } from '@/lib/token-indexer'
-import { ArrowLeft, Copy, ExternalLink, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
+import { ArrowLeft, Copy, ExternalLink, RefreshCw } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { safeExternalUrl } from '../safeExternalUrl'
 
 function formatAddress(addr: string): string {
   if (!addr || addr.length < 10) return addr
@@ -64,8 +65,8 @@ export default function TokenDetailPage() {
       ])
       setToken(details)
       setTransfers(txs)
-    } catch (e: any) {
-      setError(e.message || 'Failed to load token')
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to load token')
     } finally {
       setLoading(false)
     }
@@ -94,6 +95,7 @@ export default function TokenDetailPage() {
 
   // Chart data: derive from priceHistory if available, otherwise show empty
   const hasChartData = token.priceHistory && token.priceHistory.length > 0
+  const websiteUrl = safeExternalUrl(token.website)
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
@@ -135,7 +137,7 @@ export default function TokenDetailPage() {
             {/* Chart */}
             <div className="rounded-xl bg-[var(--surface-1)] border border-white/10 p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Price Chart</h3>
+                <h3 className="font-semibold">Indexed Price History</h3>
                 <div className="flex gap-2">
                   {(['24h', '7d'] as const).map(tf => (
                     <button
@@ -158,7 +160,7 @@ export default function TokenDetailPage() {
                     <Tooltip
                       contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
                       labelFormatter={(ts) => new Date(ts * 1000).toLocaleString()}
-                      formatter={(v: any) => [`$${Number(v).toFixed(6)}`, 'Price']}
+                      formatter={(value: unknown) => [`$${Number(value).toFixed(6)}`, 'Price']}
                     />
                     <Line type="monotone" dataKey="price" stroke="#22c55e" strokeWidth={2} dot={false} />
                   </LineChart>
@@ -166,8 +168,8 @@ export default function TokenDetailPage() {
               ) : (
                 <div className="h-[300px] flex flex-col items-center justify-center text-white/30">
                   <div className="text-4xl mb-3">📊</div>
-                  <div className="text-lg mb-1">No trading data available</div>
-                  <div className="text-sm text-white/20">Awaiting DEX deployment — chart will populate with live trades</div>
+                  <div className="text-lg mb-1">No indexed price history</div>
+                  <div className="text-sm text-white/20">Open Market Charts for current reserve ratios and verified Sync history.</div>
                 </div>
               )}
             </div>
@@ -182,14 +184,14 @@ export default function TokenDetailPage() {
                 </div>
                 <div>
                   <div className="text-white/40 text-xs mb-1">Website</div>
-                  {token.website ? (
-                    <a href={token.website} target="_blank" rel="noopener" className="text-blue-400 hover:text-blue-300 flex items-center gap-1">
-                      {token.website} <ExternalLink className="w-3 h-3" />
+                  {websiteUrl ? (
+                    <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                      {websiteUrl} <ExternalLink className="w-3 h-3" />
                     </a>
                   ) : <span className="text-white/20">—</span>}
                 </div>
                 <div>
-                  <div className="text-white/40 text-xs mb-1">Holder Count</div>
+                  <div className="text-white/40 text-xs mb-1">Unique Recipients (Sample)</div>
                   <div className="font-mono">{token.holderCount}</div>
                 </div>
                 <div>
@@ -205,12 +207,8 @@ export default function TokenDetailPage() {
                   </div>
                 </div>
                 <div>
-                  <div className="text-white/40 text-xs mb-1">LP Status</div>
-                  <div>
-                    {token.lpLocked === true && <span className="text-green-400">🔒 Locked</span>}
-                    {token.lpLocked === false && <span className="text-red-400">🔓 Unlocked</span>}
-                    {token.lpLocked === undefined && <span className="text-white/20">—</span>}
-                  </div>
+                  <div className="text-white/40 text-xs mb-1">LP Lock Evidence</div>
+                  <div className="text-white/30">Not indexed</div>
                 </div>
                 <div>
                   <div className="text-white/40 text-xs mb-1">Pool Address</div>
@@ -234,9 +232,17 @@ export default function TokenDetailPage() {
                 </div>
                 <div>
                   <div className="text-white/40 text-xs mb-1">Created</div>
-                  <div className="font-mono text-xs">{token.createdAt ? timeAgo(token.createdAt) : '—'}</div>
+                  <div className="font-mono text-xs">
+                    {token.factoryProvenance === 'verified' && token.createdAt ? timeAgo(token.createdAt) : 'Not in bounded factory index'}
+                  </div>
                 </div>
               </div>
+              {token.transferSample && (
+                <p className="mt-4 text-xs text-white/35">
+                  Transfer activity covers blocks {token.transferSample.scannedFromBlock.toLocaleString()}-{token.transferSample.toBlock.toLocaleString()}
+                  {token.transferSample.truncated ? ' and is a partial newest-first sample.' : '.'}
+                </p>
+              )}
 
               {/* Contract Warnings */}
               {token.contractWarnings && token.contractWarnings.length > 0 && (

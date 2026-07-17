@@ -1,6 +1,10 @@
 import { createPublicClient, http, parseAbiItem } from 'viem'
 import { RPC_URL } from './rpcClient'
-import { TOKEN_FACTORY_ADDRESS } from '@/config/contracts'
+import { litvm } from '@/config/chains'
+import { TOKEN_FACTORY_ADDRESS, WRAPPED_ZKLTC_ADDRESS } from '@/config/contracts'
+import { GOVERNANCE_CONFIG } from '@/config/governance'
+import { sanitizeTokenMetadataText } from './tokenMetadataRequest'
+import { findByCanonicalAddress, getBoundedNewestBlockRange, inferFactoryProvenance } from './token-indexer-utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -14,9 +18,11 @@ export interface TokenInfo {
   creationTx: string
   creationBlock: number
   createdAt: number
-  holderCount: number
-  txCount24h: number
-  txCountByHour: number[] // Last 24 hourly transfer counts
+  factoryProvenance?: 'verified' | 'unknown'
+  holderCount: number // Unique non-zero recipients in the bounded transfer sample; not a holder balance count.
+  txCount24h: number // Recent sampled transfers retained for backwards-compatible consumers.
+  txCountByHour: number[]
+  transferSample?: TransferSampleCoverage
   priceChange?: { '10m'?: number; '1h'?: number; '4h'?: number; '24h'?: number; '7d'?: number }
   holderTrend?: 'up' | 'down' | 'stable'
   lpLocked?: boolean
@@ -26,6 +32,15 @@ export interface TokenInfo {
   description?: string
   website?: string
   contractWarnings?: string[]
+}
+
+export interface TransferSampleCoverage {
+  requestedFromBlock: number
+  scannedFromBlock: number
+  toBlock: number
+  logCount: number
+  truncated: boolean
+  failedBatches: number
 }
 
 export interface TokenDetails extends TokenInfo {
@@ -78,6 +93,7 @@ const TOKEN_CREATED_EVENT = parseAbiItem(
 // ── Client ─────────────────────────────────────────────────────────────────
 
 const client = createPublicClient({
+  chain: litvm,
   transport: http(RPC_URL, {
     retryCount: 2,
     timeout: 30_000,       // 30s per call — generous for getLogs
@@ -101,10 +117,16 @@ let latestKnownTs = 0
 let latestKnownBlock = 0
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as const
+export const MAX_TRANSFER_SCAN_BLOCKS = 25_000
+export const MAX_TRANSFER_LOGS = 2_500
+export const MAX_FACTORY_SCAN_BLOCKS = 10_000
+const MAX_FACTORY_LOGS = 1_000
+const BLOCKS_PER_LOG_BATCH = 2_000
+const MAX_TIMESTAMP_BLOCKS = 160
 
 function formatBigInt(val: bigint, decimals: number): string {
   if (decimals === 0) return val.toString()
-  return (val / BigInt(10 ** decimals)).toLocaleString()
+  return (val / (10n ** BigInt(decimals))).toLocaleString()
 }
 
 // ── Block timestamp helper ─────────────────────────────────────────────────
@@ -137,8 +159,9 @@ async function getBlockTimestamp(blockNumber: number): Promise<number> {
 async function prefetchBlockTimestamps(blockNumbers: number[]): Promise<void> {
   const uncached = blockNumbers.filter(n => !blockTsCache.has(n))
   if (uncached.length === 0) return
-  // Fire all in parallel — viem batches them
-  await Promise.all(uncached.map(n => getBlockTimestamp(n)))
+  for (let index = 0; index < uncached.length; index += 16) {
+    await Promise.all(uncached.slice(index, index + 16).map(n => getBlockTimestamp(n)))
+  }
 }
 
 // ── ERC20 metadata (cached) ────────────────────────────────────────────────
@@ -155,7 +178,13 @@ async function readErc20Meta(address: `0x${string}`): Promise<{ name: string; sy
       client.readContract({ address, abi: ERC20_ABI, functionName: 'totalSupply' }),
     ])
     if (!name || !symbol) return null
-    const meta = { name: String(name), symbol: String(symbol), decimals: Number(decimals), totalSupply: totalSupply as bigint }
+    const parsedDecimals = Number(decimals)
+    const meta = {
+      name: sanitizeTokenMetadataText(name, 'Unknown token'),
+      symbol: sanitizeTokenMetadataText(symbol, 'TOKEN'),
+      decimals: Number.isInteger(parsedDecimals) && parsedDecimals >= 0 && parsedDecimals <= 255 ? parsedDecimals : 18,
+      totalSupply: totalSupply as bigint,
+    }
     erc20MetaCache.set(address.toLowerCase(), meta)
     return meta
   } catch {
@@ -166,8 +195,8 @@ async function readErc20Meta(address: `0x${string}`): Promise<{ name: string; sy
 // ── Paginated getLogs ──────────────────────────────────────────────────────
 
 /**
- * Fetch Transfer event logs in paginated batches to avoid RPC timeouts.
- * Returns all matching logs across the block range.
+ * Fetch newest logs in bounded batches. Coverage is returned with the logs so
+ * callers cannot accidentally present a partial reconstruction as complete.
  */
 async function getLogsPaginated(
   address: `0x${string}` | undefined,
@@ -175,31 +204,49 @@ async function getLogsPaginated(
   fromBlock: number,
   toBlock: number | "latest",
   args?: Record<string, unknown>,
-): Promise<IndexedLog[]> {
-  const BLOCKS_PER_BATCH = 3000
-  const allLogs: IndexedLog[] = []
-
-  // Resolve "latest" once — avoids calling getBlockNumber in every batch
+  options: { maxBlocks: number; maxLogs: number } = {
+    maxBlocks: MAX_TRANSFER_SCAN_BLOCKS,
+    maxLogs: MAX_TRANSFER_LOGS,
+  },
+): Promise<{ logs: IndexedLog[]; coverage: TransferSampleCoverage }> {
+  let allLogs: IndexedLog[] = []
   const latestBlock = toBlock === "latest" ? Number(await client.getBlockNumber()) : toBlock
-  let cursor = fromBlock
+  const range = getBoundedNewestBlockRange(fromBlock, latestBlock, options.maxBlocks)
+  let cursorEnd = range.toBlock
+  let truncated = range.truncated
+  let failedBatches = 0
 
-  while (cursor <= latestBlock) {
-    const batchEnd = Math.min(cursor + BLOCKS_PER_BATCH - 1, latestBlock)
+  while (cursorEnd >= range.scannedFromBlock && allLogs.length < options.maxLogs) {
+    const batchStart = Math.max(range.scannedFromBlock, cursorEnd - BLOCKS_PER_LOG_BATCH + 1)
     try {
       const logs = await client.getLogs({
         address,
         event,
-        fromBlock: BigInt(cursor),
-        toBlock: BigInt(batchEnd),
+        fromBlock: BigInt(batchStart),
+        toBlock: BigInt(cursorEnd),
         args,
       }) as IndexedLog[]
-      allLogs.push(...logs)
+      const remaining = options.maxLogs - allLogs.length
+      if (logs.length >= remaining) truncated = true
+      allLogs = logs.slice(-remaining).concat(allLogs)
     } catch (err) {
-      console.warn(`[token-indexer] getLogs batch ${cursor}-${batchEnd} failed, skipping:`, (err as Error).message)
+      failedBatches += 1
+      truncated = true
+      console.warn(`[token-indexer] getLogs batch ${batchStart}-${cursorEnd} failed, skipping:`, (err as Error).message)
     }
-    cursor = batchEnd + 1
+    cursorEnd = batchStart - 1
   }
-  return allLogs
+
+  const logs = allLogs.slice(-options.maxLogs)
+  return {
+    logs,
+    coverage: {
+      ...range,
+      logCount: logs.length,
+      truncated,
+      failedBatches,
+    },
+  }
 }
 
 // ── Holder + hourly transfer analysis ─────────────────────────────────────
@@ -207,12 +254,9 @@ async function getLogsPaginated(
 async function analyzeTokenTransfers(
   address: `0x${string}`,
   fromBlock: number,
-): Promise<{ holders: number; txCount: number; hourly: number[] }> {
+): Promise<{ holders: number; txCount: number; hourly: number[]; coverage: TransferSampleCoverage }> {
   try {
-    const logs = await getLogsPaginated(address, TRANSFER_EVENT, fromBlock, "latest")
-
-    // Cap to last 50k logs to prevent memory blowup on popular tokens
-    const capped = logs.length > 50_000 ? logs.slice(-50_000) : logs
+    const { logs: capped, coverage } = await getLogsPaginated(address, TRANSFER_EVENT, fromBlock, "latest")
 
     const recipients = new Set<string>()
     for (const log of capped) {
@@ -223,7 +267,7 @@ async function analyzeTokenTransfers(
     // Build hourly buckets from last 24h
     const now = Math.floor(Date.now() / 1000)
     const buckets = new Array(24).fill(0)
-    const blocks = [...new Set(capped.map(l => Number(l.blockNumber)))]
+    const blocks = [...new Set(capped.map(l => Number(l.blockNumber)))].slice(-MAX_TIMESTAMP_BLOCKS)
 
     // Prefetch timestamps for all relevant blocks in parallel
     await prefetchBlockTimestamps(blocks)
@@ -237,9 +281,16 @@ async function analyzeTokenTransfers(
       }
     }
 
-    return { holders: recipients.size, txCount: capped.length, hourly: buckets }
+    return { holders: recipients.size, txCount: capped.length, hourly: buckets, coverage }
   } catch {
-    return { holders: 0, txCount: 0, hourly: new Array(24).fill(0) }
+    const latest = Number(await client.getBlockNumber().catch(() => 0n))
+    const range = getBoundedNewestBlockRange(fromBlock, latest, MAX_TRANSFER_SCAN_BLOCKS)
+    return {
+      holders: 0,
+      txCount: 0,
+      hourly: new Array(24).fill(0),
+      coverage: { ...range, logCount: 0, truncated: true, failedBatches: 1 },
+    }
   }
 }
 
@@ -253,7 +304,15 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
   // Only index Lester factory deployments so analytics cannot be polluted by arbitrary chain-wide ERC-20 mints.
   let tokenCreatedLogs: IndexedLog[]
   try {
-    tokenCreatedLogs = await getLogsPaginated(TOKEN_FACTORY_ADDRESS, TOKEN_CREATED_EVENT, fromBlock, toBlock)
+    const result = await getLogsPaginated(
+      TOKEN_FACTORY_ADDRESS,
+      TOKEN_CREATED_EVENT,
+      fromBlock,
+      toBlock,
+      undefined,
+      { maxBlocks: MAX_FACTORY_SCAN_BLOCKS, maxLogs: MAX_FACTORY_LOGS },
+    )
+    tokenCreatedLogs = result.logs
   } catch (err) {
     console.error('[token-indexer] TokenCreated log scan failed:', err)
     return []
@@ -288,7 +347,7 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
   await prefetchBlockTimestamps(uniqueBlocks)
 
   // Parallel token validation — process in chunks of 8 to avoid RPC overload
-  const CHUNK = 8
+  const CHUNK = 4
   for (let i = 0; i < candidates.length; i += CHUNK) {
     const chunk = candidates.slice(i, i + CHUNK)
     const results = await Promise.allSettled(
@@ -297,7 +356,7 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
         const meta = await readErc20Meta(c.address)
         if (!meta) return null
         const timestamp = blockTsCache.get(c.blockNumber) ?? Math.floor(Date.now() / 1000)
-        const { holders, txCount, hourly } = await analyzeTokenTransfers(c.address, c.blockNumber)
+        const { holders, txCount, hourly, coverage } = await analyzeTokenTransfers(c.address, c.blockNumber)
         return {
           address: c.address,
           name: meta.name,
@@ -308,9 +367,11 @@ export async function scanForTokens(fromBlock: number, toBlock: number): Promise
           creationTx: c.txHash,
           creationBlock: c.blockNumber,
           createdAt: timestamp,
+          factoryProvenance: 'verified',
           holderCount: holders,
           txCount24h: txCount,
           txCountByHour: hourly,
+          transferSample: coverage,
         } satisfies TokenInfo
       })
     )
@@ -335,43 +396,56 @@ export async function getIndexedTokens(): Promise<TokenInfo[]> {
     while (scanLock) await new Promise(r => setTimeout(r, 500))
     if (cachePopulated) return [...tokenCache].sort((a, b) => b.creationBlock - a.creationBlock)
     scanLock = true
-    // Try sessionStorage first — avoids serverless cold-start scan entirely
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = sessionStorage.getItem('lester_tokens')
-        if (stored) {
-          const parsed = JSON.parse(stored) as TokenInfo[]
-          for (const t of parsed) tokenCache.push(t)
-          cachePopulated = true
-          // Still refresh in background — don't await
-          refreshInBackground()
-          return [...tokenCache].sort((a, b) => b.creationBlock - a.creationBlock)
-        }
-      } catch { /* ignore */ }
+    try {
+      // Try sessionStorage first — avoids serverless cold-start scan entirely
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = sessionStorage.getItem('lester_tokens')
+          if (stored) {
+            const parsed = JSON.parse(stored) as TokenInfo[]
+            for (const token of parsed.slice(0, 200)) {
+              tokenCache.push({
+                ...token,
+                factoryProvenance: inferFactoryProvenance(token),
+              })
+            }
+            cachePopulated = true
+            queueMicrotask(() => { void refreshInBackground() })
+            return [...tokenCache].sort((a, b) => b.creationBlock - a.creationBlock)
+          }
+        } catch { /* ignore */ }
+      }
+      // No cache — do the cold scan
+      const latest = await client.getBlockNumber()
+      const latestNum = Number(latest)
+      const from = Math.max(0, latestNum - INITIAL_SCAN_BLOCKS + 1)
+      console.log(`[token-indexer] Cold scan: blocks ${from}–${latestNum}`)
+      await scanForTokens(from, latestNum)
+      persistCache()
+    } finally {
+      scanLock = false
     }
-    // No cache — do the cold scan
-    const latest = await client.getBlockNumber()
-    const latestNum = Number(latest)
-    const from = Math.max(0, latestNum - INITIAL_SCAN_BLOCKS)
-    console.log(`[token-indexer] Cold scan: blocks ${from}–${latestNum}`)
-    await scanForTokens(from, latestNum)
-    persistCache()
-    scanLock = false
   }
   return [...tokenCache].sort((a, b) => b.creationBlock - a.creationBlock)
 }
 
 async function refreshInBackground() {
   if (scanLock) return  // Another scan in progress
+  scanLock = true
   try {
     const latest = await client.getBlockNumber()
     const latestNum = Number(latest)
-    const lastBlock = tokenCache.length > 0 ? Math.max(...tokenCache.map(t => t.creationBlock)) : 0
+    const lastBlock = lastScanBlock > 0
+      ? lastScanBlock
+      : tokenCache.length > 0
+        ? Math.max(...tokenCache.map(t => t.creationBlock))
+        : 0
     if (lastBlock < latestNum) {
       await scanForTokens(lastBlock + 1, latestNum)
       persistCache()
     }
   } catch { /* background refresh failed — not critical */ }
+  finally { scanLock = false }
 }
 
 function persistCache() {
@@ -392,7 +466,7 @@ export async function getTokenDetails(contractAddress: string): Promise<TokenDet
   if (!meta) throw new Error('Not a valid ERC-20 token')
 
   const latest = await client.getBlockNumber()
-  const fromBlock = cached ? cached.creationBlock : Math.max(0, Number(latest) - INITIAL_SCAN_BLOCKS)
+  const fromBlock = cached ? cached.creationBlock : Math.max(0, Number(latest) - INITIAL_SCAN_BLOCKS + 1)
 
   const transferData = await analyzeTokenTransfers(addr, fromBlock)
 
@@ -404,20 +478,22 @@ export async function getTokenDetails(contractAddress: string): Promise<TokenDet
     totalSupply: formatBigInt(meta.totalSupply, meta.decimals),
     deployer: '',
     creationTx: '',
-    creationBlock: fromBlock,
-    createdAt: Math.floor(Date.now() / 1000),
+    creationBlock: 0,
+    createdAt: 0,
+    factoryProvenance: 'unknown',
     holderCount: transferData.holders,
     txCount24h: transferData.txCount,
     txCountByHour: transferData.hourly,
+    transferSample: transferData.coverage,
   }
 
-  if (!cached) {
-    base.holderCount = transferData.holders
-    base.txCount24h = transferData.txCount
-    base.txCountByHour = transferData.hourly
+  return {
+    ...base,
+    holderCount: transferData.holders,
+    txCount24h: transferData.txCount,
+    txCountByHour: transferData.hourly,
+    transferSample: transferData.coverage,
   }
-
-  return { ...base }
 }
 
 // ── Token transfers ────────────────────────────────────────────────────────
@@ -425,10 +501,11 @@ export async function getTokenDetails(contractAddress: string): Promise<TokenDet
 export async function getTokenTransfers(contractAddress: string, limit: number): Promise<TokenTransfer[]> {
   const addr = contractAddress as `0x${string}`
   const latest = Number(await client.getBlockNumber())
-  const from = Math.max(0, latest - INITIAL_SCAN_BLOCKS)
+  const from = Math.max(0, latest - INITIAL_SCAN_BLOCKS + 1)
 
-  const logs = await getLogsPaginated(addr, TRANSFER_EVENT, from, latest)
-  const recent = logs.slice(-limit).reverse()
+  const { logs } = await getLogsPaginated(addr, TRANSFER_EVENT, from, latest)
+  const safeLimit = Math.max(0, Math.min(100, Math.floor(limit)))
+  const recent = logs.slice(-safeLimit).reverse()
 
   const transfers: TokenTransfer[] = await Promise.all(
     recent.map(async (log) => {
@@ -459,31 +536,33 @@ export interface FeaturedToken {
   txCount24h?: number
 }
 
+export function findTokenByCanonicalAddress(tokens: readonly TokenInfo[], address: string) {
+  return findByCanonicalAddress(tokens, address)
+}
+
 export async function getFeaturedTokens(): Promise<FeaturedToken[]> {
   const tokens = await getIndexedTokens()
-  const find = (sym: string) => tokens.find(t => t.symbol.toUpperCase() === sym.toUpperCase())
-
-  const ltc = find('LTC')
-  const litvm = find('LITVM')
+  const wrapped = findTokenByCanonicalAddress(tokens, WRAPPED_ZKLTC_ADDRESS)
+  const governance = findTokenByCanonicalAddress(tokens, GOVERNANCE_CONFIG.token.address)
 
   return [
     {
-      symbol: 'LTC',
-      name: 'Litecoin',
-      address: ltc?.address ?? '',
-      description: 'Native bridge asset — Litecoin on LitVM',
+      symbol: 'zkLTC',
+      name: 'Wrapped zkLTC',
+      address: WRAPPED_ZKLTC_ADDRESS,
+      description: 'Canonical wrapped native asset on LitVM testnet',
       isEcosystem: false,
-      holderCount: ltc?.holderCount,
-      txCount24h: ltc?.txCount24h,
+      holderCount: wrapped?.holderCount,
+      txCount24h: wrapped?.txCount24h,
     },
     {
-      symbol: 'LITVM',
-      name: 'LitVM Token',
-      address: litvm?.address ?? '',
-      description: 'Ecosystem governance and utility token',
+      symbol: GOVERNANCE_CONFIG.token.symbol,
+      name: GOVERNANCE_CONFIG.token.name,
+      address: GOVERNANCE_CONFIG.token.address,
+      description: 'Canonical LitVM governance token',
       isEcosystem: true,
-      holderCount: litvm?.holderCount,
-      txCount24h: litvm?.txCount24h,
+      holderCount: governance?.holderCount,
+      txCount24h: governance?.txCount24h,
     },
   ]
 }

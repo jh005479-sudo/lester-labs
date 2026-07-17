@@ -10,15 +10,15 @@ export default function AirdropPage() {
         category="Mass Distribution"
         title="Lester"
         titleHighlight="Dropper"
-        subtitle="Send tokens to hundreds of wallets in a single transaction. CSV import supported."
+        subtitle="Validate recipient lists locally and send ERC-20 or native zkLTC in resumable wallet-confirmed batches."
         color="#36D1DC"
         image="/images/carousel/airdrop.png"
         compact
         stats={[
           { label: 'Wallets', value: 'Hundreds' },
           { label: 'Import', value: 'CSV' },
-          { label: 'Tx', value: 'Single' },
-          { label: 'Fee', value: '0.01 zkLTC' },
+          { label: 'Batch', value: 'Up to 200' },
+          { label: 'Progress', value: 'Resumable' },
         ]}
       />
       <div className="tool-page-content" style={{ maxWidth: '920px' }}>

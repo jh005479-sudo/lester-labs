@@ -119,7 +119,7 @@ const ecosystemStages: EcosystemStage[] = [
     icon: MessageSquareText,
     products: [
       { name: 'Ledger', href: '/ledger', note: 'on-chain updates' },
-      { name: 'Governance', href: '/governance', note: 'Snapshot-style votes' },
+      { name: 'Governance', href: '/governance', note: 'community vote planning' },
       { name: 'Docs', href: '/docs', note: 'builder guidance' },
     ],
   },
@@ -168,7 +168,7 @@ function EcosystemSuite() {
         </div>
         <div className="section-label">The Suite</div>
         <h2 className="suite-title title-reveal">
-          <span className="word">LitVM&apos;s Number #1</span>&nbsp;
+          <span className="word">A connected</span>&nbsp;
           <span className="word highlight">DeFi suite</span>
         </h2>
         <p className="suite-sub sub-reveal">
@@ -264,12 +264,14 @@ export default function HomePage() {
   const [introComplete, setIntroComplete] = useState(false)
 
   useEffect(() => {
-    document.body.classList.add('home-page-active')
-    // ─── Google Fonts ────────────────────────────────────
-    const fontLink = document.createElement('link')
-    fontLink.rel = 'stylesheet'
-    fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Sora:wght@600;700;800&display=swap'
-    document.head.appendChild(fontLink)
+    const body = document.body
+    const previousBackgroundColor = body.style.backgroundColor
+    const previousTransition = body.style.transition
+    const cleanupInteractions: Array<() => void> = []
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const precisePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+
+    body.classList.add('home-page-active')
 
     // ─── Scroll-triggered reveals ─────────────────────────
     const revealObserver = new IntersectionObserver((entries) => {
@@ -278,48 +280,63 @@ export default function HomePage() {
     document.querySelectorAll('.reveal, .reveal-scale, .title-reveal, .sub-reveal').forEach(el => revealObserver.observe(el))
 
     // ─── 3D Card tilt ──────────────────────────────────────
-    document.querySelectorAll('.tilt-card').forEach((card) => {
-      const el = card as HTMLElement
-      el.addEventListener('mousemove', (e: MouseEvent) => {
+    if (!reduceMotion && precisePointer) document.querySelectorAll<HTMLElement>('.tilt-card').forEach((el) => {
+      const handleMove = (e: MouseEvent) => {
         const rect = el.getBoundingClientRect()
         const x = e.clientX - rect.left, y = e.clientY - rect.top
         const rotateX = ((y - rect.height/2) / (rect.height/2)) * -4
         const rotateY = ((x - rect.width/2) / (rect.width/2)) * 4
         el.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`
+      }
+      const handleLeave = () => { el.style.transform = '' }
+      el.addEventListener('mousemove', handleMove)
+      el.addEventListener('mouseleave', handleLeave)
+      cleanupInteractions.push(() => {
+        el.removeEventListener('mousemove', handleMove)
+        el.removeEventListener('mouseleave', handleLeave)
+        el.style.transform = ''
       })
-      el.addEventListener('mouseleave', () => { el.style.transform = 'perspective(800px) rotateX(0) rotateY(0) translateY(0)' })
     })
 
     // ─── Magnetic buttons ─────────────────────────────────
-    document.querySelectorAll('.magnetic').forEach((btn) => {
-      const el = btn as HTMLElement
-      el.addEventListener('mousemove', (e: MouseEvent) => {
+    if (!reduceMotion && precisePointer) document.querySelectorAll<HTMLElement>('.magnetic').forEach((el) => {
+      const handleMove = (e: MouseEvent) => {
         const rect = el.getBoundingClientRect()
         const x = e.clientX - rect.left - rect.width/2
         const y = e.clientY - rect.top - rect.height/2
         el.style.transform = `translate(${x*0.15}px, ${y*0.15}px)`
+      }
+      const handleLeave = () => { el.style.transform = '' }
+      el.addEventListener('mousemove', handleMove)
+      el.addEventListener('mouseleave', handleLeave)
+      cleanupInteractions.push(() => {
+        el.removeEventListener('mousemove', handleMove)
+        el.removeEventListener('mouseleave', handleLeave)
+        el.style.transform = ''
       })
-      el.addEventListener('mouseleave', () => { el.style.transform = 'translate(0,0)' })
     })
 
-    // ─── Scroll progress bar ──────────────────────────────
+    // ─── Scroll progress and back-to-top visibility ───────
     const progressBar = document.getElementById('scroll-progress')
-    function updateProgress() {
+    const backBtn = document.getElementById('back-to-top')
+    let scrollFrame: number | null = null
+    function updateScrollUi() {
+      scrollFrame = null
       const scrollTop = window.scrollY
       const docHeight = document.documentElement.scrollHeight - window.innerHeight
-      if (progressBar) progressBar.style.width = ((scrollTop / docHeight) * 100) + '%'
+      const progress = docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0
+      if (progressBar) progressBar.style.width = `${progress}%`
+      backBtn?.classList.toggle('visible', scrollTop > window.innerHeight)
     }
-    window.addEventListener('scroll', updateProgress, { passive: true })
-
-    // ─── Back to top ───────────────────────────────────────
-    const backBtn = document.getElementById('back-to-top')
-    window.addEventListener('scroll', () => {
-      backBtn?.classList.toggle('visible', window.scrollY > window.innerHeight)
-    }, { passive: true })
-    backBtn?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
+    const requestScrollUiUpdate = () => {
+      if (scrollFrame === null) scrollFrame = window.requestAnimationFrame(updateScrollUi)
+    }
+    const handleBackToTop = () => window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
+    window.addEventListener('scroll', requestScrollUiUpdate, { passive: true })
+    backBtn?.addEventListener('click', handleBackToTop)
+    updateScrollUi()
 
     // ─── Background color shift ────────────────────────────
-    const body = document.body
     const bgObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (!entry.isIntersecting) return
@@ -334,8 +351,15 @@ export default function HomePage() {
 
 
     return () => {
-      document.body.classList.remove('home-page-active')
-      window.removeEventListener('scroll', updateProgress)
+      body.classList.remove('home-page-active')
+      body.style.backgroundColor = previousBackgroundColor
+      body.style.transition = previousTransition
+      revealObserver.disconnect()
+      bgObserver.disconnect()
+      cleanupInteractions.forEach((cleanup) => cleanup())
+      window.removeEventListener('scroll', requestScrollUiUpdate)
+      backBtn?.removeEventListener('click', handleBackToTop)
+      if (scrollFrame !== null) window.cancelAnimationFrame(scrollFrame)
     }
   }, [])
 
@@ -343,9 +367,9 @@ export default function HomePage() {
     <div className="home-shell noise-overlay" style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
       {/* Fixed UI elements */}
       <div className="scroll-progress" id="scroll-progress" />
-      <div className="back-to-top" id="back-to-top">
+      <button className="back-to-top" id="back-to-top" type="button" aria-label="Back to top">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>
-      </div>
+      </button>
 
 
       <main>
@@ -383,23 +407,23 @@ export default function HomePage() {
         <section style={{ padding: 'clamp(60px,7vw,90px) clamp(16px,4vw,40px)', maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <div className='section-label'>Getting Started</div>
-            <h2 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 800, marginTop: 12, marginBottom: 12, letterSpacing: '-0.02em', lineHeight: 1.1 }}>Explore the LitVM ecosystem</h2>
+            <h2 className="getting-started-title">Explore the LitVM ecosystem</h2>
             <p style={{ fontSize: '16px', color: 'rgba(240,238,245,0.45)', maxWidth: 500, margin: '0 auto' }}>Everything you need to get started on LitVM — from testnet setup to your first swap, airdrop, and token launch.</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
             {[
               { href: '/litvm-testnet', label: 'LitVM Testnet', desc: 'Add the network, claim test tokens, and start exploring.' },
               { href: '/litvm-dex', label: 'LitVM DEX', desc: 'Trade any token at 0.30% with a single signature.' },
-              { href: '/litvm-swap', label: 'LitVM Swap', desc: 'Gasless token trading at 0.30% per swap.' },
-              { href: '/litvm-airdrop', label: 'LitVM Airdrop', desc: 'Batch token distribution to thousands of wallets.' },
+              { href: '/litvm-swap', label: 'LitVM Swap', desc: 'On-chain token trading at 0.30% per swap.' },
+              { href: '/litvm-airdrop', label: 'LitVM Airdrop', desc: 'Batch distribution with validated recipient lists.' },
               { href: '/litvm-launchpad', label: 'LitVM Launchpad', desc: 'Permissionless token presales with automatic LP creation.' },
             ].map((item) => (
-              <a key={item.href} href={item.href} style={{ display: 'block', padding: '20px 22px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, textDecoration: 'none', transition: 'border-color 0.2s, background 0.2s' }}
+              <Link key={item.href} href={item.href} prefetch={false} style={{ display: 'block', padding: '20px 22px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, textDecoration: 'none', transition: 'border-color 0.2s, background 0.2s' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(107,79,255,0.3)' }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: 'rgba(240,238,245,0.9)', marginBottom: 6 }}>{item.label}</div>
                 <div style={{ fontSize: '13px', color: 'rgba(240,238,245,0.4)', lineHeight: 1.5 }}>{item.desc}</div>
-              </a>
+              </Link>
             ))}
           </div>
         </section>
@@ -416,29 +440,29 @@ export default function HomePage() {
             <div className="trust-particles"><span /><span /><span /><span /><span /></div>
             <div className="section-label">Why Lester Labs</div>
             <h2 className="trust-title title-reveal">
-              <span className="word">Built different.</span>&nbsp;
-              <span className="word highlight">Built to last.</span>
+              <span className="word">Built for LitVM.</span>&nbsp;
+              <span className="word highlight">Built to be useful.</span>
             </h2>
-            <p className="trust-sub sub-reveal">Security, speed, and community — the pillars every DeFi project needs.</p>
+            <p className="trust-sub sub-reveal">Clear tooling, transparent testnet state, and verifiable on-chain activity.</p>
           </div>
 
           <div className="trust-cards">
-            {/* Battle-Tested */}
+            {/* Open source foundations */}
             <div className="trust-card reveal reveal-delay-1 tilt-card" style={{ '--tc-color-10': 'rgba(45,206,137,.1)', '--tc-color-15': 'rgba(45,206,137,.15)', '--tc-color-20': 'rgba(45,206,137,.2)', '--tc-color-30': 'rgba(45,206,137,.3)', '--tc-color-40': 'rgba(45,206,137,.4)', '--tc-glow': 'rgba(45,206,137,.06)' } as React.CSSProperties}>
               <div className="tc-status">
                 <div className="tc-dot" style={{ background: '#2DCE89' }} />
-                <span className="tc-status-text">Verified</span>
+                <span className="tc-status-text">Source Available</span>
               </div>
               <div className="tc-icon-wrap" style={{ background: 'rgba(45,206,137,.08)', border: '1px solid rgba(45,206,137,.12)' }}>
                 <div className="tc-ring" />
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2DCE89" strokeWidth="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
               </div>
-              <div className="tc-value">Battle-Tested</div>
-              <div className="tc-label">Industry-standard tools, proven security from day one.</div>
+              <div className="tc-value">Open Foundations</div>
+              <div className="tc-label">Source-available testnet contracts built around established token and DEX standards.</div>
               <div className="tc-data">
-                <div className="tc-data-item"><span>Source</span><span>OZ</span></div>
-                <div className="tc-data-item"><span>Locks</span><span>Unicrypt</span></div>
-                <div className="tc-data-item"><span>Voting</span><span>Snapshot</span></div>
+                <div className="tc-data-item"><span>Tokens</span><span>ERC-20</span></div>
+                <div className="tc-data-item"><span>Locks</span><span>On-chain</span></div>
+                <div className="tc-data-item"><span>Voting</span><span>Draft tools</span></div>
               </div>
             </div>
 
@@ -453,11 +477,11 @@ export default function HomePage() {
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B4FFF" strokeWidth="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
               </div>
               <div className="tc-value">LitVM Native</div>
-              <div className="tc-label">The first DeFi utility suite built natively for LitVM, live from day one of mainnet launch. No bridges, no workarounds.</div>
+              <div className="tc-label">A connected DeFi utility suite available now on LitVM testnet, without bridge-dependent product flows.</div>
               <div className="tc-data">
                 <div className="tc-data-item"><span>Network</span><span>LitVM</span></div>
                 <div className="tc-data-item"><span>Status</span><span>Testnet</span></div>
-                <div className="tc-data-item"><span>Tools</span><span>6 Live</span></div>
+                <div className="tc-data-item"><span>Surfaces</span><span>{ecosystemDirectory.length} Listed</span></div>
               </div>
             </div>
 
@@ -474,8 +498,8 @@ export default function HomePage() {
               <div className="tc-value">Community</div>
               <div className="tc-label">Built by a team that cares deeply about the success of the LitVM and Litecoin ecosystem. Community-driven from the start.</div>
               <div className="tc-data">
-                <div className="tc-data-item"><span>Team</span><span>Trusted</span></div>
-                <div className="tc-data-item"><span>DEX</span><span>Live</span></div>
+                <div className="tc-data-item"><span>Focus</span><span>LitVM-first</span></div>
+                <div className="tc-data-item"><span>DEX</span><span>Testnet</span></div>
                 <div className="tc-data-item"><span>Chain</span><span>LitVM</span></div>
               </div>
             </div>
@@ -502,7 +526,7 @@ export default function HomePage() {
 
           <div className="builders-bento">
             {/* Docs */}
-            <a href="/docs" className="b-card" style={{ '--b-glow': 'rgba(107,79,255,.08)' } as React.CSSProperties}>
+            <Link href="/docs" prefetch={false} className="b-card" style={{ '--b-glow': 'rgba(107,79,255,.08)' } as React.CSSProperties}>
               <div className="b-card-bg" style={{ background: 'linear-gradient(145deg,#1a1440 0%,#251b52 40%,#1e1245 70%,#140f30 100%)' }} />
               <div className="b-card-top">
                 <div className="b-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8B74FF" strokeWidth="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
@@ -537,10 +561,10 @@ export default function HomePage() {
                 </svg>
               </div>
               <div className="b-card-body"><h3>Developer Docs</h3><p>Roll up your sleeves and start building.</p></div>
-            </a>
+            </Link>
 
             {/* Block Explorer */}
-            <a href="/explorer" className="b-card reveal reveal-delay-2 tilt-card" style={{ '--b-glow': 'rgba(245,166,35,.08)' } as React.CSSProperties}>
+            <Link href="/explorer" prefetch={false} className="b-card reveal reveal-delay-2 tilt-card" style={{ '--b-glow': 'rgba(245,166,35,.08)' } as React.CSSProperties}>
               <div className="b-card-bg" style={{ background: 'linear-gradient(145deg,#1f1810 0%,#2a1e12 40%,#1e1610 70%,#141008 100%)' }} />
               <div className="b-card-top">
                 <div className="b-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5A623" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8 10h8"/></svg></div>
@@ -573,7 +597,7 @@ export default function HomePage() {
                 </svg>
               </div>
               <div className="b-card-body"><h3>Block Explorer</h3><p>Track transactions, blocks, and on-chain activity.</p></div>
-            </a>
+            </Link>
 
             {/* Connect on X */}
             <a href="https://x.com/lesterlabshq" target="_blank" rel="noopener noreferrer" className="b-card" style={{ '--b-glow': 'rgba(54,209,220,.08)' } as React.CSSProperties}>
@@ -687,12 +711,12 @@ export default function HomePage() {
             {/* Right: text + buttons */}
             <div className="cta-text reveal reveal-delay-2">
               <h2 className="cta-title"><span className="grad">Start building</span><br />today.</h2>
-              <p>Simply connect your wallet and start deploying on LitVM instantly, from anywhere. No sign-ups required.</p>
+              <p>Connect a wallet to deploy and review transactions on LitVM testnet. No account signup is required.</p>
               <div className="cta-buttons">
                 <Link prefetch={false} href="/launch" className="btn-primary magnetic">Launch a Token →</Link>
-                <a href="/docs" className="btn-ghost magnetic">Read the Docs ↗</a>
+                <Link href="/docs" prefetch={false} className="btn-ghost magnetic">Read the Docs ↗</Link>
               </div>
-              <p className="cta-fine">Lester Labs uses battle-tested contracts forked from industry standards. Supported across all major wallets. Testnet is live — mainnet launches with LitVM.</p>
+              <p className="cta-fine">Contracts are source-available and use established standards. Testnet is live; review each transaction and contract before use.</p>
             </div>
           </div>
         </section>

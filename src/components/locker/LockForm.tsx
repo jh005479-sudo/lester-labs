@@ -12,7 +12,8 @@ import {
   LIQUIDITY_LOCKER_ADDRESS,
   ERC20_APPROVE_ABI,
 } from '@/lib/contracts/liquidityLocker'
-import { isValidContractAddress } from '@/config/contracts'
+import { isCanonicalLitvmContract, LITVM_TESTNET_CONTRACTS } from '@/config/contracts'
+import { litvm } from '@/config/chains'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
 
@@ -170,6 +171,7 @@ export function LockForm() {
     address: isAddress(lpToken) ? (lpToken as `0x${string}`) : undefined,
     abi: ERC20_DECIMALS_ABI,
     functionName: 'decimals',
+    chainId: litvm.id,
     query: {
       enabled: isAddress(lpToken),
     },
@@ -186,22 +188,25 @@ export function LockForm() {
   const [successData, setSuccessData] = useState<LockCertificateData | null>(null)
   const [inTwoStep, setInTwoStep] = useState(false) // show step indicator
 
-  const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
+  const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash, chainId: litvm.id })
 
-  // Must check contract address validity before using in hooks
-  const isContractConfigured = isValidContractAddress(LIQUIDITY_LOCKER_ADDRESS)
+  const isCanonicalLocker = isCanonicalLitvmContract(
+    LIQUIDITY_LOCKER_ADDRESS,
+    LITVM_TESTNET_CONTRACTS.liquidityLocker,
+  )
 
   // RP-003: Read lock fee from contract
   const { data: lockFee, isLoading: isFeeLoading } = useReadContract({
     address: LIQUIDITY_LOCKER_ADDRESS,
     abi: LIQUIDITY_LOCKER_ABI,
     functionName: 'lockFee',
+    chainId: litvm.id,
     query: {
-      enabled: isContractConfigured,
+      enabled: isCanonicalLocker,
     },
   })
 
-  const feeReady = lockFee !== undefined && !isFeeLoading
+  const feeReady = isCanonicalLocker && lockFee !== undefined && !isFeeLoading
   const feeDisplay = lockFee ? formatEther(lockFee) : '...'
 
   // Handle receipt landing
@@ -278,7 +283,7 @@ export function LockForm() {
   const decimalsReady = lpDecimals !== undefined
 
   const canSubmit =
-    isContractConfigured &&
+    isCanonicalLocker &&
     isAddress(lpToken) &&
     Number(amount) > 0 &&
     !amountError &&
@@ -290,6 +295,12 @@ export function LockForm() {
   // ── Approve step ──────────────────────────────────────────────────────────
 
   const handleApprove = async () => {
+    if (!isCanonicalLocker) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage('Liquidity Locker address does not match the canonical LitVM deployment. Approval was blocked.')
+      return
+    }
     if (lpDecimals === undefined) return // Guard against stale decimals
     if (!(await ensureLitvmWrite({
       action: 'approving an LP lock',
@@ -329,6 +340,12 @@ export function LockForm() {
   // ── Lock step ─────────────────────────────────────────────────────────────
 
   const handleLock = async () => {
+    if (!isCanonicalLocker) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage('Liquidity Locker address does not match the canonical LitVM deployment. Lock transaction was blocked.')
+      return
+    }
     if (!feeReady) return // RP-003: Block submit until fee loaded
     if (lpDecimals === undefined) return // Guard against stale decimals
     if (!(await ensureLitvmWrite({
@@ -513,6 +530,12 @@ export function LockForm() {
         <div className="rounded-lg border border-white/5 bg-white/5 px-4 py-3">
           <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.03} feeLabel="Lock fee" />
         </div>
+
+        {!isCanonicalLocker && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+            Liquidity locking is disabled because the configured contract is not the canonical LitVM deployment.
+          </div>
+        )}
 
         {isWrongNetwork && (
           <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">

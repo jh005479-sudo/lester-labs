@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useAccount, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
 import { isAddress, parseUnits } from 'viem'
@@ -19,6 +19,20 @@ import { isValidContractAddress } from '@/config/contracts'
 import { wagmiConfig } from '@/config/wagmi'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
+import { buildValidatedRecipientSnapshot } from '@/lib/airdropRecipients'
+import {
+  clearPendingApproval,
+  clearPendingBatch,
+  createAirdropProgress,
+  getAirdropProgressStorageKey,
+  markApprovalConfirmed,
+  markApprovalSubmitted,
+  markBatchConfirmed,
+  markBatchSubmitted,
+  restoreAirdropProgress,
+  splitAirdropBatches,
+  type AirdropProgress,
+} from '@/lib/airdropProgress'
 
 // ABI for fetching token decimals
 const ERC20_DECIMALS_ABI = [
@@ -45,6 +59,22 @@ interface SuccessState {
   totalRecipients: number
   totalAmount: string
   symbol: string
+}
+
+function readProgress(storageKey: string, recipients: Recipient[]): AirdropProgress | null {
+  try {
+    return restoreAirdropProgress(window.localStorage.getItem(storageKey), recipients, BATCH_SIZE)
+  } catch {
+    throw new Error('Saved airdrop progress is unavailable or belongs to another list. Sending is blocked to avoid replaying a confirmed batch.')
+  }
+}
+
+function persistProgress(storageKey: string, progress: AirdropProgress): void {
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(progress))
+  } catch {
+    throw new Error('Airdrop progress could not be saved. Do not retry or submit another batch until browser storage is available.')
+  }
 }
 
 function downloadReport(success: SuccessState) {
@@ -140,11 +170,11 @@ export function AirdropForm() {
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successState, setSuccessState] = useState<SuccessState | null>(null)
-  // Guard: prevent double-submit if page reloads mid-batch
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    try { return sessionStorage.getItem('lester_airdrop_submitting') === '1' } catch { return false }
-  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [resumeProgress, setResumeProgress] = useState<AirdropProgress | null>(null)
+  const [progressConflict, setProgressConflict] = useState(false)
+  const submissionLockRef = useRef(false)
+  const lastProgressKeyRef = useRef<string | null>(null)
 
   const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
   void receipt // used as dependency for re-renders
@@ -159,9 +189,11 @@ export function AirdropForm() {
     },
   })
   const tokenDecimals = fetchedDecimals
+  const recipientDecimals = mode === 'native' ? 18 : tokenDecimals
 
-  const validRecipients = recipients.filter(
-    (r) => isAddress(r.address) && !isNaN(parseFloat(r.amount)) && parseFloat(r.amount) > 0,
+  const validRecipients = useMemo(
+    () => buildValidatedRecipientSnapshot(recipients, recipientDecimals),
+    [recipientDecimals, recipients],
   )
 
   // RP-002: Build parsedRecipients with precomputed wei values (bigint)
@@ -200,8 +232,34 @@ export function AirdropForm() {
     decimalsReady &&
     !isSubmitting
 
+  const progressStorageKey = useMemo(
+    () => address
+      ? getAirdropProgressStorageKey(address, mode, tokenAddress)
+      : null,
+    [address, mode, tokenAddress],
+  )
+
+  useEffect(() => {
+    if (!progressStorageKey || validRecipients.length === 0) {
+      setResumeProgress(null)
+      setProgressConflict(false)
+      return
+    }
+
+    try {
+      setResumeProgress(readProgress(progressStorageKey, validRecipients))
+      setProgressConflict(false)
+    } catch {
+      setResumeProgress(null)
+      setProgressConflict(true)
+    }
+  }, [progressStorageKey, validRecipients])
+
   const handleSend = useCallback(async () => {
-    if (!canSubmit || isSubmitting) return
+    if (!canSubmit || submissionLockRef.current) return
+    submissionLockRef.current = true
+    setIsSubmitting(true)
+
     if (!(await ensureLitvmWrite({
       action: mode === 'token' ? 'approving and sending a token airdrop' : 'sending a zkLTC airdrop',
       onError: (message) => {
@@ -210,56 +268,104 @@ export function AirdropForm() {
         setTxMessage(message)
       },
     }))) {
+      submissionLockRef.current = false
+      setIsSubmitting(false)
       return
     }
 
     setModalOpen(true)
     setTxStatus('pending')
     setTxMessage(undefined)
-    setIsSubmitting(true)
-    try { sessionStorage.setItem('lester_airdrop_submitting', '1') } catch {}
 
-    const batches: Recipient[][] = []
-    for (let i = 0; i < validRecipients.length; i += BATCH_SIZE) {
-      batches.push(validRecipients.slice(i, i + BATCH_SIZE))
+    if (!progressStorageKey) {
+      setTxStatus('error')
+      setTxMessage('Connect a wallet before preparing an airdrop.')
+      submissionLockRef.current = false
+      setIsSubmitting(false)
+      return
     }
 
-    const batchResults: BatchResult[] = []
-
     try {
+      const batches = splitAirdropBatches(validRecipients, BATCH_SIZE)
+      const parsedBatches = splitAirdropBatches(parsedRecipients, BATCH_SIZE)
+      let progress = readProgress(progressStorageKey, validRecipients)
+        ?? createAirdropProgress(validRecipients, BATCH_SIZE)
+      lastProgressKeyRef.current = progressStorageKey
+
+      const saveProgress = (nextProgress: AirdropProgress) => {
+        persistProgress(progressStorageKey, nextProgress)
+        progress = nextProgress
+        setResumeProgress(nextProgress)
+      }
+
+      // Persist the exact recipient snapshot before opening the wallet. A retry is only
+      // allowed to resume when this snapshot still matches byte-for-byte.
+      saveProgress(progress)
+
+      const batchResults: BatchResult[] = progress.confirmedBatches.map((confirmed) => ({
+        txHash: confirmed.txHash,
+        recipients: batches[confirmed.index],
+      }))
+
+      const rememberConfirmedBatch = (index: number, txHash: string) => {
+        if (!batchResults.some((batch) => batch.txHash === txHash)) {
+          batchResults.push({ txHash, recipients: batches[index] })
+        }
+      }
+
       if (mode === 'token') {
-        // Step 1: Approve — must be CONFIRMED before dispersing
-        // RP-002: Use precomputed totalAmountWei (bigint) directly - never derive from float
-        setTxMessage('Step 1 of 2: Approving token spend…')
-
-        const approveHash = await writeContractAsync({
-          address: tokenAddress as `0x${string}`,
-          abi: ERC20_APPROVE_ABI,
-          functionName: 'approve',
-          args: [DISPERSE_ADDRESS, totalAmountWei], // RP-002: bigint directly
-        })
-        setCurrentTxHash(approveHash)
-
-        // Wait for approval to be mined before dispersing
-        setTxMessage('Waiting for approval confirmation…')
-        await waitForTransactionReceipt(wagmiConfig, { hash: approveHash })
-        setTxMessage('Step 2 of 2: Sending airdrop…')
-
-        // Step 2: Disperse in batches — wait for each receipt before marking complete (F-007)
-        // RP-002: Use precomputed wei values per recipient in batch sends
-        const parsedBatches: typeof parsedRecipients[] = []
-        for (let i = 0; i < parsedRecipients.length; i += BATCH_SIZE) {
-          parsedBatches.push(parsedRecipients.slice(i, i + BATCH_SIZE))
+        if (!progress.approvalConfirmed && progress.pendingApprovalTxHash) {
+          const pendingApprovalHash = progress.pendingApprovalTxHash as `0x${string}`
+          setCurrentTxHash(pendingApprovalHash)
+          setTxMessage('Resuming the pending token approval confirmation…')
+          const approvalReceipt = await waitForTransactionReceipt(wagmiConfig, { hash: pendingApprovalHash })
+          if (approvalReceipt.status !== 'success') {
+            saveProgress(clearPendingApproval(progress))
+            throw new Error('The previous token approval failed on-chain. Retry to submit a new approval.')
+          }
+          saveProgress(markApprovalConfirmed(progress, pendingApprovalHash))
         }
 
-        for (let b = 0; b < parsedBatches.length; b++) {
+        if (!progress.approvalConfirmed) {
+          setTxMessage('Step 1 of 2: Approving token spend…')
+          const approveHash = await writeContractAsync({
+            address: tokenAddress as `0x${string}`,
+            abi: ERC20_APPROVE_ABI,
+            functionName: 'approve',
+            args: [DISPERSE_ADDRESS, totalAmountWei],
+          })
+          setCurrentTxHash(approveHash)
+          saveProgress(markApprovalSubmitted(progress, approveHash))
+
+          setTxMessage('Waiting for approval confirmation…')
+          const approvalReceipt = await waitForTransactionReceipt(wagmiConfig, { hash: approveHash })
+          if (approvalReceipt.status !== 'success') {
+            saveProgress(clearPendingApproval(progress))
+            throw new Error('Token approval failed on-chain')
+          }
+          saveProgress(markApprovalConfirmed(progress, approveHash))
+        }
+
+        if (progress.pendingBatch) {
+          const { index, txHash } = progress.pendingBatch
+          const pendingHash = txHash as `0x${string}`
+          setCurrentTxHash(pendingHash)
+          setTxMessage(`Resuming confirmation for batch ${index + 1} of ${parsedBatches.length}…`)
+          const pendingReceipt = await waitForTransactionReceipt(wagmiConfig, { hash: pendingHash })
+          if (pendingReceipt.status !== 'success') {
+            saveProgress(clearPendingBatch(progress))
+            throw new Error(`Batch ${index + 1} failed on-chain. Retry to resubmit only this batch.`)
+          }
+          saveProgress(markBatchConfirmed(progress, index, txHash))
+          rememberConfirmedBatch(index, txHash)
+        }
+
+        for (let b = progress.nextBatchIndex; b < parsedBatches.length; b++) {
           const parsedBatch = parsedBatches[b]
-          const batch = batches[b]
           if (parsedBatches.length > 1) {
             setTxMessage(`Sending batch ${b + 1} of ${parsedBatches.length}…`)
           }
 
-          // RP-002: Use precomputed wei values instead of recomputing parseUnits
           const addrs = parsedBatch.map((r) => r.addr)
           const vals = parsedBatch.map((r) => r.wei)
 
@@ -271,18 +377,32 @@ export function AirdropForm() {
           })
 
           setCurrentTxHash(hash)
-          // Wait for batch receipt confirmation before proceeding
+          saveProgress(markBatchSubmitted(progress, b, hash))
           setTxMessage(`Confirming batch ${b + 1} of ${parsedBatches.length}…`)
           const batchReceipt = await waitForTransactionReceipt(wagmiConfig, { hash })
           if (batchReceipt.status !== 'success') {
-            throw new Error(`Batch ${b + 1} failed on-chain`)
+            saveProgress(clearPendingBatch(progress))
+            throw new Error(`Batch ${b + 1} failed on-chain. Retry to resubmit only this batch.`)
           }
-          batchResults.push({ txHash: hash, recipients: batch })
+          saveProgress(markBatchConfirmed(progress, b, hash))
+          rememberConfirmedBatch(b, hash)
         }
       } else {
-        // zkLTC native — single or batched disperseEther
-        // Note: Platform fee removed from UI (F-008) - fee not enforceable in Disperse contract
-        for (let b = 0; b < batches.length; b++) {
+        if (progress.pendingBatch) {
+          const { index, txHash } = progress.pendingBatch
+          const pendingHash = txHash as `0x${string}`
+          setCurrentTxHash(pendingHash)
+          setTxMessage(`Resuming confirmation for batch ${index + 1} of ${batches.length}…`)
+          const pendingReceipt = await waitForTransactionReceipt(wagmiConfig, { hash: pendingHash })
+          if (pendingReceipt.status !== 'success') {
+            saveProgress(clearPendingBatch(progress))
+            throw new Error(`Batch ${index + 1} failed on-chain. Retry to resubmit only this batch.`)
+          }
+          saveProgress(markBatchConfirmed(progress, index, txHash))
+          rememberConfirmedBatch(index, txHash)
+        }
+
+        for (let b = progress.nextBatchIndex; b < batches.length; b++) {
           const batch = batches[b]
           if (batches.length > 1) {
             setTxMessage(`Sending batch ${b + 1} of ${batches.length}…`)
@@ -301,21 +421,21 @@ export function AirdropForm() {
           })
 
           setCurrentTxHash(hash)
-          // Wait for batch receipt confirmation before proceeding
+          saveProgress(markBatchSubmitted(progress, b, hash))
           setTxMessage(`Confirming batch ${b + 1} of ${batches.length}…`)
           const batchReceipt = await waitForTransactionReceipt(wagmiConfig, { hash })
           if (batchReceipt.status !== 'success') {
-            throw new Error(`Batch ${b + 1} failed on-chain`)
+            saveProgress(clearPendingBatch(progress))
+            throw new Error(`Batch ${b + 1} failed on-chain. Retry to resubmit only this batch.`)
           }
-          batchResults.push({ txHash: hash, recipients: batch })
+          saveProgress(markBatchConfirmed(progress, b, hash))
+          rememberConfirmedBatch(b, hash)
         }
       }
 
       // Only set success after ALL batch receipts confirm (F-007)
       setTxStatus('success')
       setTxMessage(undefined)
-      setIsSubmitting(false)
-      try { sessionStorage.removeItem('lester_airdrop_submitting') } catch {}
       setSuccessState({
         batches: batchResults,
         totalRecipients: validRecipients.length,
@@ -325,10 +445,11 @@ export function AirdropForm() {
     } catch (err: unknown) {
       setTxStatus('error')
       setTxMessage(getWalletErrorMessage(err))
+    } finally {
+      submissionLockRef.current = false
       setIsSubmitting(false)
-      try { sessionStorage.removeItem('lester_airdrop_submitting') } catch {}
     }
-  }, [canSubmit, isSubmitting, ensureLitvmWrite, mode, tokenAddress, validRecipients, totalAmount, totalAmountWei, parsedRecipients, writeContractAsync])
+  }, [canSubmit, ensureLitvmWrite, mode, tokenAddress, validRecipients, totalAmount, totalAmountWei, parsedRecipients, progressStorageKey, writeContractAsync])
 
   const handleSwitchNetwork = useCallback(async () => {
     const result = await switchToLitvm()
@@ -340,11 +461,34 @@ export function AirdropForm() {
   }, [switchToLitvm])
 
   const handleReset = () => {
+    if (lastProgressKeyRef.current) {
+      try {
+        window.localStorage.removeItem(lastProgressKeyRef.current)
+      } catch {
+        // The completed report remains visible even if browser storage is unavailable.
+      }
+      lastProgressKeyRef.current = null
+    }
     setSuccessState(null)
+    setResumeProgress(null)
+    setProgressConflict(false)
     setTokenAddress('')
     setRecipients([])
     setCurrentTxHash(undefined)
     setModalOpen(false)
+  }
+
+  const handleDiscardProgress = () => {
+    if (!progressStorageKey) return
+    try {
+      window.localStorage.removeItem(progressStorageKey)
+      setResumeProgress(null)
+      setProgressConflict(false)
+    } catch {
+      setTxStatus('error')
+      setTxMessage('Saved progress could not be removed from browser storage.')
+      setModalOpen(true)
+    }
   }
 
   const handleModalClose = () => {
@@ -364,11 +508,11 @@ export function AirdropForm() {
 
   return (
     <div className="space-y-6">
-      {/* Double-submit guard: show banner if page was reloaded mid-batch */}
+      {/* Same-page submissions are locked; reload recovery uses durable progress. */}
       {isSubmitting && (
         <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
           <Loader2 size={14} className="animate-spin" />
-          A previous airdrop submission is still in progress. Please wait for it to complete.
+          Airdrop submission in progress. Confirm or reject the active wallet request before continuing.
         </div>
       )}
 
@@ -473,15 +617,19 @@ export function AirdropForm() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-white/40 uppercase tracking-wider">
-                  Preview
+                  Full recipient review
                 </p>
                 <p className="text-xs text-white/40">
                   {validRecipients.length} valid / {recipients.length} total
                 </p>
               </div>
+              <p className="text-xs text-white/45">
+                Every validated row that will be submitted is included below. Use the page controls to review the complete list.
+              </p>
               <RecipientTable
                 recipients={recipients}
                 tokenSymbol={mode === 'native' ? 'zkLTC' : 'tokens'}
+                maxDecimals={recipientDecimals}
               />
             </div>
           )}
@@ -526,6 +674,23 @@ export function AirdropForm() {
                 Two-step flow: you&apos;ll first approve the token spend, then confirm the airdrop transaction.
               </div>
             )}
+            {resumeProgress && resumeProgress.nextBatchIndex > 0 && resumeProgress.nextBatchIndex < batchCount && (
+              <div className="rounded-md border border-green-500/20 bg-green-500/10 px-3 py-2 text-xs text-green-300">
+                Resume available: {resumeProgress.nextBatchIndex} of {batchCount} batches are confirmed. Only the remaining batches will be submitted.
+              </div>
+            )}
+            {progressConflict && (
+              <div className="rounded-md border border-red-500/25 bg-red-500/10 px-3 py-3 text-xs text-red-200">
+                <p>Saved progress exists for a different or invalid recipient snapshot. Sending is blocked to prevent replaying confirmed recipients.</p>
+                <button
+                  type="button"
+                  onClick={handleDiscardProgress}
+                  className="mt-2 min-h-11 rounded-md border border-red-400/30 px-3 font-semibold text-red-100 transition hover:bg-red-400/10"
+                >
+                  Discard after checking prior transactions
+                </button>
+              </div>
+            )}
             <div className="rounded-md border border-white/10 bg-black/15 p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/40">Transaction preflight</p>
               <div className="grid gap-2 text-xs sm:grid-cols-2">
@@ -549,7 +714,7 @@ export function AirdropForm() {
           {batchCount > 1 && (
             <div className="flex items-center gap-2 text-xs text-yellow-400">
               <TriangleAlert size={14} />
-              Will send in {batchCount} batches ({batchCount} transactions total)
+              Each batch is a separate transaction. Confirmed batches remain complete if a later batch fails.
             </div>
           )}
 

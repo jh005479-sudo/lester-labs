@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { formatUnits } from 'viem'
 import { Copy, ExternalLink, Eye, EyeOff, Check, ArrowRight, FileCode, Coins } from 'lucide-react'
 import {
-  formatEtherFromHex, hexToNumber, hexToBigInt,
+  formatEtherFromHex, hexToNumber,
   getLatestBlockNumber, getBlockByNumber,
   LITVM_EXPLORER_URL, LITVM_RPC_URL,
 } from '@/lib/explorerRpc'
-import { getLabel, inferLabel, decodeMethod, METHOD_SIGS } from '@/lib/address-labels'
+import { inferLabel, decodeMethod } from '@/lib/address-labels'
+import { sanitizeTokenMetadataText } from '@/lib/tokenMetadataRequest'
 
 // --- RPC helpers ---
 async function rpc<T>(method: string, params: unknown[]): Promise<T> {
@@ -22,14 +24,6 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
   if (data.error) throw new Error(data.error.message)
   return data.result as T
 }
-
-const ERC20_ABI = [
-  { name: 'name', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
-  { name: 'symbol', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
-  { name: 'decimals', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
-  { name: 'totalSupply', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-  { name: 'balanceOf', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }], outputs: [{ type: 'uint256' }] },
-]
 
 function encodeFunction(name: string): string {
   const selectors: Record<string, string> = {
@@ -51,7 +45,11 @@ function decodeStr(hex: string | null) {
   if (!hex || hex.length < 130) return null
   try {
     const len = parseInt(hex.slice(66, 130), 16)
-    return Buffer.from(hex.slice(130, 130 + len * 2), 'hex').toString('utf8')
+    const boundedLength = Math.min(len, 96)
+    return sanitizeTokenMetadataText(
+      Buffer.from(hex.slice(130, 130 + boundedLength * 2), 'hex').toString('utf8'),
+      'Unknown',
+    )
   } catch { return null }
 }
 
@@ -62,10 +60,13 @@ async function getERC20Meta(tokenAddr: string) {
     ethCall(tokenAddr, encodeFunction('decimals')),
   ])
   const decodeNum = (hex: string | null) => hex ? parseInt(hex, 16) : null
+  const parsedDecimals = decodeNum(decimals)
   return {
     name: decodeStr(name),
     symbol: decodeStr(symbol),
-    decimals: decodeNum(decimals) ?? 18,
+    decimals: parsedDecimals !== null && Number.isInteger(parsedDecimals) && parsedDecimals >= 0 && parsedDecimals <= 255
+      ? parsedDecimals
+      : 18,
   }
 }
 
@@ -94,6 +95,10 @@ interface TokenHold {
   symbol: string | null
   balance: string
   decimals: number
+}
+
+interface MintLog {
+  address?: string
 }
 
 interface ContractInfo {
@@ -130,6 +135,7 @@ export default function AddressPage() {
   const [loading, setLoading] = useState(true)
   const [firstSeen, setFirstSeen] = useState<number | null>(null)
   const [lastSeen, setLastSeen] = useState<number | null>(null)
+  const [tokenDiscoveryRange, setTokenDiscoveryRange] = useState<{ from: number; to: number } | null>(null)
 
   useEffect(() => {
     if (!isValidAddress) return
@@ -166,18 +172,15 @@ export default function AddressPage() {
             ethCall(address, encodeFunction('totalSupply')),
           ])
           if (!active) return
-          const decodeStr = (hex: string | null) => {
-            if (!hex || hex.length < 130) return null
-            try {
-              const len = parseInt(hex.slice(66, 130), 16)
-              return Buffer.from(hex.slice(130, 130 + len * 2), 'hex').toString('utf8')
-            } catch { return null }
-          }
+          const parsedDecimals = decimals ? parseInt(decimals, 16) : 18
+          const safeDecimals = Number.isInteger(parsedDecimals) && parsedDecimals >= 0 && parsedDecimals <= 255
+            ? parsedDecimals
+            : 18
           setContractMeta({
             name: decodeStr(name),
             symbol: decodeStr(symbol),
-            decimals: decimals ? parseInt(decimals, 16) : null,
-            totalSupply: totalSupply ? formatEtherFromHex(totalSupply) : null,
+            decimals: safeDecimals,
+            totalSupply: totalSupply ? formatUnits(BigInt(totalSupply), safeDecimals) : null,
           })
         }
 
@@ -191,19 +194,22 @@ export default function AddressPage() {
         const seenHashes = new Set<string>()
         const tokenAddresses = new Set<string>()
         const SCAN_BLOCKS = 200
+        const TOKEN_DISCOVERY_BLOCKS = 10_000
 
         // Also query Transfer events (address(0) → wallet) to catch minted tokens
         const TRANSFER_SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
         const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
         try {
-          const mintsR = await rpc<any[]>('eth_getLogs', [{
+          const discoveryFrom = Math.max(1, latest - TOKEN_DISCOVERY_BLOCKS + 1)
+          setTokenDiscoveryRange({ from: discoveryFrom, to: latest })
+          const mintsR = await rpc<MintLog[]>('eth_getLogs', [{
             topics: [
               TRANSFER_SIG,
               '0x' + ZERO_ADDR.slice(2).padStart(64, '0'),
               '0x' + address.slice(2).padStart(64, '0'),
             ],
-            fromBlock: '0x1',
-            toBlock: 'latest',
+            fromBlock: `0x${discoveryFrom.toString(16)}`,
+            toBlock: `0x${latest.toString(16)}`,
           }])
           if (mintsR) {
             for (const log of mintsR) {
@@ -409,15 +415,15 @@ export default function AddressPage() {
               <p className="text-lg font-semibold font-mono text-white">{balance} zkLTC</p>
             </div>
             <div>
-              <p className="text-xs text-white/40 uppercase tracking-wider">Transactions</p>
+              <p className="text-xs text-white/40 uppercase tracking-wider">Recent Tx Sample</p>
               <p className="text-lg font-semibold font-mono text-white">{totalTxCount}</p>
             </div>
             <div>
-              <p className="text-xs text-white/40 uppercase tracking-wider">First Seen</p>
+              <p className="text-xs text-white/40 uppercase tracking-wider">Oldest in Sample</p>
               <p className="text-sm font-mono text-white/70">{formatTs(firstSeen)}</p>
             </div>
             <div>
-              <p className="text-xs text-white/40 uppercase tracking-wider">Last Seen</p>
+              <p className="text-xs text-white/40 uppercase tracking-wider">Newest in Sample</p>
               <p className="text-sm font-mono text-white/70">{formatTs(lastSeen)}</p>
             </div>
           </div>
@@ -452,7 +458,7 @@ export default function AddressPage() {
             </div>
             {flowSummary.topCounterparties.length > 0 && (
               <div>
-                <p className="text-xs text-white/30 mb-2">Top counterparties by volume</p>
+                <p className="text-xs text-white/30 mb-2">Top counterparties by volume in the recent block sample</p>
                 <div className="space-y-1.5">
                   {flowSummary.topCounterparties.map((cp, i) => (
                     <div key={i} className="flex items-center gap-3 text-xs">
@@ -588,7 +594,13 @@ export default function AddressPage() {
           <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
             <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2">
               <Coins className="h-4 w-4 text-[var(--accent)]" />
-              <h3 className="font-semibold text-white">Token Holdings</h3>
+              <div>
+                <h3 className="font-semibold text-white">Detected Token Balances</h3>
+                <p className="mt-1 text-xs text-white/35">
+                  Discovery is bounded to recent transactions and mint logs
+                  {tokenDiscoveryRange ? ` from blocks ${tokenDiscoveryRange.from.toLocaleString()}-${tokenDiscoveryRange.to.toLocaleString()}` : ''}; this is not a complete portfolio index.
+                </p>
+              </div>
             </div>
             {tokens.length === 0 ? (
               <div className="px-5 py-8 text-center text-white/30">No ERC-20 token holdings detected in recent transactions</div>

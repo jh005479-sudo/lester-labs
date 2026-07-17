@@ -2,11 +2,11 @@
 
 ## Overview
 
-The LitVM Airdrop Tool distributes tokens to hundreds or thousands of recipient wallets in a single atomic transaction. Paste a list of addresses and amounts, confirm once, and all recipients receive their allocation simultaneously on LitVM. Supports both ERC-20 tokens and native zkLTC. Designed for retroactive distributions, community rewards, and token launch airdrops on LitVM.
+The LitVM Airdrop Tool validates recipient lists locally and distributes ERC-20 tokens or native zkLTC in bounded batches. Each batch is a separate wallet-confirmed transaction, and confirmed hashes are retained locally so an interrupted run can resume from the first unconfirmed batch.
 
 ## How it works
 
-Built on the Disperse contract — approximately 50 lines of audited Solidity that have processed billions of dollars in distributions across Ethereum and EVM chains. You pre-approve the contract to spend your tokens, then call a single function with the full recipient list. All transfers execute atomically: either every recipient receives their amount, or the entire transaction reverts.
+The tool calls the Lester Labs Disperse deployment. ERC-20 mode first requests an exact token allowance; native mode sends the batch total with the call. Transfers are atomic within each individual batch, while separate batches remain independent transactions.
 
 ## Step-by-step guide
 
@@ -16,15 +16,15 @@ Built on the Disperse contract — approximately 50 lines of audited Solidity th
 4. Paste your recipient list — one address and amount per line, or upload a CSV
 5. Review the parsed list and verify totals
 6. Approve the token spend (ERC-20 only — not required for native zkLTC)
-7. Review the fee (0.01 zkLTC per batch) and confirm
-8. Sign the transaction — all transfers execute in one block
+7. Confirm each bounded batch and wait for its receipt before continuing
+8. Keep the transaction hashes as the proof and recovery record for the distribution
 
 ## Parameters
 
 | Field | Description | Constraints |
 |---|---|---|
 | Token | ERC-20 contract address, or native zkLTC | Valid token or native |
-| Recipient List | Addresses + amounts | Up to 500 per batch; amounts in token units |
+| Recipient List | Addresses + amounts | Up to 200 per batch; amounts in displayed token units |
 
 **CSV format:**
 ```
@@ -33,20 +33,18 @@ Built on the Disperse contract — approximately 50 lines of audited Solidity th
 0xAddress3,500
 ```
 
-For distributions over 500 addresses, split into multiple batches. Each batch is a separate transaction and incurs a separate fee.
+Lists over 200 valid recipients are split automatically. Each batch is a separate transaction and consumes network gas.
 
 ## Fee structure
 
 | Fee | Amount | When charged |
 |---|---|---|
-| Batch fee | 0.01 zkLTC | Per batch (up to 500 addresses) |
-
-Example: 1,200 addresses = 3 batches = 0.03 zkLTC total.
+| Platform batch fee | None currently enforced | Network gas still applies to every approval and batch transaction |
 
 ## Smart contract
 
 - **Forked from:** Disperse.app
-- **Contract address:** `Pending deployment`
+- **Contract address:** `0x3cc66cb4713dca78564df512922adb331ac5ee04`
 
 **Key functions:**
 - `disperseToken(token, recipients[], amounts[])` — distribute ERC-20 tokens to multiple addresses
@@ -58,4 +56,4 @@ Example: 1,200 addresses = 3 batches = 0.03 zkLTC total.
 
 ## Security
 
-Forked from Disperse.app — one of the most widely used distribution contracts in DeFi, deployed and operational on Ethereum mainnet since 2018 without incident. The contract is ~50 lines with no owner functions, no upgradability, and no admin controls. Transfers are atomic: if any individual transfer fails, the entire batch reverts and no tokens are distributed. Always verify your recipient list before signing — distributions cannot be reversed once confirmed.
+The source follows the small Disperse pattern and has no owner-controlled recipient list. Lester Labs itself is an unaudited testnet deployment. Verify every recipient and amount before signing: a confirmed batch is irreversible even if a later batch fails.

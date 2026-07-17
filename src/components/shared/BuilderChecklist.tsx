@@ -27,19 +27,24 @@ function readChecked() {
 
 export function BuilderChecklist() {
   const [checked, setChecked] = useState<Set<string>>(() => new Set())
+  const [hydrated, setHydrated] = useState(false)
   const completed = checked.size
 
   useEffect(() => {
-    queueMicrotask(() => setChecked(readChecked()))
+    queueMicrotask(() => {
+      setChecked(readChecked())
+      setHydrated(true)
+    })
   }, [])
 
   useEffect(() => {
+    if (!hydrated) return
     try {
       window.localStorage.setItem(CHECKLIST_KEY, JSON.stringify(Array.from(checked)))
     } catch {
       // Local-only helper; ignore unavailable storage.
     }
-  }, [checked])
+  }, [checked, hydrated])
 
   return (
     <section className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
@@ -68,12 +73,13 @@ export function BuilderChecklist() {
                     return next
                   })
                 }}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/65 hover:text-white"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/65 hover:text-white"
                 aria-label={done ? `Mark ${step.label} incomplete` : `Mark ${step.label} complete`}
+                aria-pressed={done}
               >
                 {done ? <Check size={15} className="text-emerald-300" /> : <Circle size={15} />}
               </button>
-              <Link href={step.href} className="min-w-0 flex-1 truncate text-sm font-semibold text-white/75 no-underline hover:text-white">
+              <Link href={step.href} className="inline-flex min-h-11 min-w-0 flex-1 items-center truncate text-sm font-semibold text-white/75 no-underline hover:text-white">
                 {step.label}
               </Link>
             </div>
