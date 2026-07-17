@@ -7,14 +7,15 @@ import { MessageFeed } from '@/components/ledger/MessageFeed'
 import { LaunchFlowRail } from '@/components/shared/LaunchFlowRail'
 import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
 import { LEDGER_ABI } from '@/config/abis'
-import { LEDGER_ADDRESS, isValidContractAddress } from '@/config/contracts'
+import { LEDGER_ADDRESS, LITVM_TESTNET_CONTRACTS, isCanonicalLitvmContract } from '@/config/contracts'
+import { litvm } from '@/config/chains'
 import { useLedgerFeed } from '@/hooks/useLedgerFeed'
-import { LEDGER_DEFAULT_FEE, formatLedgerFee } from '@/lib/contracts/ledger'
+import { formatLedgerFee } from '@/lib/contracts/ledger'
 import { type Hex } from 'viem'
 
 export default function LedgerPage() {
   const { address: connectedAddress } = useAccount()
-  const ledgerConfigured = isValidContractAddress(LEDGER_ADDRESS)
+  const ledgerConfigured = isCanonicalLitvmContract(LEDGER_ADDRESS, LITVM_TESTNET_CONTRACTS.ledger)
 
   const {
     data: messageCount,
@@ -24,6 +25,7 @@ export default function LedgerPage() {
     address: LEDGER_ADDRESS,
     abi: LEDGER_ABI,
     functionName: 'messageCount',
+    chainId: litvm.id,
     query: {
       enabled: ledgerConfigured,
     },
@@ -33,6 +35,7 @@ export default function LedgerPage() {
     address: LEDGER_ADDRESS,
     abi: LEDGER_ABI,
     functionName: 'MIN_FEE',
+    chainId: litvm.id,
     query: {
       enabled: ledgerConfigured,
     },
@@ -60,7 +63,7 @@ export default function LedgerPage() {
 
   const highestKnownIndex = messages[0]?.index !== undefined ? messages[0].index + 1n : 0n
   const totalMessages = messageCountValue !== undefined && messageCountValue > highestKnownIndex ? messageCountValue : highestKnownIndex
-  const liveFee = minFeeValue ?? LEDGER_DEFAULT_FEE
+  const liveFee = minFeeValue
 
   async function handleComposerConfirmed(txHash: Hex) {
     await ingestConfirmedTransaction(txHash)
@@ -79,7 +82,7 @@ export default function LedgerPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[560px]">
             <div className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3">
               <p className="text-xs text-white/40 uppercase tracking-wider">Current Fee</p>
-              <p className="text-sm font-semibold font-mono text-white mt-1">{formatLedgerFee(liveFee)} zkLTC</p>
+              <p className="text-sm font-semibold font-mono text-white mt-1">{liveFee === undefined ? 'Loading…' : `${formatLedgerFee(liveFee)} zkLTC`}</p>
             </div>
             <div className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3">
               <p className="text-xs text-white/40 uppercase tracking-wider">Messages</p>
@@ -124,7 +127,6 @@ export default function LedgerPage() {
               <div className="grid gap-6 xl:grid-cols-[minmax(0,420px),minmax(0,1fr)]">
                 <MessageComposer
                   address={LEDGER_ADDRESS}
-                  minFee={liveFee}
                   onConfirmed={handleComposerConfirmed}
                 />
 

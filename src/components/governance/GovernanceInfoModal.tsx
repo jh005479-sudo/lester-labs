@@ -20,7 +20,7 @@ export function GovernanceInfoModal({ open, onClose }: GovernanceInfoModalProps)
                 <Vote size={18} />
               </div>
               <Dialog.Title className="text-lg font-semibold text-white">
-                Snapshot Integration Coming Soon
+                Off-chain proposal workflow
               </Dialog.Title>
             </div>
             <Dialog.Close asChild>
@@ -34,8 +34,8 @@ export function GovernanceInfoModal({ open, onClose }: GovernanceInfoModalProps)
           </div>
 
           <Dialog.Description className="mb-6 text-sm leading-relaxed text-white/60">
-            Governance proposals will be signed with your wallet (EIP-712) and stored on IPFS via
-            Snapshot Hub. No gas required. Full integration arriving with LitVM testnet launch.
+            This page prepares proposal drafts locally. It does not currently publish to Snapshot,
+            collect signatures, submit votes, or execute on-chain governance actions.
           </Dialog.Description>
 
           <button

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useAccount, useReadContract, useBalance } from 'wagmi'
+import { useState, useEffect } from 'react'
+import { useAccount, useReadContract as useWagmiReadContract, useBalance } from 'wagmi'
+import { decodeEventLog, decodeFunctionResult, encodeFunctionData } from 'viem'
 import { Copy, Check, ExternalLink } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
@@ -16,6 +17,11 @@ import { ILO_FACTORY_ABI, ILO_ABI, ERC20_ABI } from '@/config/abis'
 import { LPPanel } from '@/components/portfolio/LPPanel'
 import { SwapHistoryPanel } from '@/components/portfolio/SwapHistoryPanel'
 import { RPC_URL } from '@/lib/rpcClient'
+import { litvm } from '@/config/chains'
+import { LIQUIDITY_LOCKER_ABI } from '@/lib/contracts/liquidityLocker'
+
+const useReadContract: typeof useWagmiReadContract = ((parameters: Parameters<typeof useWagmiReadContract>[0]) =>
+  useWagmiReadContract({ ...parameters, chainId: litvm.id } as never)) as typeof useWagmiReadContract
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -23,10 +29,6 @@ interface VestingEntry {
   vestingId: string
   vestingWallet: string
   beneficiary: string
-  token: string
-  totalAmount: string
-  startTime: string
-  revocable: boolean
 }
 
 interface LockEntry {
@@ -62,9 +64,16 @@ function useCopyToClipboard(label: string) {
 async function fetchLogs(
   address: string,
   eventSignature: string,
-  indexedTopic2: string,
+  indexedAddress?: string,
+  indexedPosition: 1 | 2 | 3 = 2,
 ): Promise<any[]> {
   try {
+    const topics: Array<string | null> = [eventSignature]
+    if (indexedAddress) {
+      while (topics.length <= indexedPosition) topics.push(null)
+      topics[indexedPosition] = `0x${indexedAddress.slice(2).padStart(64, '0')}`
+    }
+
     const resp = await fetch(RPC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,13 +83,14 @@ async function fetchLogs(
         params: [
           {
             address,
-            topics: [eventSignature, null, indexedTopic2],
+            topics,
             fromBlock: '0x1',
             toBlock: 'latest',
           },
         ],
         id: 1,
       }),
+      signal: AbortSignal.timeout(8_000),
     })
     const json = await resp.json()
     return Array.isArray(json.result) ? json.result : []
@@ -91,12 +101,12 @@ async function fetchLogs(
 
 // Solidity keccak256 event signatures — verified against on-chain data
 const TOKEN_EVENT_SIG  = '0xd5d05a8421149c74fd223cfc823befb883babf9bf0b0e4d6bf9c8fdb70e59bb4'
-const VESTING_EVENT_SIG = '0x56b1f9aa7211e7166f2a4d851623936f78b07f35e4ae47efa2299ba8e368ca56'
+const VESTING_EVENT_SIG = '0xf1220882f139b8959ec281facd523bb0ca18a2a254543a2e3c3606855482fdfb'
 const LOCK_EVENT_SIG    = '0xc841d5bbfd6bbee5b5afbcdd70a52778ca1aaa260339f7307f2db27865f162cc'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-// ── Token creator scan (creator is topic 1 for TokenCreated) ────────────────
+// ── Token creator scan (creator is topic 2 for TokenCreated) ────────────────
 async function fetchTokensByCreator(creator: string): Promise<{ address: string; name: string; symbol: string }[]> {
   try {
     const resp = await fetch(RPC_URL, {
@@ -107,17 +117,18 @@ async function fetchTokensByCreator(creator: string): Promise<{ address: string;
         method: 'eth_getLogs',
         params: [{
           address: TOKEN_FACTORY_ADDRESS,
-          topics: [TOKEN_EVENT_SIG, '0x' + creator.slice(2).padStart(64, '0'), null],
+          topics: [TOKEN_EVENT_SIG, null, `0x${creator.slice(2).padStart(64, '0')}`],
           fromBlock: '0x1',
           toBlock: 'latest',
         },],
         id: 1,
       }),
+      signal: AbortSignal.timeout(8_000),
     })
     const json = await resp.json()
     if (!Array.isArray(json.result)) return []
     return json.result.map((l: any) => {
-      const address = '0x' + l.topics[2].slice(26)
+      const address = `0x${l.topics[1].slice(26)}`
       const { name, symbol } = decodeTokenEventData(l.data || '0x')
       return { address, name, symbol }
     })
@@ -127,7 +138,7 @@ async function fetchTokensByCreator(creator: string): Promise<{ address: string;
 }
 
 // Decode name/symbol from TokenCreated event data field
-// Verified layout (192 bytes, token address is indexed in topics[2]):
+// Verified layout (192 bytes, token address is indexed in topics[1]):
 //   bytes 0-63:   offset table (nameOffset=64, symOffset=128)
 //   bytes 64-95:  name length [uint256, 5 chars of name]
 //   bytes 96-127: name string content
@@ -151,76 +162,15 @@ function decodeTokenEventData(dataHex: string): { name: string; symbol: string }
   }
 }
 
-// ── Transfer event scan (fallback for tokens from old factory deployments) ───
-// Transfer(address(0), to, amount) — detects mints to `to` address
-const TRANSFER_SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
-const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
-
-async function fetchTokensByMints(wallet: string): Promise<string[]> {
-  try {
-    const resp = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getLogs',
-        params: [{
-          // Transfer(address(0), indexed to, indexed value) — topics[1] = from(0), topics[2] = to
-          topics: [
-            TRANSFER_SIG,
-            '0x' + ZERO_ADDR.slice(2).padStart(64, '0'),   // topic1: from == address(0)
-            '0x' + wallet.slice(2).padStart(64, '0'),       // topic2: to == wallet
-          ],
-          fromBlock: '0x1',
-          toBlock: 'latest',
-        },],
-        id: 1,
-      }),
-    })
-    const json = await resp.json()
-    if (!Array.isArray(json.result)) return []
-    // Deduplicate by contract address (topic2 is the token for Transfer from address(0))
-    const seen = new Set<string>()
-    const addrs: string[] = []
-    for (const l of json.result) {
-      // For Transfer from zero address, the token is the `address` field of the log
-      const tokenAddr = (l.address || '').toLowerCase()
-      if (tokenAddr && !seen.has(tokenAddr)) {
-        seen.add(tokenAddr)
-        addrs.push(tokenAddr)
-      }
-    }
-    return addrs
-  } catch {
-    return []
-  }
-}
-
-// Fetch token addresses for `address` — merges TokenFactory-created tokens
-// AND tokens received via mint Transfer events from address(0)
+// Fetch canonical TokenFactory deployments created by this wallet.
 function useTokenAddresses(address: string | undefined) {
   const [tokens, setTokens] = useState<{ address: string; name: string; symbol: string }[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!address) { setLoading(false); return }
-    Promise.all([
-      fetchTokensByCreator(address),
-      fetchTokensByMints(address),
-    ]).then(([fromFactory, fromMints]) => {
-      // Deduplicate by address
-      const seen = new Map<string, { name: string; symbol: string }>()
-      for (const t of fromFactory) seen.set(t.address.toLowerCase(), { name: t.name, symbol: t.symbol })
-      for (const addr of fromMints) {
-        const l = addr.toLowerCase()
-        if (!seen.has(l)) seen.set(l, { name: '—', symbol: '—' })
-      }
-      const merged = Array.from(seen.entries()).map(([addr, meta]) => ({
-        address: addr,
-        name: meta.name,
-        symbol: meta.symbol,
-      }))
-      setTokens(merged)
+    if (!address) return
+    fetchTokensByCreator(address).then((fromFactory) => {
+      setTokens(fromFactory)
       setLoading(false)
     })
   }, [address])
@@ -257,35 +207,13 @@ function useVesting(address: string | undefined) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!address) { setLoading(false); return }
-    fetchLogs(VESTING_FACTORY_ADDRESS, VESTING_EVENT_SIG, address).then((logs) => {
-      const entries: VestingEntry[] = logs.map((log: any) => {
-        const data = log.data || '0x'
-        // VestingCreated data layout (non-indexed fields):
-        // bytes 0-31:   address token   (right-padded, last 20 bytes = address)
-        // bytes 32-63:  uint256 totalAmount
-        // bytes 64-95:  uint256 startTime
-        // bytes 96-127: uint256 cliffDuration
-        // bytes 128-159: uint256 vestingDuration
-        // bytes 160-191: bool revocable
-        const token       = '0x' + data.slice(2 + 12, 2 + 32)   // bytes 12-32 of data (right-padded address)
-        const totalAmount = BigInt(data.slice(2 + 32, 2 + 64))
-        const startTime   = Number(BigInt(data.slice(2 + 64, 2 + 96)))
-        const cliff       = Number(BigInt(data.slice(2 + 96, 2 + 128)))
-        const vest        = Number(BigInt(data.slice(2 + 128, 2 + 160)))
-        const revocable   = data.slice(2 + 191, 2 + 192) === '01'
-        return {
-          vestingId:    BigInt(log.topics[1] || '0x0').toString(),
-          vestingWallet:'0x' + (log.topics[2] || '').slice(26),
-          beneficiary: '0x' + (log.topics[3] || '').slice(26),
-          token,
-          totalAmount: `${formatUnits(totalAmount, 18)} tokens`,
-          startTime: cliff > 0
-            ? `Cliff ${cliff}s · Vesting ${vest}s from ${new Date(startTime * 1000).toLocaleDateString()}`
-            : `Vesting ${vest}s from ${new Date(startTime * 1000).toLocaleDateString()}`,
-          revocable,
-        }
-      })
+    if (!address) return
+    fetchLogs(VESTING_FACTORY_ADDRESS, VESTING_EVENT_SIG, address, 3).then((logs) => {
+      const entries: VestingEntry[] = logs.map((log: any) => ({
+        vestingId: BigInt(log.topics[1] || '0x0').toString(),
+        vestingWallet: `0x${(log.topics[2] || '').slice(26)}`,
+        beneficiary: `0x${(log.topics[3] || '').slice(26)}`,
+      }))
       setVestings(entries)
       setLoading(false)
     })
@@ -299,15 +227,30 @@ function useLocks(address: string | undefined) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!address) { setLoading(false); return }
-    fetchLogs(LIQUIDITY_LOCKER_ADDRESS, LOCK_EVENT_SIG, address).then(async (logs) => {
+    if (!address) return
+    fetchLogs(LIQUIDITY_LOCKER_ADDRESS, LOCK_EVENT_SIG).then(async (logs) => {
       // Fetch withdrawn status for each lock via getLock
       const entries: (LockEntry & { lpToken: string })[] = await Promise.all(
-        logs.map(async (log: any) => {
-          const lockId  = BigInt(log.topics[1] || '0x0').toString()
-          const lpToken = '0x' + (log.topics[2] || '').slice(26)
-          const amount  = BigInt(log.topics[3] || '0x0')
-          const unlockTime = Number(BigInt(log.topics[4] || '0x0'))
+        logs.flatMap((log: any) => {
+          try {
+            const decoded = decodeEventLog({
+              abi: LIQUIDITY_LOCKER_ABI,
+              eventName: 'LockCreated',
+              data: log.data,
+              topics: log.topics,
+              strict: true,
+            })
+            if (decoded.args.withdrawer.toLowerCase() !== address.toLowerCase()) return []
+            return [{
+              lockId: decoded.args.lockId.toString(),
+              lpToken: decoded.args.lpToken,
+              amount: decoded.args.amount,
+              unlockTime: Number(decoded.args.unlockTime),
+            }]
+          } catch {
+            return []
+          }
+        }).map(async ({ lockId, lpToken, amount, unlockTime }) => {
 
           // Fetch getLock(lockId) to get withdrawn status
           let withdrawn = false
@@ -319,17 +262,25 @@ function useLocks(address: string | undefined) {
                 jsonrpc: '2.0', method: 'eth_call',
                 params: [{
                   to: LIQUIDITY_LOCKER_ADDRESS,
-                  data: '0x' + '0'.repeat(8) + BigInt(lockId).toString(16).padStart(64, '0'),
+                  data: encodeFunctionData({
+                    abi: LIQUIDITY_LOCKER_ABI,
+                    functionName: 'getLock',
+                    args: [BigInt(lockId)],
+                  }),
                 }, 'latest'],
                 id: 1,
               }),
+              signal: AbortSignal.timeout(8_000),
             })
             const json = await resp.json()
-            const result = json.result || '0x'
-            // getLock returns (lpToken, amount, unlockTime, withdrawer, withdrawn)
-            // withdrawn is last byte of the 5th 32-byte word
-            const withdrawnHex = result.slice(2 + 32 * 4 + 62, 2 + 32 * 4 + 64)
-            withdrawn = withdrawnHex === '01'
+            if (json.result && json.result !== '0x') {
+              const result = decodeFunctionResult({
+                abi: LIQUIDITY_LOCKER_ABI,
+                functionName: 'getLock',
+                data: json.result,
+              })
+              withdrawn = result[4]
+            }
           } catch { /* keep withdrawn = false */ }
 
           return {
@@ -406,7 +357,7 @@ function AddressChip({ address, href }: { address: string; href?: string }) {
       <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
         {truncate(address)}
       </span>
-      <button onClick={copy} className="cursor-pointer hover:opacity-70 transition-opacity">
+      <button onClick={copy} aria-label={`Copy ${address}`} className="min-h-11 min-w-11 cursor-pointer hover:opacity-70 transition-opacity">
         {copied
           ? <Check size={11} style={{ color: '#34D399' }} />
           : <Copy size={11} style={{ color: 'rgba(255,255,255,0.3)' }} />}
@@ -480,9 +431,9 @@ function ILORow({ address }: { address: string }) {
 
 // ── Overview panel ───────────────────────────────────────────────────────────
 
-function OverviewPanel({ address }: { address: string }) {
+function OverviewPanel({ address, onSelectTab }: { address: string; onSelectTab: (tab: Tab) => void }) {
   const addr = address as `0x${string}`
-  const { data: ethBalance, isLoading: ethLoading } = useBalance({ address: addr })
+  const { data: ethBalance, isLoading: ethLoading } = useBalance({ address: addr, chainId: litvm.id })
 
   const { tokens,    loading: tLoading } = useTokens(address)
   const { presales,  loading: pLoading } = usePresales(address)
@@ -532,7 +483,7 @@ function OverviewPanel({ address }: { address: string }) {
           ].map(({ label, count, loading, tab }) => (
             <button
               key={tab}
-              onClick={() => {/* tab switching handled by parent */}}
+              onClick={() => onSelectTab(tab)}
               style={{
                 background: 'rgba(255,255,255,0.03)',
                 border: '1px solid rgba(255,255,255,0.06)',
@@ -616,10 +567,10 @@ function VestingPanel({ address }: { address: string }) {
           <div>
             <div style={{ fontWeight: 600, fontSize: 14 }}>Vesting #{v.vestingId}</div>
             <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>
-              Amount: {v.totalAmount} tokens
+              Beneficiary: {truncate(v.beneficiary)}
             </div>
           </div>
-          <AddressChip address={v.token} />
+          <AddressChip address={v.vestingWallet} href={`/explorer/address/${v.vestingWallet}`} />
         </div>
       ))}
     </div>
@@ -723,12 +674,12 @@ export default function PortfolioPage() {
         </div>
 
         {/* Tab bar */}
-        <div className="flex items-end gap-0 border-b border-white/10 mb-8">
+        <div className="flex items-end gap-0 overflow-x-auto border-b border-white/10 mb-8">
           {TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className="relative px-5 py-3 text-xs font-mono tracking-wider transition-colors duration-200"
+              className="relative min-h-11 shrink-0 px-5 py-3 text-xs font-mono tracking-wider transition-colors duration-200"
               style={{
                 color: activeTab === tab.key ? 'var(--foreground)' : 'rgba(255,255,255,0.35)',
                 fontWeight: activeTab === tab.key ? 600 : 400,
@@ -743,7 +694,7 @@ export default function PortfolioPage() {
         </div>
 
         {/* Tab content */}
-        {activeTab === 'overview'  && <OverviewPanel  address={address!} />}
+        {activeTab === 'overview'  && <OverviewPanel address={address!} onSelectTab={setActiveTab} />}
         {activeTab === 'tokens'    && <TokensPanel   address={address!} />}
         {activeTab === 'presales' && <PresalesPanel address={address!} />}
         {activeTab === 'vesting'  && <VestingPanel  address={address!} />}

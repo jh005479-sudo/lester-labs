@@ -6,7 +6,7 @@ The Token Factory allows anyone to deploy a standard ERC-20 token on LitVM in a 
 
 ## How it works
 
-The factory deploys a new ERC-20 contract on your behalf, minting the full supply to your wallet at deployment. The contract follows the OpenZeppelin ERC-20 standard exactly — no modifications. If mintable is enabled, only the deploying address can mint additional supply. If burnable is enabled, any holder can burn their own tokens.
+The factory deploys a LesterToken built from OpenZeppelin ERC-20 modules and mints the configured supply to your wallet. Lester-specific logic adds custom decimals and optional owner minting, holder burning, and owner pause controls; review those choices before deployment.
 
 ## Step-by-step guide
 
@@ -58,4 +58,4 @@ Fee is non-refundable. Sent to Lester-Labs treasury at deployment.
 
 ## Security
 
-Forked 1:1 from OpenZeppelin ERC-20, the most widely deployed and audited token standard in existence. OpenZeppelin contracts have secured trillions of dollars in value across thousands of deployments. No custom logic has been added. The Lester-Labs factory is a thin wrapper that calls the standard constructor — the deployed token contract is identical to any OpenZeppelin ERC-20.
+The implementation composes maintained OpenZeppelin ERC-20, burnable, pausable, and ownership modules with Lester-specific feature flags and custom-decimal behavior. The Lester Labs factory and resulting integration remain unaudited testnet software; upstream OpenZeppelin review does not constitute an audit of this deployment.

@@ -3,11 +3,11 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'LitVM Airdrop — Batch Token Distribution on LitVM | Lester Labs',
-  description: 'Send tokens to thousands of wallets in a single transaction with the LitVM airdrop tool. Batch distribution, CSV upload, and zero third-party custody. Built natively on LitVM.',
+  description: 'Validate recipient lists locally, review every amount, and distribute ERC-20 tokens in resumable LitVM batches without third-party custody.',
   alternates: { canonical: 'https://www.lester-labs.com/litvm-airdrop' },
   openGraph: {
     title: 'LitVM Airdrop — Batch Token Distribution on LitVM | Lester Labs',
-    description: 'Send tokens to thousands of wallets in a single transaction with the LitVM airdrop tool. Batch distribution, CSV upload, and zero third-party custody.',
+    description: 'Validate recipient lists locally and distribute ERC-20 tokens in reviewable, resumable LitVM batches without third-party custody.',
     url: 'https://www.lester-labs.com/litvm-airdrop',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -16,21 +16,21 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'LitVM Airdrop — Batch Token Distribution on LitVM | Lester Labs',
-    description: 'Send tokens to thousands of wallets in a single transaction with the LitVM airdrop tool. Batch distribution and CSV upload.',
+    description: 'Validate CSV recipient lists locally and distribute ERC-20 tokens in reviewable LitVM batches.',
   },
 }
 
 const features = [
-  { title: 'Single-transaction distribution', body: 'Send to hundreds or thousands of recipients in one atomic transaction. The contract handles all transfers — if any individual transfer fails, the entire batch reverts.' },
-  { title: 'On-chain proof of distribution', body: 'Every successful airdrop emits Transfer events for each recipient. Verify the full distribution on the LitVM block explorer using the transaction hash.' },
+  { title: 'Resumable batch distribution', body: 'Large recipient lists are split into wallet-confirmed batches. Confirmed batch hashes are retained locally so a retry resumes at the first unconfirmed batch.' },
+  { title: 'On-chain proof of distribution', body: 'Each confirmed batch produces a transaction hash and ERC-20 Transfer events that can be checked independently on the LitVM explorer.' },
   { title: 'Native to LitVM', body: 'Runs entirely on LitVM testnet. No servers, no custodial intermediaries — just the contract and your signed transaction.' },
-  { title: 'No wallet limit', body: 'Schedule airdrops to activate at a specific block timestamp. Set cliff periods before claiming opens. Perfect for retroactive rewards and retroactive token distributions.' },
+  { title: 'Local validation', body: 'CSV parsing, address validation, duplicate handling, amount review, and saved address-book tools stay in your browser before a wallet request is created.' },
 ]
 
 const FAQ_DATA = [
-  { q: 'How does the LitVM Airdrop Tool work?', a: 'Upload a CSV of recipient addresses and token amounts. The tool builds a single batch transaction that calls the Airdrop contract. The contract distributes tokens to every recipient atomically.' },
-  { q: 'What format does the CSV need to be in?', a: 'Two columns: address and amount. Example: address,amount followed by one wallet per line. Addresses must be valid Ethereum-format (42 characters, 0x prefix). Amounts are in the smallest token unit.' },
-  { q: 'Can I schedule an airdrop for a future date?', a: 'Yes. Set a start time when configuring the airdrop. Tokens are held by the contract until the scheduled time, then distributed automatically.' },
+  { q: 'How does the LitVM Airdrop Tool work?', a: 'Upload or paste recipient addresses and human-readable token amounts, review the validated list, approve the Disperse contract, then confirm each generated batch in your wallet.' },
+  { q: 'What format does the CSV need to be in?', a: 'Use address and amount columns followed by one wallet per row. Addresses must be valid EVM addresses and amounts use the token’s displayed decimal units, such as 1.5 tokens.' },
+  { q: 'Can I schedule an airdrop for a future date?', a: 'No. The current Disperse flow sends confirmed batches immediately; it does not custody tokens or schedule a future claim window.' },
   { q: 'What tokens can I airdrop on LitVM?', a: 'Any ERC-20 deployed on LitVM. Deploy a new token at /launch, then use that same token in the airdrop tool at /airdrop.' },
   { q: 'Is the airdrop tool available on LitVM testnet?', a: 'Yes. The LitVM airdrop tool is live on testnet (chain ID 4441). Use test tokens — no real value is transferred during testing.' },
 ]
@@ -78,7 +78,7 @@ export default function LitvmAirdropPage() {
               fontSize: '18px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.65,
               maxWidth: '540px', margin: '0 auto 32px',
             }}>
-              Batch token distribution for the LitVM ecosystem. Send to thousands of wallets in a single transaction. CSV upload, merkle proofs, on-chain verification. No custody, no intermediaries.
+              Batch token distribution for the LitVM ecosystem. Validate CSV recipients locally, review every amount, and resume safely from confirmed batches. No custody or intermediaries.
             </p>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/airdrop" style={{
@@ -134,7 +134,7 @@ export default function LitvmAirdropPage() {
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {[
-                { n: '01', title: 'Prepare your recipient list', body: 'Create a CSV with two columns: address and amount. The tool accepts up to thousands of rows per batch.' },
+                { n: '01', title: 'Prepare your recipient list', body: 'Create a CSV with address and amount columns. The tool validates the list and divides it into bounded batches of up to 200 recipients.' },
                 { n: '02', title: 'Upload and validate', body: 'Upload your CSV. Every address is validated for format before you can proceed. Invalid rows are highlighted in red.' },
                 { n: '03', title: 'Choose distribution mode', body: 'Upload your CSV, set the token and start time, then confirm the batch.' },
                 { n: '04', title: 'Sign and broadcast', body: 'Confirm the transaction in your wallet. Tokens are distributed atomically to all recipients in a single block.' },
@@ -181,7 +181,7 @@ export default function LitvmAirdropPage() {
             Run your first LitVM airdrop
           </h2>
           <p style={{ color: 'rgba(255,255,255,0.45)', marginBottom: '32px', fontSize: '16px' }}>
-            Upload your CSV, review the distribution, and send tokens to thousands of wallets in one transaction.
+            Upload your CSV, review the complete distribution, and confirm each bounded LitVM batch from your wallet.
           </p>
           <Link href="/airdrop" style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',

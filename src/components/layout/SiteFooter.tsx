@@ -1,5 +1,23 @@
 import Link from 'next/link'
 
+const toolLinks = [
+  { href: '/swap', label: 'Swap' },
+  { href: '/pool', label: 'Pool' },
+  { href: '/launch', label: 'Minter' },
+  { href: '/launchpad', label: 'Launchpad' },
+  { href: '/airdrop', label: 'Airdrop' },
+  { href: '/locker', label: 'Locker' },
+  { href: '/vesting', label: 'Vesting' },
+]
+
+const exploreLinks = [
+  { href: '/charts', label: 'Charts' },
+  { href: '/analytics', label: 'Analytics' },
+  { href: '/explorer', label: 'Explorer' },
+  { href: '/portfolio', label: 'Portfolio' },
+  { href: '/ledger', label: 'Ledger' },
+]
+
 export function SiteFooter() {
   return (
     <footer className="lester-footer">
@@ -15,14 +33,21 @@ export function SiteFooter() {
         <div className="footer-cols">
           <div className="footer-col">
             <h4>Tools</h4>
-            {['Launch', 'Locker', 'Vesting', 'Airdrop', 'Governance', 'Launchpad'].map((l) => (
-              <Link key={l} href={`/${l.toLowerCase()}`}>{l}</Link>
+            {toolLinks.map(({ href, label }) => (
+              <Link key={href} href={href} prefetch={false}>{label}</Link>
+            ))}
+          </div>
+          <div className="footer-col">
+            <h4>Explore</h4>
+            {exploreLinks.map(({ href, label }) => (
+              <Link key={href} href={href} prefetch={false}>{label}</Link>
             ))}
           </div>
           <div className="footer-col">
             <h4>Developers</h4>
-            <Link href="/docs">Docs</Link>
-            <Link href="/explorer">Explorer</Link>
+            <Link href="/docs" prefetch={false}>Docs</Link>
+            <Link href="/tutorials" prefetch={false}>Tutorials</Link>
+            <Link href="/governance" prefetch={false}>Governance</Link>
             <a href="https://www.litvm.com/" target="_blank" rel="noopener noreferrer">Built for LitVM</a>
           </div>
           <div className="footer-col">

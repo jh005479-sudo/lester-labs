@@ -40,6 +40,25 @@ describe('buildExplorerSummary', () => {
     assert.deepEqual(summary.transactions, [])
     assert.equal(summary.updatedAt, null)
   })
+
+  it('distinguishes a failed receipt from a still-pending transaction', () => {
+    const block = {
+      number: '0x1',
+      timestamp: '0x1',
+      transactions: [
+        { hash: '0xfailed' },
+        { hash: '0xpending' },
+      ],
+    }
+    const summary = buildExplorerSummary({
+      latestBlock: 1,
+      blocks: [block],
+      receiptsByHash: new Map([['0xfailed', { status: '0x0' }]]),
+    })
+
+    assert.equal(summary.transactions[0].status, 'Failed')
+    assert.equal(summary.transactions[1].status, 'Pending')
+  })
 })
 
 describe('getExplorerSummaryCacheControl', () => {

@@ -6,60 +6,54 @@ import Link from 'next/link'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { getTokenDetails, getTokenTransfers, type TokenDetails, type TokenTransfer } from '@/lib/token-indexer'
-import { formatAddress, LITVM_EXPLORER_URL, LITVM_RPC_URL } from '@/lib/explorerRpc'
+import { formatAddress, LITVM_EXPLORER_URL, rpc } from '@/lib/explorerRpc'
 import { checkTokenSafety, type SafetyReport } from '@/lib/token-safety'
 import { BarChart3, BookmarkCheck, BookmarkPlus, Copy, Droplets, ExternalLink, Share2, ArrowLeft, ShieldCheck, ShieldAlert, ShieldX, Users } from 'lucide-react'
+import { aggregateInboundTransferSample, type TransferSampleLog } from '../transferSample'
 
 // ─── Holder distribution ──────────────────────────────────────────────────
 
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
-const ZERO_ADDR = '0x0000000000000000000000000000000000000000'
 
-interface HolderEntry { address: string; balance: bigint }
+interface RecipientEntry { address: string; value: bigint }
 
-async function fetchTopHolders(tokenAddr: string, decimals: number): Promise<{ entries: HolderEntry[]; totalSupply: bigint }> {
+async function fetchTopRecipients(tokenAddr: string): Promise<{
+  entries: RecipientEntry[]
+  recipientCount: number
+  totalValue: bigint
+  fromBlock: number
+  toBlock: number
+  truncated: boolean
+}> {
   try {
-    // Get latest block to limit scan range
-    const latestRes = await fetch(LITVM_RPC_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
-      cache: 'no-store',
-    })
-    const latestData = (await latestRes.json()) as { result?: string }
-    const latestBlock = latestData.result ? parseInt(latestData.result, 16) : 0
-    const fromBlock = Math.max(0, latestBlock - 100000) // Last 100k blocks only
+    const latestHex = await rpc<string>('eth_blockNumber', [], { cacheKey: 'token-sample-latest', cacheTtl: 10_000 })
+    const latestBlock = parseInt(latestHex, 16)
+    const fromBlock = Math.max(0, latestBlock - 10_000 + 1)
+    let logs: TransferSampleLog[] = []
+    const logLimit = 2_000
+    let cursorEnd = latestBlock
 
-    const res = await fetch(LITVM_RPC_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'eth_getLogs',
-        params: [{ address: tokenAddr, topics: [TRANSFER_TOPIC], fromBlock: `0x${fromBlock.toString(16)}`, toBlock: 'latest' }],
-      }),
-      cache: 'no-store',
-    })
-    const data = (await res.json()) as { result?: unknown[] }
-    const logs = (data.result ?? []) as Array<{ topics: string[]; data: string }>
-
-    const balances = new Map<string, bigint>()
-    for (const log of logs) {
-      const from = ('0x' + log.topics[1]?.slice(26)).toLowerCase()
-      const to = ('0x' + log.topics[2]?.slice(26)).toLowerCase()
-      const value = BigInt(log.data || '0x0')
-      if (from !== ZERO_ADDR) balances.set(from, (balances.get(from) ?? 0n) - value)
-      if (to !== ZERO_ADDR) balances.set(to, (balances.get(to) ?? 0n) + value)
+    while (cursorEnd >= fromBlock && logs.length < logLimit) {
+      const batchStart = Math.max(fromBlock, cursorEnd - 999)
+      const batch = await rpc<TransferSampleLog[]>('eth_getLogs', [{
+        address: tokenAddr,
+        topics: [TRANSFER_TOPIC],
+        fromBlock: `0x${batchStart.toString(16)}`,
+        toBlock: `0x${cursorEnd.toString(16)}`,
+      }], { cacheKey: `token-recipient-sample:${tokenAddr}:${batchStart}:${cursorEnd}`, cacheTtl: 30_000 })
+      logs = batch.slice(-(logLimit - logs.length)).concat(logs)
+      cursorEnd = batchStart - 1
     }
 
-    const sorted = Array.from(balances.entries())
-      .filter(([, b]) => b > 0n)
-      .sort((a, b) => (b[1] > a[1] ? 1 : -1))
-
-    const totalSupply = sorted.reduce((acc, [, b]) => acc + b, 0n)
-    const entries = sorted.slice(0, 10).map(([address, balance]) => ({ address, balance }))
-    return { entries, totalSupply }
+    const sample = aggregateInboundTransferSample(logs)
+    return {
+      ...sample,
+      fromBlock,
+      toBlock: latestBlock,
+      truncated: fromBlock > 0 || logs.length >= logLimit,
+    }
   } catch {
-    return { entries: [], totalSupply: 0n }
+    return { entries: [], recipientCount: 0, totalValue: 0n, fromBlock: 0, toBlock: 0, truncated: true }
   }
 }
 
@@ -77,7 +71,7 @@ function formatValue(value: string, decimals: number): string {
   try {
     const big = BigInt(value)
     if (decimals === 0) return big.toLocaleString()
-    const div = BigInt(10 ** decimals)
+    const div = 10n ** BigInt(decimals)
     const whole = big / div
     const frac = big % div
     const fracStr = frac.toString().padStart(decimals, '0').slice(0, 4)
@@ -102,47 +96,49 @@ const HOLDER_COLORS = [
   '#d8b4fe', // purple-300
 ]
 
-// ─── Holder Chart ─────────────────────────────────────────────────────────
+// ─── Bounded recipient activity chart ─────────────────────────────────────
 
-function HolderDistributionChart({ tokenAddress, decimals }: { tokenAddress: string; decimals: number }) {
+function TransferRecipientChart({ tokenAddress }: { tokenAddress: string }) {
   const [data, setData] = useState<{ name: string; value: number; pct: number }[]>([])
   const [topPct, setTopPct] = useState(0)
-  const [topHolder, setTopHolder] = useState(0)
+  const [recipientCount, setRecipientCount] = useState(0)
+  const [coverage, setCoverage] = useState<{ fromBlock: number; toBlock: number; truncated: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchTopHolders(tokenAddress, decimals).then(({ entries, totalSupply }) => {
-      if (totalSupply === 0n || entries.length === 0) { setLoading(false); return }
-      const topSum = entries.reduce((a, e) => a + e.balance, 0n)
-      const otherSum = totalSupply - topSum
-      const toNum = (b: bigint) => Number((b * 10000n) / totalSupply) / 100
+    fetchTopRecipients(tokenAddress).then(({ entries, recipientCount: sampledRecipients, totalValue, fromBlock, toBlock, truncated }) => {
+      setCoverage({ fromBlock, toBlock, truncated })
+      setRecipientCount(sampledRecipients)
+      if (totalValue === 0n || entries.length === 0) { setLoading(false); return }
+      const topSum = entries.reduce((a, e) => a + e.value, 0n)
+      const otherSum = totalValue - topSum
+      const toNum = (value: bigint) => Number((value * 10000n) / totalValue) / 100
 
-      const chartData = entries.map((e, i) => ({
+      const chartData = entries.map((e) => ({
         name: `${e.address.slice(0, 6)}...${e.address.slice(-4)}`,
-        value: Number(e.balance),
-        pct: toNum(e.balance),
+        value: toNum(e.value),
+        pct: toNum(e.value),
       }))
       if (otherSum > 0n) {
-        chartData.push({ name: 'Other', value: Number(otherSum), pct: toNum(otherSum) })
+        chartData.push({ name: 'Other sampled recipients', value: toNum(otherSum), pct: toNum(otherSum) })
       }
 
       setTopPct(Math.round(toNum(topSum)))
-      setTopHolder(toNum(entries[0]?.balance ?? 0n))
       setData(chartData)
       setLoading(false)
     })
-  }, [tokenAddress, decimals])
+  }, [tokenAddress])
 
-  if (loading) return <div className="h-48 flex items-center justify-center text-white/30 text-sm">Loading holders...</div>
-  if (data.length === 0) return <div className="h-24 flex items-center justify-center text-white/30 text-sm">No holder data available</div>
+  if (loading) return <div className="h-48 flex items-center justify-center text-white/30 text-sm">Loading recent recipient activity...</div>
+  if (data.length === 0) return <div className="h-24 flex items-center justify-center text-white/30 text-sm">No transfers found in the bounded recent window.</div>
 
   return (
     <div>
-      {topHolder > 50 && (
-        <div className="mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center gap-2">
-          ⚠ High concentration risk — top holder owns {topHolder.toFixed(1)}% of supply
-        </div>
-      )}
+      <p className="mb-3 text-xs text-white/35">
+        Inbound transfer volume across {recipientCount.toLocaleString()} unique recipients
+        {coverage ? ` in blocks ${coverage.fromBlock.toLocaleString()}-${coverage.toBlock.toLocaleString()}` : ''}.
+        {coverage?.truncated ? ' This is a partial activity sample, not a holder balance reconstruction.' : ''}
+      </p>
       <div className="flex flex-col sm:flex-row items-center gap-4">
         <div className="w-48 h-48 flex-shrink-0">
           <ResponsiveContainer width="100%" height="100%">
@@ -151,7 +147,7 @@ function HolderDistributionChart({ tokenAddress, decimals }: { tokenAddress: str
                 {data.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={entry.name === 'Other' ? '#374151' : HOLDER_COLORS[index % HOLDER_COLORS.length]}
+                    fill={entry.name.startsWith('Other') ? '#374151' : HOLDER_COLORS[index % HOLDER_COLORS.length]}
                   />
                 ))}
               </Pie>
@@ -168,19 +164,19 @@ function HolderDistributionChart({ tokenAddress, decimals }: { tokenAddress: str
         <div className="flex-1 space-y-1.5 text-sm w-full">
           <div className="flex items-center gap-2 text-white/50 text-xs mb-2">
             <span className="w-3 h-3 rounded-sm inline-block" style={{ background: 'linear-gradient(135deg, #06b6d4, #c084fc)' }} />
-            Top 10: <span className="text-white font-mono">{topPct}%</span>
+            Top 10 inbound: <span className="text-white font-mono">{topPct}%</span>
             <span className="w-3 h-3 rounded-sm bg-gray-700 inline-block ml-2" />
-            Other: <span className="text-white font-mono">{100 - topPct}%</span>
+            Other sampled: <span className="text-white font-mono">{100 - topPct}%</span>
           </div>
           {data.slice(0, 5).map((d, i) => (
             <div key={i} className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: d.name === 'Other' ? '#374151' : HOLDER_COLORS[i] }} />
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: d.name.startsWith('Other') ? '#374151' : HOLDER_COLORS[i] }} />
               <span className="font-mono text-xs text-white/60 flex-1">{d.name}</span>
               <span className="font-mono text-xs text-white">{d.pct.toFixed(2)}%</span>
             </div>
           ))}
           {data.length > 6 && (
-            <div className="text-xs text-white/30 pl-4">+ {data.length - 6} more holders</div>
+            <div className="text-xs text-white/30 pl-4">+ {data.length - 6} more sampled recipients</div>
           )}
         </div>
       </div>
@@ -195,7 +191,30 @@ function SafetyScorePanel({ tokenAddress }: { tokenAddress: string }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    checkTokenSafety(tokenAddress).then(r => { setReport(r); setLoading(false) })
+    let active = true
+    checkTokenSafety(tokenAddress)
+      .then((result) => {
+        if (active) setReport(result)
+      })
+      .catch(() => {
+        if (active) {
+          setReport({
+            score: 'caution',
+            checks: [{
+              name: 'Automated analysis availability',
+              status: 'unknown',
+              detail: 'Automated checks were unavailable. No safety conclusion was made.',
+            }],
+          })
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
   }, [tokenAddress])
 
   if (loading) return (
@@ -206,9 +225,9 @@ function SafetyScorePanel({ tokenAddress }: { tokenAddress: string }) {
   if (!report) return null
 
   const badgeConfig = {
-    safe: { icon: ShieldCheck, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/30', label: '🟢 SAFE' },
-    caution: { icon: ShieldAlert, color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/30', label: '🟡 CAUTION' },
-    risky: { icon: ShieldX, color: 'text-red-400', bg: 'bg-red-400/10 border-red-400/30', label: '🔴 RISKY' },
+    safe: { icon: ShieldCheck, color: 'text-cyan-300', bg: 'bg-cyan-300/10 border-cyan-300/30', label: 'NO FLAGS FOUND' },
+    caution: { icon: ShieldAlert, color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/30', label: 'REVIEW SIGNALS' },
+    risky: { icon: ShieldX, color: 'text-red-400', bg: 'bg-red-400/10 border-red-400/30', label: 'FLAGS FOUND' },
   }
   const cfg = badgeConfig[report.score]
   const Icon = cfg.icon
@@ -219,18 +238,25 @@ function SafetyScorePanel({ tokenAddress }: { tokenAddress: string }) {
   return (
     <div className="p-5 rounded-xl bg-[var(--surface-1)] border border-white/10 mb-6">
       <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-sm font-medium text-white/50">Token Safety</h2>
+        <h2 className="text-sm font-medium text-white/50">Automated Contract Signals</h2>
         <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold border ${cfg.bg} ${cfg.color}`}>
           <Icon className="w-4 h-4" /> {cfg.label}
         </span>
       </div>
+      <p className="mb-4 text-xs text-white/35">Heuristic bytecode and metadata checks only. This is not an audit or a safety guarantee.</p>
       <div className="space-y-2">
         {report.checks.map((check, i) => (
           <div key={i} className="flex items-start gap-3 text-sm">
             <span className="text-base">{statusIcon[check.status]}</span>
             <div>
-              <span className={`font-medium ${statusColor[check.status]}`}>{check.name}</span>
-              <span className="text-white/40 ml-2 text-xs">{check.detail}</span>
+              <span className={`font-medium ${statusColor[check.status]}`}>
+                {check.name === 'Liquidity locked' ? 'Dead-address token balance' : check.name}
+              </span>
+              <span className="text-white/40 ml-2 text-xs">
+                {check.name === 'Liquidity locked'
+                  ? 'Underlying token supply at a dead address does not prove that DEX LP tokens are locked.'
+                  : check.detail}
+              </span>
             </div>
           </div>
         ))}
@@ -257,14 +283,28 @@ export default function TokenDetailPage() {
 
   useEffect(() => {
     if (!isValidAddress) return
-    setLoading(true)
-    Promise.all([
-      getTokenDetails(address).catch(e => { throw new Error(`Details: ${e.message}`) }),
-      getTokenTransfers(address, 20).catch(() => []),
-    ])
-      .then(([d, t]) => { setDetails(d); setTransfers(t) })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false))
+    let active = true
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const [nextDetails, nextTransfers] = await Promise.all([
+          getTokenDetails(address).catch((error: unknown) => {
+            throw new Error(`Details: ${error instanceof Error ? error.message : 'Unable to load token'}`)
+          }),
+          getTokenTransfers(address, 20).catch(() => []),
+        ])
+        if (!active) return
+        setDetails(nextDetails)
+        setTransfers(nextTransfers)
+      } catch (error: unknown) {
+        if (active) setError(error instanceof Error ? error.message : 'Unable to load token')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void load()
+    return () => { active = false }
   }, [address, isValidAddress])
 
   useEffect(() => {
@@ -286,7 +326,7 @@ export default function TokenDetailPage() {
 
   const shareTweet = () => {
     if (!details) return
-    const text = `🪙 ${details.name} ($${details.symbol}) on LitVM\n\nHolders: ${details.holderCount} | Supply: ${details.totalSupply}\n\nTrack it: ${window.location.href}`
+    const text = `${details.name} ($${details.symbol}) on LitVM\n\nRecent unique recipients: ${details.holderCount} | Supply: ${details.totalSupply}\n\nTrack it: ${window.location.href}`
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
   }
 
@@ -376,16 +416,22 @@ export default function TokenDetailPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
             <Stat label="Decimals" value={String(details.decimals)} />
             <Stat label="Total Supply" value={`${details.totalSupply} ${details.symbol}`} />
-            <Stat label="Holders" value={String(details.holderCount)} />
-            <Stat label="Txns (24h)" value={String(details.txCount24h)} />
+            <Stat label="Unique Recipients (Sample)" value={String(details.holderCount)} />
+            <Stat label="Recent Transfers (Sample)" value={String(details.txCount24h)} />
           </div>
+          {details.transferSample && (
+            <p className="mt-3 text-xs text-white/35">
+              Transfer sample: blocks {details.transferSample.scannedFromBlock.toLocaleString()}-{details.transferSample.toBlock.toLocaleString()}
+              {details.transferSample.truncated ? '; partial newest-first coverage.' : '.'}
+            </p>
+          )}
         </div>
 
         <div className="p-5 rounded-xl bg-[var(--surface-1)] border border-white/10 mb-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-sm font-medium text-white/50">Market Actions</h2>
-              <p className="mt-1 text-xs text-white/35">Chart, trade, liquidity, presale, holders, contract, and creator activity in one place.</p>
+              <p className="mt-1 text-xs text-white/35">Chart, trade, liquidity, presale, contract, and creator links in one place.</p>
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -402,61 +448,71 @@ export default function TokenDetailPage() {
               <ExternalLink className="w-4 h-4 text-violet-200" /> Presales
             </Link>
             <a href={`${LITVM_EXPLORER_URL}/token/${address}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
-              <Users className="w-4 h-4 text-blue-200" /> Holders
+              <Users className="w-4 h-4 text-blue-200" /> External token view
             </a>
             <a href={`${LITVM_EXPLORER_URL}/address/${address}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
               <ExternalLink className="w-4 h-4 text-white/50" /> Contract
             </a>
-            <Link href={`/explorer/address/${details.deployer}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
-              <ExternalLink className="w-4 h-4 text-amber-200" /> Creator
-            </Link>
+            {details.factoryProvenance === 'verified' && details.deployer ? (
+              <Link href={`/explorer/address/${details.deployer}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
+                <ExternalLink className="w-4 h-4 text-amber-200" /> Creator
+              </Link>
+            ) : (
+              <span className="flex items-center gap-2 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2 text-sm text-white/35">
+                <ExternalLink className="w-4 h-4" /> Creator not indexed
+              </span>
+            )}
             <Link href="/ledger" className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
               <ExternalLink className="w-4 h-4 text-fuchsia-200" /> Ledger update
             </Link>
           </div>
         </div>
 
-        {/* Holder Distribution Chart */}
+        {/* Bounded recipient activity sample */}
         <div className="p-5 rounded-xl bg-[var(--surface-1)] border border-white/10 mb-6">
-          <h2 className="text-sm font-medium text-white/50 mb-4">Holder Distribution</h2>
-          <HolderDistributionChart tokenAddress={address} decimals={details.decimals} />
+          <h2 className="text-sm font-medium text-white/50 mb-4">Recent Inbound Recipient Activity</h2>
+          <TransferRecipientChart tokenAddress={address} />
         </div>
 
-        {/* Token Safety Score */}
+        {/* Automated contract signals */}
         <SafetyScorePanel tokenAddress={address} />
 
         {/* Deployer Info */}
         <div className="p-5 rounded-xl bg-[var(--surface-1)] border border-white/10 mb-6">
           <h2 className="text-sm font-medium text-white/50 mb-3">Deployer Info</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <div>
-              <span className="text-white/40">Deployer </span>
-              <span className="font-mono">{formatAddress(details.deployer)}</span>
+          {details.factoryProvenance === 'verified' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+              <div>
+                <span className="text-white/40">Deployer </span>
+                <span className="font-mono">{formatAddress(details.deployer)}</span>
+              </div>
+              <div>
+                <span className="text-white/40">Created </span>
+                <span className="font-mono">Block #{details.creationBlock.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-white/40">TX </span>
+                <a href={`${LITVM_EXPLORER_URL}/tx/${details.creationTx}`} target="_blank" rel="noopener noreferrer" className="font-mono text-blue-400 hover:underline">
+                  {formatAddress(details.creationTx)}
+                </a>
+              </div>
             </div>
-            <div>
-              <span className="text-white/40">Created </span>
-              <span className="font-mono">Block #{details.creationBlock.toLocaleString()}</span>
-            </div>
-            <div>
-              <span className="text-white/40">TX </span>
-              <a href={`${LITVM_EXPLORER_URL}/tx/${details.creationTx}`} target="_blank" rel="noopener noreferrer" className="font-mono text-blue-400 hover:underline">
-                {formatAddress(details.creationTx)}
-              </a>
-            </div>
-          </div>
+          ) : (
+            <p className="text-sm text-white/35">This token was not found in the bounded Lester factory window, so creator and deployment fields are not asserted.</p>
+          )}
         </div>
 
         {/* DEX / Price */}
         <div className="p-5 rounded-xl bg-[var(--surface-1)] border border-white/10 mb-6">
-          <h2 className="text-sm font-medium text-white/50 mb-3">Price & Trading</h2>
+          <h2 className="text-sm font-medium text-white/50 mb-3">Indexed Market Data</h2>
           {details.priceUsd !== undefined ? (
             <div className="grid grid-cols-3 gap-4 text-sm">
-              <Stat label="Price" value={`$${details.priceUsd?.toFixed(6)}`} />
+              <Stat label="Indexed Price" value={`$${details.priceUsd?.toFixed(6)}`} />
               <Stat label="24h Volume" value={`$${details.volume24h?.toLocaleString()}`} />
               <Stat label="24h Change" value={`${details.priceChange24h !== undefined ? (details.priceChange24h >= 0 ? '+' : '') + details.priceChange24h.toFixed(2) + '%' : '—'}`} />
             </div>
           ) : (
-            <p className="text-white/30 text-sm">Not yet trading on DEX</p>
+            <p className="text-white/30 text-sm">No indexed market data. Open Market Charts to inspect current on-chain reserve ratios.</p>
           )}
         </div>
 

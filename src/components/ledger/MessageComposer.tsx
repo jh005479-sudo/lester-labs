@@ -2,12 +2,11 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
 import { ExternalLink, Loader2, PenLine, Wallet } from 'lucide-react'
 import { toHex, type Hex } from 'viem'
 import {
   LEDGER_ABI,
-  LEDGER_DEFAULT_FEE,
   LEDGER_EXPLORER_BASE_URL,
   LEDGER_MAX_MESSAGE_BYTES,
   LEDGER_POST_GAS_LIMIT,
@@ -15,6 +14,8 @@ import {
 } from '@/lib/contracts/ledger'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
+import { isCanonicalLitvmContract, LITVM_TESTNET_CONTRACTS } from '@/config/contracts'
+import { litvm } from '@/config/chains'
 
 interface MessageComposerProps {
   address: `0x${string}`
@@ -34,7 +35,7 @@ function normalizeError(error: unknown): string {
   return getWalletErrorMessage(error, 'Something went wrong while posting to The Ledger.')
 }
 
-export function MessageComposer({ address, minFee, onConfirmed }: MessageComposerProps) {
+export function MessageComposer({ address, onConfirmed }: MessageComposerProps) {
   const { isConnected } = useAccount()
   const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, switchToLitvm, writeContractAsync } = useSafeWriteContract()
 
@@ -44,6 +45,17 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   const handledReceiptHashRef = useRef<Hex | undefined>(undefined)
+  const isCanonicalLedger = isCanonicalLitvmContract(address, LITVM_TESTNET_CONTRACTS.ledger)
+
+  const { data: liveMinFee, isLoading: isFeeLoading } = useReadContract({
+    address,
+    abi: LEDGER_ABI,
+    functionName: 'MIN_FEE',
+    chainId: litvm.id,
+    query: {
+      enabled: isCanonicalLedger,
+    },
+  })
 
   const {
     isSuccess: isConfirmed,
@@ -51,6 +63,7 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
     error: receiptError,
   } = useWaitForTransactionReceipt({
     hash: currentTxHash,
+    chainId: litvm.id,
     query: {
       enabled: Boolean(currentTxHash),
     },
@@ -59,8 +72,9 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
   const byteLength = textEncoder.encode(draft).length
   const isEmpty = draft.trim().length === 0
   const isTooLong = byteLength > LEDGER_MAX_MESSAGE_BYTES
-  const feeToPay = minFee ?? LEDGER_DEFAULT_FEE
-  const feeDisplay = formatLedgerFee(feeToPay)
+  const feeToPay = liveMinFee as bigint | undefined
+  const feeReady = isCanonicalLedger && feeToPay !== undefined && !isFeeLoading
+  const feeDisplay = feeReady ? formatLedgerFee(feeToPay) : '...'
 
   const applyReceiptError = useEffectEvent((message: string) => {
     setPhase('error')
@@ -90,6 +104,16 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
 
   async function handlePost() {
     if (!isConnected || isEmpty || isTooLong) return
+    if (!isCanonicalLedger) {
+      setPhase('error')
+      setStatusMessage('Ledger address does not match the canonical LitVM deployment. Posting was blocked.')
+      return
+    }
+    if (!feeReady || feeToPay === undefined) {
+      setPhase('error')
+      setStatusMessage('The current LitVM Ledger fee could not be verified. Posting was blocked.')
+      return
+    }
     if (!(await ensureLitvmWrite({
       action: 'posting to The Ledger',
       onError: (message) => {
@@ -137,7 +161,7 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
 
   const buttonDisabled = isWrongNetwork
     ? phase === 'pending' || isSwitchingChain
-    : !isConnected || isEmpty || isTooLong || phase === 'signing' || phase === 'pending'
+    : !isConnected || !isCanonicalLedger || !feeReady || isEmpty || isTooLong || phase === 'signing' || phase === 'pending'
 
   return (
     <section
@@ -280,6 +304,12 @@ export function MessageComposer({ address, minFee, onConfirmed }: MessageCompose
               )}
             </button>
           </div>
+
+          {!isCanonicalLedger && (
+            <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+              Posting is disabled because the configured Ledger is not the canonical LitVM deployment.
+            </div>
+          )}
         </>
       )}
 

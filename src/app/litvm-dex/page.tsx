@@ -7,7 +7,7 @@ const FAQ_DATA = [
   { q: 'Is there a maximum slippage setting?', a: 'Yes — slippage is configurable per transaction in the swap interface. Default is set to 0.5%.' },
   { q: 'How do I add liquidity to a LitVM pair?', a: 'Navigate to /swap and use the "Add Liquidity" panel. Alternatively, seed a pair directly through the Launchpad when running a presale.' },
   { q: 'Can I view my LP positions?', a: 'Yes. Connect your wallet at /pool to see all your liquidity provider positions, your share of each pool, and the underlying token balances.' },
-  { q: 'Does the DEX work on LitVM testnet?', a: 'Yes. The LitVM DEX is live on testnet (chain ID 4441). All features, fees, and mechanics are identical to the eventual mainnet deployment.' },
+  { q: 'Does the DEX work on LitVM testnet?', a: 'Yes. The current DEX deployment runs on LitVM testnet (chain ID 4441) with test assets. Mainnet addresses and parameters must be verified when separately deployed.' },
 ]
 
 export const metadata: Metadata = {
@@ -36,8 +36,8 @@ const features = [
     body: 'Every swap pays 0.30% in protocol fees. 0.20% routes directly to the Lester Labs treasury. 0.10% stays in the pool as LP earnings.',
   },
   {
-    title: 'Gasless intent, signed execution',
-    body: 'Place a trade intent, sign a message, execute. Gas is only consumed on final settlement — not on intent submission.',
+    title: 'Wallet-confirmed execution',
+    body: 'Review the route, minimum output, slippage, and network before submitting the on-chain settlement transaction.',
   },
   {
     title: 'Own LP infrastructure',

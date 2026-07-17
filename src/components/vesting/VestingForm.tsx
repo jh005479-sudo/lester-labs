@@ -14,7 +14,8 @@ import {
   ERC20_APPROVE_ABI,
   VESTING_FACTORY_ADDRESS,
 } from '@/lib/contracts/tokenVesting'
-import { isValidContractAddress } from '@/config/contracts'
+import { isCanonicalLitvmContract, LITVM_TESTNET_CONTRACTS } from '@/config/contracts'
+import { litvm } from '@/config/chains'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
 
@@ -300,23 +301,28 @@ export function VestingForm() {
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
   const [successResult, setSuccessResult] = useState<SuccessState | null>(null)
   const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, switchToLitvm, writeContractAsync } = useSafeWriteContract()
+  const isCanonicalVestingFactory = isCanonicalLitvmContract(
+    VESTING_FACTORY_ADDRESS,
+    LITVM_TESTNET_CONTRACTS.vestingFactory,
+  )
 
   const set = <K extends keyof FormState>(key: K, val: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: val }))
 
-  const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
+  const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash, chainId: litvm.id })
 
   // RP-003: Read vesting fee from contract
   const { data: vestingFee, isLoading: isFeeLoading } = useReadContract({
     address: VESTING_FACTORY_ADDRESS,
     abi: VESTING_FACTORY_ABI,
     functionName: 'vestingFee',
+    chainId: litvm.id,
     query: {
-      enabled: isValidContractAddress(VESTING_FACTORY_ADDRESS),
+      enabled: isCanonicalVestingFactory,
     },
   })
 
-  const feeReady = vestingFee !== undefined && !isFeeLoading
+  const feeReady = isCanonicalVestingFactory && vestingFee !== undefined && !isFeeLoading
   const feeDisplay = vestingFee ? formatEther(vestingFee) : '...'
 
   // Fetch actual token decimals on-chain (F-009)
@@ -324,6 +330,7 @@ export function VestingForm() {
     address: isAddress(form.tokenAddress) ? (form.tokenAddress as `0x${string}`) : undefined,
     abi: ERC20_DECIMALS_ABI,
     functionName: 'decimals',
+    chainId: litvm.id,
     query: {
       enabled: isAddress(form.tokenAddress),
     },
@@ -389,6 +396,12 @@ export function VestingForm() {
   }, [receipt, currentTxHash, txStatus, txPhase, form])
 
   const handleApprove = async () => {
+    if (!isCanonicalVestingFactory) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage('Vesting Factory address does not match the canonical LitVM deployment. Approval was blocked.')
+      return
+    }
     if (tokenDecimals === undefined) return // Guard against stale decimals
     if (!(await ensureLitvmWrite({
       action: 'approving a vesting schedule',
@@ -422,6 +435,12 @@ export function VestingForm() {
   }
 
   const handleCreate = async () => {
+    if (!isCanonicalVestingFactory) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage('Vesting Factory address does not match the canonical LitVM deployment. Schedule creation was blocked.')
+      return
+    }
     if (!feeReady) return // RP-003: Block submit until fee loaded
     if (tokenDecimals === undefined) return // Guard against stale decimals
     if (!(await ensureLitvmWrite({
@@ -500,10 +519,9 @@ export function VestingForm() {
     return true
   })()
 
-  const isContractConfigured = isValidContractAddress(VESTING_FACTORY_ADDRESS)
   // Decimals must be loaded before proceeding
   const decimalsReady = tokenDecimals !== undefined
-  const canReview = isContractConfigured && decimalsReady && form.vestingType !== 'custom' && isStep1Valid && isScheduleValid
+  const canReview = isCanonicalVestingFactory && decimalsReady && form.vestingType !== 'custom' && isStep1Valid && isScheduleValid
 
   // Show success panel when done
   if (successResult && !modalOpen) {
@@ -512,6 +530,12 @@ export function VestingForm() {
 
   return (
     <div className="space-y-6">
+      {!isCanonicalVestingFactory && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+          Vesting is disabled because the configured factory is not the canonical LitVM deployment.
+        </div>
+      )}
+
       {step === 'form' ? (
         <>
           {/* ── Section 1: Token & Beneficiary ── */}
@@ -803,7 +827,7 @@ export function VestingForm() {
               {/* Step 1 — Approve */}
               <button
                 onClick={handleApprove}
-                disabled={txPhase !== 'approve'}
+                disabled={txPhase !== 'approve' || !isCanonicalVestingFactory || tokenDecimals === undefined}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition-colors ${
                   txPhase === 'approve'
                     ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'

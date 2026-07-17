@@ -31,6 +31,10 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b]
 }
 
+function modernImageSource(image: string) {
+  return image.replace(/\.(?:png|jpe?g)$/i, '.webp')
+}
+
 export function ToolHero({ category, title, titleHighlight, subtitle, color, stats, image, imagePosition = 'center 34%', imageTopFade = true, compact = false, subtitleMaxWidth = '420px', flowKey }: ToolHeroProps) {
   const headerRef = useRef<HTMLDivElement>(null)
   const [r, g, b] = hexToRgb(color)
@@ -39,11 +43,12 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
   useEffect(() => {
     const el = headerRef.current
     if (!el) return
-    setTimeout(() => {
+    const revealTimer = window.setTimeout(() => {
       el.querySelectorAll('.reveal, .title-reveal, .sub-reveal, .reveal-scale').forEach((node) => {
         node.classList.add('visible')
       })
     }, 80)
+    return () => window.clearTimeout(revealTimer)
   }, [])
 
   const baseName = titleHighlight ? title : ''
@@ -51,6 +56,7 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
   return (
     <div
       ref={headerRef}
+      className="tool-hero-shell"
       style={{
         position: 'relative',
         overflow: 'hidden',
@@ -60,27 +66,31 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
     >
       {/* Illustration — fades in from the right */}
       {image && (
-        <div style={{
+        <div className="tool-hero-media" aria-hidden="true" style={{
           position: 'absolute',
           top: 0, right: 0, bottom: 0,
           width: '56%',
           zIndex: 0,
           pointerEvents: 'none',
         }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={image}
-            alt=""
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              objectPosition: imagePosition,
-              display: 'block',
-              opacity: 0.68,
-              filter: 'contrast(1.08) saturate(1.04)',
-            }}
-          />
+          <picture>
+            <source srcSet={modernImageSource(image)} type="image/webp" />
+            <img
+              src={image}
+              alt=""
+              decoding="async"
+              fetchPriority="high"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: imagePosition,
+                display: 'block',
+                opacity: 0.68,
+                filter: 'contrast(1.08) saturate(1.04)',
+              }}
+            />
+          </picture>
           {/* Fade left edge into bg */}
           <div style={{
             position: 'absolute',
@@ -143,16 +153,13 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
       </div>
 
       {/* Content */}
-      <div style={{
+      <div className={`tool-hero-content${compact ? ' tool-hero-content-compact' : ''}`} style={{
         position: 'relative',
         zIndex: 2,
         maxWidth: '1280px',
         margin: '0 auto',
-        padding: compact
-          ? 'clamp(98px,9vw,124px) clamp(16px,4vw,40px) clamp(38px,4vw,54px)'
-          : 'clamp(120px,11vw,150px) clamp(16px,4vw,40px) clamp(64px,7vw,90px)',
       }}>
-        <div style={{ maxWidth: '600px' }}>
+        <div className="tool-hero-copy" style={{ maxWidth: '600px' }}>
 
           {/* Category chip */}
           <div className="reveal" style={{
@@ -176,13 +183,12 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
           </div>
 
           {/* Title */}
-          <h1 className="title-reveal" style={{
-            fontSize: 'clamp(42px, 5.4vw, 64px)',
+          <h1 className="tool-hero-heading title-reveal" style={{
             fontWeight: 800,
             lineHeight: 1.06,
-            letterSpacing: '-0.024em',
+            letterSpacing: 0,
             marginBottom: '16px',
-            fontFamily: 'Sora, sans-serif',
+            fontFamily: 'var(--font-heading)',
             maxWidth: '12.5ch',
             textWrap: 'balance',
           }}>
@@ -217,7 +223,7 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
           </h1>
 
           {/* Subtitle */}
-          <p className="sub-reveal" style={{
+          <p className="tool-hero-subtitle sub-reveal" style={{
             fontSize: '16px',
             color: 'rgba(240,238,245,0.5)',
             maxWidth: subtitleMaxWidth,
@@ -228,7 +234,7 @@ export function ToolHero({ category, title, titleHighlight, subtitle, color, sta
           </p>
 
           {/* Stat row */}
-          <div className="reveal reveal-delay-1" style={{
+          <div className="tool-hero-stat-row reveal reveal-delay-1" style={{
             display: 'flex', gap: '34px', flexWrap: 'wrap',
           }}>
             {stats.map(({ label, value }) => (

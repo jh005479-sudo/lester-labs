@@ -13,24 +13,27 @@ import {
   LITVM_EXPLORER_URL,
 } from '@/lib/explorerRpc'
 import { LEDGER_ADDRESS } from '@/config/contracts'
-import { GOVERNANCE_CONFIG } from '@/config/governance'
+import { GOVERNANCE_CONFIG, GOVERNOR_ABI } from '@/config/governance'
+import { decodeGovernanceInput } from '../governanceDecode'
 
 // ── Calldata decoders ─────────────────────────────────────────────────────────
 
 const LEDGER_POST_SEL = '0xbaf9b369'
 
-const GOV_SELECTORS: Record<string, string> = {
-  '0x5f357e76': 'castVote',
-  '0xdc648a21': 'castVoteWithReason',
-  '0xbe3df5a3': 'propose',
-  '0x8d42e955': 'queue',
-  '0xfe3419a2': 'execute',
-  '0x539b5c9b': 'cancel',
-  '0x017d2c4c': 'delegate',
-  '0x5c60da1b': 'getVotes',
+interface ExplorerTransaction {
+  blockNumber?: string
+  from: string
+  gasPrice?: string
+  input: string
+  nonce?: string
+  to?: string | null
+  value?: string
 }
 
-const SUPPORT_LABELS: Record<string, string> = { '0': 'Against', '1': 'For', '2': 'Abstain' }
+interface ExplorerReceipt {
+  gasUsed?: string
+  status?: string
+}
 
 function decodeLedgerMessage(inputHex: string): string | null {
   if (!inputHex || inputHex === '0x' || inputHex.length < 140) return null
@@ -47,50 +50,12 @@ function decodeLedgerMessage(inputHex: string): string | null {
   } catch { return null }
 }
 
-/** Decode governance function calls from raw calldata */
-function decodeGovernance(tx: any): { method: string; detail: string; proposalId?: string } | null {
-  if (!tx.input || tx.input === '0x' || tx.input.length < 10) return null
-  const sel = tx.input.slice(0, 10).toLowerCase()
-  const method = GOV_SELECTORS[sel]
-  if (!method) return null
-
-  try {
-    if (method === 'castVote') {
-      const proposalId = BigInt('0x' + tx.input.slice(10, 74)).toString()
-      const support = ['Against', 'For', 'Abstain'][parseInt(tx.input.slice(74, 76), 16)]
-      return { method, detail: `${support} — Proposal #${proposalId}`, proposalId }
-    }
-    if (method === 'castVoteWithReason') {
-      const proposalId = BigInt('0x' + tx.input.slice(10, 74)).toString()
-      const support = ['Against', 'For', 'Abstain'][parseInt(tx.input.slice(74, 76), 16)]
-      // Reason is ABI-encoded string — skip for now, just show vote
-      return { method, detail: `${support} — Proposal #${proposalId}`, proposalId }
-    }
-    if (method === 'propose') {
-      return { method, detail: 'New governance proposal submitted', proposalId: undefined }
-    }
-    if (method === 'execute') {
-      const proposalId = BigInt('0x' + tx.input.slice(10, 74)).toString()
-      return { method, detail: `Execute Proposal #${proposalId}`, proposalId }
-    }
-    if (method === 'queue') {
-      const proposalId = BigInt('0x' + tx.input.slice(10, 74)).toString()
-      return { method, detail: `Queue Proposal #${proposalId}`, proposalId }
-    }
-    if (method === 'cancel') {
-      const proposalId = BigInt('0x' + tx.input.slice(10, 74)).toString()
-      return { method, detail: `Cancel Proposal #${proposalId}`, proposalId }
-    }
-    return { method, detail: method }
-  } catch { return { method, detail: method } }
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TransactionDetailsPage({ params }: { params: Promise<{ hash: string }> }) {
   const { hash } = use(params)
-  const [tx, setTx] = useState<any>(null)
-  const [receipt, setReceipt] = useState<any>(null)
+  const [tx, setTx] = useState<ExplorerTransaction | null>(null)
+  const [receipt, setReceipt] = useState<ExplorerReceipt | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -124,7 +89,7 @@ export default function TransactionDetailsPage({ params }: { params: Promise<{ h
   const txFee = Number(txFeeWei) / 1e18
   const rawMethod = tx?.input && tx.input !== '0x' ? tx.input.slice(0, 10) : null
   const ledgerMessage = tx?.to?.toLowerCase() === LEDGER_ADDRESS.toLowerCase() ? decodeLedgerMessage(tx.input) : null
-  const govTx = isGovernance ? decodeGovernance(tx) : null
+  const govTx = isGovernance ? decodeGovernanceInput(tx.input, GOVERNOR_ABI) : null
 
   return (
     <div className="mx-auto max-w-5xl px-6 pt-28 pb-10 text-zinc-100">

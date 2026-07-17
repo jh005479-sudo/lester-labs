@@ -13,6 +13,36 @@ export interface PriceHistoryPoint {
   price: number
 }
 
+export const UNISWAP_V2_SYNC_TOPIC = '0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1'
+
+export function parseEvmAddress(value: unknown): `0x${string}` | null {
+  return typeof value === 'string' && /^0x[a-fA-F0-9]{40}$/.test(value)
+    ? value as `0x${string}`
+    : null
+}
+
+export function parsePairReserves(value: unknown): readonly [bigint, bigint, number] | null {
+  return Array.isArray(value)
+    && typeof value[0] === 'bigint'
+    && typeof value[1] === 'bigint'
+    && typeof value[2] === 'number'
+    ? value as unknown as readonly [bigint, bigint, number]
+    : null
+}
+
+export function getNextPairScanCount(
+  currentCount: number,
+  totalPairs: number,
+  pageSize: number,
+  maxPairs: number,
+): number {
+  const safeTotal = Math.max(0, Math.floor(totalPairs))
+  const safeCurrent = Math.max(0, Math.floor(currentCount))
+  const safePageSize = Math.max(1, Math.floor(pageSize))
+  const safeMax = Math.max(0, Math.floor(maxPairs))
+  return Math.min(safeTotal, safeMax, safeCurrent + safePageSize)
+}
+
 function bigintToNumber(value: bigint, decimals: number) {
   const denominator = 10 ** decimals
   return Number(value) / denominator

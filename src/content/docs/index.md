@@ -10,8 +10,8 @@ Lester Labs is the first fully native DeFi suite for LitVM (Litecoin Virtual Mac
 | [DEX Swap & Pool](./dex-swap.md) | Trade any LitVM token with 0.30% per swap | 0.30% per trade |
 | [Liquidity Locker](./liquidity-locker.md) | Lock LP tokens with on-chain proof | 0.03 zkLTC |
 | [Token Vesting](./token-vesting.md) | Linear and cliff vesting for teams and investors | 0.03 zkLTC |
-| [Airdrop Tool](./airdrop-tool.md) | Batch token distribution to thousands of wallets | 0.01 zkLTC / batch |
-| [Governance](./governance.md) | On-chain proposal and EIP-712 vote infrastructure | Varies by action |
+| [Airdrop Tool](./airdrop-tool.md) | Local validation and resumable token-distribution batches | Network gas |
+| [Governance](./governance.md) | Local proposal drafting and governance planning | No publishing integration |
 | [Launchpad](./launchpad.md) | Permissionless ILO presales with automatic LitVM LP seeding | 0.03 zkLTC + 2% |
 | [The Ledger](./ledger.md) | Post permanent messages in blockchain calldata | Posting fee |
 
@@ -75,7 +75,7 @@ Live at [lester-labs.com/analytics](https://lester-labs.com/analytics).
 
 ## Security Notes
 
-Most Lester Labs contracts are based on battle-tested upstream implementations from OpenZeppelin, Unicrypt, Disperse, and Uniswap. Where Lester Labs adds custom behavior, the changes are intentionally narrow and tied to platform requirements:
+Several Lester Labs contracts compose upstream OpenZeppelin, Disperse-style, and Uniswap V2 code with custom testnet behavior. Upstream provenance is not an audit of Lester Labs or its deployed bytecode. Notable custom behavior includes:
 
 - the V2 pair contract routes `0.20%` of each trade input directly to the Lester Labs treasury
 - the factory constructor pins both `feeTo` and `feeToSetter` to the Lester Labs treasury

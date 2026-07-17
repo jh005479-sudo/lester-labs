@@ -26,7 +26,7 @@ const features = [
   { title: '0.03 zkLTC + 2% raise fee', body: 'A flat creation fee of 0.03 zkLTC plus 2% of the total raise. No hidden costs, no monthly fees, no subscription.' },
   { title: 'Configurable caps and timelines', body: 'Set soft cap, hard cap, start time, end time, and contribution limits. The ILO contract enforces all parameters — no admin override mid-sale.' },
   { title: 'LP lock enforcement', body: 'Set a lock duration for LP tokens created at finalisation. LP tokens are non-transferable until the unlock date — permanently, immutably, on-chain.' },
-  { title: 'Runs on LitVM', body: 'Every presale, finalisation, and LP creation is executed on LitVM testnet (chain ID 4441). The mechanics are identical to the eventual LitVM mainnet launchpad.' },
+  { title: 'Runs on LitVM testnet', body: 'Every current presale, finalisation, and LP creation executes on LitVM testnet (chain ID 4441) with test assets. Mainnet contracts must be verified separately.' },
 ]
 
 const FAQ_DATA = [
@@ -35,7 +35,7 @@ const FAQ_DATA = [
   { q: 'Do I need my own token already?', a: 'Yes. You need an ERC-20 deployed on LitVM before creating a presale. Use the Token Factory at /launch to deploy one in under a minute.' },
   { q: 'What is automatic LP seeding?', a: 'When your presale finalises, the raised zkLTC and your deposited tokens are sent simultaneously to the Uniswap V2 pair contract. The resulting LP tokens are created and locked according to your configured duration — automatically, with no manual step.' },
   { q: 'Can I set a whitelist for the presale?', a: 'You can configure contribution limits per wallet. For stricter whitelist control, the contract supports this at the configuration stage.' },
-  { q: 'Is the LitVM Launchpad live?', a: 'Yes — live on LitVM testnet (chain ID 4441). Use test zkLTC and test tokens. All mechanics and fees are identical to the mainnet deployment.' },
+  { q: 'Is the LitVM Launchpad live?', a: 'Yes, on LitVM testnet (chain ID 4441) using test zkLTC and test tokens. Future mainnet addresses and parameters must be verified separately.' },
 ]
 
 export default function LitvmLaunchpadPage() {

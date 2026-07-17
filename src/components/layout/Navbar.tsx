@@ -36,6 +36,28 @@ export function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  useEffect(() => {
+    if (!mobileOpen && !appsOpen) return
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setAppsOpen(false)
+      setMobileOpen(false)
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [appsOpen, mobileOpen])
+
+  useEffect(() => {
+    if (!mobileOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [mobileOpen])
+
   return (
     <nav
       className="fixed left-0 right-0 z-[70]"
@@ -49,17 +71,20 @@ export function Navbar() {
       }}
     >
       <div className="mx-auto flex h-12 max-w-[1560px] items-center justify-between gap-3 px-4 sm:px-8 md:h-14 lg:px-10">
-        <Link prefetch={false} href="/" className="shrink-0 transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
+        <Link prefetch={false} href="/" className="inline-flex min-h-11 shrink-0 items-center transition-opacity duration-300 hover:opacity-70" style={{ fontFamily: 'var(--font-heading)' }}>
           <span className="text-sm font-bold uppercase tracking-widest" style={{ color: 'var(--foreground)', letterSpacing: '0.15em' }}>
             Lester<span style={{ color: 'var(--accent)' }}>Labs</span>
           </span>
         </Link>
 
-        <div className="hidden items-center gap-6 md:flex">
+        <div className="hidden items-center gap-6 xl:flex">
           <div className="relative" ref={appsRef}>
             <button
               onClick={() => setAppsOpen((open) => !open)}
-              className="relative flex items-center gap-1.5 text-[12px] tracking-wide transition-all duration-300"
+              className="relative flex min-h-11 items-center gap-1.5 text-[12px] tracking-wide transition-all duration-300"
+              aria-expanded={appsOpen}
+              aria-controls="desktop-apps-menu"
+              aria-haspopup="menu"
               style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 600,
@@ -78,6 +103,8 @@ export function Navbar() {
             {appsOpen && (
               <div
                 className="absolute left-0 top-8 w-[720px] rounded-2xl border border-white/10 p-4"
+                id="desktop-apps-menu"
+                role="menu"
                 style={{
                   background: 'rgba(12, 10, 18, 0.98)',
                   backdropFilter: 'blur(18px)',
@@ -105,6 +132,7 @@ export function Navbar() {
                               prefetch={false}
                               onClick={() => setAppsOpen(false)}
                               className="group rounded-xl p-2.5 transition-colors hover:bg-white/[0.045]"
+                              role="menuitem"
                               style={{
                                 color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
                                 background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
@@ -147,7 +175,7 @@ export function Navbar() {
                 key={href}
                 href={href}
                 prefetch={false}
-                className="relative text-[12px] tracking-wide transition-all duration-300"
+                className="relative inline-flex min-h-11 items-center text-[12px] tracking-wide transition-all duration-300"
                 style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 500,
@@ -174,7 +202,7 @@ export function Navbar() {
                   <button
                     onClick={openConnectModal}
                     type="button"
-                    className="rounded-[14px] px-3 py-2 text-[13px] font-semibold sm:px-4 sm:text-[14px]"
+                    className="min-h-11 rounded-[14px] px-3 py-2 text-[13px] font-semibold sm:px-4 sm:text-[14px]"
                     style={{
                       color: '#f6f4ff',
                       background: 'linear-gradient(135deg, #6B4FFF 0%, #5B3FF0 100%)',
@@ -193,7 +221,7 @@ export function Navbar() {
                   <button
                     onClick={openChainModal}
                     type="button"
-                    className="hidden items-center gap-2 rounded-[14px] px-4 py-2 text-[14px] font-semibold sm:inline-flex"
+                    className="hidden min-h-11 items-center gap-2 rounded-[14px] px-4 py-2 text-[14px] font-semibold sm:inline-flex"
                     style={{
                       color: '#f6f4ff',
                       background: 'rgba(74, 49, 220, 0.22)',
@@ -208,12 +236,12 @@ export function Navbar() {
                   <button
                     onClick={openAccountModal}
                     type="button"
-                    className="inline-flex h-[42px] min-w-[64px] items-center justify-center rounded-[14px] px-3"
+                    className="inline-flex h-11 min-w-[64px] items-center justify-center rounded-[14px] px-3"
+                    aria-label="Open wallet account"
                     style={{
                       background: 'rgba(74, 49, 220, 0.22)',
                       border: '1px solid rgba(167, 137, 255, 0.46)',
                       boxShadow: '0 8px 22px rgba(45, 26, 120, 0.35)',
-                      outline: 'none',
                     }}
                   >
                     {chain?.hasIcon && chain.iconUrl ? (
@@ -229,10 +257,12 @@ export function Navbar() {
           </ConnectButton.Custom>
 
           <button
-            className="-mr-2 p-2 transition-colors duration-300 md:hidden"
+            className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors duration-300 xl:hidden"
             style={{ color: 'var(--foreground-dim)' }}
             onClick={() => setMobileOpen((open) => !open)}
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-navigation-menu"
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
@@ -241,7 +271,8 @@ export function Navbar() {
 
       {mobileOpen && (
         <div
-          className="absolute left-0 right-0 flex flex-col gap-5 overflow-y-auto px-5 md:hidden"
+          className="absolute left-0 right-0 flex flex-col gap-5 overflow-y-auto px-5 xl:hidden"
+          id="mobile-navigation-menu"
           style={{
             top: '100%',
             height: MOBILE_MENU_HEIGHT,
@@ -272,7 +303,7 @@ export function Navbar() {
                       href={app.href}
                       prefetch={false}
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors"
+                      className="flex min-h-11 items-center gap-3 rounded-xl px-2 py-2 transition-colors"
                       style={{
                         color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
                         background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
@@ -305,7 +336,7 @@ export function Navbar() {
                 href={href}
                 prefetch={false}
                 onClick={() => setMobileOpen(false)}
-                className="py-2 text-xl font-light tracking-wide transition-colors duration-300"
+                className="inline-flex min-h-11 items-center py-2 text-xl font-light tracking-wide transition-colors duration-300"
                 style={{
                   color: isActive ? 'var(--foreground)' : 'var(--foreground-dim)',
                   fontFamily: 'var(--font-heading)',

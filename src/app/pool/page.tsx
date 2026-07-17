@@ -1,5 +1,6 @@
 'use client'
 
+import { readContract } from '@wagmi/core'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -15,6 +16,14 @@ import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { filterPools, getRecentPoolIndices } from '@/lib/poolDisplay'
 import { getPoolHealth } from '@/lib/poolHealth'
+import { litvm } from '@/config/chains'
+import {
+  attestFreshDexRuntime,
+  isCanonicalDexDeployment,
+  readFreshCanonicalPair,
+} from '@/lib/dexTransactionReads'
+import { computeRemoveLiquidityMinimums, sameAddress, validateSlippageBps } from '@/lib/dexTransactionSafety'
+import { wagmiConfig } from '@/config/wagmi'
 
 const ACCENT = '#E44FB5'
 const PAGE_SIZE = 10
@@ -112,7 +121,7 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
             <button
               type="button"
               onClick={onToggleWatch}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                 watched
                   ? 'border-violet-300/30 bg-violet-300/12 text-violet-100'
                   : 'border-white/10 bg-white/5 text-white/70 hover:border-white/20 hover:text-white'
@@ -124,14 +133,14 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
           )}
           <Link
             href={`/swap?addLiquidity=${pairAddress}&token0=${token0Address}&token1=${token1Address}`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
           >
             <Plus size={12} />
             Add Liquidity
           </Link>
           <Link
             href={`/charts?pair=${pairAddress}`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:border-cyan-200/35 hover:text-white"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:border-cyan-200/35 hover:text-white"
           >
             <BarChart3 size={12} />
             Chart
@@ -140,7 +149,7 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
             href={`https://liteforge.explorer.caldera.xyz/address/${pairAddress}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
           >
             <ExternalLink size={12} />
             Explorer
@@ -346,6 +355,7 @@ function RemoveLiquidityPanel({
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const [approvalPending, setApprovalPending] = useState(false)
   const [txAction, setTxAction] = useState<'approve' | 'remove'>('remove')
+  const [slippageBps, setSlippageBps] = useState(50n)
 
   const isToken0Native = token0.toLowerCase() === WRAPPED_ZKLTC_ADDRESS.toLowerCase()
   const isToken1Native = token1.toLowerCase() === WRAPPED_ZKLTC_ADDRESS.toLowerCase()
@@ -360,11 +370,26 @@ function RemoveLiquidityPanel({
   const removeAmountExceedsBalance = parsedRemoveAmount > lpBalance
   const lpAmount = parsedRemoveAmount > 0n && !removeAmountExceedsBalance ? parsedRemoveAmount : 0n
 
-  // Read reserves to calculate expected token amounts
+  const pairFromFactoryRead = useReadContract({
+    address: UNISWAP_V2_FACTORY_ADDRESS,
+    abi: UNISWAP_V2_FACTORY_ABI,
+    functionName: 'getPair',
+    args: [token0, token1],
+    chainId: litvm.id,
+    query: { enabled: isCanonicalDexDeployment },
+  })
+  const pairIsAuthenticated = Boolean(
+    isCanonicalDexDeployment &&
+    pairFromFactoryRead.isSuccess &&
+    sameAddress(pairAddress, pairFromFactoryRead.data as string | undefined),
+  )
+
   const reservesRead = useReadContract({
     address: pairAddress,
     abi: UNISWAP_V2_PAIR_ABI,
     functionName: 'getReserves',
+    chainId: litvm.id,
+    query: { enabled: pairIsAuthenticated },
   })
 
   const reserves = reservesRead.data as readonly [bigint, bigint, number] | undefined
@@ -374,23 +399,36 @@ function RemoveLiquidityPanel({
     address: pairAddress,
     abi: UNISWAP_V2_PAIR_ABI,
     functionName: 'totalSupply',
+    chainId: litvm.id,
+    query: { enabled: pairIsAuthenticated },
   })
 
   const totalSupply = totalSupplyRead.data as bigint | undefined
 
-  const expectedToken0 = reserves && totalSupply && totalSupply > 0n
-    ? (reserves[0] * lpAmount) / totalSupply
-    : 0n
-  const expectedToken1 = reserves && totalSupply && totalSupply > 0n
-    ? (reserves[1] * lpAmount) / totalSupply
-    : 0n
+  let previewQuote: ReturnType<typeof computeRemoveLiquidityMinimums> | null = null
+  if (reserves && totalSupply && lpAmount > 0n) {
+    try {
+      previewQuote = computeRemoveLiquidityMinimums({
+        reserve0: reserves[0],
+        reserve1: reserves[1],
+        totalSupply,
+        liquidity: lpAmount,
+        slippageBps,
+      })
+    } catch {
+      previewQuote = null
+    }
+  }
+  const expectedToken0 = previewQuote?.expected0 ?? 0n
+  const expectedToken1 = previewQuote?.expected1 ?? 0n
   // LP token allowance check
   const allowanceRead = useReadContract({
     address: pairAddress,
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: address ? [address, UNISWAP_V2_ROUTER_ADDRESS] : undefined,
-    query: { enabled: isConnected && Boolean(address) },
+    chainId: litvm.id,
+    query: { enabled: pairIsAuthenticated && isConnected && Boolean(address) },
   })
 
   const allowance = (allowanceRead.data ?? 0n) as bigint
@@ -398,6 +436,7 @@ function RemoveLiquidityPanel({
 
   const { isLoading: isConfirming, isSuccess: txConfirmed, error: txError } = useWaitForTransactionReceipt({
     hash: txHash,
+    chainId: litvm.id,
     query: { enabled: Boolean(txHash) },
   })
 
@@ -433,7 +472,7 @@ function RemoveLiquidityPanel({
     setTxMessage(display.slice(0, 300) || `${txAction === 'approve' ? 'Approval' : 'Remove liquidity'} failed.`)
   }, [txError, txHash, txAction])
 
-  const canRemove = isConnected && lpAmount > 0n
+  const canRemove = isConnected && pairIsAuthenticated && lpAmount > 0n && previewQuote !== null
 
   async function handleApprove() {
     if (!address) return
@@ -446,7 +485,20 @@ function RemoveLiquidityPanel({
       },
     }))) return
     setApprovalPending(true)
+    setTxAction('approve')
     try {
+      await attestFreshDexRuntime()
+      await readFreshCanonicalPair(token0, token1, pairAddress)
+      const freshLpBalance = await readContract(wagmiConfig, {
+        address: pairAddress,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [address],
+        chainId: litvm.id,
+      }) as bigint
+      if (freshLpBalance < lpAmount) {
+        throw new Error('Your LitVM LP balance changed. Review the removal amount and try again.')
+      }
       const hash = await writeContractAsync({
         address: pairAddress,
         abi: ERC20_ABI,
@@ -461,7 +513,6 @@ function RemoveLiquidityPanel({
       // Cancel any in-flight query then refetch to get updated allowance
       await queryClient.cancelQueries({ queryKey: allowanceRead.queryKey })
       queryClient.invalidateQueries({ queryKey: allowanceRead.queryKey })
-      setTxAction('approve')
     } catch (err) {
       setTxStatus('error')
       setTxMessage(err instanceof Error ? err.message.slice(0, 180) : 'Approval failed.')
@@ -483,26 +534,58 @@ function RemoveLiquidityPanel({
     }))) return
     setRemoving(true)
     setTxAction('remove')
+    setTxHash(undefined)
     try {
       setTxOpen(true)
       setTxStatus('pending')
       setTxMessage(undefined)
 
       const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
+      validateSlippageBps(slippageBps)
+      await attestFreshDexRuntime()
+      const freshPair = await readFreshCanonicalPair(token0, token1, pairAddress)
+      if (!freshPair) throw new Error('The selected pair is no longer available on the canonical LitVM factory.')
+      const [freshLpBalance, freshAllowance] = await Promise.all([
+        readContract(wagmiConfig, {
+          address: pairAddress,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [address],
+          chainId: litvm.id,
+        }) as Promise<bigint>,
+        readContract(wagmiConfig, {
+          address: pairAddress,
+          abi: ERC20_ABI,
+          functionName: 'allowance',
+          args: [address, UNISWAP_V2_ROUTER_ADDRESS],
+          chainId: litvm.id,
+        }) as Promise<bigint>,
+      ])
+      if (freshLpBalance < lpAmount) {
+        throw new Error('Your LitVM LP balance changed. Review the removal amount and try again.')
+      }
+      if (freshAllowance < lpAmount) {
+        throw new Error('The router allowance changed. Approve the LP amount again before removing liquidity.')
+      }
 
-      // Apply 0.5% slippage tolerance to expected amounts (prevents raw-call-argument errors)
-      const SLIPPAGE_NUM = 995n
-      const SLIPPAGE_DEN = 1000n
-      const safeExpected0 = expectedToken0 > 0n ? (expectedToken0 * SLIPPAGE_NUM) / SLIPPAGE_DEN : 0n
-      const safeExpected1 = expectedToken1 > 0n ? (expectedToken1 * SLIPPAGE_NUM) / SLIPPAGE_DEN : 0n
+      const freshQuote = computeRemoveLiquidityMinimums({
+        reserve0: freshPair.reserves[0],
+        reserve1: freshPair.reserves[1],
+        totalSupply: freshPair.totalSupply,
+        liquidity: lpAmount,
+        slippageBps,
+      })
+      const token0IsPair0 = sameAddress(token0, freshPair.token0)
+      const amount0Min = token0IsPair0 ? freshQuote.amount0Min : freshQuote.amount1Min
+      const amount1Min = token0IsPair0 ? freshQuote.amount1Min : freshQuote.amount0Min
 
       let hash: `0x${string}`
 
       if (isETHPair) {
         // One of the tokens is zkLTC (native)
         const tokenAddr = isToken0Native ? token1 : token0
-        const amountTokenMin = isToken0Native ? safeExpected1 : safeExpected0
-        const amountETHMin = isToken0Native ? safeExpected0 : safeExpected1
+        const amountTokenMin = isToken0Native ? amount1Min : amount0Min
+        const amountETHMin = isToken0Native ? amount0Min : amount1Min
         hash = await writeContractAsync({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_EXTENDED_ABI,
@@ -515,8 +598,8 @@ function RemoveLiquidityPanel({
         const isSorted = token0.toLowerCase() < token1.toLowerCase()
         const [tokenA, tokenB] = isSorted ? [token0, token1] as const : [token1, token0] as const
         const [amountAMin, amountBMin] = isSorted
-          ? [safeExpected0, safeExpected1] as const
-          : [safeExpected1, safeExpected0] as const
+          ? [amount0Min, amount1Min] as const
+          : [amount1Min, amount0Min] as const
         hash = await writeContractAsync({
           address: UNISWAP_V2_ROUTER_ADDRESS,
           abi: UNISWAP_V2_ROUTER_EXTENDED_ABI,
@@ -545,6 +628,7 @@ function RemoveLiquidityPanel({
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-white">Remove Liquidity</h2>
         <button
+          aria-label="Close remove liquidity panel"
           onClick={onClose}
           className="rounded-full border border-white/10 bg-white/5 p-2 text-white/55 transition hover:border-white/20 hover:text-white"
         >
@@ -574,6 +658,7 @@ function RemoveLiquidityPanel({
             </div>
             <div className="flex gap-2">
               <input
+                aria-label="LP token amount to remove"
                 type="number"
                 min="0"
                 step="any"
@@ -631,8 +716,66 @@ function RemoveLiquidityPanel({
             </div>
           )}
 
+          {!pairIsAuthenticated && (
+            <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              Removal is disabled because this pair or the configured DEX targets could not be authenticated against the canonical LitVM factory.
+            </p>
+          )}
+
+          <div className="space-y-3 rounded-2xl border border-white/8 bg-[#120f1d] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="remove-liquidity-slippage" className="text-xs uppercase tracking-[0.12em] text-white/35">
+                Slippage tolerance
+              </label>
+              <div className="flex gap-1.5">
+                {[10n, 50n, 100n].map((bps) => (
+                  <button
+                    key={bps.toString()}
+                    type="button"
+                    onClick={() => setSlippageBps(bps)}
+                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                      slippageBps === bps
+                        ? 'border-fuchsia-300/40 bg-fuchsia-300/10 text-white'
+                        : 'border-white/10 bg-white/5 text-white/55 hover:border-white/20 hover:text-white'
+                    }`}
+                  >
+                    {Number(bps) / 100}%
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="remove-liquidity-slippage"
+                aria-label="Remove liquidity slippage tolerance percentage"
+                type="number"
+                min="0.01"
+                max="50"
+                step="0.1"
+                value={Number(slippageBps) / 100}
+                onChange={(event) => {
+                  const percent = Number(event.target.value)
+                  if (Number.isFinite(percent) && percent > 0 && percent <= 50) {
+                    setSlippageBps(BigInt(Math.round(percent * 100)))
+                  }
+                }}
+                className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-right text-sm text-white outline-none focus:border-white/25"
+              />
+              <span className="text-sm text-white/45">%</span>
+            </div>
+            <p className="text-xs leading-5 text-white/40">
+              Minimum outputs are rebuilt from fresh reserves and total supply immediately before submission.
+            </p>
+          </div>
+
+          {lpAmount > 0n && pairIsAuthenticated && previewQuote === null && (
+            <p className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-100">
+              A positive two-sided quote is required before liquidity can be removed.
+            </p>
+          )}
+
           {/* Approval needed */}
-          {needsApproval && (
+          {needsApproval && pairIsAuthenticated && (
             <button
               onClick={handleApprove}
               disabled={approvalPending}
@@ -683,13 +826,18 @@ export default function PoolPage() {
   const { isWatched, saveSearch, scopedSearches, toggleWatchlist } = useLocalEngagement()
   const savedPoolSearches = scopedSearches('pool')
 
-  const isDexConfigured = isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) && isValidContractAddress(WRAPPED_ZKLTC_ADDRESS)
+  const isDexConfigured =
+    isCanonicalDexDeployment &&
+    isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) &&
+    isValidContractAddress(UNISWAP_V2_ROUTER_ADDRESS) &&
+    isValidContractAddress(WRAPPED_ZKLTC_ADDRESS)
 
   // ── Total pair count ─────────────────────────────────────────────────────
   const allPairsLengthRead = useReadContract({
     address: UNISWAP_V2_FACTORY_ADDRESS,
     abi: UNISWAP_V2_FACTORY_ABI,
     functionName: 'allPairsLength',
+    chainId: litvm.id,
     query: { enabled: isDexConfigured },
   })
 
@@ -728,6 +876,7 @@ export default function PoolPage() {
           abi: UNISWAP_V2_FACTORY_ABI,
           functionName: 'allPairs' as const,
           args: [index],
+          chainId: litvm.id,
         }))
       : [],
     query: { enabled: isDexConfigured && displayedCount > 0 },
@@ -741,10 +890,10 @@ export default function PoolPage() {
   // ── Read pair metadata ───────────────────────────────────────────────────
   const pairStateReads = useReadContracts({
     contracts: pairAddresses.flatMap((pairAddress) => [
-      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' as const },
-      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token1' as const },
-      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' as const },
-      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'totalSupply' as const },
+      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' as const, chainId: litvm.id },
+      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token1' as const, chainId: litvm.id },
+      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' as const, chainId: litvm.id },
+      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'totalSupply' as const, chainId: litvm.id },
     ]),
     query: { enabled: pairAddresses.length > 0 },
   })
@@ -758,6 +907,7 @@ export default function PoolPage() {
             abi: UNISWAP_V2_PAIR_ABI,
             functionName: 'balanceOf' as const,
             args: [address],
+            chainId: litvm.id,
           }))
         : [],
     query: { enabled: isConnected && Boolean(address) && pairAddresses.length > 0 },
@@ -781,9 +931,9 @@ export default function PoolPage() {
           tokenAddress !== ZERO_ADDRESS().toLowerCase()
       )
       .flatMap((tokenAddress) => [
-        { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'name' as const },
-        { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'symbol' as const },
-        { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals' as const },
+        { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'name' as const, chainId: litvm.id },
+        { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'symbol' as const, chainId: litvm.id },
+        { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals' as const, chainId: litvm.id },
       ]),
     query: { enabled: tokenAddresses.size > 0 },
   })
@@ -981,17 +1131,18 @@ export default function PoolPage() {
           </div>
           <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
             <input
+              aria-label="Search pools by token, symbol, or address"
               value={poolSearch}
               onChange={(e) => setPoolSearch(e.target.value)}
               placeholder="Search pools..."
               type="text"
-              className="w-full min-w-0 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-white/20 sm:w-auto sm:min-w-[220px]"
+              className="min-h-11 w-full min-w-0 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-white/20 sm:w-auto sm:min-w-[220px]"
             />
             <button
               type="button"
               onClick={() => saveSearch('pool', poolSearch)}
               disabled={!poolSearch.trim()}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/55 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/55 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
             >
               <BookmarkPlus size={14} />
               Save search
@@ -1003,7 +1154,7 @@ export default function PoolPage() {
             )}
             <Link
               href="/swap?createPool=1"
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition sm:flex-none"
+              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition sm:flex-none"
               style={{
                 background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
                 boxShadow: '0 8px 24px rgba(228,79,181,0.25)',

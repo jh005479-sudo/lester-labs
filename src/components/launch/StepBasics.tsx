@@ -1,5 +1,6 @@
 'use client'
 
+import { useId } from 'react'
 import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
 
 export interface TokenBasics {
@@ -16,6 +17,11 @@ interface StepBasicsProps {
 }
 
 export function StepBasics({ values, onChange }: StepBasicsProps) {
+  const fieldId = useId()
+  const nameId = `${fieldId}-name`
+  const symbolId = `${fieldId}-symbol`
+  const supplyId = `${fieldId}-supply`
+  const decimalsId = `${fieldId}-decimals`
   const set = <K extends keyof TokenBasics>(key: K, value: TokenBasics[K]) =>
     onChange({ ...values, [key]: value })
 
@@ -28,10 +34,11 @@ export function StepBasics({ values, onChange }: StepBasicsProps) {
 
       {/* Token Name */}
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-white/80">
+        <label htmlFor={nameId} className="block text-sm font-medium text-white/80">
           Token Name <span className="text-red-400">*</span>
         </label>
         <input
+          id={nameId}
           type="text"
           value={values.name}
           maxLength={50}
@@ -44,10 +51,11 @@ export function StepBasics({ values, onChange }: StepBasicsProps) {
 
       {/* Token Symbol */}
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-white/80">
+        <label htmlFor={symbolId} className="block text-sm font-medium text-white/80">
           Token Symbol <span className="text-red-400">*</span>
         </label>
         <input
+          id={symbolId}
           type="text"
           value={values.symbol}
           maxLength={10}
@@ -60,10 +68,11 @@ export function StepBasics({ values, onChange }: StepBasicsProps) {
 
       {/* Total Supply */}
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-white/80">
+        <label htmlFor={supplyId} className="block text-sm font-medium text-white/80">
           Total Supply <span className="text-red-400">*</span>
         </label>
         <input
+          id={supplyId}
           type="number"
           value={values.totalSupply}
           min={1}
@@ -77,8 +86,9 @@ export function StepBasics({ values, onChange }: StepBasicsProps) {
 
       {/* Decimals */}
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-white/80">Decimals</label>
+        <label htmlFor={decimalsId} className="block text-sm font-medium text-white/80">Decimals</label>
         <select
+          id={decimalsId}
           value={values.decimals}
           onChange={(e) => set('decimals', Number(e.target.value) as 6 | 8 | 18)}
           className="w-full rounded-lg border border-white/10 bg-[var(--surface-2)] px-4 py-2.5 text-sm text-white focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] transition-colors appearance-none cursor-pointer"

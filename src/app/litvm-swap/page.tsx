@@ -2,12 +2,12 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'LitVM Swap — Gasless Token Trading on LitVM | Lester Labs',
-  description: 'Swap tokens on LitVM with the Lester Labs DEX. 0.30% per trade, treasury-routed LP fees, and gasless intent signing. Trade any LitVM asset with zero third-party dependency.',
+  title: 'LitVM Swap — Token Trading on LitVM | Lester Labs',
+  description: 'Swap tokens on LitVM with live quotes, configurable slippage, and wallet-confirmed settlement through the Lester Labs DEX.',
   alternates: { canonical: 'https://www.lester-labs.com/litvm-swap' },
   openGraph: {
-    title: 'LitVM Swap — Gasless Token Trading on LitVM | Lester Labs',
-    description: 'Swap tokens on LitVM with the Lester Labs DEX. 0.30% per trade, treasury-routed LP fees, and gasless intent signing.',
+    title: 'LitVM Swap — Token Trading on LitVM | Lester Labs',
+    description: 'Swap tokens on LitVM with live quotes, configurable slippage, and wallet-confirmed DEX settlement.',
     url: 'https://www.lester-labs.com/litvm-swap',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -15,16 +15,16 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'LitVM Swap — Gasless Token Trading on LitVM | Lester Labs',
-    description: 'Swap tokens on LitVM with the Lester Labs DEX. 0.30% per trade, treasury-routed LP fees, and gasless intent signing.',
+    title: 'LitVM Swap — Token Trading on LitVM | Lester Labs',
+    description: 'Swap tokens on LitVM with live quotes, configurable slippage, and wallet-confirmed DEX settlement.',
   },
 }
 
 const features = [
   { title: '0.30% total fee', body: 'Every trade pays 0.30% in protocol fees. 0.20% routes to the Lester Labs treasury, 0.10% stays in the liquidity pool.' },
-  { title: 'Gasless intent signing', body: 'Place your intent, sign a message, execute the trade. Gas is consumed only on final settlement — reducing cost per transaction.' },
+  { title: 'Explicit settlement preview', body: 'Review the route, minimum received amount, slippage, network, and expected wallet actions before submitting an on-chain swap.' },
   { title: 'Any ERC-20 on LitVM', body: 'Deploy a token via the Token Factory and it immediately becomes available to pair and trade on the LitVM swap interface.' },
-  { title: 'Live on testnet', body: 'The LitVM swap is live on LitVM testnet (chain ID 4441). All mechanics and fees are identical to the eventual mainnet deployment.' },
+  { title: 'Live on testnet', body: 'The current deployment runs on LitVM testnet (chain ID 4441) with test assets. Future mainnet contracts and parameters must be verified separately.' },
 ]
 
 const FAQ_DATA = [
@@ -82,7 +82,7 @@ export default function LitvmSwapPage() {
               fontSize: '18px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.65,
               maxWidth: '540px', margin: '0 auto 32px',
             }}>
-              Gasless intent. 0.30% per trade. Treasury-routed LP. Swap any ERC-20 on LitVM through the Lester Labs decentralized exchange infrastructure.
+              Live quotes, configurable slippage, and wallet-confirmed settlement for ERC-20 swaps on the Lester Labs LitVM testnet DEX.
             </p>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/swap" style={{

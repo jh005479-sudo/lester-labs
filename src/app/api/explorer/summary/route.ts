@@ -70,6 +70,7 @@ async function getCachedSummary(stage: string, includeReceipts: boolean) {
         cache.set(key, { value, expires: Date.now() + CACHE_TTL_MS })
         return value
       })
+      .catch(() => entry.value)
       .finally(() => {
         const current = cache.get(key)
         if (current) current.refreshing = undefined
@@ -78,7 +79,7 @@ async function getCachedSummary(stage: string, includeReceipts: boolean) {
   }
 
   const value = await buildSummary(includeReceipts)
-  cache.set(key, { value, expires: now + CACHE_TTL_MS })
+  cache.set(key, { value, expires: Date.now() + CACHE_TTL_MS })
   return value
 }
 
@@ -93,10 +94,10 @@ export async function GET(request: Request) {
         'cache-control': getExplorerSummaryCacheControl(),
       },
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json({
       ...createEmptyExplorerSummary(),
-      error: error instanceof Error ? error.message : 'Unable to load explorer summary.',
+      error: 'Live explorer feed temporarily unavailable.',
     }, {
       status: 200,
       headers: {

@@ -9,21 +9,29 @@ import { formatUnits } from 'viem'
 import { ArrowUpRight, BarChart3, BookmarkCheck, BookmarkPlus, Droplets, ExternalLink, Loader2, RefreshCw, Search } from 'lucide-react'
 import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI } from '@/config/abis'
+import { litvm } from '@/config/chains'
 import { UNISWAP_V2_FACTORY_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { LITVM_EXPLORER_URL, rpc, hexToNumber } from '@/lib/explorerRpc'
 import {
-  buildReserveHistory,
   calculateTokenPriceInQuote,
   formatCompactUsd,
+  getNextPairScanCount,
   getPairDisplaySymbol,
+  parseEvmAddress,
+  parsePairReserves,
+  UNISWAP_V2_SYNC_TOPIC,
   type PriceHistoryPoint,
 } from '@/lib/dexCharts'
 import { getRecentPoolIndices } from '@/lib/poolDisplay'
+import { buildTokenMetadataRequest, sanitizeTokenMetadataText } from '@/lib/tokenMetadataRequest'
 
-const PAIR_SCAN_LIMIT = 72
-const HISTORY_BLOCK_LOOKBACK = 150_000
+const INITIAL_PAIR_SCAN = 18
+const PAIR_SCAN_PAGE_SIZE = 18
+const MAX_PAIR_SCAN = 72
+const HISTORY_BLOCK_LOOKBACK = 30_000
+const HISTORY_BLOCK_BATCH = 5_000
+const HISTORY_LOG_LIMIT = 500
 const HISTORY_POINT_LIMIT = 80
-const SYNC_TOPIC = '0x1c411e9a96e071241ad3aaf1a85bb7f313f435f2f5bd414aa2b7f44c79888b'
 
 type TokenMeta = {
   address: `0x${string}`
@@ -38,7 +46,6 @@ type PairMarket = {
   token1: TokenMeta
   reserve0: bigint
   reserve1: bigint
-  totalSupply: bigint
   base: TokenMeta
   quote: TokenMeta
   price: number | null
@@ -94,27 +101,37 @@ async function fetchSyncHistory(market: PairMarket): Promise<PriceHistoryPoint[]
     cacheTtl: 10_000,
   })
   const latest = hexToNumber(latestHex)
-  const from = Math.max(0, latest - HISTORY_BLOCK_LOOKBACK)
-  const logs = await rpc<SyncLog[]>(
-    'eth_getLogs',
-    [{
-      address: market.pairAddress,
-      topics: [SYNC_TOPIC],
-      fromBlock: `0x${from.toString(16)}`,
-      toBlock: 'latest',
-    }],
-    { cacheKey: `sync:${market.pairAddress}:${from}:${latest}`, cacheTtl: 30_000 },
-  )
+  const from = Math.max(0, latest - HISTORY_BLOCK_LOOKBACK + 1)
+  let logs: SyncLog[] = []
+  let cursorEnd = latest
+
+  while (cursorEnd >= from && logs.length < HISTORY_LOG_LIMIT) {
+    const batchStart = Math.max(from, cursorEnd - HISTORY_BLOCK_BATCH + 1)
+    const batch = await rpc<SyncLog[]>(
+      'eth_getLogs',
+      [{
+        address: market.pairAddress,
+        topics: [UNISWAP_V2_SYNC_TOPIC],
+        fromBlock: `0x${batchStart.toString(16)}`,
+        toBlock: `0x${cursorEnd.toString(16)}`,
+      }],
+      { cacheKey: `sync:${market.pairAddress}:${batchStart}:${cursorEnd}`, cacheTtl: 30_000 },
+    )
+    const remaining = HISTORY_LOG_LIMIT - logs.length
+    logs = batch.slice(-remaining).concat(logs)
+    cursorEnd = batchStart - 1
+  }
 
   const sampled = logs.slice(-HISTORY_POINT_LIMIT)
-  if (sampled.length < 2) return buildReserveHistory(market.price, 24)
+  if (sampled.length < 2) return []
 
   const timeByBlock = new Map<string, string>()
-  await Promise.all(
-    Array.from(new Set(sampled.map((log) => log.blockNumber))).map(async (blockNumber) => {
+  const blockNumbers = Array.from(new Set(sampled.map((log) => log.blockNumber)))
+  for (let index = 0; index < blockNumbers.length; index += 8) {
+    await Promise.all(blockNumbers.slice(index, index + 8).map(async (blockNumber) => {
       timeByBlock.set(blockNumber, await fetchBlockTime(blockNumber))
-    }),
-  )
+    }))
+  }
 
   const points = sampled
     .map((log) => {
@@ -137,7 +154,7 @@ async function fetchSyncHistory(market: PairMarket): Promise<PriceHistoryPoint[]
     })
     .filter((point): point is PriceHistoryPoint => point !== null)
 
-  return points.length >= 2 ? points : buildReserveHistory(market.price, 24)
+  return points.length >= 2 ? points : []
 }
 
 function pickBaseQuote(token0: TokenMeta, token1: TokenMeta) {
@@ -183,6 +200,7 @@ function ChartsContent() {
   const pairParam = searchParams.get('pair')
   const queryParam = searchParams.get('q')
   const [search, setSearch] = useState('')
+  const [requestedPairCount, setRequestedPairCount] = useState(INITIAL_PAIR_SCAN)
   const [selectedPair, setSelectedPair] = useState<`0x${string}` | null>(null)
   const [history, setHistory] = useState<PriceHistoryPoint[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -194,23 +212,28 @@ function ChartsContent() {
 
   const isDexConfigured = isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS)
   const allPairsLengthRead = useReadContract({
+    chainId: litvm.id,
     address: UNISWAP_V2_FACTORY_ADDRESS,
     abi: UNISWAP_V2_FACTORY_ABI,
     functionName: 'allPairsLength',
     query: { enabled: isDexConfigured },
   })
   const totalPairs = Number(allPairsLengthRead.data ?? 0n)
-  const displayedCount = Math.min(totalPairs, PAIR_SCAN_LIMIT)
+  const displayedCount = Math.min(totalPairs, requestedPairCount, MAX_PAIR_SCAN)
   const indices = useMemo(() => getRecentPoolIndices(totalPairs, displayedCount), [totalPairs, displayedCount])
 
   const pairAddressReads = useReadContracts({
     contracts: indices.map((index) => ({
+      chainId: litvm.id,
       address: UNISWAP_V2_FACTORY_ADDRESS,
       abi: UNISWAP_V2_FACTORY_ABI,
       functionName: 'allPairs' as const,
       args: [index],
     })),
-    query: { enabled: isDexConfigured && indices.length > 0 },
+    query: {
+      enabled: isDexConfigured && indices.length > 0,
+      placeholderData: (previousData) => previousData,
+    },
   })
 
   const pairAddresses = useMemo(() => (
@@ -221,33 +244,39 @@ function ChartsContent() {
 
   const pairStateReads = useReadContracts({
     contracts: pairAddresses.flatMap((pairAddress) => [
-      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' as const },
-      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token1' as const },
-      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' as const },
-      { address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'totalSupply' as const },
+      { chainId: litvm.id, address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token0' as const },
+      { chainId: litvm.id, address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'token1' as const },
+      { chainId: litvm.id, address: pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: 'getReserves' as const },
     ]),
-    query: { enabled: pairAddresses.length > 0 },
+    query: {
+      enabled: pairAddresses.length > 0,
+      placeholderData: (previousData) => previousData,
+    },
   })
 
-  const tokenMetadataAddresses = useMemo(() => {
+  const tokenMetadataRequest = useMemo(() => {
     const tokenAddresses = new Set<string>()
     for (const result of pairStateReads.data ?? []) {
       if (result.status !== 'success' || typeof result.result !== 'string') continue
       if (/^0x[a-fA-F0-9]{40}$/.test(result.result)) tokenAddresses.add(result.result.toLowerCase())
     }
 
-    return Array.from(tokenAddresses).filter(
+    return buildTokenMetadataRequest(Array.from(tokenAddresses).filter(
       (address) => address !== WRAPPED_ZKLTC_ADDRESS.toLowerCase(),
-    )
+    ) as `0x${string}`[])
   }, [pairStateReads.data])
+  const tokenMetadataAddresses = tokenMetadataRequest.addresses
 
   const tokenMetadataReads = useReadContracts({
     contracts: tokenMetadataAddresses.flatMap((tokenAddress) => [
-      { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'name' as const },
-      { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'symbol' as const },
-      { address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals' as const },
+      { chainId: litvm.id, address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'name' as const },
+      { chainId: litvm.id, address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'symbol' as const },
+      { chainId: litvm.id, address: tokenAddress as `0x${string}`, abi: ERC20_ABI, functionName: 'decimals' as const },
     ]),
-    query: { enabled: tokenMetadataAddresses.length > 0 },
+    query: {
+      enabled: tokenMetadataAddresses.length > 0,
+      placeholderData: (previousData) => previousData,
+    },
   })
 
   const tokenMetaMap = useMemo(() => {
@@ -266,8 +295,8 @@ function ChartsContent() {
       const decimals = tokenMetadataReads.data?.[base + 2]
       map.set(tokenAddress, {
         address: tokenAddress as `0x${string}`,
-        name: name?.status === 'success' ? String(name.result) : shortAddress(tokenAddress),
-        symbol: symbol?.status === 'success' ? String(symbol.result) : 'TOKEN',
+        name: name?.status === 'success' ? sanitizeTokenMetadataText(name.result, shortAddress(tokenAddress)) : shortAddress(tokenAddress),
+        symbol: symbol?.status === 'success' ? sanitizeTokenMetadataText(symbol.result, 'TOKEN') : 'TOKEN',
         decimals: decimals?.status === 'success' ? Number(decimals.result) : 18,
       })
     })
@@ -278,21 +307,15 @@ function ChartsContent() {
   const markets = useMemo(() => (
     pairAddresses
       .map((pairAddress, index): PairMarket | null => {
-        const base = index * 4
-        const token0Address = pairStateReads.data?.[base]?.status === 'success'
-          ? (pairStateReads.data[base].result as `0x${string}`)
-          : null
-        const token1Address = pairStateReads.data?.[base + 1]?.status === 'success'
-          ? (pairStateReads.data[base + 1].result as `0x${string}`)
-          : null
-        const reserves = pairStateReads.data?.[base + 2]?.status === 'success'
-          ? (pairStateReads.data[base + 2].result as readonly [bigint, bigint, number])
-          : null
-        const totalSupply = pairStateReads.data?.[base + 3]?.status === 'success'
-          ? (pairStateReads.data[base + 3].result as bigint)
-          : null
+        const base = index * 3
+        const token0Result = pairStateReads.data?.[base]
+        const token1Result = pairStateReads.data?.[base + 1]
+        const reservesResult = pairStateReads.data?.[base + 2]
+        const token0Address = token0Result?.status === 'success' ? parseEvmAddress(token0Result.result) : null
+        const token1Address = token1Result?.status === 'success' ? parseEvmAddress(token1Result.result) : null
+        const reserves = reservesResult?.status === 'success' ? parsePairReserves(reservesResult.result) : null
 
-        if (!token0Address || !token1Address || !reserves || totalSupply === null) return null
+        if (!token0Address || !token1Address || !reserves) return null
         const token0 = tokenMetaMap.get(token0Address.toLowerCase()) ?? {
           address: token0Address,
           name: shortAddress(token0Address),
@@ -322,7 +345,6 @@ function ChartsContent() {
           token1,
           reserve0: reserves[0],
           reserve1: reserves[1],
-          totalSupply,
           base: baseToken,
           quote,
           price,
@@ -367,6 +389,7 @@ function ChartsContent() {
     ? `${selectedMarket.pairAddress}:${selectedMarket.reserve0.toString()}:${selectedMarket.reserve1.toString()}:${selectedMarket.price ?? 'na'}`
     : ''
   const selectedWatched = selectedMarket ? isWatched('pool', selectedMarket.pairAddress) : false
+  const canLoadMorePairs = displayedCount < Math.min(totalPairs, MAX_PAIR_SCAN)
 
   useEffect(() => {
     if (!selectedMarket) return
@@ -380,6 +403,7 @@ function ChartsContent() {
   }, [addActivity, selectedMarket])
 
   const selectedBaseSupplyRead = useReadContract({
+    chainId: litvm.id,
     address: selectedMarket?.base.address,
     abi: ERC20_ABI,
     functionName: 'totalSupply',
@@ -418,7 +442,7 @@ function ChartsContent() {
       })
       .catch((error) => {
         if (cancelled) return
-        setHistory(buildReserveHistory(selectedMarket.price, 24))
+        setHistory([])
         setHistoryError(error instanceof Error ? error.message : 'Unable to load chart history.')
       })
       .finally(() => {
@@ -449,13 +473,15 @@ function ChartsContent() {
     ? Number(formatUnits(quoteReserve, selectedMarket.quote.decimals)) * 2
     : 0
 
-  const chartData = history.length > 0
-    ? history
-    : buildReserveHistory(selectedMarket?.price ?? null, 24)
+  const chartData = history
   const pairTitle = selectedMarket
     ? getPairDisplaySymbol(selectedMarket.base.symbol, selectedMarket.quote.symbol)
     : 'Select a pair'
-  const loadingMarkets = allPairsLengthRead.isLoading || pairAddressReads.isLoading || pairStateReads.isLoading
+  const loadingPairRecords = allPairsLengthRead.isLoading
+    || pairAddressReads.isFetching
+    || pairStateReads.isFetching
+  const hydratingMetadata = tokenMetadataReads.isFetching
+  const loadingMarkets = loadingPairRecords || hydratingMetadata
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-white">
@@ -468,7 +494,7 @@ function ChartsContent() {
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Market Charts</h1>
             <p className="mt-1 text-sm text-white/50">
-              Search Lester DEX pairs by ticker, token, or address. Prices are derived from LitVM testnet reserves.
+              Search loaded Lester DEX pairs by ticker, token, or address. Ratios are derived from LitVM testnet reserves.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-white/40">
@@ -476,8 +502,16 @@ function ChartsContent() {
               {totalPairs.toLocaleString()} factory pairs
             </span>
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-              {displayedCount.toLocaleString()} newest scanned
+              {displayedCount.toLocaleString()} newest requested
             </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+              {markets.length.toLocaleString()} markets loaded
+            </span>
+            {tokenMetadataRequest.truncated && (
+              <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1.5 text-amber-100/75">
+                Metadata limited to {tokenMetadataAddresses.length} tokens
+              </span>
+            )}
           </div>
         </div>
 
@@ -495,7 +529,7 @@ function ChartsContent() {
                       key={market.pairAddress}
                       type="button"
                       onClick={() => setSelectedPair(market.pairAddress)}
-                      className="flex w-full items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2 text-left transition hover:border-cyan-300/25"
+                      className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2 text-left transition hover:border-cyan-300/25"
                     >
                       <span className="min-w-0 truncate text-xs font-semibold text-white/75">
                         {getPairDisplaySymbol(market.base.symbol, market.quote.symbol)}
@@ -511,10 +545,11 @@ function ChartsContent() {
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
               <input
+                aria-label="Search LitVM markets"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Ticker, token, pair, or address"
-                className="w-full rounded-lg border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-cyan-300/35"
+                placeholder="Search loaded ticker, token, pair, or address"
+                className="min-h-11 w-full rounded-lg border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-cyan-300/35"
               />
             </div>
             <div className="mb-4 flex flex-wrap gap-2">
@@ -522,7 +557,7 @@ function ChartsContent() {
                 type="button"
                 onClick={() => saveSearch('charts', search)}
                 disabled={!search.trim()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-white/55 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/55 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <BookmarkPlus size={12} />
                 Save
@@ -532,7 +567,7 @@ function ChartsContent() {
                   key={`${item.query}:${item.updatedAt}`}
                   type="button"
                   onClick={() => setSearch(item.query)}
-                  className="rounded-lg border border-white/8 bg-white/[0.025] px-2.5 py-1.5 text-xs text-white/45 transition hover:border-white/15 hover:text-white/75"
+                  className="min-h-11 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2 text-xs text-white/45 transition hover:border-white/15 hover:text-white/75"
                 >
                   {item.query}
                 </button>
@@ -540,11 +575,13 @@ function ChartsContent() {
             </div>
 
             <div className="mb-3 flex items-center justify-between text-xs text-white/40">
-              <span>{filteredMarkets.length} matches</span>
+              <span>{filteredMarkets.length} matches in {markets.length} loaded</span>
               {loadingMarkets && (
                 <span className="inline-flex items-center gap-1">
                   <Loader2 size={12} className="animate-spin" />
-                  Loading pairs
+                  {loadingPairRecords
+                    ? markets.length > 0 ? 'Loading next pair page' : 'Loading newest pairs'
+                    : 'Hydrating loaded metadata'}
                 </span>
               )}
             </div>
@@ -584,10 +621,37 @@ function ChartsContent() {
 
               {!loadingMarkets && filteredMarkets.length === 0 && (
                 <div className="rounded-lg border border-white/10 bg-white/[0.025] p-6 text-center text-sm text-white/40">
-                  No matching LitVM pairs in the newest scanned window.
+                  No matching LitVM pairs in the loaded newest-pair window.
                 </div>
               )}
             </div>
+
+            {(canLoadMorePairs || displayedCount >= MAX_PAIR_SCAN) && (
+              <div className="mt-4 border-t border-white/8 pt-4">
+                {canLoadMorePairs ? (
+                  <button
+                    type="button"
+                    onClick={() => setRequestedPairCount((current) => getNextPairScanCount(
+                      current,
+                      totalPairs,
+                      PAIR_SCAN_PAGE_SIZE,
+                      MAX_PAIR_SCAN,
+                    ))}
+                    disabled={loadingMarkets}
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/40 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {loadingMarkets ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {loadingMarkets
+                      ? loadingPairRecords ? 'Loading requested pairs...' : 'Hydrating metadata...'
+                      : `Load ${Math.min(PAIR_SCAN_PAGE_SIZE, Math.min(totalPairs, MAX_PAIR_SCAN) - displayedCount)} more newest pairs`}
+                  </button>
+                ) : (
+                  <p className="text-center text-xs leading-relaxed text-white/35">
+                    Search covers the newest {displayedCount.toLocaleString()} factory pairs; older pairs are outside this bounded view.
+                  </p>
+                )}
+              </div>
+            )}
           </aside>
 
           <section className="space-y-6">
@@ -610,7 +674,7 @@ function ChartsContent() {
                         label: getPairDisplaySymbol(selectedMarket.base.symbol, selectedMarket.quote.symbol),
                         href: `/charts?pair=${selectedMarket.pairAddress}`,
                       })}
-                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                      className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
                         selectedWatched
                           ? 'border-violet-300/35 bg-violet-300/12 text-violet-100'
                           : 'border-white/10 bg-white/5 text-white/65 hover:border-white/20 hover:text-white'
@@ -621,7 +685,7 @@ function ChartsContent() {
                     </button>
                     <Link
                       href={`/swap?token0=${selectedMarket.quote.address}&token1=${selectedMarket.base.address}`}
-                      className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/45"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/45"
                     >
                       <Droplets size={15} />
                       Swap
@@ -630,7 +694,7 @@ function ChartsContent() {
                       href={`${LITVM_EXPLORER_URL}/address/${selectedMarket.pairAddress}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65 transition hover:border-white/20 hover:text-white"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65 transition hover:border-white/20 hover:text-white"
                     >
                       Explorer
                       <ExternalLink size={14} />
@@ -641,7 +705,7 @@ function ChartsContent() {
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-lg border border-white/8 bg-white/[0.025] p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-white/35">Price</p>
+                  <p className="text-xs uppercase tracking-[0.12em] text-white/35">Reserve ratio</p>
                   <p className="mt-2 text-xl font-semibold text-white">
                     {formatPrice(selectedMarket?.price ?? null)} {selectedMarket?.quote.symbol ?? ''}
                   </p>
@@ -653,7 +717,7 @@ function ChartsContent() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-white/8 bg-white/[0.025] p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-white/35">Market cap</p>
+                  <p className="text-xs uppercase tracking-[0.12em] text-white/35">Implied FDV</p>
                   <p className="mt-2 text-xl font-semibold text-white">
                     {marketCapInQuote ? `${formatCompactUsd(marketCapInQuote).replace('$', '')} ${selectedMarket?.quote.symbol}` : '—'}
                   </p>
@@ -677,9 +741,9 @@ function ChartsContent() {
             <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-white">Price Chart</h2>
+                  <h2 className="text-lg font-semibold text-white">Reserve-ratio history</h2>
                   <p className="mt-1 text-sm text-white/45">
-                    Recent reserve updates from the LitVM V2 pair. Quiet markets show a reserve-based fallback line.
+                    Recent on-chain Sync events from the LitVM V2 pair. No synthetic points are added.
                   </p>
                 </div>
                 <button
@@ -690,11 +754,11 @@ function ChartsContent() {
                     setHistoryLoading(true)
                     fetchSyncHistory(selectedMarket)
                       .then(setHistory)
-                      .catch(() => setHistory(buildReserveHistory(selectedMarket.price, 24)))
+                      .catch(() => setHistory([]))
                       .finally(() => setHistoryLoading(false))
                   }}
                   disabled={!selectedMarket || historyLoading}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RefreshCw size={14} className={historyLoading ? 'animate-spin' : ''} />
                   Refresh
@@ -702,7 +766,11 @@ function ChartsContent() {
               </div>
 
               <div ref={chartFrameRef} className="h-[360px] min-w-0">
-                {chartSize.width > 0 && chartSize.height > 0 ? (
+                {historyLoading ? (
+                  <div className="flex h-full items-center justify-center rounded-lg border border-white/8 bg-white/[0.025] text-sm text-white/35">
+                    Loading on-chain reserve updates...
+                  </div>
+                ) : chartData.length >= 2 && chartSize.width > 0 && chartSize.height > 0 ? (
                   <AreaChart
                     width={chartSize.width}
                     height={chartSize.height}
@@ -719,21 +787,21 @@ function ChartsContent() {
                     <XAxis dataKey="time" tick={{ fill: 'rgba(255,255,255,0.38)', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={26} />
                     <YAxis tick={{ fill: 'rgba(255,255,255,0.38)', fontSize: 11 }} tickLine={false} axisLine={false} width={72} tickFormatter={(value) => formatPrice(Number(value))} />
                     <Tooltip
-                      formatter={(value: unknown) => [`${formatPrice(Number(value))} ${selectedMarket?.quote.symbol ?? ''}`, 'Price']}
+                      formatter={(value: unknown) => [`${formatPrice(Number(value))} ${selectedMarket?.quote.symbol ?? ''}`, 'Reserve ratio']}
                       contentStyle={{ background: '#111827', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#fff' }}
                       labelStyle={{ color: 'rgba(255,255,255,0.55)' }}
                     />
                     <Area type="monotone" dataKey="price" stroke="#36D1DC" strokeWidth={2} fill="url(#chartFill)" dot={false} activeDot={{ r: 4 }} />
                   </AreaChart>
                 ) : (
-                  <div className="flex h-full items-center justify-center rounded-lg border border-white/8 bg-white/[0.025] text-sm text-white/35">
-                    Loading chart...
+                  <div className="flex h-full items-center justify-center rounded-lg border border-white/8 bg-white/[0.025] px-6 text-center text-sm text-white/35">
+                    No recent Sync history is available for this pair. The current reserve ratio remains shown above.
                   </div>
                 )}
               </div>
               {historyError && (
                 <p className="mt-3 text-xs text-amber-300/80">
-                  Live history fallback active: {historyError.slice(0, 140)}
+                  On-chain history is temporarily unavailable: {historyError.slice(0, 140)}
                 </p>
               )}
             </div>

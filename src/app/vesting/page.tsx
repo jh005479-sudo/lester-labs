@@ -24,7 +24,7 @@ export default function VestingPage() {
         category="Token Distribution"
         title="Lester"
         titleHighlight="Vester"
-        subtitle="Create battle-tested vesting wallets for teams, investors, and advisors. Beneficiaries claim vested tokens on demand."
+        subtitle="Create OpenZeppelin-based vesting wallets for teams, investors, and advisors, then verify each schedule on-chain."
         color={COLOR}
         image="/images/carousel/token-vesting.png"
         compact
@@ -39,11 +39,11 @@ export default function VestingPage() {
       <div className="tool-page-content" style={{ maxWidth: '920px' }}>
         {!isConnected ? (
           <ConnectWalletPrompt
-            body="Connect to create vesting wallets, inspect beneficiary schedules, and release vested tokens."
+            body="Connect to create vesting wallets and inspect beneficiary schedules. Vested tokens are released by calling release(token) on the vesting wallet."
             previewTitle="Vesting preview"
             previewItems={[
               { label: 'Schedule', value: 'Linear + cliff', detail: 'Model team, investor, or advisor unlocks.' },
-              { label: 'Claiming', value: 'On demand', detail: 'Beneficiaries release only what has vested.' },
+              { label: 'Release', value: 'On-chain call', detail: 'Call release(token) on the vesting wallet.' },
               { label: 'Proof', value: 'Wallet address', detail: 'Each vesting wallet remains inspectable.' },
             ]}
             nextActions={[

@@ -32,7 +32,7 @@ export interface ExplorerSummaryTransaction {
   to: string
   value: string
   time: string
-  status: 'Success' | 'Pending'
+  status: 'Success' | 'Failed' | 'Pending'
 }
 
 export interface ExplorerSummary {
@@ -40,6 +40,7 @@ export interface ExplorerSummary {
   blocks: ExplorerSummaryBlock[]
   transactions: ExplorerSummaryTransaction[]
   updatedAt: string | null
+  error?: string
 }
 
 export function getExplorerSummaryCacheControl() {
@@ -116,7 +117,7 @@ export function buildExplorerSummary({
         to: txObject?.to || '0x0000000000000000000000000000000000000000',
         value: formatSummaryEtherFromHex(txObject?.value),
         time: timeAgoFromTimestamp(block.timestamp, nowMs),
-        status: receipt?.status === '0x1' ? 'Success' : 'Pending',
+        status: receipt?.status === '0x1' ? 'Success' : receipt?.status === '0x0' ? 'Failed' : 'Pending',
       }
     })
     .filter((tx): tx is ExplorerSummaryTransaction => tx !== null)

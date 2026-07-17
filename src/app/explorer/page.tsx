@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ShareModal } from '@/components/ShareModal'
 import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
 import { BarChart3, BookmarkPlus, Coins, Droplets, Search } from 'lucide-react'
 import { useLocalEngagement } from '@/hooks/useLocalEngagement'
@@ -18,7 +17,7 @@ export default function ExplorerPage() {
   const [loadingBlocks, setLoadingBlocks] = useState(true)
   const [loadingTransactions, setLoadingTransactions] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [shareOpen, setShareOpen] = useState(false)
+  const [stageErrors, setStageErrors] = useState<Partial<Record<'blocks' | 'transactions', string>>>({})
   const { saveSearch, addActivity, scopedSearches } = useLocalEngagement()
   const savedExplorerSearches = scopedSearches('explorer')
 
@@ -32,6 +31,11 @@ export default function ExplorerPage() {
         })
         const data = await res.json() as ExplorerSummary
         if (!active) return
+        if (data.error) {
+          setStageErrors((current) => ({ ...current, [stage]: data.error }))
+        } else {
+          setStageErrors((current) => ({ ...current, [stage]: undefined }))
+        }
         setSummary((current) => ({
           latestBlock: data.latestBlock || current.latestBlock,
           blocks: data.blocks.length > 0 ? data.blocks : current.blocks,
@@ -40,6 +44,12 @@ export default function ExplorerPage() {
         }))
       } catch (e) {
         console.error('Failed to load live explorer data', e)
+        if (active) {
+          setStageErrors((current) => ({
+            ...current,
+            [stage]: e instanceof Error ? e.message : 'Live feed unavailable.',
+          }))
+        }
       } finally {
         if (!active) return
         if (stage === 'blocks') setLoadingBlocks(false)
@@ -96,7 +106,7 @@ export default function ExplorerPage() {
 
   const stats = [
     { label: 'Latest Block', value: summary.latestBlock ? `#${summary.latestBlock.toLocaleString()}` : 'Ready' },
-    { label: 'Block Time', value: summary.blocks.length > 1 ? 'Live' : loadingBlocks ? 'Syncing' : '—' },
+    { label: 'Block Feed', value: summary.blocks.length > 1 ? 'Live' : loadingBlocks ? 'Syncing' : '—' },
     { label: 'Recent Blocks', value: loadingBlocks && summary.blocks.length === 0 ? 'Syncing' : summary.blocks.length.toString() },
     { label: 'Sampled Txs', value: loadingTransactions && summary.transactions.length === 0 ? 'Syncing' : summary.transactions.length.toString() },
     { label: 'Chain ID', value: '4441' },
@@ -111,8 +121,6 @@ export default function ExplorerPage() {
           <h1 className="text-2xl font-bold tracking-tight">Explorer</h1>
           <p className="text-white/50 text-sm mt-1">Live LitVM chain data — blocks, transactions, and network stats</p>
         </div>
-
-        <LiveActivityRail surface="explorer" />
 
         {/* Network Stats Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
@@ -131,6 +139,7 @@ export default function ExplorerPage() {
         <form onSubmit={handleSearch} className="relative mb-8">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
           <input
+            aria-label="Search LitVM explorer"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -143,7 +152,7 @@ export default function ExplorerPage() {
             type="button"
             onClick={() => saveSearch('explorer', searchQuery)}
             disabled={!searchQuery.trim()}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
             <BookmarkPlus size={13} />
             Save search
@@ -153,7 +162,7 @@ export default function ExplorerPage() {
               key={`${search.query}:${search.updatedAt}`}
               type="button"
               onClick={() => setSearchQuery(search.query)}
-              className="rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2 text-xs text-white/45 transition hover:border-white/15 hover:text-white/75"
+              className="min-h-11 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2 text-xs text-white/45 transition hover:border-white/15 hover:text-white/75"
             >
               {search.query.length > 24 ? `${search.query.slice(0, 12)}...${search.query.slice(-8)}` : search.query}
             </button>
@@ -214,7 +223,7 @@ export default function ExplorerPage() {
                   <div className="flex flex-col gap-1">
                     <Link
                       href={`/explorer/block/${block.number}`}
-                      className="font-mono text-sm text-[var(--accent)] hover:underline"
+                      className="inline-flex min-h-11 items-center font-mono text-sm text-[var(--accent)] hover:underline"
                     >
                       #{block.number.toLocaleString()}
                     </Link>
@@ -231,7 +240,7 @@ export default function ExplorerPage() {
                   </div>
                 </div>
               ))}
-              {summary.blocks.length === 0 && (
+              {summary.blocks.length === 0 && loadingBlocks && (
                 Array.from({ length: 5 }, (_, index) => (
                   <div key={index} className="flex items-center justify-between gap-4 px-5 py-4">
                     <div className="space-y-2">
@@ -241,6 +250,11 @@ export default function ExplorerPage() {
                     <div className="h-4 w-20 animate-pulse rounded bg-white/8" />
                   </div>
                 ))
+              )}
+              {summary.blocks.length === 0 && !loadingBlocks && (
+                <div className="px-5 py-8 text-center text-sm text-white/40">
+                  {stageErrors.blocks ?? 'No recent blocks were returned. Search remains available above.'}
+                </div>
               )}
             </div>
           </div>
@@ -260,7 +274,7 @@ export default function ExplorerPage() {
                   <div className="flex flex-col gap-1">
                     <Link
                       href={`/explorer/tx/${tx.hash}`}
-                      className="font-mono text-sm text-[var(--accent)] hover:underline"
+                      className="inline-flex min-h-11 items-center font-mono text-sm text-[var(--accent)] hover:underline"
                     >
                       {truncateAddress(tx.hash)}
                     </Link>
@@ -278,7 +292,9 @@ export default function ExplorerPage() {
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                           tx.status === 'Success'
                             ? 'bg-[var(--success)]/15 text-[var(--success)]'
-                            : 'bg-[var(--warning)]/15 text-[var(--warning)]'
+                            : tx.status === 'Failed'
+                              ? 'bg-red-400/15 text-red-300'
+                              : 'bg-[var(--warning)]/15 text-[var(--warning)]'
                         }`}
                       >
                         {tx.status}
@@ -287,7 +303,7 @@ export default function ExplorerPage() {
                   </div>
                 </div>
               ))}
-              {summary.transactions.length === 0 && (
+              {summary.transactions.length === 0 && loadingTransactions && (
                 Array.from({ length: 5 }, (_, index) => (
                   <div key={index} className="flex items-center justify-between gap-4 px-5 py-4">
                     <div className="space-y-2">
@@ -298,32 +314,18 @@ export default function ExplorerPage() {
                   </div>
                 ))
               )}
+              {summary.transactions.length === 0 && !loadingTransactions && (
+                <div className="px-5 py-8 text-center text-sm text-white/40">
+                  {stageErrors.transactions ?? 'No sampled transactions were returned for the recent blocks.'}
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        <LiveActivityRail surface="explorer" className="mt-8" />
       </main>
 
-      {/* Share Stats Modal + Button */}
-      <ShareModal
-        open={shareOpen}
-        onClose={() => setShareOpen(false)}
-        stats={{
-          blockHeight: summary.latestBlock,
-          txCount24h: summary.transactions.length * 3000, // estimated from recent sample
-          activeAddresses24h: summary.transactions.length * 200,
-          avgBlockTime: 2.1,
-          gasPrice: '0.001 Gwei',
-          networkName: 'LitVM Testnet',
-          timestamp: new Date().toLocaleString(),
-        }}
-      />
-      <button
-        onClick={() => setShareOpen(true)}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-[#6366f1] to-[#8b5cf6] px-4 sm:px-5 py-3 text-sm font-medium text-white shadow-lg hover:opacity-90 transition-opacity"
-      >
-        <span className="text-sm font-semibold leading-none">𝕏</span>
-        Share Stats
-      </button>
     </div>
   )
 }

@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const article = getArticle(slug)
 
   if (!article) {
-    return { title: 'Tutorial Not Found' }
+    return { title: 'Tutorial Not Found | Lester Labs' }
   }
 
   return {
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: 'summary_large_image',
-      title: article.title,
+      title: `${article.title} | Lester Labs`,
       description: article.subtitle,
     },
   }
