@@ -8,7 +8,11 @@
     "test": "hardhat test",
     "deploy:arbitrum-sepolia": "hardhat run scripts/deploy.ts --network arbitrumSepolia",
     "deploy:litvm": "hardhat run scripts/deploy.ts --network litvm",
-    "deploy:uniswap:litvm": "hardhat run scripts/deploy_uniswap_v2.ts --network litvm"
+    "deploy:uniswap:litvm": "hardhat run scripts/deploy_uniswap_v2.ts --network litvm",
+    "deploy:connector:litvm": "hardhat run scripts/deploy_connector.ts --network litvm",
+    "audit:child-authority:litvm": "hardhat run scripts/audit_live_child_authority.ts --network litvm",
+    "rotate:treasury:litvm": "hardhat run scripts/rotate_live_treasury.ts --network litvm",
+    "verify:treasury:litvm": "hardhat run scripts/verify_live_treasury.ts --network litvm"
   },
   "keywords": [],
   "author": "",

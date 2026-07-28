@@ -20,6 +20,13 @@ export const LIQUIDITY_LOCKER_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
   },
   {
+    name: 'owner',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
     name: 'getLock',
     type: 'function',
     stateMutability: 'view',

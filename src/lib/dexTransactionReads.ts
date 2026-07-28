@@ -3,6 +3,7 @@ import { zeroAddress } from 'viem'
 import { UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
 import { litvm } from '@/config/chains'
 import {
+  LESTER_TREASURY_ADDRESS,
   LITVM_TESTNET_CONTRACTS,
   UNISWAP_V2_FACTORY_ADDRESS,
   UNISWAP_V2_ROUTER_ADDRESS,
@@ -31,7 +32,7 @@ export const canonicalDexTargets: DexTargets = {
 export const isCanonicalDexDeployment = hasCanonicalDexTargets(configuredDexTargets, canonicalDexTargets)
 
 export async function attestFreshDexRuntime(): Promise<void> {
-  const [routerFactory, routerWrappedNative] = await Promise.all([
+  const [routerFactory, routerWrappedNative, factoryFeeTo, factoryFeeToSetter] = await Promise.all([
     readContract(wagmiConfig, {
       address: configuredDexTargets.router,
       abi: UNISWAP_V2_ROUTER_ABI,
@@ -44,6 +45,18 @@ export async function attestFreshDexRuntime(): Promise<void> {
       functionName: 'WETH',
       chainId: litvm.id,
     }),
+    readContract(wagmiConfig, {
+      address: configuredDexTargets.factory,
+      abi: UNISWAP_V2_FACTORY_ABI,
+      functionName: 'feeTo',
+      chainId: litvm.id,
+    }),
+    readContract(wagmiConfig, {
+      address: configuredDexTargets.factory,
+      abi: UNISWAP_V2_FACTORY_ABI,
+      functionName: 'feeToSetter',
+      chainId: litvm.id,
+    }),
   ])
 
   assertCanonicalRouterRuntime(
@@ -51,6 +64,9 @@ export async function attestFreshDexRuntime(): Promise<void> {
     canonicalDexTargets,
     routerFactory as string,
     routerWrappedNative as string,
+    factoryFeeTo as string,
+    factoryFeeToSetter as string,
+    LESTER_TREASURY_ADDRESS,
   )
 }
 

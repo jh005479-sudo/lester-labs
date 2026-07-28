@@ -14,7 +14,12 @@ import {
   TOKEN_FACTORY_ABI,
   TOKEN_FACTORY_ADDRESS,
 } from '@/lib/contracts/tokenFactory'
-import { isCanonicalLitvmContract, LITVM_TESTNET_CONTRACTS } from '@/config/contracts'
+import {
+  hasApprovedLesterControl,
+  isCanonicalLitvmContract,
+  LESTER_TREASURY_ADDRESS,
+  LITVM_TESTNET_CONTRACTS,
+} from '@/config/contracts'
 import { litvm } from '@/config/chains'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
@@ -219,7 +224,26 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
     },
   })
 
+  const {
+    data: factoryOwner,
+    isLoading: isOwnerLoading,
+    isSuccess: isOwnerSuccess,
+    refetch: refetchFactoryOwner,
+  } = useReadContract({
+    address: TOKEN_FACTORY_ADDRESS,
+    abi: TOKEN_FACTORY_ABI,
+    functionName: 'owner',
+    chainId: litvm.id,
+    query: {
+      enabled: isContractConfigured,
+    },
+  })
+
+  const factoryControlApproved =
+    isOwnerSuccess &&
+    hasApprovedLesterControl({ owner: factoryOwner as string | undefined })
   const feeReady = isContractConfigured && creationFee !== undefined && !isFeeLoading
+  const paidActionReady = feeReady && factoryControlApproved
   const feeDisplay = creationFee ? formatEther(creationFee) : '...'
 
   const { data: receipt } = useWaitForTransactionReceipt({
@@ -285,7 +309,27 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
       setTxMessage('Token Factory address does not match the canonical LitVM deployment. Deployment was blocked.')
       return
     }
+    if (!factoryControlApproved) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(`Token deployment is disabled until the live Token Factory owner is verified as ${LESTER_TREASURY_ADDRESS}.`)
+      return
+    }
     if (!feeReady) return // RP-003: Block submit until fee loaded
+    try {
+      const freshOwner = await refetchFactoryOwner()
+      if (!hasApprovedLesterControl({ owner: freshOwner.data as string | undefined })) {
+        setModalOpen(true)
+        setTxStatus('error')
+        setTxMessage('Token deployment was blocked because a fresh on-chain read did not confirm the approved Token Factory owner.')
+        return
+      }
+    } catch {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage('Token deployment was blocked because the Token Factory owner could not be verified on-chain.')
+      return
+    }
     if (!(await ensureLitvmWrite({
       action: 'deploying a token',
       onError: (message) => {
@@ -366,7 +410,7 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
             isWrongNetwork={isWrongNetwork}
             isSwitchingNetwork={isSwitchingChain}
             feeDisplay={feeDisplay}
-            feeReady={feeReady}
+            feeReady={paidActionReady}
           />
         )}
 
@@ -374,6 +418,13 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
         {!isContractConfigured && (
           <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
             Token deployment is disabled because the configured factory is not the canonical LitVM deployment.
+          </div>
+        )}
+        {isContractConfigured && !factoryControlApproved && (
+          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+            {isOwnerLoading
+              ? 'Verifying the live Token Factory owner before enabling paid deployments…'
+              : `Paid token deployment is disabled until the Token Factory owner is verified as ${LESTER_TREASURY_ADDRESS}.`}
           </div>
         )}
 

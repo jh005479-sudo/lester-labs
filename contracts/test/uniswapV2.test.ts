@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
 
-const TREASURY_FEE_TARGET = "0xDD221FBbCb0f6092AfE51183d964AA89A968eE13";
+const TREASURY_FEE_TARGET = "0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28";
 const ONE_DAY = 24 * 60 * 60;
 
 async function deployDexFixture() {
@@ -240,7 +240,7 @@ describe("Lester Labs Uniswap V2 fork", function () {
   });
 
   it("keeps the expected Lester treasury target available for deployment assertions", async function () {
-    expect(TREASURY_FEE_TARGET).to.equal("0xDD221FBbCb0f6092AfE51183d964AA89A968eE13");
+    expect(TREASURY_FEE_TARGET).to.equal("0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28");
   });
 
   it("rejects unsafe launchpad factory deployment parameters", async function () {

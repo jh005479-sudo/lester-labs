@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const ADDRESSES_FILE = path.join(__dirname, "../deployed-addresses.json");
-const TREASURY = "0xDD221FBbCb0f6092AfE51183d964AA89A968eE13";
+const TREASURY = "0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28";
 
 function loadExistingAddresses(): Record<string, unknown> {
   if (!fs.existsSync(ADDRESSES_FILE)) {
@@ -45,7 +45,7 @@ async function main() {
   console.log("Treasury address:", TREASURY);
 
   if (chainId === 4441n && deployer.address.toLowerCase() !== TREASURY.toLowerCase()) {
-    throw new Error(`LitVM deployments must use the treasury multisig ${TREASURY}`);
+    throw new Error(`LitVM deployments must use the approved treasury ${TREASURY}`);
   }
 
   const existing = loadExistingAddresses();
@@ -54,6 +54,14 @@ async function main() {
 
   console.log("Using UniswapV2Router02:", routerAddress);
   console.log("Using UniSwapConnector:", connectorAddress);
+  const connector = await ethers.getContractAt("UniSwapConnector", connectorAddress);
+  if ((await connector.router()).toLowerCase() !== routerAddress.toLowerCase()) {
+    throw new Error("UniSwapConnector router does not match the configured router");
+  }
+  if ((await connector.treasury()).toLowerCase() !== TREASURY.toLowerCase()) {
+    throw new Error(`UniSwapConnector uses a retired treasury; deploy a replacement for ${TREASURY}`);
+  }
+  await connector.assertTreasuryRouting();
 
   // --- TokenFactory ---
   const TokenFactory = await ethers.getContractFactory("TokenFactory");

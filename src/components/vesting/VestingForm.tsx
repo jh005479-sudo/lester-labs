@@ -14,7 +14,12 @@ import {
   ERC20_APPROVE_ABI,
   VESTING_FACTORY_ADDRESS,
 } from '@/lib/contracts/tokenVesting'
-import { isCanonicalLitvmContract, LITVM_TESTNET_CONTRACTS } from '@/config/contracts'
+import {
+  hasApprovedLesterControl,
+  isCanonicalLitvmContract,
+  LESTER_TREASURY_ADDRESS,
+  LITVM_TESTNET_CONTRACTS,
+} from '@/config/contracts'
 import { litvm } from '@/config/chains'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
@@ -322,7 +327,26 @@ export function VestingForm() {
     },
   })
 
+  const {
+    data: factoryOwner,
+    isLoading: isOwnerLoading,
+    isSuccess: isOwnerSuccess,
+    refetch: refetchFactoryOwner,
+  } = useReadContract({
+    address: VESTING_FACTORY_ADDRESS,
+    abi: VESTING_FACTORY_ABI,
+    functionName: 'owner',
+    chainId: litvm.id,
+    query: {
+      enabled: isCanonicalVestingFactory,
+    },
+  })
+
+  const factoryControlApproved =
+    isOwnerSuccess &&
+    hasApprovedLesterControl({ owner: factoryOwner as string | undefined })
   const feeReady = isCanonicalVestingFactory && vestingFee !== undefined && !isFeeLoading
+  const paidActionReady = feeReady && factoryControlApproved
   const feeDisplay = vestingFee ? formatEther(vestingFee) : '...'
 
   // Fetch actual token decimals on-chain (F-009)
@@ -395,6 +419,31 @@ export function VestingForm() {
     }
   }, [receipt, currentTxHash, txStatus, txPhase, form])
 
+  const verifyFactoryControl = async (action: string): Promise<boolean> => {
+    if (!factoryControlApproved) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(`${action} is disabled until the live Vesting Factory owner is verified as ${LESTER_TREASURY_ADDRESS}.`)
+      return false
+    }
+
+    try {
+      const freshOwner = await refetchFactoryOwner()
+      if (!hasApprovedLesterControl({ owner: freshOwner.data as string | undefined })) {
+        setModalOpen(true)
+        setTxStatus('error')
+        setTxMessage(`${action} was blocked because a fresh on-chain read did not confirm the approved Vesting Factory owner.`)
+        return false
+      }
+      return true
+    } catch {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(`${action} was blocked because the Vesting Factory owner could not be verified on-chain.`)
+      return false
+    }
+  }
+
   const handleApprove = async () => {
     if (!isCanonicalVestingFactory) {
       setModalOpen(true)
@@ -403,6 +452,7 @@ export function VestingForm() {
       return
     }
     if (tokenDecimals === undefined) return // Guard against stale decimals
+    if (!(await verifyFactoryControl('Vesting approval'))) return
     if (!(await ensureLitvmWrite({
       action: 'approving a vesting schedule',
       onError: (message) => {
@@ -441,8 +491,9 @@ export function VestingForm() {
       setTxMessage('Vesting Factory address does not match the canonical LitVM deployment. Schedule creation was blocked.')
       return
     }
-    if (!feeReady) return // RP-003: Block submit until fee loaded
+    if (!paidActionReady) return // RP-003: Block submit until fee and owner are verified
     if (tokenDecimals === undefined) return // Guard against stale decimals
+    if (!(await verifyFactoryControl('Vesting schedule creation'))) return
     if (!(await ensureLitvmWrite({
       action: 'creating a vesting schedule',
       onError: (message) => {
@@ -533,6 +584,13 @@ export function VestingForm() {
       {!isCanonicalVestingFactory && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
           Vesting is disabled because the configured factory is not the canonical LitVM deployment.
+        </div>
+      )}
+      {isCanonicalVestingFactory && !factoryControlApproved && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+          {isOwnerLoading
+            ? 'Verifying the live Vesting Factory owner before enabling paid schedules…'
+            : `Paid vesting actions are disabled until the Vesting Factory owner is verified as ${LESTER_TREASURY_ADDRESS}.`}
         </div>
       )}
 
@@ -827,7 +885,7 @@ export function VestingForm() {
               {/* Step 1 — Approve */}
               <button
                 onClick={handleApprove}
-                disabled={txPhase !== 'approve' || !isCanonicalVestingFactory || tokenDecimals === undefined}
+                disabled={txPhase !== 'approve' || !isCanonicalVestingFactory || !factoryControlApproved || tokenDecimals === undefined}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition-colors ${
                   txPhase === 'approve'
                     ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
@@ -841,7 +899,7 @@ export function VestingForm() {
               {/* Step 2 — Create (RP-003: disable until fee loaded) */}
               <button
                 onClick={handleCreate}
-                disabled={txPhase !== 'create' || !feeReady}
+                disabled={txPhase !== 'create' || !paidActionReady}
                 className="flex-1 rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {isFeeLoading ? 'Loading fee…' : '2. Create Schedule'}

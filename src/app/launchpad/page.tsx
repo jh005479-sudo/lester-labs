@@ -17,7 +17,13 @@ import { AlertTriangle, BookmarkCheck, BookmarkPlus, CircleCheck, Moon, Radio, R
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
-import { ILO_FACTORY_ADDRESS, isValidContractAddress } from '@/config/contracts'
+import {
+  APPROVED_ILO_CREATION_FACTORY_ADDRESS,
+  ILO_FACTORY_ADDRESS,
+  LESTER_TREASURY_ADDRESS,
+  isApprovedIloCreationFactory,
+  isApprovedLesterTreasury,
+} from '@/config/contracts'
 import { ILO_FACTORY_ABI, ILO_ABI } from '@/config/abis'
 import { litvm } from '@/config/chains'
 import { wagmiConfig } from '@/config/wagmi'
@@ -279,11 +285,23 @@ function CreatePresaleForm() {
 
   // Fetch creation fee from contract (RP-003)
   const { data: creationFee, isLoading: isFeeLoading, isError: isFeeError } = useReadContract({
-    address: ILO_FACTORY_ADDRESS,
+    address: APPROVED_ILO_CREATION_FACTORY_ADDRESS,
     abi: ILO_FACTORY_ABI,
     functionName: 'creationFee',
     query: {
-      enabled: isTrustedIloFactoryConfigured(),
+      enabled: isApprovedIloCreationFactory(APPROVED_ILO_CREATION_FACTORY_ADDRESS),
+    },
+  })
+  const {
+    data: factoryTreasury,
+    isLoading: isFactoryTreasuryLoading,
+    isError: isFactoryTreasuryError,
+  } = useReadContract({
+    address: APPROVED_ILO_CREATION_FACTORY_ADDRESS,
+    abi: ILO_FACTORY_ABI,
+    functionName: 'treasury',
+    query: {
+      enabled: isApprovedIloCreationFactory(APPROVED_ILO_CREATION_FACTORY_ADDRESS),
     },
   })
 
@@ -339,11 +357,16 @@ function CreatePresaleForm() {
     marginTop: '4px',
   }
 
-  const iloFactoryValid = isValidContractAddress(ILO_FACTORY_ADDRESS) && isTrustedIloFactoryConfigured()
+  const creationFactoryApproved = isApprovedIloCreationFactory(APPROVED_ILO_CREATION_FACTORY_ADDRESS)
 
   // Gate submit on successful decimals fetch (RP-001)
   const decimalsReady = tokenDecimals !== undefined && !isDecimalsError
   const feeReady = creationFee !== undefined && !isFeeLoading && !isFeeError
+  const factoryTreasuryApproved =
+    creationFactoryApproved &&
+    !isFactoryTreasuryLoading &&
+    !isFactoryTreasuryError &&
+    isApprovedLesterTreasury(factoryTreasury as string | undefined)
   const isConfirming = txStatus === 'pending' && currentTxHash !== undefined
 
   const handleSwitchNetwork = useCallback(async () => {
@@ -357,7 +380,19 @@ function CreatePresaleForm() {
 
   const handleCreate = async () => {
     if (!isConnected) return
-    if (!iloFactoryValid) return
+    const creationFactoryAddress = APPROVED_ILO_CREATION_FACTORY_ADDRESS
+    if (!creationFactoryApproved || !creationFactoryAddress) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage('The legacy ILO Factory is retired for new presales. Creation remains disabled until an audited replacement is explicitly pinned in this application.')
+      return
+    }
+    if (!factoryTreasuryApproved) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage('Presale creation is disabled because the approved replacement factory treasury could not be verified on-chain.')
+      return
+    }
     if (!validate()) return
     if (!(await ensureLitvmWrite({
       action: 'creating a presale',
@@ -380,7 +415,7 @@ function CreatePresaleForm() {
       setSuccessResult(null)
 
       const hash = await writeContractAsync({
-        address: ILO_FACTORY_ADDRESS,
+        address: creationFactoryAddress,
         abi: ILO_FACTORY_ABI,
         functionName: 'createILO',
         args: [
@@ -409,7 +444,7 @@ function CreatePresaleForm() {
 
       let presaleAddress: string | undefined
       const factoryLogs = (receipt.logs || []).filter(
-        (log) => log.address.toLowerCase() === ILO_FACTORY_ADDRESS.toLowerCase(),
+        (log) => log.address.toLowerCase() === creationFactoryAddress.toLowerCase(),
       )
 
       for (const log of factoryLogs) {
@@ -688,7 +723,7 @@ function CreatePresaleForm() {
           </div>
 
           {/* Contract address guard warning */}
-          {!iloFactoryValid && (
+          {!creationFactoryApproved && (
             <div style={{
               padding: '10px 14px',
               background: 'rgba(239,68,68,0.1)',
@@ -699,7 +734,26 @@ function CreatePresaleForm() {
             }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <AlertTriangle size={14} />
-                ILO Factory contract not deployed on this network. Presale creation is disabled.
+                The canonical legacy ILO Factory is permanently disabled for new presales. An audited replacement
+                must be separately configured and explicitly pinned before creation can resume.
+              </span>
+            </div>
+          )}
+
+          {creationFactoryApproved && !factoryTreasuryApproved && (
+            <div style={{
+              padding: '10px 14px',
+              background: 'rgba(239,68,68,0.1)',
+              border: '1px solid rgba(239,68,68,0.3)',
+              borderRadius: '8px',
+              color: '#f87171',
+              fontSize: '13px',
+            }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={14} />
+                {isFactoryTreasuryLoading
+                  ? 'Verifying the replacement ILO Factory treasury before enabling creation…'
+                  : `Presale creation is disabled until the replacement factory treasury is verified as ${LESTER_TREASURY_ADDRESS}.`}
               </span>
             </div>
           )}
@@ -787,11 +841,11 @@ function CreatePresaleForm() {
           ) : (
             <button
               onClick={handleCreate}
-              disabled={!iloFactoryValid || isSubmitting || isConfirming || !decimalsReady || !feeReady}
+              disabled={!creationFactoryApproved || !factoryTreasuryApproved || isSubmitting || isConfirming || !decimalsReady || !feeReady}
               style={{
                 padding: '14px',
                 background:
-                  !iloFactoryValid || isSubmitting || isConfirming || !decimalsReady || !feeReady
+                  !creationFactoryApproved || !factoryTreasuryApproved || isSubmitting || isConfirming || !decimalsReady || !feeReady
                     ? 'rgba(99,102,241,0.3)'
                     : 'var(--accent)',
                 border: 'none',
@@ -800,7 +854,7 @@ function CreatePresaleForm() {
                 fontSize: '15px',
                 fontWeight: 600,
                 cursor:
-                  !iloFactoryValid || isSubmitting || isConfirming || !decimalsReady || !feeReady
+                  !creationFactoryApproved || !factoryTreasuryApproved || isSubmitting || isConfirming || !decimalsReady || !feeReady
                     ? 'not-allowed'
                     : 'pointer',
                 transition: 'opacity 0.2s',
@@ -812,8 +866,14 @@ function CreatePresaleForm() {
                   ? 'Creating presale…'
                   : isDecimalsLoading
                     ? 'Loading token decimals…'
+                    : !creationFactoryApproved
+                      ? 'New presales paused — legacy factory retired'
                     : isFeeLoading
                       ? 'Loading fee…'
+                      : isFactoryTreasuryLoading
+                        ? 'Verifying replacement treasury…'
+                        : !factoryTreasuryApproved
+                          ? 'Creation paused — treasury not approved'
                       : `Create Presale — ${feeDisplay} zkLTC`}
             </button>
           )}

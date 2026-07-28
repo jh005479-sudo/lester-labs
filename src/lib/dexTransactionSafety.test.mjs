@@ -14,23 +14,88 @@ const canonical = {
   router: '0x2222222222222222222222222222222222222222',
   wrappedNative: '0x3333333333333333333333333333333333333333',
 }
+const approvedTreasury = '0x9999999999999999999999999999999999999999'
 
 describe('DEX transaction target authentication', () => {
   it('accepts only the canonical configured deployment and router wiring', () => {
     assert.equal(hasCanonicalDexTargets(canonical, canonical), true)
     assert.doesNotThrow(() =>
-      assertCanonicalRouterRuntime(canonical, canonical, canonical.factory, canonical.wrappedNative),
+      assertCanonicalRouterRuntime(
+        canonical,
+        canonical,
+        canonical.factory,
+        canonical.wrappedNative,
+        approvedTreasury,
+        approvedTreasury,
+        approvedTreasury,
+      ),
     )
   })
 
   it('rejects an environment-overridden router and mismatched runtime wiring', () => {
     assert.throws(
-      () => assertCanonicalRouterRuntime({ ...canonical, router: '0x4444444444444444444444444444444444444444' }, canonical, canonical.factory, canonical.wrappedNative),
+      () => assertCanonicalRouterRuntime(
+        { ...canonical, router: '0x4444444444444444444444444444444444444444' },
+        canonical,
+        canonical.factory,
+        canonical.wrappedNative,
+        approvedTreasury,
+        approvedTreasury,
+        approvedTreasury,
+      ),
       /not the canonical LitVM deployment/,
     )
     assert.throws(
-      () => assertCanonicalRouterRuntime(canonical, canonical, '0x5555555555555555555555555555555555555555', canonical.wrappedNative),
+      () => assertCanonicalRouterRuntime(
+        canonical,
+        canonical,
+        '0x5555555555555555555555555555555555555555',
+        canonical.wrappedNative,
+        approvedTreasury,
+        approvedTreasury,
+        approvedTreasury,
+      ),
       /could not be authenticated/,
+    )
+  })
+
+  it('fails closed unless feeTo and feeToSetter both match the approved treasury', () => {
+    const retiredTreasury = '0x8888888888888888888888888888888888888888'
+    assert.throws(
+      () => assertCanonicalRouterRuntime(
+        canonical,
+        canonical,
+        canonical.factory,
+        canonical.wrappedNative,
+        retiredTreasury,
+        approvedTreasury,
+        approvedTreasury,
+      ),
+      /fee controls are not assigned/,
+    )
+    assert.throws(
+      () => assertCanonicalRouterRuntime(
+        canonical,
+        canonical,
+        canonical.factory,
+        canonical.wrappedNative,
+        approvedTreasury,
+        retiredTreasury,
+        approvedTreasury,
+      ),
+      /fee controls are not assigned/,
+    )
+    assert.throws(
+      () => assertCanonicalRouterRuntime(
+        canonical,
+        canonical,
+        canonical.factory,
+        canonical.wrappedNative,
+        approvedTreasury,
+        undefined,
+        approvedTreasury,
+      ),
+      /fee controls are not assigned/,
     )
   })
 

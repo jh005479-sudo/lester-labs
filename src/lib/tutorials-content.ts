@@ -237,8 +237,8 @@ export const TUTORIALS: TutorialArticle[] = [
 
   {
     slug: 'launchpad-how-it-works',
-    title: 'LitVM Launchpad — How to Run a Permissionless Token Presale',
-    subtitle: 'A complete walkthrough of the LitVM Launchpad: configuring caps and timelines, the automatic LP creation mechanic, and how to give your community a fair shot at your token launch on LitVM.',
+    title: 'LitVM Launchpad — Legacy Recovery and Future Design',
+    subtitle: 'Why the current legacy factory is creation-disabled, which recovery actions remain available, and how a future reviewed Launchpad is intended to work.',
     badge: 'Launchpad',
     badgeColor: '#a78bfa',
     readTime: '8 min read',
@@ -248,12 +248,12 @@ export const TUTORIALS: TutorialArticle[] = [
     sections: [
       {
         type: 'text',
-        heading: 'What makes the Launchpad different',
-        body: 'Most presale platforms require you to apply, get approved, and pay listing fees to a central team. The Lester Labs Launchpad is fully permissionless: if you have a token and a community, you can launch.\n\nThe ILO (Initial Liquidity Offering) factory deploys a new presale contract for every launch. The contract enforces the rules — caps, timelines, contribution limits — in Solidity, not in a backend server that can be shut down or modified mid-sale.',
+        heading: 'Current operational status',
+        body: 'The canonical ILO factory and connector are legacy deployments whose treasury route points at a retired controller. New ILO creation is disabled, and the application blocks additional funding, contributions, and finalization on legacy ILOs. Do not send assets directly to them.\n\nHistorical cancellation, refund, and claim paths remain visible when the individual contract state permits recovery. A separately reviewed future factory and connector must be explicitly pinned before new creation can be enabled.',
       },
       {
         type: 'step',
-        heading: 'Step-by-step: creating a presale',
+        heading: 'Future design reference — currently disabled',
         steps: [
           {
             title: 'Have a deployed ERC-20 token',
@@ -261,7 +261,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Navigate to the Launchpad',
-            body: 'Go to lester-labs.com/launchpad and click the "Create" tab. Connect your wallet and switch to LitVM network.',
+            body: 'The current Launchpad is for historical discovery and recovery. Its Create flow remains disabled until a separately reviewed replacement factory is pinned.',
           },
           {
             title: 'Enter your token address',
@@ -285,7 +285,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Deploy and deposit',
-            body: 'Pay the creation fee (shown live from the contract), confirm in your wallet. After deployment, transfer your full token allocation to the presale contract address — the exact amount is shown as "tokens required" in the confirmation screen.',
+            body: 'Do not perform this step on the canonical legacy factory or any existing legacy ILO. In a future approved deployment, the application will re-authenticate the pinned factory before accepting the creation fee or showing funding instructions.',
           },
         ],
       },
@@ -293,13 +293,13 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'warning',
-          text: 'Do not forget to deposit your tokens to the presale contract. If the presale ends without the tokens deposited, the raise is invalid and contributors can withdraw their zkLTC. Double-check the contract address matches the one displayed in the confirmation.',
+          text: 'Do not create, fund, contribute to, or finalize a canonical legacy ILO. Use only cancellation, refund, or claim recovery actions that the application exposes for the exact historical contract.',
         },
       },
       {
         type: 'text',
-        heading: 'How LP creation works',
-        body: 'When a presale finalizes (either after the end date or when the hard cap is hit), the ILO hands the launch liquidity to Lester Labs\' `UniSwapConnector`, which verifies the local Uniswap V2 factory still points both `feeTo` and `feeToSetter` at the Lester treasury before seeding the pair through the Lester Labs router. The resulting LP tokens stay locked as part of the launch flow — no external DEX or admin handoff is required.\n\nThe platform still takes a 2% fee on the total raise at finalization. Once the pair is live, trades on that pair pay 0.30% total: 0.20% to the Lester Labs treasury and 0.10% retained by LPs.',
+        heading: 'How future LP creation is intended to work',
+        body: 'In a separately reviewed future deployment, an ILO would hand launch liquidity to a new `UniSwapConnector`, which verifies that the local Uniswap V2 factory still points both `feeTo` and `feeToSetter` at the approved treasury before seeding the pair. The current legacy connector permanently embeds the retired treasury and must not be reused.',
       },
     ],
     related: ['token-factory-guide', 'liquidity-locker-guide'],
@@ -448,7 +448,7 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'info',
-          text: 'Not all locks are equal. A timelock that can be emergency-withdrawn by an admin is not a true lock. The Lester Labs Liquidity Locker is immutable after deployment — once locked, the LP cannot be moved until the timestamp is reached.',
+          text: 'Not all locks are equal. A timelock that can be emergency-withdrawn by an admin is not a true lock. Lester Labs lock records have no admin override: the LP cannot move before its timestamp, and afterward only the recorded withdrawer can claim it. The factory fee remains owner-configurable.',
         },
       },
       {
@@ -469,7 +469,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Lock and verify',
-            body: 'Confirm the transaction. Once confirmed, the lock is permanent and immutably recorded on LitVM. Share the lock proof URL with your community.',
+            body: 'Confirm the transaction. The recorded withdrawer and unlock timestamp cannot be edited, so verify both before signing. Share the lock proof URL with your community.',
           },
         ],
       },
@@ -616,7 +616,7 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'warning',
-          text: 'Once a vesting schedule is created on-chain, it cannot be modified or cancelled. This is by design — the immutability is what makes vesting credible to investors. Choose your schedules carefully before deploying.',
+          text: 'The vesting schedule cannot be cancelled or clawed back, but the initial beneficiary is the VestingWallet owner and can transfer ownership. Choose the initial owner and schedule carefully.',
         },
       },
       {
@@ -634,7 +634,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Enter the beneficiary address',
-            body: 'Paste the wallet address that will receive the vested tokens. This cannot be changed after deployment — make sure the address is correct. Consider a multisig for team vesting to require multiple signatures for any changes.',
+            body: 'Paste the initial wallet owner that will receive vested tokens. That owner can later transfer VestingWallet ownership, but an incorrect initial address may be unrecoverable if you do not control it. Consider a multisig for team vesting.',
           },
           {
             title: 'Set the total allocation',
@@ -660,7 +660,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'How vested tokens are released',
-        body: 'The current Lester Labs UI records the resulting vesting wallet but does not expose a dedicated claim button. Once tokens are releasable, call the OpenZeppelin VestingWallet `release(token)` function on that wallet; anyone may trigger the call and the vested amount is sent to the configured beneficiary.\n\nNo Lester Labs admin can revoke or redirect the funded schedule.',
+        body: 'The current Lester Labs UI records the resulting vesting wallet but does not expose a dedicated claim button. Once tokens are releasable, call the OpenZeppelin VestingWallet `release(token)` function on that wallet; anyone may trigger the call and the vested amount is sent to the wallet’s current owner.\n\nNo Lester Labs factory admin can revoke the funded schedule, but the current VestingWallet owner can transfer ownership.',
       },
     ],
     related: ['token-factory-guide', 'launchpad-how-it-works'],

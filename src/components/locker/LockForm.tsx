@@ -12,7 +12,12 @@ import {
   LIQUIDITY_LOCKER_ADDRESS,
   ERC20_APPROVE_ABI,
 } from '@/lib/contracts/liquidityLocker'
-import { isCanonicalLitvmContract, LITVM_TESTNET_CONTRACTS } from '@/config/contracts'
+import {
+  hasApprovedLesterControl,
+  isCanonicalLitvmContract,
+  LESTER_TREASURY_ADDRESS,
+  LITVM_TESTNET_CONTRACTS,
+} from '@/config/contracts'
 import { litvm } from '@/config/chains'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
@@ -206,7 +211,26 @@ export function LockForm() {
     },
   })
 
+  const {
+    data: lockerOwner,
+    isLoading: isOwnerLoading,
+    isSuccess: isOwnerSuccess,
+    refetch: refetchLockerOwner,
+  } = useReadContract({
+    address: LIQUIDITY_LOCKER_ADDRESS,
+    abi: LIQUIDITY_LOCKER_ABI,
+    functionName: 'owner',
+    chainId: litvm.id,
+    query: {
+      enabled: isCanonicalLocker,
+    },
+  })
+
+  const lockerControlApproved =
+    isOwnerSuccess &&
+    hasApprovedLesterControl({ owner: lockerOwner as string | undefined })
   const feeReady = isCanonicalLocker && lockFee !== undefined && !isFeeLoading
+  const paidActionReady = feeReady && lockerControlApproved
   const feeDisplay = lockFee ? formatEther(lockFee) : '...'
 
   // Handle receipt landing
@@ -284,6 +308,7 @@ export function LockForm() {
 
   const canSubmit =
     isCanonicalLocker &&
+    lockerControlApproved &&
     isAddress(lpToken) &&
     Number(amount) > 0 &&
     !amountError &&
@@ -294,6 +319,31 @@ export function LockForm() {
 
   // ── Approve step ──────────────────────────────────────────────────────────
 
+  const verifyLockerControl = async (action: string): Promise<boolean> => {
+    if (!lockerControlApproved) {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(`${action} is disabled until the live Liquidity Locker owner is verified as ${LESTER_TREASURY_ADDRESS}.`)
+      return false
+    }
+
+    try {
+      const freshOwner = await refetchLockerOwner()
+      if (!hasApprovedLesterControl({ owner: freshOwner.data as string | undefined })) {
+        setModalOpen(true)
+        setTxStatus('error')
+        setTxMessage(`${action} was blocked because a fresh on-chain read did not confirm the approved Liquidity Locker owner.`)
+        return false
+      }
+      return true
+    } catch {
+      setModalOpen(true)
+      setTxStatus('error')
+      setTxMessage(`${action} was blocked because the Liquidity Locker owner could not be verified on-chain.`)
+      return false
+    }
+  }
+
   const handleApprove = async () => {
     if (!isCanonicalLocker) {
       setModalOpen(true)
@@ -302,6 +352,7 @@ export function LockForm() {
       return
     }
     if (lpDecimals === undefined) return // Guard against stale decimals
+    if (!(await verifyLockerControl('Liquidity-lock approval'))) return
     if (!(await ensureLitvmWrite({
       action: 'approving an LP lock',
       onError: (message) => {
@@ -348,6 +399,7 @@ export function LockForm() {
     }
     if (!feeReady) return // RP-003: Block submit until fee loaded
     if (lpDecimals === undefined) return // Guard against stale decimals
+    if (!(await verifyLockerControl('Liquidity locking'))) return
     if (!(await ensureLitvmWrite({
       action: 'locking liquidity',
       onError: (message) => {
@@ -536,6 +588,13 @@ export function LockForm() {
             Liquidity locking is disabled because the configured contract is not the canonical LitVM deployment.
           </div>
         )}
+        {isCanonicalLocker && !lockerControlApproved && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+            {isOwnerLoading
+              ? 'Verifying the live Liquidity Locker owner before enabling paid locks…'
+              : `Paid liquidity locks are disabled until the Liquidity Locker owner is verified as ${LESTER_TREASURY_ADDRESS}. Existing lock withdrawals remain available.`}
+          </div>
+        )}
 
         {isWrongNetwork && (
           <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
@@ -563,7 +622,7 @@ export function LockForm() {
         ) : (
           <button
             onClick={handleLock}
-            disabled={!feeReady}
+            disabled={!paidActionReady}
             className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
             <Loader2 size={15} className="opacity-0 pointer-events-none" aria-hidden />

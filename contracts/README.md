@@ -92,6 +92,49 @@ export const CONTRACT_ADDRESSES = {
 npx hardhat test
 ```
 
+## Live treasury rotation
+
+The signer-gated, resumable LitVM rotation and its independent read-only verifier are documented in
+[`../docs/TREASURY-ROTATION-2026-07-27.md`](../docs/TREASURY-ROTATION-2026-07-27.md).
+
+```bash
+npm run audit:child-authority:litvm
+npm run rotate:treasury:litvm
+npm run verify:treasury:litvm
+```
+
+Merging repository configuration does not alter live contract state. The
+verifier must pass before the rotation is treated as complete. It checks exact
+live runtime fingerprints, mutable fee/route values, the complete Timelock
+role and pending-operation history, governance balance/proposal state, and a
+pinned-block child-authority inventory.
+
+The desired Timelock executor is the Governor contract only. Do not grant the
+zero address/open execution role. The approved treasury target is currently an
+EOA, not a multisig.
+
+The existing `UniSwapConnector` permanently embeds the retired treasury.
+After the live DEX fee rotation, the funded replacement administrator can
+deploy a connector for future connector-aware ILO factories:
+
+```bash
+npm run deploy:connector:litvm
+```
+
+Future factory deployment scripts require this replacement connector and
+reject a router or treasury mismatch. The existing canonical ILO factory
+remains creation-disabled in the frontend even after rotation; a separately
+reviewed replacement must be explicitly pinned before paid creation is
+enabled.
+
+The child audit reports the important residual that factory ownership does not
+rewrite factory-created children. At the 2026-07-27 snapshot, no ILO owner,
+VestingWallet owner, or locker withdrawer was the retired controller. Twelve
+retired-owned tokens were non-mintable and non-pausable. All 113 legacy ILOs
+still embed the retired treasury, including one ILO with 0.005 native balance;
+legacy contribution and finalization must remain blocked while cancellation,
+refund, and claim recovery paths stay available.
+
 ---
 
 ## Notes

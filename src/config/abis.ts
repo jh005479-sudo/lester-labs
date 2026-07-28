@@ -35,6 +35,13 @@ export const ILO_FACTORY_ABI = [
     type: 'function',
   },
   {
+    inputs: [],
+    name: 'treasury',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
     inputs: [{ name: '', type: 'uint256' }],
     name: 'allILOs',
     outputs: [{ name: '', type: 'address' }],
@@ -59,6 +66,7 @@ export const ILO_FACTORY_ABI = [
 
 export const ILO_ABI = [
   { inputs: [], name: 'owner', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'treasury', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'token', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'softCap', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'hardCap', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
@@ -90,6 +98,13 @@ export const ILO_ABI = [
 ] as const
 
 export const LEDGER_ABI = [
+  {
+    name: 'owner',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
   {
     name: 'post',
     type: 'function',

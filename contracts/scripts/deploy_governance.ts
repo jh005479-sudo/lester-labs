@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const ADDRESSES_FILE = path.join(__dirname, "../deployed-addresses.json");
+const TREASURY = "0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28";
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -24,7 +25,7 @@ async function main() {
   const TIMELOCK_DELAY = 172_800; // 2 days in seconds
   const LitTimelock = await ethers.getContractFactory("LitTimelock");
 
-  // Proposer = governor, Executor = deployer (open for all), Admin = deployer
+  // Temporary deployer roles permit setup. Every one is removed below.
   const timelock = await LitTimelock.deploy(
     TIMELOCK_DELAY,
     [deployer.address],   // proposers
@@ -59,13 +60,26 @@ async function main() {
   console.log("\n[4] Configuring LitTimelock...");
   const PROPOSER_ROLE = await timelock.PROPOSER_ROLE();
   const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE();
+  const CANCELLER_ROLE = await timelock.CANCELLER_ROLE();
+  const DEFAULT_ADMIN_ROLE = await timelock.DEFAULT_ADMIN_ROLE();
 
   const grantProposerTx = await timelock.grantRole(PROPOSER_ROLE, governorAddress);
   await grantProposerTx.wait();
   console.log("Granted PROPOSER_ROLE to governor");
 
-  // ── 4b. Revoke deployer's timelock roles — governance must be trustless ─
-  // Deployer keeps admin (can add proposers) but no longer bypasses governance
+  const grantGovernorExecutorTx = await timelock.grantRole(EXECUTOR_ROLE, governorAddress);
+  await grantGovernorExecutorTx.wait();
+  console.log("Granted EXECUTOR_ROLE to governor");
+
+  const grantTreasuryCancellerTx = await timelock.grantRole(CANCELLER_ROLE, TREASURY);
+  await grantTreasuryCancellerTx.wait();
+  console.log("Granted emergency CANCELLER_ROLE to approved treasury");
+
+  const grantTreasuryAdminTx = await timelock.grantRole(DEFAULT_ADMIN_ROLE, TREASURY);
+  await grantTreasuryAdminTx.wait();
+  console.log("Granted timelock administration to approved treasury");
+
+  // ── 4b. Remove every temporary deployer role ──────────────────────────
   const revokeExecutorTx = await timelock.revokeRole(EXECUTOR_ROLE, deployer.address);
   await revokeExecutorTx.wait();
   console.log("Revoked EXECUTOR_ROLE from deployer");
@@ -73,12 +87,21 @@ async function main() {
   const revokeProposerTx = await timelock.revokeRole(PROPOSER_ROLE, deployer.address);
   await revokeProposerTx.wait();
   console.log("Revoked PROPOSER_ROLE from deployer");
-  console.log("(Deployer retains admin — can grant PROPOSER_ROLE to other addresses)");
+
+  if (deployer.address.toLowerCase() !== TREASURY.toLowerCase()) {
+    const revokeCancellerTx = await timelock.revokeRole(CANCELLER_ROLE, deployer.address);
+    await revokeCancellerTx.wait();
+    console.log("Revoked CANCELLER_ROLE from deployer");
+
+    const revokeAdminTx = await timelock.revokeRole(DEFAULT_ADMIN_ROLE, deployer.address);
+    await revokeAdminTx.wait();
+    console.log("Revoked DEFAULT_ADMIN_ROLE from deployer");
+  }
 
   // ── 5. Batch mint tokens to bootstrap wallets ─────────────────────────
   console.log("\n[5] Minting tokens to bootstrap wallets...");
   const BOOTSTRAP_WALLETS = [
-    "0xDD221FBbCb0f6092AfE51183d964AA89A968eE13", // deployer
+    TREASURY,
   ];
   const BOOTSTRAP_AMOUNT = ethers.parseUnits("10000000", 18); // 10M each
 
@@ -89,11 +112,11 @@ async function main() {
   await mintTx.wait();
   console.log(`Minted ${recipients.length * 10}M LGT to bootstrap wallets`);
 
-  // ── 6. Delegate your own voting power ─────────────────────────────────
-  console.log("\n[6] Delegating deployer voting power...");
-  const delegateTx = await token.delegate(deployer.address);
-  await delegateTx.wait();
-  console.log("Deployer self-delegated");
+  // ── 6. Remove deployer mint authority ─────────────────────────────────
+  const transferTokenOwnerTx = await token.transferOwnership(TREASURY);
+  await transferTokenOwnerTx.wait();
+  console.log("Transferred LitGovToken mint authority to approved treasury");
+  console.log("The treasury must delegate its own voting power from its wallet.");
 
   // ── Save addresses ───────────────────────────────────────────────────
   const deployed = {

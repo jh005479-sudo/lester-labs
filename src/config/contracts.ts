@@ -31,9 +31,50 @@ export const UNISWAP_V2_ROUTER_ADDRESS = (process.env.NEXT_PUBLIC_UNISWAP_V2_ROU
 
 export const WRAPPED_ZKLTC_ADDRESS = (process.env.NEXT_PUBLIC_WRAPPED_ZKLTC_ADDRESS || LITVM_TESTNET_CONTRACTS.wrappedZkLtc) as `0x${string}`
 
-export const LESTER_TREASURY_ADDRESS = '0xDD221FBbCb0f6092AfE51183d964AA89A968eE13' as const
+export const LESTER_TREASURY_ADDRESS = '0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28' as const
+
+// The canonical ILO factory is retained for discovery and recovery only. A
+// replacement must be audited and pinned here before the frontend can create
+// another ILO; an environment override alone must never enable this paid write.
+export const APPROVED_ILO_CREATION_FACTORY_ADDRESS: `0x${string}` | undefined = undefined
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+export function isApprovedLesterTreasury(address: string | undefined): boolean {
+  return Boolean(address && address.toLowerCase() === LESTER_TREASURY_ADDRESS.toLowerCase())
+}
+
+export function isApprovedIloCreationFactory(address: string | undefined): boolean {
+  return Boolean(
+    address &&
+    APPROVED_ILO_CREATION_FACTORY_ADDRESS &&
+    address.toLowerCase() === APPROVED_ILO_CREATION_FACTORY_ADDRESS.toLowerCase() &&
+    address.toLowerCase() !== LITVM_TESTNET_CONTRACTS.iloFactory.toLowerCase(),
+  )
+}
+
+export function hasApprovedIloPaidWritePath({
+  factory,
+  treasury,
+}: {
+  factory: string | undefined
+  treasury: string | undefined
+}): boolean {
+  return isApprovedIloCreationFactory(factory) && isApprovedLesterTreasury(treasury)
+}
+
+export function hasApprovedLesterControl({
+  owner,
+  treasury,
+  treasuryRequired = false,
+}: {
+  owner: string | undefined
+  treasury?: string
+  treasuryRequired?: boolean
+}): boolean {
+  if (!isApprovedLesterTreasury(owner)) return false
+  return !treasuryRequired || isApprovedLesterTreasury(treasury)
+}
 
 /**
  * Runtime guard: returns true if the address is valid (non-zero and properly formatted)
