@@ -2,13 +2,16 @@
 
 ## Overview
 
-The Ledger is a permanent, censorship-resistant message board etched directly into the LitVM blockchain. Every message is stored in Ethereum calldata — immutable, permissionless, and impossible to delete or alter. No account required. No content moderation. No platform risk.
+The Ledger is a fee-gated message board recorded in LitVM transaction calldata.
+Confirmed transaction data cannot be edited or deleted by the contract owner.
+The web interface and mutable fee/treasury settings are still operational
+dependencies, so this is not “no platform risk.”
 
-It's a social layer that runs on smart contract infrastructure: post a message by calling the `post()` function with your LTC, and it lives forever in the chain history.
+It's a social layer that runs on smart contract infrastructure: post a message by calling the `post()` function with native zkLTC, and it lives in the chain history.
 
 **Contract:** `0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079`
 **Network:** LitVM testnet (chain ID 4441)
-**Fee:** 0.01 LTC per message
+**Fee:** 0.01 zkLTC per message
 
 ## How it works
 
@@ -30,7 +33,7 @@ Unlike traditional social platforms:
 1. Connect your wallet and switch to LitVM network
 2. Navigate to [lester-labs.com/ledger](/ledger)
 3. Type your message (max 1,024 characters)
-4. Review the fee (0.01 LTC) — shown in the composer
+4. Review the fee (0.01 zkLTC) — shown in the composer
 5. Click **Post to Ledger**
 6. Confirm in your wallet
 7. Your message appears in the feed — confirmed on-chain
@@ -56,7 +59,17 @@ No. Once confirmed, a message is permanent. Choose your words carefully.
 The protocol does not filter messages. However, Lester Labs may apply off-chain moderation on the frontend UI at its discretion.
 
 **What's the fee for?**
-The fee (0.01 LTC) prevents spam and is split 50/50 between the protocol treasury and a burn mechanism.
+The minimum fee (0.01 zkLTC) deters spam. The configured 50% treasury share is
+sent to the treasury; the remainder stays in the contract unless moved by a
+future contract mechanism.
 
 **Can I post any content?**
 The message bytes are limited to 1,024 bytes per call. Any UTF-8 content is valid.
+
+## Paid-write safety
+
+The owner can change the minimum fee and treasury destination. Before posting,
+the frontend authenticates the canonical Ledger address and re-reads both
+`owner()` and `treasury()`; it repeats the check immediately before the paid
+write and fails closed unless both equal the approved treasury controller.
+Reading historical messages remains available regardless of that gate.

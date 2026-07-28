@@ -16,7 +16,11 @@ This repository contains two main workspaces:
 | RPC URL | `https://liteforge.rpc.caldera.xyz/infra-partner-http` |
 | Explorer | `https://liteforge.caldera.xyz` |
 | Native Asset | `zkLTC` |
-| Treasury | `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13` |
+| Approved treasury target | `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28` |
+
+Repository configuration names the approved target; it does not prove the live
+rotation has executed. Treat the on-chain move as complete only after
+`npm run verify:treasury:litvm` passes.
 
 ## Platform Surface
 
@@ -84,7 +88,7 @@ cd contracts
 npm run deploy:uniswap:litvm
 ```
 
-Then deploy or upgrade the broader Lester Labs contracts against that router:
+Then deploy or redeploy the broader Lester Labs contracts against that router:
 
 ```bash
 cd contracts
@@ -93,8 +97,8 @@ npm run deploy:litvm
 
 The deploy scripts are written to:
 
-- require the Lester treasury multisig on chain `4441`
-- verify `feeTo` and `feeToSetter` both equal `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`
+- require the approved Lester treasury controller on chain `4441`
+- verify `feeTo` and `feeToSetter` both equal `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28`
 - persist merged output to `contracts/deployed-addresses.json`
 
 ## DEX and Launchpad Notes
@@ -106,6 +110,13 @@ The local DEX lives under `contracts/contracts/uniswap/` and is based on Uniswap
 - LP fee retained in-pool: `0.10%`
 
 `contracts/contracts/UniSwapConnector.sol` bridges Launchpad finalization into the Lester Labs router. It refuses to add liquidity unless the factory still points `feeTo` and `feeToSetter` at the Lester treasury.
+
+The currently deployed ILO factory and connector are legacy recovery surfaces:
+new ILO creation, legacy ILO funding, and legacy finalization are disabled in
+the frontend. A separately reviewed future factory must be explicitly pinned
+in source before creation can be re-enabled. Swap, pool, token, vesting,
+locker, and Ledger paid writes independently re-read their live owner/treasury
+or DEX fee controls before submission.
 
 ## Documentation
 

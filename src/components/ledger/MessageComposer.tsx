@@ -14,7 +14,12 @@ import {
 } from '@/lib/contracts/ledger'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
-import { isCanonicalLitvmContract, LITVM_TESTNET_CONTRACTS } from '@/config/contracts'
+import {
+  hasApprovedLesterControl,
+  isCanonicalLitvmContract,
+  LESTER_TREASURY_ADDRESS,
+  LITVM_TESTNET_CONTRACTS,
+} from '@/config/contracts'
 import { litvm } from '@/config/chains'
 
 interface MessageComposerProps {
@@ -56,6 +61,34 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
       enabled: isCanonicalLedger,
     },
   })
+  const {
+    data: ledgerOwner,
+    isLoading: isOwnerLoading,
+    isSuccess: isOwnerSuccess,
+    refetch: refetchLedgerOwner,
+  } = useReadContract({
+    address,
+    abi: LEDGER_ABI,
+    functionName: 'owner',
+    chainId: litvm.id,
+    query: {
+      enabled: isCanonicalLedger,
+    },
+  })
+  const {
+    data: ledgerTreasury,
+    isLoading: isTreasuryLoading,
+    isSuccess: isTreasurySuccess,
+    refetch: refetchLedgerTreasury,
+  } = useReadContract({
+    address,
+    abi: LEDGER_ABI,
+    functionName: 'treasury',
+    chainId: litvm.id,
+    query: {
+      enabled: isCanonicalLedger,
+    },
+  })
 
   const {
     isSuccess: isConfirmed,
@@ -74,6 +107,15 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
   const isTooLong = byteLength > LEDGER_MAX_MESSAGE_BYTES
   const feeToPay = liveMinFee as bigint | undefined
   const feeReady = isCanonicalLedger && feeToPay !== undefined && !isFeeLoading
+  const ledgerControlApproved =
+    isOwnerSuccess &&
+    isTreasurySuccess &&
+    hasApprovedLesterControl({
+      owner: ledgerOwner as string | undefined,
+      treasury: ledgerTreasury as string | undefined,
+      treasuryRequired: true,
+    })
+  const paidActionReady = feeReady && ledgerControlApproved
   const feeDisplay = feeReady ? formatLedgerFee(feeToPay) : '...'
 
   const applyReceiptError = useEffectEvent((message: string) => {
@@ -112,6 +154,30 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
     if (!feeReady || feeToPay === undefined) {
       setPhase('error')
       setStatusMessage('The current LitVM Ledger fee could not be verified. Posting was blocked.')
+      return
+    }
+    if (!ledgerControlApproved) {
+      setPhase('error')
+      setStatusMessage(`Posting is disabled until the live Ledger owner and treasury are verified as ${LESTER_TREASURY_ADDRESS}.`)
+      return
+    }
+    try {
+      const [freshOwner, freshTreasury] = await Promise.all([
+        refetchLedgerOwner(),
+        refetchLedgerTreasury(),
+      ])
+      if (!hasApprovedLesterControl({
+        owner: freshOwner.data as string | undefined,
+        treasury: freshTreasury.data as string | undefined,
+        treasuryRequired: true,
+      })) {
+        setPhase('error')
+        setStatusMessage('Posting was blocked because a fresh on-chain read did not confirm the approved Ledger owner and treasury.')
+        return
+      }
+    } catch {
+      setPhase('error')
+      setStatusMessage('Posting was blocked because the Ledger owner and treasury could not be verified on-chain.')
       return
     }
     if (!(await ensureLitvmWrite({
@@ -161,7 +227,7 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
 
   const buttonDisabled = isWrongNetwork
     ? phase === 'pending' || isSwitchingChain
-    : !isConnected || !isCanonicalLedger || !feeReady || isEmpty || isTooLong || phase === 'signing' || phase === 'pending'
+    : !isConnected || !isCanonicalLedger || !paidActionReady || isEmpty || isTooLong || phase === 'signing' || phase === 'pending'
 
   return (
     <section
@@ -308,6 +374,13 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
           {!isCanonicalLedger && (
             <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
               Posting is disabled because the configured Ledger is not the canonical LitVM deployment.
+            </div>
+          )}
+          {isCanonicalLedger && !ledgerControlApproved && (
+            <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+              {isOwnerLoading || isTreasuryLoading
+                ? 'Verifying the live Ledger owner and treasury before enabling paid posts…'
+                : `Paid Ledger posts are disabled until both owner and treasury are verified as ${LESTER_TREASURY_ADDRESS}. Reading the Ledger remains available.`}
             </div>
           )}
         </>

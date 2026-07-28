@@ -10,6 +10,11 @@ import { AlertTriangle, CircleCheck, ExternalLink, ShieldCheck, Upload } from 'l
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
 import { ERC20_ABI, ILO_ABI } from '@/config/abis'
+import {
+  LITVM_TESTNET_CONTRACTS,
+  hasApprovedIloPaidWritePath,
+  isApprovedLesterTreasury,
+} from '@/config/contracts'
 import { wagmiConfig } from '@/config/wagmi'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
@@ -108,6 +113,12 @@ export default function PresalePage() {
     address: iloAddress,
     abi: ILO_ABI,
     functionName: 'owner',
+    query: { enabled: Boolean(iloAddress) },
+  })
+  const treasuryRead = useReadContract({
+    address: iloAddress,
+    abi: ILO_ABI,
+    functionName: 'treasury',
     query: { enabled: Boolean(iloAddress) },
   })
   const tokenRead = useReadContract({
@@ -265,6 +276,7 @@ export default function PresalePage() {
   })
 
   const owner = ownerRead.data as `0x${string}` | undefined
+  const treasury = treasuryRead.data as `0x${string}` | undefined
   const tokenName = (tokenNameRead.data as string | undefined) ?? 'Loading…'
   const tokenSymbol = (tokenSymbolRead.data as string | undefined) ?? 'TOKEN'
   const tokenDecimals = Number(tokenDecimalsRead.data ?? 18)
@@ -289,12 +301,26 @@ export default function PresalePage() {
   const lpTokensLocked = (lpTokensLockedRead.data ?? 0n) as bigint
   const isWhitelisted = Boolean(whitelistRead.data)
   const isOwner = Boolean(owner && userAddress && owner.toLowerCase() === userAddress.toLowerCase())
+  const treasuryApproved = treasuryRead.isSuccess && isApprovedLesterTreasury(treasury)
+  // The only provenance accepted above is the canonical legacy factory. Even
+  // after its mutable factory treasury is rotated, every child it creates
+  // remains recovery-only until a separately reviewed factory is pinned.
+  const paidWritesApproved = hasApprovedIloPaidWritePath({
+    factory: provenanceStatus === 'verified' ? LITVM_TESTNET_CONTRACTS.iloFactory : undefined,
+    treasury,
+  })
   const fundingGap = tokensRequired > contractTokenBalance ? tokensRequired - contractTokenBalance : 0n
   const progress = hardCap > 0n ? Math.min(100, Number((totalRaised * 10_000n) / hardCap) / 100) : 0
   const isLive = now >= startTime && now <= endTime && !finalized && !cancelled
   const hasEnded = now > endTime
   const softCapMet = totalRaised >= softCap
-  const canFinalize = !finalized && !cancelled && softCapMet && (now > endTime || totalRaised >= hardCap) && (isOwner || now > endTime)
+  const canFinalize =
+    paidWritesApproved &&
+    !finalized &&
+    !cancelled &&
+    softCapMet &&
+    (now > endTime || totalRaised >= hardCap) &&
+    (isOwner || now > endTime)
   const canClaim = finalized && userContribution > 0n
   const canRefund = userContribution > 0n && (cancelled || (hasEnded && !softCapMet) || (now > endTime + 7 * 24 * 60 * 60 && !finalized))
   const canClaimLp = isOwner && finalized && lpTokensLocked > 0n && now >= lpUnlockTime
@@ -364,6 +390,7 @@ export default function PresalePage() {
   async function refreshPresaleState() {
     await Promise.allSettled([
       ownerRead.refetch(),
+      treasuryRead.refetch(),
       tokenRead.refetch(),
       softCapRead.refetch(),
       hardCapRead.refetch(),
@@ -448,6 +475,12 @@ export default function PresalePage() {
   async function handleContribute() {
     if (!iloAddress) return
     if (!contributionAmount) return
+    if (!paidWritesApproved) {
+      setTxOpen(true)
+      setTxStatus('error')
+      setTxMessage('Contributions are disabled for every presale created by the canonical legacy factory.')
+      return
+    }
 
     let amount = 0n
     try {
@@ -476,6 +509,12 @@ export default function PresalePage() {
 
   async function handleFund() {
     if (!tokenAddress || !iloAddress || !isOwner || !fundingAmount) return
+    if (!paidWritesApproved) {
+      setTxOpen(true)
+      setTxStatus('error')
+      setTxMessage('Funding is disabled for every presale created by the canonical legacy factory.')
+      return
+    }
 
     let amount = 0n
     try {
@@ -504,6 +543,12 @@ export default function PresalePage() {
 
   async function handleWhitelist() {
     if (!iloAddress || !isOwner) return
+    if (!paidWritesApproved) {
+      setTxOpen(true)
+      setTxStatus('error')
+      setTxMessage('Whitelist changes are disabled for every presale created by the canonical legacy factory.')
+      return
+    }
 
     const users = parseWhitelistAddresses(whitelistInput)
     if (users.length === 0 || users.some((value) => !isAddress(value))) {
@@ -529,6 +574,12 @@ export default function PresalePage() {
 
   async function handleFinalize() {
     if (!iloAddress) return
+    if (!paidWritesApproved) {
+      setTxOpen(true)
+      setTxStatus('error')
+      setTxMessage('Finalization is disabled for every presale created by the canonical legacy factory.')
+      return
+    }
 
     await submitTransaction({
       pendingMessage: 'Finalizing the presale and creating the Lester DEX pool…',
@@ -830,6 +881,28 @@ export default function PresalePage() {
           <StatRow label="Your Contribution" value={isConnected ? `${formatEther(userContribution)} zkLTC` : 'Connect wallet to view'} />
         </div>
 
+        {!paidWritesApproved && (
+          <div style={{
+            ...cardStyle,
+            border: '1px solid rgba(248,113,113,0.35)',
+            background: 'rgba(248,113,113,0.1)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <AlertTriangle size={18} color="#fca5a5" />
+              <div>
+                <p style={{ fontSize: '14px', fontWeight: 700, color: '#fecaca' }}>Legacy factory safeguard active</p>
+                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)', marginTop: '4px', lineHeight: 1.6 }}>
+                  {treasuryRead.isLoading
+                    ? 'The presale treasury is being verified. Paid and settlement actions remain disabled until verification succeeds.'
+                    : treasuryApproved
+                      ? 'This presale came from the canonical legacy factory. Contributions, token funding, whitelist changes, and finalization remain disabled even though the factory treasury has rotated. Cancellation, refunds, claims, and other recovery actions remain available when the contract permits them.'
+                      : 'This presale came from the canonical legacy factory and permanently routes its platform fee to the retired treasury. Contributions, token funding, whitelist changes, and finalization are disabled. Cancellation, refunds, claims, and other recovery actions remain available when the contract permits them.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={{ ...cardStyle, border: '1px solid rgba(94,106,210,0.24)', background: 'rgba(94,106,210,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
             <ShieldCheck size={18} color="#93c5fd" />
@@ -915,6 +988,7 @@ export default function PresalePage() {
                     onChange={(event) => setFundingAmount(event.target.value)}
                     placeholder="Token amount to transfer"
                     inputMode="decimal"
+                    disabled={!paidWritesApproved}
                     style={{
                       flex: '1 1 220px',
                       padding: '12px 14px',
@@ -926,32 +1000,40 @@ export default function PresalePage() {
                   />
                   <button
                     onClick={() => setFundingAmount(formatUnits(fundingGap, tokenDecimals))}
-                    disabled={fundingGap === 0n}
+                    disabled={!paidWritesApproved || fundingGap === 0n}
                     style={{
                       padding: '12px 14px',
                       borderRadius: '8px',
                       border: '1px solid rgba(255,255,255,0.1)',
                       background: 'rgba(255,255,255,0.04)',
                       color: '#fff',
-                      cursor: fundingGap === 0n ? 'not-allowed' : 'pointer',
+                      cursor: !paidWritesApproved || fundingGap === 0n ? 'not-allowed' : 'pointer',
                     }}
                   >
                     Fill Remaining
                   </button>
                   <button
                     onClick={() => { void handleFund() }}
-                    disabled={fundingGap === 0n || !fundingAmount || parsedFundingAmount === 0n || parsedFundingAmount > userTokenBalance}
+                    disabled={!paidWritesApproved || fundingGap === 0n || !fundingAmount || parsedFundingAmount === 0n || parsedFundingAmount > userTokenBalance}
                     style={{
                       padding: '12px 14px',
                       borderRadius: '8px',
                       border: 'none',
-                      background: fundingGap === 0n ? 'rgba(34,197,94,0.3)' : 'var(--accent)',
+                      background: fundingGap === 0n
+                        ? 'rgba(34,197,94,0.3)'
+                        : paidWritesApproved
+                          ? 'var(--accent)'
+                          : 'rgba(79,70,229,0.3)',
                       color: '#fff',
                       fontWeight: 700,
-                      cursor: fundingGap === 0n ? 'not-allowed' : 'pointer',
+                      cursor: !paidWritesApproved || fundingGap === 0n ? 'not-allowed' : 'pointer',
                     }}
                   >
-                    {fundingGap === 0n ? 'Funding Complete' : 'Fund Presale'}
+                    {fundingGap === 0n
+                      ? 'Funding Complete'
+                      : paidWritesApproved
+                        ? 'Fund Presale'
+                        : 'Funding paused for legacy factory'}
                   </button>
                 </div>
               </div>
@@ -980,7 +1062,7 @@ export default function PresalePage() {
                   />
                   <button
                     onClick={() => { void handleWhitelist() }}
-                    disabled={!whitelistInput.trim()}
+                    disabled={!paidWritesApproved || !whitelistInput.trim()}
                     style={{
                       padding: '12px 14px',
                       borderRadius: '8px',
@@ -988,7 +1070,7 @@ export default function PresalePage() {
                       background: 'var(--accent)',
                       color: '#fff',
                       fontWeight: 700,
-                      cursor: !whitelistInput.trim() ? 'not-allowed' : 'pointer',
+                      cursor: !paidWritesApproved || !whitelistInput.trim() ? 'not-allowed' : 'pointer',
                     }}
                   >
                     Approve Whitelist
@@ -1099,6 +1181,7 @@ export default function PresalePage() {
                   onChange={(event) => setContributionAmount(event.target.value)}
                   placeholder="Amount in zkLTC"
                   inputMode="decimal"
+                  disabled={!paidWritesApproved}
                   style={{
                     flex: '1 1 220px',
                     padding: '12px 14px',
@@ -1110,7 +1193,7 @@ export default function PresalePage() {
                 />
                 <button
                   onClick={() => { void handleContribute() }}
-                  disabled={!isConnected || !contributionAmount || (whitelistEnabled && !isWhitelisted)}
+                  disabled={!paidWritesApproved || !isConnected || !contributionAmount || (whitelistEnabled && !isWhitelisted)}
                   style={{
                     padding: '12px 14px',
                     borderRadius: '8px',
@@ -1118,10 +1201,14 @@ export default function PresalePage() {
                     background: 'var(--accent)',
                     color: '#fff',
                     fontWeight: 700,
-                    cursor: !isConnected || !contributionAmount || (whitelistEnabled && !isWhitelisted) ? 'not-allowed' : 'pointer',
+                    cursor: !paidWritesApproved || !isConnected || !contributionAmount || (whitelistEnabled && !isWhitelisted) ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  {isConnected ? 'Contribute zkLTC' : 'Connect wallet to contribute'}
+                  {!paidWritesApproved
+                    ? 'Contributions paused for legacy factory'
+                    : isConnected
+                      ? 'Contribute zkLTC'
+                      : 'Connect wallet to contribute'}
                 </button>
               </div>
             </div>

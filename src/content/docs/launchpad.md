@@ -2,39 +2,35 @@
 
 ## Overview
 
-The Launchpad lets project teams run community presales (ILOs — Initial Liquidity Offerings) and then finalize directly into a Lester Labs DEX pool. The flow is self-serve and permissionless: deploy the presale, fund it with tokens, accept zkLTC contributions, and finalize into locked LP without handing the launch off to an external DEX.
+The Launchpad currently provides discovery and recovery access for historical
+ILOs. New presale creation is disabled. Contributions and finalization are
+also disabled for the canonical legacy ILOs because their treasury was copied
+at construction from a retired controller.
 
-The LitVM Launchpad enables project teams to run community token presales (ILOs — Initial Liquidity Offerings) on LitVM with automatic LP creation and LP lock enforcement at finalization. Fully self-service and permissionless: deploy your presale, accept zkLTC contributions from the LitVM community, and seed liquidity into the native LitVM DEX in a single finalize transaction. No external DEX listing step, no team veto, no application process.
+Do not send tokens or zkLTC directly to a legacy ILO. Cancellation, refunds,
+and claims remain available when the individual contract state permits them.
+A separately reviewed future factory and connector must be explicitly pinned
+before the application can offer new ILO creation again.
 
 ## How it works
 
-A project creates an ILO through the factory and configures the sale parameters. After deployment, the project funds the individual ILO contract with the token inventory required for both participant claims and the liquidity tranche. Community members contribute zkLTC during the sale window. When the raise is complete and the soft cap has been met, `finalize()` routes the liquidity portion into Lester Labs' `UniSwapConnector`, which re-checks the Lester Labs Uniswap V2 deployment before calling the Lester Labs router to seed the pair. LP remains locked until the configured unlock time. If the sale is cancelled or misses soft cap, contributors can self-refund from the contract.
+In a future reviewed deployment, a project would create an ILO, fund its token
+inventory, accept contributions, and finalize through a connector into a
+locked Lester Labs DEX position. That workflow is not enabled on the current
+legacy deployment.
 
 ## Step-by-step guide
 
-**For project teams (creating a presale):**
-1. Connect your wallet and switch to LitVM
-2. Navigate to Launchpad → Create Presale
-3. Enter your token contract address
-4. Set soft cap and hard cap in zkLTC
-5. Set tokens per zkLTC
-6. Set presale start and end dates
-7. Choose the liquidity percentage that will seed the Lester DEX pool
-8. Choose the LP lock duration
-9. Optionally enable whitelist mode
-10. Pay the creation fee and deploy the ILO
-11. Open the presale management page
-12. Transfer the required token inventory into the ILO contract
-13. If whitelist mode is enabled, upload the approved wallet list
-14. Share the presale page with your community once funding is complete
-15. After the raise closes or hard cap is hit, call `finalize()` to create the Lester DEX pool and lock LP
+**For legacy participants:**
 
-**For contributors:**
-1. Browse active presales on the Launchpad
-2. Review the token, price, soft cap, hard cap, and LP lock details
-3. Contribute zkLTC from the presale page
-4. Return to the same page to claim tokens after finalization
-5. If the sale is cancelled or soft cap is missed, claim a refund from the same page
+1. Open the historical ILO from the Launchpad.
+2. Do not contribute or add token funding.
+3. If the owner has cancelled the sale, use the refund action.
+4. If a finalized sale permits a claim, use the claim action.
+5. Verify the exact ILO address and state in the explorer before signing.
+
+Owners should prefer cancellation/refund recovery over finalization where the
+retired treasury is embedded.
 
 ## Parameters
 
@@ -54,24 +50,31 @@ A project creates an ILO through the factory and configures the sale parameters.
 
 | Fee | Amount | When charged |
 |---|---|---|
-| Creation fee | 0.03 zkLTC | When project creates the presale |
+| Creation fee | 0.03 zkLTC | Historical/future contract setting; creation is currently disabled |
 | Platform fee | 2% of zkLTC raised | Deducted automatically at finalization |
 | DEX trading fee after launch | 0.30% total | Paid by traders on the live pair: 0.20% treasury / 0.10% LPs |
 
-**Example:** Project raises 100 zkLTC. At finalization, 2 zkLTC goes to the Lester Labs treasury and 98 zkLTC remains available for liquidity plus project allocations. Once the pair is trading, each swap on that pair pays 0.30% total, with 0.20% routed to the Lester Labs treasury.
+The legacy platform fee route is unsafe because it points to the retired
+controller. The example fee split applies only to a future approved deployment
+whose treasury and DEX controls pass the application checks.
 
 ## Smart contract
 
 - **Forked from:** Unicrypt ILO
 - **ILO Factory address:** `0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB`
-- **UniSwapConnector address:** `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD`
+- **Legacy UniSwapConnector address:** `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD` (retired treasury; do not reuse)
 - **Individual ILO addresses:** Generated per presale at creation
 
+The currently deployed ILO factory predates the connector-aware source, does
+not expose `connector()`, and is permanently creation-disabled in the
+frontend. A future connector-aware factory must use a new connector deployed
+for the approved treasury and must be separately pinned in source.
+
 **Key functions (ILOFactory):**
-- `createILO(...)` — deploys a new ILO contract for a project (payable, requires creation fee)
+- `createILO(...)` — legacy on-chain function; the application does not expose this paid write
 - `allILOs(uint256)` — returns the address for a sale by index
 - `getOwnerILOs(address)` — returns ILOs created by a specific address
-- `setConnector(address)` — points the factory at the Lester Labs liquidity connector used during finalization
+- `setConnector(address)` — available only on a future connector-aware factory; it must point at the approved replacement connector
 
 **Key functions (ILO — per presale):**
 - `contribute()` — contribute zkLTC to the presale (payable)
@@ -97,6 +100,10 @@ This module stays close to the Unicrypt-style ILO model while routing liquidity 
 - **Fee auto-collection:** Platform fee is deducted in-contract at finalization
 - **No external DEX dependency:** Launchpad liquidity is seeded into the Lester Labs Uniswap V2 deployment, not a third-party router
 - **No admin override:** Lester Labs cannot rewrite sale parameters or withdraw contributor funds after deployment
-- **Funding precondition:** Finalization will fail unless the ILO has been funded with the required token inventory, so creators should complete the funding step before promoting the sale
+- **Legacy transaction guard:** The application blocks new funding,
+  contribution, and finalization while preserving cancellation, refund, and
+  claim recovery actions
 
-Always verify the presale contract and token address before contributing. Lester Labs does not vet projects or guarantee presale outcomes.
+These properties describe the intended future connector-aware design, not a
+recommendation to use the legacy deployment. Always verify the contract and
+token address, and do not contribute to the current legacy ILOs.

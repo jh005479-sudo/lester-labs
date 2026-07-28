@@ -1,6 +1,8 @@
 # Swap Feature — Implementation Notes
 
-> Status: implemented locally on the working branch. Live LitVM deployment still requires the Lester treasury multisig to execute the deploy scripts and publish final router/factory addresses.
+> Status: implemented locally. The approved treasury target is an EOA, not a
+> multisig, and the live rotation is incomplete until the independent verifier
+> passes.
 
 ## Scope
 
@@ -20,7 +22,7 @@ The Lester Labs DEX rollout covers three connected surfaces:
 
 Treasury wallet:
 
-`0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`
+`0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28`
 
 This split is enforced in the pair contract, not just in frontend config.
 
@@ -59,6 +61,8 @@ Behavior:
 - ERC-20 approval flow inline before swap submission
 - shared `TxStatusModal` for transaction state
 - LP page scans factory pairs and connected-wallet balances
+- paid writes authenticate the canonical factory/router/wrapped-native
+  addresses and re-read `feeTo` plus `feeToSetter` immediately before signing
 
 ## Environment Variables
 
@@ -77,7 +81,10 @@ These remain environment-driven until the live deployment is executed.
 2. Export the deployed factory, router, and wrapped-native addresses to frontend env
 3. Run `cd contracts && npm run deploy:litvm`
 4. Confirm `ILOFactory` points to `UniSwapConnector`
-5. Verify `feeTo` and `feeToSetter` both equal `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`
+5. Verify `feeTo` and `feeToSetter` both equal `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28`
+6. Keep the canonical legacy ILO factory and connector disabled for creation,
+   funding, and finalization; deploy and pin a separately reviewed replacement
+   before enabling a future Launchpad
 
 ## Notes
 

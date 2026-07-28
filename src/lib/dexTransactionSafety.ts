@@ -24,14 +24,20 @@ export function hasCanonicalDexTargets(configured: DexTargets, canonical: DexTar
 export function assertCanonicalRouterRuntime(
   configured: DexTargets,
   canonical: DexTargets,
-  routerFactory: string,
-  routerWrappedNative: string,
+  routerFactory: string | undefined,
+  routerWrappedNative: string | undefined,
+  factoryFeeTo: string | undefined,
+  factoryFeeToSetter: string | undefined,
+  approvedTreasury: string,
 ): void {
   if (!hasCanonicalDexTargets(configured, canonical)) {
     throw new Error('DEX transactions are disabled because the configured targets are not the canonical LitVM deployment.')
   }
   if (!sameAddress(routerFactory, canonical.factory) || !sameAddress(routerWrappedNative, canonical.wrappedNative)) {
     throw new Error('DEX transactions are disabled because the router runtime targets could not be authenticated.')
+  }
+  if (!sameAddress(factoryFeeTo, approvedTreasury) || !sameAddress(factoryFeeToSetter, approvedTreasury)) {
+    throw new Error('DEX transactions are disabled because the factory fee controls are not assigned to the approved Lester treasury.')
   }
 }
 

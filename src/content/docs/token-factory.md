@@ -38,7 +38,11 @@ The factory deploys a LesterToken built from OpenZeppelin ERC-20 modules and min
 |---|---|---|
 | Deployment fee | 0.05 zkLTC | At transaction confirmation |
 
-Fee is non-refundable. Sent to Lester-Labs treasury at deployment.
+The fee is non-refundable and accrues in the factory until its owner withdraws
+it. The
+frontend reads the live factory owner when the form loads and again
+immediately before `createToken`; the paid write is disabled unless the owner
+is the approved treasury controller.
 
 ## Smart contract
 
@@ -59,3 +63,7 @@ Fee is non-refundable. Sent to Lester-Labs treasury at deployment.
 ## Security
 
 The implementation composes maintained OpenZeppelin ERC-20, burnable, pausable, and ownership modules with Lester-specific feature flags and custom-decimal behavior. The Lester Labs factory and resulting integration remain unaudited testnet software; upstream OpenZeppelin review does not constitute an audit of this deployment.
+
+Each created token has its own transferable owner. Rotating TokenFactory
+ownership does not rotate child token ownership. A child owner can mint or
+pause only when those options were enabled at creation.

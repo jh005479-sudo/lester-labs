@@ -23,6 +23,13 @@ export const VESTING_FACTORY_ABI = [
     outputs: [{ name: '', type: 'uint256' }],
   },
   {
+    name: 'owner',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
     type: 'event',
     name: 'VestingCreated',
     inputs: [

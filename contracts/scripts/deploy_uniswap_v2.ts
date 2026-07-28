@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const ADDRESSES_FILE = path.join(__dirname, "../deployed-addresses.json");
-const TREASURY = "0xDD221FBbCb0f6092AfE51183d964AA89A968eE13";
+const TREASURY = "0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28";
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -14,7 +14,7 @@ async function main() {
   console.log("Chain ID:", chainId.toString());
 
   if (chainId === 4441n && deployer.address.toLowerCase() !== TREASURY.toLowerCase()) {
-    throw new Error(`LitVM deployments must use the treasury multisig ${TREASURY}`);
+    throw new Error(`LitVM deployments must use the approved treasury ${TREASURY}`);
   }
 
   console.log("\n[1/4] Deploying wrapped native asset...");

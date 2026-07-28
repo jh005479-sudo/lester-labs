@@ -6,7 +6,11 @@ The Liquidity Locker allows project teams to lock LP tokens for a defined period
 
 ## How it works
 
-You deposit LP tokens into the locker contract along with an unlock timestamp. The contract holds the tokens until the unlock date, at which point only the original depositor can withdraw them. Lock duration can be extended at any time but cannot be shortened — this is enforced at the contract level, not by policy. A public record of all active locks is queryable on-chain.
+You deposit LP tokens into the locker contract with an unlock timestamp and an
+explicit withdrawer address. The contract holds the tokens until the unlock
+date, when only that withdrawer can claim them. The deployed contract has no
+function to change the withdrawer or edit/extend the timestamp after creation.
+Each lock is publicly readable by ID.
 
 ## Step-by-step guide
 
@@ -34,7 +38,10 @@ You deposit LP tokens into the locker contract along with an unlock timestamp. T
 |---|---|---|
 | Lock fee | 0.03 zkLTC | At lock confirmation |
 
-Fee is non-refundable. Sent to Lester-Labs treasury at lock time. Extending an existing lock does not incur an additional fee.
+The fee is non-refundable and accrues in the locker until its owner withdraws
+it. The frontend reads the live locker owner when the form loads and again
+immediately before the paid lock write; creation is disabled unless that owner
+is the approved treasury controller.
 
 ## Smart contract
 
@@ -42,11 +49,9 @@ Fee is non-refundable. Sent to Lester-Labs treasury at lock time. Extending an e
 - **Contract address:** `0x80d88C7F529D256e5e6A2CB0e0C30D82bC8827A9`
 
 **Key functions:**
-- `lockLPToken(token, amount, unlockDate, owner)` — creates a new lock
-- `extendLock(lockId, newUnlockDate)` — extends an existing lock (owner only, cannot shorten)
-- `withdraw(lockId)` — withdraws locked LP tokens after unlock date (owner only)
-- `getLock(lockId)` — returns lock details (token, amount, unlock date, owner)
-- `getLocksForToken(token)` — returns all locks for a specific LP token
+- `lockLiquidity(token, amount, unlockTime, withdrawer)` — creates a new lock
+- `withdraw(lockId)` — sends locked LP tokens to the recorded withdrawer after unlock
+- `getLock(lockId)` — returns token, amount, unlock time, withdrawer, and withdrawal state
 
 ## Sources
 
@@ -54,4 +59,8 @@ Fee is non-refundable. Sent to Lester-Labs treasury at lock time. Extending an e
 
 ## Security
 
-Forked from Unicrypt UNCX Locker, the most widely used LP locking contract in DeFi with billions of dollars locked across BSC, Ethereum, and multiple other chains. The key security property is that the unlock date cannot be shortened after locking — this is enforced in the contract, not as a UI restriction. Only the original depositor address can withdraw after the unlock date. No admin override exists.
+The lock record's timestamp and withdrawer have no setters, and the factory
+owner cannot withdraw user lock principal. Only the recorded withdrawer can
+withdraw after the timestamp. Choose that address carefully: it need not equal
+the depositor and cannot be corrected later. Upstream inspiration is not an
+audit of this deployment.

@@ -12,7 +12,7 @@ Lester Labs is the first fully native DeFi suite for LitVM (Litecoin Virtual Mac
 | [Token Vesting](./token-vesting.md) | Linear and cliff vesting for teams and investors | 0.03 zkLTC |
 | [Airdrop Tool](./airdrop-tool.md) | Local validation and resumable token-distribution batches | Network gas |
 | [Governance](./governance.md) | Local proposal drafting and governance planning | No publishing integration |
-| [Launchpad](./launchpad.md) | Permissionless ILO presales with automatic LitVM LP seeding | 0.03 zkLTC + 2% |
+| [Launchpad](./launchpad.md) | Historical ILO discovery and recovery; new creation disabled | No new paid writes |
 | [The Ledger](./ledger.md) | Post permanent messages in blockchain calldata | Posting fee |
 
 ## The LitVM DEX — Native Swap Infrastructure
@@ -25,7 +25,10 @@ The fee split is enforced on-chain in the pair contract:
 - Treasury share: `0.20%`
 - LP share retained in-pool: `0.10%`
 
-Launchpad finalization uses `UniSwapConnector`, which re-checks that both factory `feeTo` and `feeToSetter` still point at the Lester Labs treasury before liquidity can be seeded.
+A future reviewed Launchpad will use `UniSwapConnector` to re-check both
+factory `feeTo` and `feeToSetter` before liquidity is seeded. The current
+legacy factory/connector is browse-and-recovery-only; creation, contribution,
+and finalization are disabled.
 
 ## Analytics
 
@@ -54,7 +57,8 @@ Live at [lester-labs.com/analytics](https://lester-labs.com/analytics).
 
 1. Connect your wallet to LitVM using the network configuration above.
 2. Deploy a token at `/launch`, or open `/swap` if you already hold tradable assets.
-3. Use `/launchpad` to run a raise that seeds LP on Lester Labs at finalization.
+3. Use `/launchpad` only to inspect or recover from a historical ILO; do not
+   fund or contribute to a legacy sale.
 4. Review LP balances and exposure on `/pool`.
 5. Use the docs and tutorials pages for walkthroughs and contract references.
 
@@ -71,7 +75,7 @@ Live at [lester-labs.com/analytics](https://lester-labs.com/analytics).
 | Uniswap V2 Factory | `0x017A126A44Aaae9273F7963D4E295F0Ee2793AD8` |
 | Uniswap V2 Router | `0xD56a623890b083d876D47c3b1c5343b7f983FA62` |
 | Wrapped zkLTC | `0xd141A5DDE1a3A373B7e9bb603362A58793AB9D97` |
-| UniSwapConnector | `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD` |
+| Legacy UniSwapConnector (retired; do not reuse) | `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD` |
 
 ## Security Notes
 
@@ -80,6 +84,12 @@ Several Lester Labs contracts compose upstream OpenZeppelin, Disperse-style, and
 - the V2 pair contract routes `0.20%` of each trade input directly to the Lester Labs treasury
 - the factory constructor pins both `feeTo` and `feeToSetter` to the Lester Labs treasury
 - the Launchpad connector refuses to seed liquidity if treasury routing drifts from the configured treasury
+
+The listed connector permanently embeds the retired treasury. It is retained
+only as a historical deployment reference and must not be configured on a new
+ILO factory. Existing legacy ILOs also embed that retired treasury, so the
+frontend keeps their contribution and finalization writes disabled while
+leaving cancellation/refund/claim recovery reachable.
 
 Always verify the chain, contract address, and token pair before transacting.
 

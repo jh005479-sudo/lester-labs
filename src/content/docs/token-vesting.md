@@ -6,7 +6,7 @@ Token Vesting creates on-chain vesting schedules for team allocations, investor 
 
 ## How it works
 
-You deploy a vesting wallet specifying the beneficiary, schedule parameters, and token amount. Tokens are transferred into the vesting wallet at creation and held until they vest. Claims follow the standard OpenZeppelin VestingWallet model: vested tokens are released from the vesting wallet on demand via `release(token)`. The deployer has no ability to claw back tokens once the contract is funded — this is by design and is what makes vesting credible to investors and communities.
+You deploy a vesting wallet specifying the initial beneficiary, schedule parameters, and token amount. Tokens are transferred into the vesting wallet at creation and held until they vest. Claims follow the OpenZeppelin VestingWallet model: vested tokens are released from the vesting wallet on demand via `release(token)`. The schedule has no clawback, but the beneficiary is the wallet's initial Ownable owner and can transfer ownership; future releases follow the current owner.
 
 ## Step-by-step guide
 
@@ -47,6 +47,10 @@ Share the resulting vesting wallet address with the beneficiary. Once tokens are
 
 Fee is non-refundable. One fee per vesting schedule regardless of token amount or duration.
 
+Before approval/deployment, the frontend reads the live VestingFactory owner
+and repeats that check immediately before the paid write. Creation is disabled
+unless the factory owner is the approved treasury controller.
+
 ## Smart contract
 
 - **Forked from:** OpenZeppelin VestingWallet
@@ -54,7 +58,7 @@ Fee is non-refundable. One fee per vesting schedule regardless of token amount o
 
 **Key functions:**
 - `constructor(beneficiary, startTimestamp, cliffDuration, vestingDuration)` — deploys schedule
-- `release(token)` — transfers all vested-but-unclaimed tokens to beneficiary (callable by anyone)
+- `release(token)` — transfers all vested-but-unclaimed tokens to the vesting wallet's current owner (callable by anyone)
 - `vestedAmount(token, timestamp)` — returns total tokens vested as of a given timestamp
 - `releasable(token)` — returns tokens available to claim right now
 
@@ -64,4 +68,8 @@ Fee is non-refundable. One fee per vesting schedule regardless of token amount o
 
 ## Security
 
-Forked from OpenZeppelin VestingWallet, part of the OpenZeppelin contracts library that has been formally audited and maintained since 2018. The contract has no owner-controlled pause or claw-back mechanism — once tokens are deposited, they will vest according to the schedule regardless of the deployer's actions. This immutability is intentional and is the property that makes vesting schedules trustworthy.
+The implementation uses OpenZeppelin VestingWallet. It has no owner-controlled
+pause or clawback mechanism, so deposited tokens continue vesting on schedule.
+Ownership is nevertheless transferable by the current beneficiary; “no
+clawback” must not be confused with an immutable recipient. Upstream
+OpenZeppelin review is not an audit of Lester Labs' factory or deployment.
