@@ -70,6 +70,12 @@ it freezes every authority at the verified `0x…01` ECRECOVER precompile and
 allows the disclosed wallet only as gas payer and test-fee recipient. It is not
 a public-cutover or reputation-appeal deployment.
 
+That disposable profile was executed and independently verified on 2026-08-06
+from source commit `abcf1b75ee7945f557163dce11485555da63a5b6`.
+Post-execution evidence is mirrored under
+[`../docs/security/evidence/disposable-testnet-4441-2026-08-06/`](../docs/security/evidence/disposable-testnet-4441-2026-08-06/README.md).
+No production replacement has been deployed or approved.
+
 Follow
 [`../docs/POST-COMPROMISE-REDEPLOYMENT.md`](../docs/POST-COMPROMISE-REDEPLOYMENT.md)
 for the mandatory read-only preview, exact thirteen-contract deployment order, and

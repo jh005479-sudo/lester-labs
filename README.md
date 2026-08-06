@@ -95,10 +95,13 @@ while every authority and all governance voting power are frozen at LitVM's
 verified `0x…01` ECRECOVER precompile. Disposable addresses can never activate
 the public frontend or support a reputation appeal.
 
-The suspected Mac must not compile, attest, verify, or deploy this stack. Build
-on a clean digest-pinned x64 Linux ephemeral runner with a fresh HOME/compiler
-cache, no credentials, and outbound network disabled after reviewed inputs and
-exact compiler binaries are fetched. The real attestation is an immutable
+Production must not compile, attest, verify, or deploy from the previously
+suspected Mac. Use a clean digest-pinned x64 Linux ephemeral runner with a
+fresh HOME/compiler cache, no credentials, and outbound network disabled after
+reviewed inputs and exact compiler binaries are fetched. The separately
+authorised factory-reset Mac exception is restricted in code to the valueless
+immutable disposable profile and cannot select the production profile. The
+real attestation is an immutable
 external release artifact; the committed `NOT_ATTESTED` file is only a
 fail-closed sentinel. The clean install's full `node_modules` tree is also
 content/mode/symlink hashed and must be mounted read-only before attestation or

@@ -6,6 +6,13 @@ Never record a private key, seed phrase, raw session cookie, registry token, dep
 
 > **Current Lester Labs incident status (2026-08-06): containment is incomplete.** Independent live-chain review found authority still associated with the retired compromised controller `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`. The rejected July target `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28` remains incident-associated and is not acceptable in the public-remediation stack. The separately disclosed valueless testnet key used for this investigation cryptographically derives to `0x439945924515218061b644901a31aC4A6c00957c`; it is likewise forbidden as a production controller, treasury, or deployer. Anyone holding that disclosed key material can race its nonce and substitute contracts at a predicted CREATE sequence even if the signer would otherwise be “gas-only.” It is permitted only in a separately attested, valueless `testnet-immutable-disposable` functional-test profile where it is gas payer and economic recipient, every authority and all governance voting power are frozen at the verified `0x…01` ECRECOVER precompile, and frontend activation rejects the manifest. That disposable deployment is not containment or appeal evidence. Do not submit a false-positive appeal, re-enable public paid writes, or describe any incident/disclosed-key address as production-safe. Generate three fresh, distinct production addresses from trusted systems—a controller, treasury, and new single-use gas EOA—record public addresses only, complete the live rotations/redeployments, independently verify the resulting state, and prove clean-build-to-live served-artifact parity first. The appeal remains blocked until all of those gates are complete.
 
+The authorised disposable profile executed on 2026-08-06 from source commit
+`abcf1b75ee7945f557163dce11485555da63a5b6`. Its exact manifest and build
+attestation are recorded separately under
+[`docs/security/evidence/disposable-testnet-4441-2026-08-06/`](evidence/disposable-testnet-4441-2026-08-06/README.md).
+They are explicitly excluded from the public origin, analytics continuation,
+production safety claims, and the appeal package.
+
 Current attribution evidence is strong but deliberately narrow: MetaMask's dapp scanner classified the apex and `www` hostnames as `BLOCK` with a critical `DRAINER` risk factor while classifying the Vercel project alias as `NONE`; ten sampled routes were byte-for-byte identical across those hosts and referenced one deployment ID. The same domain did not appear in MetaMask's contemporaneous public stale or hot list data. Static inspection of the sampled JavaScript found no credential-collection flow, clipboard read, hidden recipient substitution, or arbitrary-code-evaluation primitive. These are strong negative findings about the current sampled client artifacts, not proof that historical deployments, hosting state, server-side behavior, RPC responses, or contract behavior were clean.
 
 A live in-app-browser check on 2026-08-04 reproduced the stale production
@@ -69,7 +76,7 @@ State whether the warning appears before connection, on connection, on a particu
 - [ ] DNS records, registrar access, nameservers, DNSSEC, certificate issuance, and certificate-transparency entries were reviewed.
 - [ ] On-chain admin, owner, proxy, treasury, guardian, timelock, and upgrader authority was rotated or independently confirmed.
 - [ ] The retired `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13` controller, rejected July target `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28`, and disclosed-key-derived `0x439945924515218061b644901a31aC4A6c00957c` address have no live production authority and were not used to sign the production replacement CREATE sequence.
-- [ ] Any disposable functional-test deployment is recorded separately and is excluded from the public origin, frontend targets, analytics continuation, safety claims, and appeal package.
+- [x] The 2026-08-06 disposable functional-test deployment is [recorded separately](evidence/disposable-testnet-4441-2026-08-06/README.md) and excluded from the public origin, frontend targets, analytics continuation, safety claims, and appeal package.
 
 Evidence locations, event IDs, revocation times, and reviewers (never secret values):
 

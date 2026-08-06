@@ -10,6 +10,23 @@ import {
   sumCompleteCounts,
 } from './platformStatsBounds.ts'
 import { PLATFORM_ACTIVITY_BASELINE } from '../config/platformActivitySnapshot.ts'
+import {
+  getPlatformStatsDisclosure,
+  getPlatformStatsSessionCacheKey,
+  isKnownPlatformActivitySnapshotKind,
+  matchesCompiledPlatformActivityBaseline,
+} from './platformStatsDisclosure.ts'
+import { requirePlatformActivityApiCoverage } from '../../scripts/security/platform-activity-coverage.mjs'
+
+function coveragePayload(status) {
+  return Object.fromEntries([
+    'tokensMinted',
+    'walletsAirdropped',
+    'presalesCreated',
+    'swapsCompleted',
+    'onChainMessages',
+  ].map((name) => [name, { status, note: `${name} coverage` }]))
+}
 
 describe('selectNewestPairIndices', () => {
   it('bounds enumeration to the newest canonical factory pairs', () => {
@@ -113,5 +130,78 @@ describe('provisional historical platform floor', () => {
     assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.countingRule, /live deltas stay disabled/i)
     assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.disclaimer, /not an independent audit/i)
     assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.disclaimer, /bot|spam/i)
+  })
+})
+
+describe('platform activity cutover compatibility', () => {
+  it('accepts the remediated containment API status and the legacy rollout spelling', () => {
+    assert.equal(
+      requirePlatformActivityApiCoverage(coveragePayload('historical-baseline')).tokensMinted.status,
+      'historical-baseline',
+    )
+    assert.equal(
+      requirePlatformActivityApiCoverage(coveragePayload('audited-baseline')).tokensMinted.status,
+      'audited-baseline',
+    )
+  })
+
+  it('continues to reject unknown coverage states', () => {
+    assert.throws(
+      () => requirePlatformActivityApiCoverage(coveragePayload('unreviewed')),
+      /coverage is invalid/i,
+    )
+  })
+})
+
+describe('platform activity disclosure', () => {
+  it('uses provisional language for containment, missing, or unknown snapshot kinds', () => {
+    const provisional = getPlatformStatsDisclosure('provisional-pre-replacement-floor')
+    assert.match(provisional.headline, /provisional/i)
+    assert.match(provisional.detail, /must be replaced/i)
+    assert.deepEqual(getPlatformStatsDisclosure(undefined), provisional)
+    assert.deepEqual(getPlatformStatsDisclosure('unreviewed'), provisional)
+    assert.equal(isKnownPlatformActivitySnapshotKind('unreviewed'), false)
+  })
+
+  it('uses approved language only for the exact post-replacement cutover kind', () => {
+    const approved = getPlatformStatsDisclosure('post-replacement-cutover')
+    assert.doesNotMatch(approved.headline, /provisional/i)
+    assert.doesNotMatch(approved.detail, /must be replaced|remain zero/i)
+    assert.match(approved.detail, /following block/i)
+    assert.equal(isKnownPlatformActivitySnapshotKind('post-replacement-cutover'), true)
+  })
+
+  it('rejects a future approved cache after rollback to the compiled provisional baseline', () => {
+    const futureApproved = {
+      ...PLATFORM_ACTIVITY_BASELINE,
+      snapshotKind: 'post-replacement-cutover',
+      throughBlock: PLATFORM_ACTIVITY_BASELINE.throughBlock + 1,
+      blockHash: `0x${'ab'.repeat(32)}`,
+      totals: {
+        ...PLATFORM_ACTIVITY_BASELINE.totals,
+        tokensMinted: PLATFORM_ACTIVITY_BASELINE.totals.tokensMinted + 1,
+      },
+    }
+
+    assert.equal(
+      matchesCompiledPlatformActivityBaseline(PLATFORM_ACTIVITY_BASELINE, PLATFORM_ACTIVITY_BASELINE),
+      true,
+    )
+    assert.equal(matchesCompiledPlatformActivityBaseline(futureApproved, PLATFORM_ACTIVITY_BASELINE), false)
+    assert.notEqual(
+      getPlatformStatsSessionCacheKey(futureApproved),
+      getPlatformStatsSessionCacheKey(PLATFORM_ACTIVITY_BASELINE),
+    )
+  })
+
+  it('rejects cached totals that do not match the compiled baseline identity', () => {
+    const tampered = {
+      ...PLATFORM_ACTIVITY_BASELINE,
+      totals: {
+        ...PLATFORM_ACTIVITY_BASELINE.totals,
+        swapsCompleted: PLATFORM_ACTIVITY_BASELINE.totals.swapsCompleted + 1,
+      },
+    }
+    assert.equal(matchesCompiledPlatformActivityBaseline(tampered, PLATFORM_ACTIVITY_BASELINE), false)
   })
 })

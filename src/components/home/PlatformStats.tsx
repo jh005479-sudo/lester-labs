@@ -1,10 +1,16 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { PLATFORM_ACTIVITY_BASELINE } from '@/config/platformActivity'
 import type { PlatformStatsSnapshot } from '@/lib/platformStats'
+import {
+  getPlatformStatsDisclosure,
+  getPlatformStatsSessionCacheKey,
+  matchesCompiledPlatformActivityBaseline,
+} from '@/lib/platformStatsDisclosure'
 
 const POLL_INTERVAL_MS = 60_000
-const SESSION_CACHE_KEY = 'lester_platform_stats_v4'
+const SESSION_CACHE_KEY = getPlatformStatsSessionCacheKey(PLATFORM_ACTIVITY_BASELINE)
 
 function StatChip({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
@@ -58,8 +64,7 @@ function isValidSnapshot(value: unknown): value is PlatformStatsSnapshot {
     typeof candidate.swapsCompleted === 'number' &&
     typeof candidate.onChainMessages === 'number' &&
     typeof candidate.fetchedAt === 'string' &&
-    Boolean(candidate.baseline && typeof candidate.baseline.throughBlock === 'number') &&
-    Boolean(candidate.baseline && typeof candidate.baseline.blockHash === 'string') &&
+    matchesCompiledPlatformActivityBaseline(candidate.baseline, PLATFORM_ACTIVITY_BASELINE) &&
     Boolean(candidate.breakdown && typeof candidate.breakdown.tokensMinted?.baseline === 'number') &&
     Boolean(candidate.breakdown && typeof candidate.breakdown.tokensMinted?.postCutover === 'number')
   )
@@ -139,6 +144,7 @@ export function PlatformStats() {
         { label: 'On-chain messages', value: snapshot.breakdown.onChainMessages },
       ]
     : []
+  const disclosure = getPlatformStatsDisclosure(snapshot?.baseline.snapshotKind)
 
   return (
     <div style={{ marginTop: 20 }}>
@@ -188,12 +194,8 @@ export function PlatformStats() {
         textAlign: 'center',
       }}>
         <strong style={{ color: 'rgba(255,255,255,0.86)' }}>
-          Provisional first-party historical action counts—not users or an independent audit.
-        </strong>{' '}
-        The preserved floor may include repeated, automated, bot, or spam-heavy activity. The permissionless swap
-        counter can also be increased by valid low-value swaps and is not a volume or unique-user metric. New activity
-        is added only from source-pinned replacement counters after the reviewed cutover; no compromised-deployment
-        activity is added.
+          {disclosure.headline}
+        </strong>{' '}{disclosure.summary}
       </div>
 
       {snapshot && (
@@ -262,9 +264,7 @@ export function PlatformStats() {
               and every metric may include automated, bot, or spam-heavy activity.
             </p>
             <p style={{ margin: '6px 0 0' }}>
-              This provisional floor preserves the production display without counting further compromised-deployment
-              activity. It must be replaced by an atomic, overlap-safe capture of every legacy source—including both ILO
-              factory series—at the exact replacement cutover block. Live deltas remain zero until that reviewed capture.
+              {disclosure.detail}
             </p>
           </div>
         </details>

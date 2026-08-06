@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 3,
+  "status": "ATTESTED",
+  "hashAlgorithm": "sha256",
+  "deploymentProfile": "testnet-immutable-disposable",
+  "planPath": "deployment/disposable-testnet-plan.json",
+  "sourceCommit": "abcf1b75ee7945f557163dce11485555da63a5b6",
+  "nodeVersion": "v24.18.0",
+  "nodeExecutableSha256": "0xee6fb0e015284d83a91e8ec5213f43a157f8a392b58555301682892ba928c04a",
+  "gitExecutableSha256": "0x179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818",
+  "hardhatVersion": "3.11.1",
+  "hardhatPackageSha256": "0x09d81ba43255395f85c63587269da2ed0faa1d0d2c20c63c9ac9dd663a781ae6",
+  "hardhatCliSha256": "0x0b7a131cff4bddf8971d9323b1c07dd2fe30299c917891d97c099e8cb812971e",
+  "nodeModulesTreeFormat": "lester-labs-node-modules-tree-v1",
+  "nodeModulesTreeSha256": "0x034d26035f2f8aef82b2252b3de98db59612777212476e56c92367eddb51743d",
+  "planSha256": "0xe948a0441f23c624b064bab8de63e62b58738a297ec86590efd86ed30b594354",
+  "buildEnvironment": {
+    "kind": "factory-reset-darwin-disposable",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cleanHome": true,
+    "networkDisabled": true,
+    "credentialFree": true,
+    "readOnlyNodeModules": true,
+    "unprivilegedUser": true,
+    "reproducibleBuildPasses": 2,
+    "privateExternalBuildState": true,
+    "privateExternalTmp": true,
+    "homeEnvironmentForwarded": false,
+    "compilerCacheLocation": "attested-native-user-cache",
+    "operatorAcknowledgement": "USE_FACTORY_RESET_MAC_FOR_VALUELESS_DISPOSABLE_TESTNET_ONLY"
+  },
+  "inputs": [
+    {
+      "path": "package.json",
+      "sha256": "0x29006c8ade1578de1c3935572006506b6bd1a532c98d297f6d34457d54a46c10"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "0xc537da287ce1b7b0cf1380625690132a1b5509cd243237b6d3453ee28a3bc2ae"
+    },
+    {
+      "path": ".npmrc",
+      "sha256": "0x31a8dc65d20ff0df2014e1201b243fc6690fd6993c874686ecc027712167dd7c"
+    },
+    {
+      "path": "hardhat.config.ts",
+      "sha256": "0x2b41727ec7283528598041e479cf96d38ecfcb7a86badfa775921e1b1482a203"
+    },
+    {
+      "path": "deployment/disposable-testnet-plan.json",
+      "sha256": "0xe948a0441f23c624b064bab8de63e62b58738a297ec86590efd86ed30b594354"
+    }
+  ],
+  "compilers": [
+    {
+      "version": "0.5.16",
+      "longVersion": "0.5.16+commit.9c3226ce",
+      "platform": "wasm",
+      "filename": "soljson-v0.5.16+commit.9c3226ce.js",
+      "isSolcJs": true,
+      "sha256": "0xa09c9cc2672678d461dc71100600bb58802db87be4de9424769241712ccbec03",
+      "registryKeccak256": "0x6abf17bdb1b934d072739e0e083ecfd579c523d200d45184b8d3987924ca0454",
+      "compilerListSha256": "0xe8c9600b792cb0e59948490e0bbe04fd230cff5a4c0119bda865f0b0867bfb7b",
+      "selection": "reviewed-wasm-fallback",
+      "nativePlatform": "macosx-amd64",
+      "nativeCompilerListSha256": "0x1db6361cbe5234c4a8457c588b5112bcd9213c02c769198f6b831b813a5b313e",
+      "nativeFilename": "solc-macosx-amd64-v0.5.16+commit.9c3226ce",
+      "nativeMarkedDoesNotWork": true,
+      "nativeDoesNotWorkMarkerSha256": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "version": "0.6.6",
+      "longVersion": "0.6.6+commit.6c089d02",
+      "platform": "wasm",
+      "filename": "soljson-v0.6.6+commit.6c089d02.js",
+      "isSolcJs": true,
+      "sha256": "0x09f6098026622c5c334c7798c3ad2b8f7c0ebc62f87846c7d5e7e725c3d1cbc2",
+      "registryKeccak256": "0x3c9cfccc78bf352f4c7901d7af76757bd228f93af2634af4cd16b4916c13e44e",
+      "compilerListSha256": "0xe8c9600b792cb0e59948490e0bbe04fd230cff5a4c0119bda865f0b0867bfb7b",
+      "selection": "reviewed-wasm-fallback",
+      "nativePlatform": "macosx-amd64",
+      "nativeCompilerListSha256": "0x1db6361cbe5234c4a8457c588b5112bcd9213c02c769198f6b831b813a5b313e",
+      "nativeFilename": "solc-macosx-amd64-v0.6.6+commit.6c089d02",
+      "nativeMarkedDoesNotWork": true,
+      "nativeDoesNotWorkMarkerSha256": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "version": "0.8.24",
+      "longVersion": "0.8.24+commit.e11b9ed9",
+      "platform": "macosx-amd64",
+      "filename": "solc-macosx-amd64-v0.8.24+commit.e11b9ed9",
+      "isSolcJs": false,
+      "sha256": "0xcc2d44c706905ccc382f484625dff61d741e0c24232d226f139a6835fc644f3f",
+      "registryKeccak256": "0xf8c5313dfe054e7f3c208905ee6bb4097a1c7a1dd360050f90fab4b182ac1c24",
+      "compilerListSha256": "0x1db6361cbe5234c4a8457c588b5112bcd9213c02c769198f6b831b813a5b313e",
+      "selection": "native",
+      "nativePlatform": "macosx-amd64",
+      "nativeCompilerListSha256": "0x1db6361cbe5234c4a8457c588b5112bcd9213c02c769198f6b831b813a5b313e",
+      "nativeFilename": "solc-macosx-amd64-v0.8.24+commit.e11b9ed9",
+      "nativeMarkedDoesNotWork": false,
+      "nativeDoesNotWorkMarkerSha256": null
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "WrappedZkLTC",
+      "solcVersion": "0.6.6",
+      "artifactPath": "artifacts/contracts/uniswap/periphery/test/WETH9.sol/WETH9.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0xed9396d949100f9e794a9ea50f9672a2277db32568e2eb02ebfd8c3e182395c6",
+      "buildInfoId": "solc-0_6_6-35a2cf1f986600901745e17230cfcc9b3692eb2c",
+      "buildInfoPath": "artifacts/build-info/solc-0_6_6-35a2cf1f986600901745e17230cfcc9b3692eb2c.json",
+      "buildInfoSha256": "0x87243b36d18442b7dddef74d9cc922f5ce0264d19831d4e9f2f0958bdfb04acf",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_6_6-35a2cf1f986600901745e17230cfcc9b3692eb2c.output.json",
+      "buildInfoOutputSha256": "0x8cee6eb54264a55880c29edf89e7aec980b30a8bfcf6024cd297ac0fec78af2b"
+    },
+    {
+      "name": "UniswapV2Factory",
+      "solcVersion": "0.5.16",
+      "artifactPath": "artifacts/contracts/uniswap/core/UniswapV2Factory.sol/UniswapV2Factory.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0xed9796ab310ab5f6da45751bfad4a1df713e091fb4bb13e71bbfa5df820eba6c",
+      "buildInfoId": "solc-0_5_16-e43e99765bfe8810e4daca8daab3b5070c6fe913",
+      "buildInfoPath": "artifacts/build-info/solc-0_5_16-e43e99765bfe8810e4daca8daab3b5070c6fe913.json",
+      "buildInfoSha256": "0x8d0675d5e92b5d752705344130736a6928105d0b68c05eed4bd57ddbe7ff3fd1",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_5_16-e43e99765bfe8810e4daca8daab3b5070c6fe913.output.json",
+      "buildInfoOutputSha256": "0xf97c75a3980e9604cee674a5920c21046815e031495da73675bb54900d807196"
+    },
+    {
+      "name": "UniswapV2Pair",
+      "solcVersion": "0.5.16",
+      "artifactPath": "artifacts/contracts/uniswap/core/UniswapV2Pair.sol/UniswapV2Pair.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0xd1244c3154e8f7c08bf2549d294d1a25fc5a71a11c024debb383dc598f1146e8",
+      "buildInfoId": "solc-0_5_16-e43e99765bfe8810e4daca8daab3b5070c6fe913",
+      "buildInfoPath": "artifacts/build-info/solc-0_5_16-e43e99765bfe8810e4daca8daab3b5070c6fe913.json",
+      "buildInfoSha256": "0x8d0675d5e92b5d752705344130736a6928105d0b68c05eed4bd57ddbe7ff3fd1",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_5_16-e43e99765bfe8810e4daca8daab3b5070c6fe913.output.json",
+      "buildInfoOutputSha256": "0xf97c75a3980e9604cee674a5920c21046815e031495da73675bb54900d807196"
+    },
+    {
+      "name": "UniswapV2Router02",
+      "solcVersion": "0.6.6",
+      "artifactPath": "artifacts/contracts/uniswap/periphery/UniswapV2Router02.sol/UniswapV2Router02.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0xe095bcca5825173f1c7eacd60a35fd7ab78c9799d1a65abacd789e769b182b69",
+      "buildInfoId": "solc-0_6_6-35a2cf1f986600901745e17230cfcc9b3692eb2c",
+      "buildInfoPath": "artifacts/build-info/solc-0_6_6-35a2cf1f986600901745e17230cfcc9b3692eb2c.json",
+      "buildInfoSha256": "0x87243b36d18442b7dddef74d9cc922f5ce0264d19831d4e9f2f0958bdfb04acf",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_6_6-35a2cf1f986600901745e17230cfcc9b3692eb2c.output.json",
+      "buildInfoOutputSha256": "0x8cee6eb54264a55880c29edf89e7aec980b30a8bfcf6024cd297ac0fec78af2b"
+    },
+    {
+      "name": "UniSwapConnector",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/UniSwapConnector.sol/UniSwapConnector.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0x58dca36941dbaec1a75c63e1d11a10a7b24b0c824dac8d535c96fdc4fdf7fa19",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "TokenFactory",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/TokenFactory.sol/TokenFactory.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0xa0b00779dac06ffb1412f5f47455470547dea07b4df44de0b70c1ca5d1456a83",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "VestingFactory",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/VestingFactory.sol/VestingFactory.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0x1bd1cd702cac5f34ac53a0da8947be4ab74f6308a31a54cec9ea96811391a0c8",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "LiquidityLocker",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/LiquidityLocker.sol/LiquidityLocker.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0x713a82a03be35375d07dda8b4448684a1de6299bcb9744672561fb38520cd514",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "TheLedger",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/TheLedger.sol/TheLedger.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0x2c6f8db6f0ec4fb52c115a90b5f03010fa16e3ab6949f4ce9b8a273fb1a4947f",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "Disperse",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/Disperse.sol/Disperse.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0x7f2114ec9a5bde1f5d4984ae77325b6bb57983e2a420dd1c91e3a22cd7de7fbf",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "ILOFactory",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/ILOFactory.sol/ILOFactory.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0x3130ce9e69b00984a99870d898de7964a9874179a71524ae86eb0532c51c0aff",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "ILO",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/ILO.sol/ILO.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0x93bf3bf7583d737503ceff701f4030522352d9b3f602c60195b7b8995e388aec",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "VestingWallet",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/@openzeppelin/contracts/finance/VestingWallet.sol/VestingWallet.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0x3068f331a79e8538853a1dfe821b488071a9154a2c63afb09e509d2968b7d073",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "LitGovToken",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/LitGovToken.sol/LitGovToken.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0x9c0615b46b553147434adc07be4e0dfc98eeffccc3adcddf382ba32e5a8aead9",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "LitTimelock",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/LitTimelock.sol/LitTimelock.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0x28472d257879f89e15960d9db987840f16b096dc3300802bdb4ba1ab0a48a69d",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    },
+    {
+      "name": "LitGovernor",
+      "solcVersion": "0.8.24",
+      "artifactPath": "artifacts/contracts/LitGovernor.sol/LitGovernor.json",
+      "artifactKind": "hardhat-3",
+      "artifactSha256": "0xaba29b8c96285adefcf4af62a1a6ea312728428901f23516a1625790c178b4d2",
+      "buildInfoId": "solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4",
+      "buildInfoPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.json",
+      "buildInfoSha256": "0xb9a57529e807dfbef809827ce45cf783cb6734ac229315e0c845a28b2841a063",
+      "buildInfoOutputPath": "artifacts/build-info/solc-0_8_24-82f3903712bb527546fbb7deeaf002f8215c31b4.output.json",
+      "buildInfoOutputSha256": "0xdb834e11bab1db99ee8dcace950982ef5a3c72431f8999a1a37335eeb8738761"
+    }
+  ]
+}

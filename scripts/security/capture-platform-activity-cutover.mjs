@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { requirePlatformActivityApiCoverage } from './platform-activity-coverage.mjs'
+
 /**
  * Read-only cutover capture for the historical homepage activity floor.
  *
@@ -49,29 +51,6 @@ function requireApiCount(value, label) {
     throw new Error(`Production API ${label} is not a non-negative safe integer.`)
   }
   return value
-}
-
-function requireApiCoverage(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Production API coverage is missing or malformed.')
-  }
-  const allowedStatuses = new Set(['live', 'bounded', 'audited-baseline', 'fallback'])
-  const coverage = {}
-  for (const name of ['tokensMinted', 'walletsAirdropped', 'presalesCreated', 'swapsCompleted', 'onChainMessages']) {
-    const entry = value[name]
-    if (
-      !entry ||
-      typeof entry !== 'object' ||
-      Array.isArray(entry) ||
-      typeof entry.status !== 'string' ||
-      !allowedStatuses.has(entry.status) ||
-      typeof entry.note !== 'string' ||
-      entry.note.length === 0 ||
-      entry.note.length > 500
-    ) throw new Error(`Production API coverage is invalid for ${name}.`)
-    coverage[name] = { status: entry.status, note: entry.note }
-  }
-  return coverage
 }
 
 async function readBoundedUtf8(response, label) {
@@ -179,7 +158,7 @@ async function capture() {
     swapsCompleted: requireApiCount(productionStats.swapsCompleted, 'swapsCompleted'),
     onChainMessages: requireApiCount(productionStats.onChainMessages, 'onChainMessages'),
   }
-  const apiCoverage = requireApiCoverage(productionStats.coverage)
+  const apiCoverage = requirePlatformActivityApiCoverage(productionStats.coverage)
 
   const repeatedBlock = await rpc('eth_getBlockByNumber', [blockTag, false])
   if (!repeatedBlock || repeatedBlock.hash?.toLowerCase() !== block.hash.toLowerCase()) {

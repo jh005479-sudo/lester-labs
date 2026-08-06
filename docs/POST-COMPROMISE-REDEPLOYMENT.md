@@ -6,9 +6,17 @@ remain evidentially separate from any transaction signed during recovery.
 
 ## Safety status
 
-No deployment has been executed by this repository change. The replacement
-path is deliberately fail-closed and performs no write unless the operator
-supplies the exact acknowledgement string after reviewing a read-only preview.
+No production deployment has been executed or approved. On 2026-08-06, the
+narrowly authorised valueless `testnet-immutable-disposable` profile deployed
+successfully from source commit
+`abcf1b75ee7945f557163dce11485555da63a5b6`; its credential-free independent
+verifier passed after all thirteen CREATE transactions. Exact read-only copies
+of that run's manifest and two-pass build attestation are preserved in
+[`docs/security/evidence/disposable-testnet-4441-2026-08-06/`](security/evidence/disposable-testnet-4441-2026-08-06/README.md).
+This execution is functional-test evidence only and does not satisfy production
+containment, frontend activation, or reputation-appeal gates. Both deployment
+paths remain fail-closed unless the operator supplies the profile's exact
+acknowledgements after reviewing a read-only preview.
 
 Two source-pinned deployment profiles deliberately serve different purposes:
 
@@ -152,8 +160,9 @@ Production builds, attestations, previews, deployments, and verification remain
 restricted to a newly created, digest-pinned x64 Linux ephemeral runner from
 the reviewed commit. The factory-reset Mac exception described below applies
 only to the valueless `testnet-immutable-disposable` profile; it can never
-attest, verify, or deploy the `production-separated-authority` profile. No
-replacement deployment has yet occurred.
+attest, verify, or deploy the `production-separated-authority` profile. The
+disposable execution described above has occurred; no production replacement
+deployment has occurred.
 
 On the production runner, install only from the exact lockfile with
 `npm ci --ignore-scripts`, complete `npm audit` and `npm audit signatures`, and
