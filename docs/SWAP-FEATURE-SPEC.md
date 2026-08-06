@@ -1,7 +1,7 @@
 # Swap Feature — Implementation Notes
 
-> **Historical only:** the `0xCbf8…` destination named below is tied to a key
-> disclosed in chat and must not be used. The July rotation never executed.
+> **Historical only:** the incident-associated `0xCbf8…` destination named below
+> is rejected and must not be used. The July rotation never executed.
 > Fresh DEX deployment is governed by `POST-COMPROMISE-REDEPLOYMENT.md` and its
 > fail-closed address-only plan.
 
@@ -12,7 +12,7 @@
 > can redirect it. Do not carry this behavior into the replacement.
 
 > **Historical status:** the described direct-fee deployment remains
-> recovery-only and its proposed EOA was later disclosed. There is currently no
+> recovery-only and its proposed EOA was rejected. There is currently no
 > approved replacement controller, treasury, or gas EOA. The replacement must
 > follow the thirteen-contract post-compromise runbook.
 
@@ -32,8 +32,8 @@ The Lester Labs DEX rollout covers three connected surfaces:
 | LPs retained in-pool | `0.10%` |
 | **Total per trade** | **`0.30%`** |
 
-Historical rejected destination (private key disclosed; never use as treasury,
-controller, delegate, or deployer):
+Historical incident-associated destination (never use as treasury, controller,
+delegate, or deployer):
 
 `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28`
 

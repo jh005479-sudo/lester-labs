@@ -483,9 +483,9 @@ were approximately 8,331.8 zkLTC in TokenFactory, 221.31 in VestingFactory,
 guarantee; re-read owner, code hash, nonce, balance, and pending transactions at
 one fresh block before deciding whether recovery remains possible.
 
-The historical rotation script is retired because it targeted `0xCbf8…`, whose
-private key was later disclosed in chat. Do not use that address or the newly
-pasted key. Do not use the old sweeping script: on the legacy runtimes it would
+The historical rotation script is retired because it targeted the
+incident-associated `0xCbf8…` address. Do not use that address or the newly
+disclosed key-derived `0x4399…` address. Do not use the old sweeping script: on the legacy runtimes it would
 send accumulated fees to the current compromised owner.
 
 If the current legacy owner key is still available and recovery value justifies

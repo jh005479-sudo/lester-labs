@@ -2,8 +2,8 @@ import { ethers, type Log, type Provider } from "ethers";
 
 export const EXPECTED_CHAIN_ID = 4441n;
 export const RETIRED_TREASURY = "0xdd221fbbcb0f6092afe51183d964aa89a968ee13";
-// Historical July target only. The rotation never executed and this address is
-// tied to a key disclosed in chat. It must never be used by a new deployment.
+// Historical incident-associated July target only. The rotation never
+// executed. It must never be used by a new deployment.
 // Kept solely so the historical inventory/audit fixtures remain reproducible.
 export const TARGET_TREASURY = "0xcbf819017ae48f261fe143b2a7c8a29d9a2fcd28";
 export const TIMELOCK_DEPLOYMENT_BLOCK = 334_011;

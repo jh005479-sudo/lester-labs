@@ -65,6 +65,7 @@ describe('launchpad contract provenance', () => {
     assert.equal(POST_COMPROMISE_REPLACEMENTS_ACTIVE, false)
     assert.equal(APPROVED_LESTER_TREASURY_ADDRESS, undefined)
     assert.equal(isApprovedLesterTreasury('0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28'), false)
+    assert.equal(isApprovedLesterTreasury('0x439945924515218061b644901a31aC4A6c00957c'), false)
     assert.equal(isApprovedLesterTreasury('0xDD221FBbCb0f6092AfE51183d964AA89A968eE13'), false)
     assert.equal(isApprovedLesterTreasury(undefined), false)
   })

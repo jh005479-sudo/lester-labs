@@ -10,7 +10,7 @@ import {
   EXPECTED_CHAIN_ID,
   EXPECTED_RUNTIME_HASHES as LEGACY_RUNTIME_HASHES,
   RETIRED_TREASURY,
-  TARGET_TREASURY as DISCLOSED_JULY_TARGET,
+  TARGET_TREASURY as REJECTED_JULY_TARGET,
 } from "./live_treasury_audit.js";
 
 export const REPLACEMENT_MANIFEST_KIND =
@@ -20,6 +20,8 @@ export const PRODUCTION_SEPARATED_PROFILE = "production-separated-authority" as 
 export const TESTNET_IMMUTABLE_DISPOSABLE_PROFILE = "testnet-immutable-disposable" as const;
 export const IMMUTABLE_TESTNET_AUTHORITY =
   "0x0000000000000000000000000000000000000001" as const;
+export const DISPOSABLE_TESTNET_SIGNER_TREASURY =
+  "0x439945924515218061b644901a31aC4A6c00957c" as const;
 const ECRECOVER_TEST_VECTOR =
   "0x0000000000000000000000000000000000000000000000000000000000000002" +
   "000000000000000000000000000000000000000000000000000000000000001c" +
@@ -932,7 +934,8 @@ function normalized(address: string): string {
 
 const INCIDENT_DISALLOWED_ADDRESSES = new Set([
   normalized(RETIRED_TREASURY),
-  normalized(DISCLOSED_JULY_TARGET),
+  normalized(REJECTED_JULY_TARGET),
+  normalized(DISPOSABLE_TESTNET_SIGNER_TREASURY),
   normalized(IMMUTABLE_TESTNET_AUTHORITY),
   ...Object.values(LEGACY_ADDRESSES).map(normalized),
 ]);
@@ -1031,7 +1034,7 @@ export function validateReplacementPlan(plan: ReplacementPlan): ReplacementPlan 
         `Disposable testnet deployments must freeze every controller role at ${IMMUTABLE_TESTNET_AUTHORITY}`,
       );
     }
-    if (normalized(treasury) !== normalized(DISCLOSED_JULY_TARGET)) {
+    if (normalized(treasury) !== normalized(DISPOSABLE_TESTNET_SIGNER_TREASURY)) {
       throw new Error(
         "Disposable testnet deployments may use only the explicitly authorised disclosed test-gas address as treasury",
       );

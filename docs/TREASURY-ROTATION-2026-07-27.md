@@ -3,8 +3,8 @@
 > **Do not execute this procedure.** A live RPC check on 2026-08-04 confirmed
 > that the rotation never ran: the core owners, treasuries, DEX `feeTo`, and
 > `feeToSetter` remained at the compromised `0xDD22…` controller. The proposed
-> `0xCbf8…` destination is also unsafe because its private key was disclosed in
-> chat. The old rotation, verification, sweeping, and governance deployment
+> `0xCbf8…` destination is an incident-associated rejected target and was never
+> activated. The old rotation, verification, sweeping, and governance deployment
 > entrypoints now fail closed. Use `POST-COMPROMISE-REDEPLOYMENT.md` with newly
 > approved address-only multisig values instead. The material below is retained
 > only as historical audit context and does not describe current chain state.
@@ -16,9 +16,8 @@ rejected address:
 
 `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28`
 
-Its private key was disclosed in chat. It is not approved as controller,
-treasury, Timelock delegate, or gas-only deployer; do not fund, sign with, or
-reuse it. The live LitVM contracts still require transactions signed by the
+It is not approved as controller, treasury, Timelock delegate, or gas-only
+deployer; do not fund or reuse it. The live LitVM contracts still require transactions signed by the
 compromised current controller. Merging this repository does not change
 on-chain state.
 

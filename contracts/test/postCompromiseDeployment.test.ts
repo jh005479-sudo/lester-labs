@@ -5,6 +5,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  DISPOSABLE_TESTNET_SIGNER_TREASURY,
   IMMUTABLE_TESTNET_AUTHORITY,
   PRODUCTION_SEPARATED_PROFILE,
   REPLACEMENT_MANIFEST_KIND,
@@ -693,7 +694,7 @@ describe("post-compromise replacement authority", function () {
       ...basePlan,
       deploymentProfile: TESTNET_IMMUTABLE_DISPOSABLE_PROFILE,
       controller: IMMUTABLE_TESTNET_AUTHORITY,
-      treasury: "0xcbf819017ae48f261fe143b2a7c8a29d9a2fcd28",
+      treasury: DISPOSABLE_TESTNET_SIGNER_TREASURY,
     };
     expect(validateReplacementPlan(immutablePlan).controller).to.equal(
       ethers.getAddress(IMMUTABLE_TESTNET_AUTHORITY),
@@ -706,6 +707,10 @@ describe("post-compromise replacement authority", function () {
       "explicitly authorised",
     );
     expect(() => validateReplacementPlan({
+      ...immutablePlan,
+      treasury: "0xcbf819017ae48f261fe143b2a7c8a29d9a2fcd28",
+    })).to.throw("explicitly authorised");
+    expect(() => validateReplacementPlan({
       ...basePlan,
       deploymentProfile: "unreviewed" as ReplacementPlan["deploymentProfile"],
     })).to.throw("Unsupported replacement deployment profile");
@@ -716,9 +721,21 @@ describe("post-compromise replacement authority", function () {
       }),
     ).to.throw("must not reuse");
     expect(() =>
+      validateReplacementPlan({
+        ...basePlan,
+        treasury: DISPOSABLE_TESTNET_SIGNER_TREASURY,
+      }),
+    ).to.throw("must not reuse");
+    expect(() =>
       requireFreshIncidentSafeAddress(
         "Gas-only deployer",
         "0xcbf819017ae48f261fe143b2a7c8a29d9a2fcd28",
+      ),
+    ).to.throw("must not reuse");
+    expect(() =>
+      requireFreshIncidentSafeAddress(
+        "Gas-only deployer",
+        DISPOSABLE_TESTNET_SIGNER_TREASURY,
       ),
     ).to.throw("must not reuse");
     expect(() =>

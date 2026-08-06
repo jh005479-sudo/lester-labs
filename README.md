@@ -138,8 +138,9 @@ npm run verify:replacements:litvm
 
 The workflow:
 
-- rejects the compromised `0xDD22…` controller and chat-disclosed `0xCbf8…`
-  address as controller, treasury, or gas-only deployer;
+- rejects the compromised `0xDD22…` controller, incident-associated `0xCbf8…`
+  July target, and disclosed-key-derived `0x4399…` address as controller,
+  treasury, or gas-only deployer;
 - makes the signer gas-only in every constructor and prevents mutable contracts
   from ever assigning authority back to it;
 - deploys fresh DEX and application contracts without reusing legacy runtime;

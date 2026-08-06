@@ -651,7 +651,8 @@ export const TOKEN_FACTORY_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES
 export const LEDGER_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.ledger
 
 export const RETIRED_COMPROMISED_CONTROLLER_ADDRESS = '0xdd221fbbcb0f6092afe51183d964aa89a968ee13' as const
-export const REJECTED_DISCLOSED_KEY_ADDRESS = '0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28' as const
+export const REJECTED_JULY_TARGET_ADDRESS = '0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28' as const
+export const DISPOSABLE_TESTNET_DISCLOSED_KEY_ADDRESS = '0x439945924515218061b644901a31aC4A6c00957c' as const
 export const DISPOSABLE_TESTNET_FROZEN_AUTHORITY = '0x0000000000000000000000000000000000000001' as const
 export const APPROVED_LESTER_CONTROLLER_ADDRESS = APPROVED_PUBLIC_REPLACEMENT_PACKAGE?.deploymentManifest.controller
 export const APPROVED_LESTER_TREASURY_ADDRESS = APPROVED_PUBLIC_REPLACEMENT_PACKAGE?.deploymentManifest.treasury
@@ -1025,7 +1026,8 @@ export function assertCanonicalContractConfiguration(): void {
           isCanonicalLitvmContract(address, legacy)
         )) ||
         isCanonicalLitvmContract(address, RETIRED_COMPROMISED_CONTROLLER_ADDRESS) ||
-        isCanonicalLitvmContract(address, REJECTED_DISCLOSED_KEY_ADDRESS)
+        isCanonicalLitvmContract(address, REJECTED_JULY_TARGET_ADDRESS) ||
+        isCanonicalLitvmContract(address, DISPOSABLE_TESTNET_DISCLOSED_KEY_ADDRESS)
       ) {
         throw new Error(`The retired governance/controller/disclosed-key address cannot be the replacement ${role}.`)
       }
@@ -1060,7 +1062,8 @@ export function assertCanonicalContractConfiguration(): void {
 
   const rejectedAuthorityAddresses = [
     RETIRED_COMPROMISED_CONTROLLER_ADDRESS,
-    REJECTED_DISCLOSED_KEY_ADDRESS,
+    REJECTED_JULY_TARGET_ADDRESS,
+    DISPOSABLE_TESTNET_DISCLOSED_KEY_ADDRESS,
     DISPOSABLE_TESTNET_FROZEN_AUTHORITY,
     ...Object.values(LITVM_COMPROMISED_LEGACY_DEPLOYMENTS),
     ...Object.values(LITVM_COMPROMISED_LEGACY_GOVERNANCE),

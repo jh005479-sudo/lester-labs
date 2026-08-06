@@ -183,7 +183,7 @@ describe('approved public replacement package', () => {
       const disposable = makeApprovedFixture()
       disposable.deploymentManifest.deploymentProfile = 'testnet-immutable-disposable'
       disposable.deploymentManifest.controller = '0x0000000000000000000000000000000000000001'
-      disposable.deploymentManifest.treasury = '0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28'
+      disposable.deploymentManifest.treasury = '0x439945924515218061b644901a31aC4A6c00957c'
       disposable.deploymentManifest.gasOnlyDeployer = disposable.deploymentManifest.treasury
       disposable.deploymentManifest.deployments.forEach((deployment, nonce) => {
         deployment.address = getContractAddress({
@@ -197,6 +197,22 @@ describe('approved public replacement package', () => {
         () => verifyApprovedPublicReplacementPackage(packagePath),
         /production-separated-authority/i,
       )
+
+      for (const rejectedAddress of [
+        '0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28',
+        '0x439945924515218061b644901a31aC4A6c00957c',
+      ]) {
+        for (const role of ['controller', 'treasury', 'gasOnlyDeployer']) {
+          const rejectedRole = makeApprovedFixture()
+          rejectedRole.deploymentManifest[role] = rejectedAddress
+          rehash(rejectedRole)
+          writeFileSync(packagePath, `${JSON.stringify(rejectedRole, null, 2)}\n`)
+          assert.throws(
+            () => verifyApprovedPublicReplacementPackage(packagePath),
+            /distinct fresh addresses/i,
+          )
+        }
+      }
 
       const zeroRole = makeApprovedFixture()
       zeroRole.deploymentManifest.controller = '0x0000000000000000000000000000000000000000'

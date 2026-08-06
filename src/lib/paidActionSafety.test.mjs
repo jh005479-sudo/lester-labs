@@ -21,6 +21,7 @@ describe('paid contract authority gates', () => {
     assert.equal(APPROVED_LESTER_TREASURY_ADDRESS, undefined)
     assert.equal(EXPECTED_GAS_ONLY_DEPLOYER_ADDRESS, undefined)
     assert.equal(hasApprovedLesterControl({ owner: '0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28' }), false)
+    assert.equal(hasApprovedLesterControl({ owner: '0x439945924515218061b644901a31aC4A6c00957c' }), false)
     assert.equal(hasApprovedLesterControl({ owner: DISPOSABLE_TESTNET_FROZEN_AUTHORITY }), false)
     assert.equal(hasApprovedLesterControl({ owner: retiredAuthority }), false)
     assert.equal(hasApprovedLesterControl({ owner: undefined }), false)

@@ -4,11 +4,11 @@ import { getContractAddress } from 'viem'
 
 import { assertDeterministicCreateDeploymentSequence } from './publicReplacementCreateAddress.ts'
 
-const DISCLOSED_DISPOSABLE_SIGNER = '0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28'
+const DISCLOSED_DISPOSABLE_SIGNER = '0x439945924515218061b644901a31aC4A6c00957c'
 const FRESH_PRODUCTION_SIGNER = '0x1000000000000000000000000000000000000001'
 
 describe('public replacement CREATE provenance', () => {
-  it('rejects Cbf-derived disposable addresses relabelled with a fresh production signer', () => {
+  it('rejects disclosed-key disposable addresses relabelled with a fresh production signer', () => {
     const disposableDeployments = Array.from({ length: 13 }, (_, nonce) => ({
       name: `Deployment${nonce}`,
       nonce,
