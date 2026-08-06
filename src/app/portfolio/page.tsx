@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount, useReadContract as useWagmiReadContract, useBalance } from 'wagmi'
+import { useAccount, useReadContract as useWagmiReadContract, useReadContracts, useBalance } from 'wagmi'
 import { decodeEventLog, decodeFunctionResult, encodeFunctionData } from 'viem'
 import { Copy, Check, ExternalLink } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
 import { ResumeDashboard } from '@/components/shared/ResumeDashboard'
 import {
-  ILO_FACTORY_ADDRESS,
+  LITVM_LEGACY_ILO_FACTORIES,
   TOKEN_FACTORY_ADDRESS,
   VESTING_FACTORY_ADDRESS,
   LIQUIDITY_LOCKER_ADDRESS,
@@ -178,16 +178,25 @@ function useTokenAddresses(address: string | undefined) {
   return { tokens, loading }
 }
 
-// Fetch ILO addresses owned by `address` from ILOFactory via wagmi
+// Fetch recovery-visible ILOs from every source-pinned legacy factory. New
+// creation remains disabled; this aggregation is read-only discovery.
 function useILOAddresses(address: string | undefined) {
-  const { data, isLoading } = useReadContract({
-    address: ILO_FACTORY_ADDRESS,
-    abi: ILO_FACTORY_ABI,
-    functionName: 'getOwnerILOs',
-    args: [address as `0x${string}`],
-    query: { enabled: !!address },
+  const { data, isLoading } = useReadContracts({
+    contracts: LITVM_LEGACY_ILO_FACTORIES.map((deployment) => ({
+      address: deployment.address,
+      abi: ILO_FACTORY_ABI,
+      functionName: 'getOwnerILOs' as const,
+      args: [address as `0x${string}`] as const,
+      chainId: litvm.id,
+    })),
+    query: { enabled: Boolean(address) },
   })
-  return { addresses: (data as `0x${string}`[]) || [], loading: isLoading }
+  const addresses = Array.from(new Set(
+    (data ?? []).flatMap((result) => (
+      result.status === 'success' ? result.result as `0x${string}`[] : []
+    )),
+  ))
+  return { addresses, loading: isLoading }
 }
 
 // usePresales — returns ILO count for Overview (uses wagmi for addresses, no metadata fetch)
@@ -642,7 +651,7 @@ export default function PortfolioPage() {
                 { label: 'Activity', value: 'Swaps + presales', detail: 'Trace your Lester Labs footprint.' },
               ]}
               nextActions={[
-                { href: '/launch', label: 'Deploy token' },
+                { href: '/launch', label: 'Factory status' },
                 { href: '/explorer', label: 'Search wallet' },
               ]}
             />

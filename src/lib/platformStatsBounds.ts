@@ -21,11 +21,25 @@ export function getBoundedStatsLogRange(fromBlock: bigint, latestBlock: bigint, 
   }
 }
 
-export function getAuditedCounterBaseline(value: number, auditBlock: bigint) {
+export function getAuthenticatedCounterBaseline(value: number, observationBlock: bigint) {
   return {
     value: Math.max(0, Math.floor(value)),
-    auditBlock,
-    note: `Audited through block ${auditBlock.toString()}; unauthenticated event lookalikes are excluded.`,
+    observationBlock,
+    note: `Authenticated source observation through block ${observationBlock.toString()}; unauthenticated event lookalikes are excluded. This is not an independent audit.`,
+  }
+}
+
+export function getPostCutoverCounterDelta(currentValue: number, valueBeforeCutover: number) {
+  const current = Number.isFinite(currentValue) ? Math.max(0, Math.floor(currentValue)) : null
+  const before = Number.isFinite(valueBeforeCutover) ? Math.max(0, Math.floor(valueBeforeCutover)) : null
+
+  if (current === null || before === null) {
+    return { delta: 0, resetDetected: true }
+  }
+
+  return {
+    delta: Math.max(0, current - before),
+    resetDetected: current < before,
   }
 }
 

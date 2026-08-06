@@ -14,9 +14,6 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
     using UQ112x112 for uint224;
 
     uint public constant MINIMUM_LIQUIDITY = 10**3;
-    uint private constant LP_FEE_UNITS = 1;
-    uint private constant PROTOCOL_FEE_UNITS = 2;
-    uint private constant FEE_DENOMINATOR = 1000;
     bytes4 private constant SELECTOR = bytes4(keccak256(bytes('transfer(address,uint256)')));
 
     address public factory;
@@ -60,7 +57,6 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         uint amount1Out,
         address indexed to
     );
-    event ProtocolFeePaid(address indexed treasury, uint amount0, uint amount1);
     event Sync(uint112 reserve0, uint112 reserve1);
 
     constructor() public {
@@ -90,14 +86,25 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         emit Sync(reserve0, reserve1);
     }
 
-    function _mintFee(uint112, uint112) private returns (bool feeOn) {
-        feeOn = IUniswapV2Factory(factory).feeTo() != address(0);
+    // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)
+    function _mintFee(uint112 _reserve0, uint112 _reserve1) private returns (bool feeOn) {
+        address feeTo = IUniswapV2Factory(factory).feeTo();
+        feeOn = feeTo != address(0);
         uint _kLast = kLast; // gas savings
-        if (!feeOn && _kLast != 0) {
+        if (feeOn) {
+            if (_kLast != 0) {
+                uint rootK = Math.sqrt(uint(_reserve0).mul(_reserve1));
+                uint rootKLast = Math.sqrt(_kLast);
+                if (rootK > rootKLast) {
+                    uint numerator = totalSupply.mul(rootK.sub(rootKLast));
+                    uint denominator = rootK.mul(5).add(rootKLast);
+                    uint liquidity = numerator / denominator;
+                    if (liquidity > 0) _mint(feeTo, liquidity);
+                }
+            }
+        } else if (_kLast != 0) {
             kLast = 0;
         }
-        // Lester Labs routes protocol fees directly to the treasury on every
-        // swap, so the original LP-mint fee switch remains disabled.
     }
 
     // this low-level function should be called from a contract which performs important safety checks
@@ -170,32 +177,10 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 {
         uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
         uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
         require(amount0In > 0 || amount1In > 0, 'UniswapV2: INSUFFICIENT_INPUT_AMOUNT');
-        { // scope fee variables tightly to avoid stack-too-deep in 0.5.x
-        address feeTo = IUniswapV2Factory(factory).feeTo();
-        if (feeTo != address(0)) {
-            address _token0 = token0;
-            address _token1 = token1;
-            uint protocolFee0 = 0;
-            uint protocolFee1 = 0;
-            if (amount0In > 0) {
-                protocolFee0 = amount0In.mul(PROTOCOL_FEE_UNITS) / FEE_DENOMINATOR;
-                if (protocolFee0 > 0) _safeTransfer(_token0, feeTo, protocolFee0);
-            }
-            if (amount1In > 0) {
-                protocolFee1 = amount1In.mul(PROTOCOL_FEE_UNITS) / FEE_DENOMINATOR;
-                if (protocolFee1 > 0) _safeTransfer(_token1, feeTo, protocolFee1);
-            }
-            if (protocolFee0 > 0 || protocolFee1 > 0) {
-                emit ProtocolFeePaid(feeTo, protocolFee0, protocolFee1);
-            }
-            balance0 = IERC20(_token0).balanceOf(address(this));
-            balance1 = IERC20(_token1).balanceOf(address(this));
-        }
-        }
         { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
-        uint balance0Adjusted = balance0.mul(FEE_DENOMINATOR).sub(amount0In.mul(LP_FEE_UNITS));
-        uint balance1Adjusted = balance1.mul(FEE_DENOMINATOR).sub(amount1In.mul(LP_FEE_UNITS));
-        require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(FEE_DENOMINATOR**2), 'UniswapV2: K');
+        uint balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
+        uint balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
+        require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(1000**2), 'UniswapV2: K');
         }
 
         _update(balance0, balance1, _reserve0, _reserve1);

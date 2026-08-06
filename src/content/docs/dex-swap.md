@@ -1,89 +1,110 @@
-# LitVM DEX Swap & Pool — Native Token Trading on LitVM
+# LitVM DEX — Legacy Recovery and Replacement Readiness
 
-## Overview
+> **Current status:** the factory, router, and wrapped-native contract currently
+> visible in the application are compromised legacy deployments. New swaps,
+> token approvals for trading, wrapping, pool creation, and liquidity additions
+> are disabled. Only source-pinned, runtime-authenticated withdrawal paths for
+> existing LP or wrapped-native positions may remain available.
 
-The Lester Labs DEX is the native LitVM decentralized exchange: a self-deployed Uniswap V2 instance on LitVM that powers token swaps, liquidity provision, and Launchpad LP seeding without any external venue dependency. The `/swap` page provides a direct trading interface for native zkLTC and any ERC-20 token deployed on LitVM. The `/pool` page gives a lightweight view of LP positions for any connected wallet.
+## Why the legacy DEX is retired
 
-This LitVM DEX is not a third-party integration or a bridge-dependent pair. Quotes, swaps, pair discovery, and launchpad liquidity seeding all resolve against Lester Labs-owned factory and router contracts deployed on LitVM.
+The legacy V2 pair does not use canonical Uniswap V2 fee behavior. It directly
+transfers `0.20%` of measured swap input to mutable factory `feeTo` and retains
+approximately `0.10%` in-pool. This extra input-token recipient is not an
+arbitrary wallet drain by itself, but it resembles transaction-scanner drainer
+patterns and could be redirected by the compromised `feeToSetter` authority.
 
-## How it works
+The legacy deployment tuple is:
 
-The swap page reads the token universe from Lester Labs token metadata, fetches live quotes from the Lester Labs Uniswap V2 router using `getAmountsOut`, and submits swaps through the standard V2 router methods:
-
-- `swapExactETHForTokens`
-- `swapExactTokensForETH`
-- `swapExactTokensForTokens`
-
-Native zkLTC is represented on the router side by a wrapped zkLTC contract, but the UI continues to present it as the native asset.
-
-## User Flow
-
-1. Connect your wallet and switch to LitVM testnet (`4441`)
-2. Select an input token and output token on `/swap`
-3. Approve the router if your input token is an ERC-20
-4. Review the live quote, fee line, and slippage handling
-5. Confirm the swap and track the transaction in the status modal
-6. Visit `/pool` to view LP balances and underlying exposure
-
-## Fee Structure
-
-| Fee Recipient | Amount |
+| Contract | Recovery-only address |
 |---|---|
-| Lester Labs treasury | `0.20%` of each trade |
-| Liquidity providers | `0.10%` retained in-pool |
-| **Total paid per trade** | **`0.30%`** |
+| Factory | `0x017A126A44Aaae9273F7963D4E295F0Ee2793AD8` |
+| Router | `0xD56a623890b083d876D47c3b1c5343b7f983FA62` |
+| Wrapped zkLTC | `0xd141A5DDE1a3A373B7e9bb603362A58793AB9D97` |
+| Launchpad connector | `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD` |
 
-## Contracts
+These addresses are historical references, not approved current targets. The
+connector immutably embeds the retired treasury and must never be reused.
 
-| Contract | Purpose | LitVM testnet address |
-|---|---|---|
-| Uniswap V2 Factory | Pair creation and fee destination | `0x017A126A44Aaae9273F7963D4E295F0Ee2793AD8` |
-| Uniswap V2 Router02 | Swaps and LP operations | `0xD56a623890b083d876D47c3b1c5343b7f983FA62` |
-| Wrapped zkLTC | Native-asset wrapper for router compatibility | `0xd141A5DDE1a3A373B7e9bb603362A58793AB9D97` |
-| Legacy UniSwapConnector | Retired launchpad-to-DEX bridge; do not reuse | `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD` |
+## Existing-position recovery
 
-The current connector permanently embeds the retired treasury. A future
-connector-aware launchpad deployment must use a replacement connector whose
-treasury matches the live DEX `feeTo` and `feeToSetter`.
+Replacing a DEX does not migrate old LP tokens. An LP token remains a claim on
+its original pair, and recovery may require the exact original router.
 
-## Frontend Behavior
+1. Use only a factory/router/wrapped-native tuple in the reviewed, source-pinned
+   legacy recovery registry.
+2. Verify all three exact runtime hashes. Read `token0()` and `token1()` from the
+   LP pair and confirm the legacy factory's `getPair(token0, token1)` returns
+   that exact address.
+3. Confirm the legacy router's `factory()` and `WETH()` values match the same
+   registry entry.
+4. Read current reserves, choose explicit minimum outputs, use a short deadline,
+   and set the connected wallet as recipient.
+5. Approve only the exact LP amount immediately before a source-pinned
+   `removeLiquidity` or `removeLiquidityETH` call. Revoke any residual allowance.
 
-- Token selection and wallet connection follow the existing Lester Labs form patterns
-- Quotes come from the router, not from a hosted pricing API
-- ERC-20 approvals are handled inline before the swap transaction
-- Transaction progress is surfaced through the shared `TxStatusModal`
-- The `/pool` page scans factory pairs and shows LP balances, pool share, and token exposure
-- Before each paid DEX write, the application authenticates the canonical
-  factory/router/wrapped-native targets and re-reads both `feeTo` and
-  `feeToSetter`; writes fail closed unless both equal the approved treasury
+Never swap, wrap, add liquidity, create a pool, or grant a reusable token
+allowance to a retired router. If the tuple is not source-pinned, the
+application must not construct a transaction for it.
 
-## Network Configuration
+Existing wrapped-native withdrawal is similarly limited to an authenticated
+`withdraw(amount)` call against the exact source-pinned legacy wrapper. New
+wrapping remains disabled.
+
+## Read-only quotes and charts
+
+Router quotes and pair reserves are untrusted read-only inputs from legacy
+contracts. A reserve ratio is not an oracle price, USD valuation, fair value,
+or promise that a swap can safely execute. The chart view loads at most the 72
+newest factory pairs and up to 80 recent `Sync` points within a bounded
+30,000-block lookback. It is not a complete DEX index.
+
+## Replacement design
+
+The prepared replacement restores canonical Uniswap V2 economics: the
+`997/1000` invariant keeps the swap fee in the pool, and an enabled protocol fee
+is realized through the standard one-sixth LP-token mint on a later liquidity
+event. It does not directly transfer a fixed fraction of every input token to
+`feeTo`.
+
+Replacement governance deliberately separates:
+
+- factory `feeTo` → approved **treasury** (economic recipient);
+- factory `feeToSetter` → distinct approved **controller** (administrative authority);
+- deployment transactions → distinct single-use gas EOA.
+
+The router adds a monotonic successful public-router swap-action counter for
+first-party continuity analytics. It counts one successful public router call,
+regardless of hop count, and excludes direct pair swaps. That extension does not
+change pair accounting.
+
+No replacement is active until factory, router, wrapper, pair init-code/runtime,
+constructor inputs, role assignments, and the clean served frontend are all
+independently attested and source-pinned.
+
+## Network configuration
 
 ```json
 {
   "chainId": "0x1159",
-  "chainName": "LitVM Testnet",
+  "chainName": "LitVM LiteForge",
   "nativeCurrency": {
     "name": "zkLTC",
     "symbol": "zkLTC",
     "decimals": 18
   },
-  "rpcUrls": ["https://liteforge.rpc.caldera.xyz/infra-partner-http"],
-  "blockExplorerUrls": ["https://liteforge.caldera.xyz"]
+  "rpcUrls": ["https://liteforge.rpc.caldera.xyz/http"],
+  "blockExplorerUrls": ["https://liteforge.explorer.caldera.xyz"]
 }
 ```
 
-## Security Notes
-
-- Runtime contract calls go through Lester Labs-owned deployments only
-- `feeTo` and `feeToSetter` are mutable factory controls, so constructor values
-  are not a lasting attestation
-- The pair contract routes `0.20%` of swap input directly to treasury and keeps `0.10%` in-pool for LPs
-- `UniSwapConnector` refuses to seed launch liquidity if treasury routing has drifted away from the expected wallet
-- The frontend independently re-checks both fee controls immediately before
-  swap and liquidity writes
+Cross-check network values through LitVM's independently located official
+documentation before adding them to a wallet.
 
 ## Sources
 
 - [Uniswap v2-core](https://github.com/Uniswap/v2-core)
 - [Uniswap v2-periphery](https://github.com/Uniswap/v2-periphery)
+
+Upstream provenance is not an audit of the Lester fork, deployment, frontend,
+or role configuration.

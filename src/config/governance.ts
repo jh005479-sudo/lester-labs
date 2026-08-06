@@ -1,7 +1,14 @@
 // Governance contract addresses — deployed on LitVM testnet (chain 4441)
-// Deploy with: cd contracts && npx hardhat run scripts/deploy_governance.ts --network litvm
+// Deploy with: cd contracts && npm run deploy:governance:litvm
 
 import { erc20Abi } from 'viem'
+import {
+  APPROVED_GOVERNANCE_TIMELOCK_ADDRESS,
+  APPROVED_GOVERNANCE_TOKEN_ADDRESS,
+  APPROVED_GOVERNOR_ADDRESS,
+  LITVM_COMPROMISED_LEGACY_GOVERNANCE,
+  POST_COMPROMISE_GOVERNANCE_ACTIVE,
+} from './contracts.ts'
 
 // Extended ERC20 ABI covering both standard ERC20 and ERC20Votes (delegation/voting power)
 const VOTES_ABI = [
@@ -75,7 +82,7 @@ export const GOVERNANCE_CONFIG = {
 
   // Governance token (ERC20Votes)
   token: {
-    address: '0xa5111cedc04554676DbCCA39F2268070008C7A8A' as const,
+    address: APPROVED_GOVERNANCE_TOKEN_ADDRESS ?? LITVM_COMPROMISED_LEGACY_GOVERNANCE.token,
     symbol: 'LGT',
     name: 'Lit Governance Token',
     decimals: 18,
@@ -84,11 +91,14 @@ export const GOVERNANCE_CONFIG = {
 
   // Governor + Timelock
   governor: {
-    address: '0x5b0092996BA897617B46D42B3F108B253be9Ad3d' as const,
+    address: APPROVED_GOVERNOR_ADDRESS ?? LITVM_COMPROMISED_LEGACY_GOVERNANCE.governor,
   },
   timelock: {
-    address: '0xd38ed693730Db3eB22bA6d6F0050FC45Ac9240ba' as const,
+    address: APPROVED_GOVERNANCE_TIMELOCK_ADDRESS ?? LITVM_COMPROMISED_LEGACY_GOVERNANCE.timelock,
   },
+  deploymentStatus: POST_COMPROMISE_GOVERNANCE_ACTIVE
+    ? 'reviewed-post-compromise-active'
+    : 'retired-compromised-read-only',
 } as const
 
 // Governor ABI (subset of IGovernor + LitGovernor view functions)
@@ -135,7 +145,7 @@ export const GOVERNOR_ABI = [
     { name: 'description', type: 'string' },
   ], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'queue', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'proposalId', type: 'uint256' }], outputs: [] },
-  { name: 'execute', type: 'function', stateMutability: 'payable', inputs: [{ name: 'proposalId', type: 'uint256' }], outputs: [] },
+  { name: 'execute', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'proposalId', type: 'uint256' }], outputs: [] },
   { name: 'timelockId', type: 'function', stateMutability: 'view', inputs: [{ name: 'proposalId', type: 'uint256' }], outputs: [{ name: '', type: 'bytes32' }] },
   { name: 'cancel', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'proposalId', type: 'uint256' }], outputs: [] },
 ] as const

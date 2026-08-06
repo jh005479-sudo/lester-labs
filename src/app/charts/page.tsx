@@ -492,9 +492,9 @@ function ChartsContent() {
               <BarChart3 size={14} />
               LitVM Charts
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Market Charts</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Bounded Reserve-Ratio Charts</h1>
             <p className="mt-1 text-sm text-white/50">
-              Search loaded Lester DEX pairs by ticker, token, or address. Ratios are derived from LitVM testnet reserves.
+              Search up to 72 newest Lester factory pairs. Ratios are testnet reserve observations, not oracle prices, USD values, TVL, or a complete market index.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-white/40">
@@ -520,8 +520,8 @@ function ChartsContent() {
             {activeMarkets.length > 0 && (
               <div className="mb-4 rounded-lg border border-white/8 bg-white/[0.025] p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-200/65">Active markets</p>
-                  <span className="text-[11px] text-white/35">by reserves</span>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-200/65">Loaded-pair sample</p>
+                  <span className="text-[11px] text-white/35">top 3 by 2× quote reserve</span>
                 </div>
                 <div className="space-y-2">
                   {activeMarkets.map((market) => (
@@ -688,7 +688,7 @@ function ChartsContent() {
                       className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/45"
                     >
                       <Droplets size={15} />
-                      Swap
+                      DEX status
                     </Link>
                     <a
                       href={`${LITVM_EXPLORER_URL}/address/${selectedMarket.pairAddress}`}
@@ -711,13 +711,13 @@ function ChartsContent() {
                   </p>
                 </div>
                 <div className="rounded-lg border border-white/8 bg-white/[0.025] p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-white/35">Liquidity</p>
+                  <p className="text-xs uppercase tracking-[0.12em] text-white/35">2× quote reserve</p>
                   <p className="mt-2 text-xl font-semibold text-white">
                     {quoteLiquidity ? `${quoteLiquidity.toLocaleString(undefined, { maximumFractionDigits: 3 })} ${selectedMarket?.quote.symbol}` : '—'}
                   </p>
                 </div>
                 <div className="rounded-lg border border-white/8 bg-white/[0.025] p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-white/35">Implied FDV</p>
+                  <p className="text-xs uppercase tracking-[0.12em] text-white/35">Ratio × total supply</p>
                   <p className="mt-2 text-xl font-semibold text-white">
                     {marketCapInQuote ? `${formatCompactUsd(marketCapInQuote).replace('$', '')} ${selectedMarket?.quote.symbol}` : '—'}
                   </p>
@@ -736,6 +736,9 @@ function ChartsContent() {
                   </p>
                 </div>
               </div>
+              <p className="mt-3 text-xs leading-relaxed text-white/35">
+                “2× quote reserve” assumes both sides are valued at the current pool ratio and is not TVL. “Ratio × total supply” is denominated in the displayed quote token; it is not USD FDV, independently priced market value, or a liquidity-adjusted valuation.
+              </p>
             </div>
 
             <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
@@ -743,7 +746,7 @@ function ChartsContent() {
                 <div>
                   <h2 className="text-lg font-semibold text-white">Reserve-ratio history</h2>
                   <p className="mt-1 text-sm text-white/45">
-                    Recent on-chain Sync events from the LitVM V2 pair. No synthetic points are added.
+                    Up to 80 latest Sync events returned within a 30,000-block lookback (scanning at most 500 logs). No synthetic points are added; older events may be omitted.
                   </p>
                 </div>
                 <button
@@ -813,8 +816,8 @@ function ChartsContent() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-white">Browse all pools</p>
-                    <p className="mt-1 text-sm text-white/45">Search reserves and LP positions from the pool page.</p>
+                    <p className="text-sm font-semibold text-white">Browse bounded pool views</p>
+                    <p className="mt-1 text-sm text-white/45">Inspect the newest factory-pair window and eligible legacy recovery positions.</p>
                   </div>
                   <ArrowUpRight size={18} className="text-cyan-200" />
                 </div>
@@ -826,7 +829,7 @@ function ChartsContent() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-white">Token tracker</p>
-                    <p className="mt-1 text-sm text-white/45">Find newly deployed LitVM assets and activity.</p>
+                    <p className="mt-1 text-sm text-white/45">Inspect the bounded newest factory-token sample and documented transfer coverage.</p>
                   </div>
                   <ArrowUpRight size={18} className="text-cyan-200" />
                 </div>

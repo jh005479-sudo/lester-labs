@@ -91,11 +91,11 @@ export function MessageFeed({
             }}
           >
             <Radio size={12} />
-            Live feed
+            Bounded event feed
           </span>
-          <h2 className="text-2xl font-semibold tracking-tight">Latest marks</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">Newest returned marks</h2>
           <p className="mt-2 text-sm leading-6" style={{ color: 'rgba(240,238,245,0.5)' }}>
-            New messages are prepended in real time and historical logs load in 50-message pages.
+            Newly returned events are prepended, and older logs load in 50-message pages. This RPC-backed view is not a complete archive.
           </p>
         </div>
 
@@ -115,7 +115,7 @@ export function MessageFeed({
           {connectionMode === 'websocket' && <Signal size={13} />}
           {connectionMode === 'polling' && <RefreshCcw size={13} />}
           {connectionMode === 'connecting' && <Loader2 size={13} className="animate-spin" />}
-          {connectionMode === 'websocket' && 'WebSocket live'}
+          {connectionMode === 'websocket' && 'WebSocket updates'}
           {connectionMode === 'polling' && 'Polling fallback'}
           {connectionMode === 'connecting' && 'Connecting'}
         </div>

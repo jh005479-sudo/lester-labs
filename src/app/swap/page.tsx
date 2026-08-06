@@ -19,6 +19,8 @@ import {
   UNISWAP_V2_ROUTER_ABI,
 } from '@/config/abis'
 import {
+  LITVM_LEGACY_DEX_RECOVERY_DEPLOYMENTS,
+  POST_COMPROMISE_REPLACEMENTS_ACTIVE,
   UNISWAP_V2_FACTORY_ADDRESS,
   UNISWAP_V2_ROUTER_ADDRESS,
   WRAPPED_ZKLTC_ADDRESS,
@@ -31,8 +33,10 @@ import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { litvm } from '@/config/chains'
 import {
   attestFreshDexRuntime,
+  getSourcePinnedDexRecoverySource,
   isCanonicalDexDeployment,
   readFreshCanonicalPair,
+  type DexRecoverySource,
 } from '@/lib/dexTransactionReads'
 import {
   applySlippageMinimum,
@@ -45,6 +49,14 @@ const NATIVE_GAS_RESERVE = parseUnits('0.01', 18)
 const DEFAULT_DEADLINE_SECONDS = 20 * 60
 const ZERO_ADDRESS = zeroAddress as `0x${string}`
 const CHAIN_ID = 4441
+
+const CURRENT_WRAPPED_NATIVE_SOURCE = getSourcePinnedDexRecoverySource('current')
+const WRAPPED_NATIVE_RECOVERY_SOURCES: readonly DexRecoverySource[] = Object.freeze([
+  CURRENT_WRAPPED_NATIVE_SOURCE,
+  ...LITVM_LEGACY_DEX_RECOVERY_DEPLOYMENTS
+    .filter((deployment) => !sameAddress(deployment.wrappedNative, CURRENT_WRAPPED_NATIVE_SOURCE.wrappedNative))
+    .map((deployment) => getSourcePinnedDexRecoverySource(deployment.id)),
+])
 
 // ── Pinned tokens shown at the top of every dropdown ────────────────────────
 const PINNED_TOKENS: { address: `0x${string}`; symbol: string; name: string; isNative: boolean }[] = [
@@ -620,7 +632,9 @@ function CreatePoolPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-white">Create Pool</h2>
+        <h2 className="text-xl font-semibold text-white">
+          {POST_COMPROMISE_REPLACEMENTS_ACTIVE ? 'Create Pool' : 'New Pool Creation Disabled'}
+        </h2>
         <button
           aria-label="Close pool form"
           onClick={onClose}
@@ -632,7 +646,7 @@ function CreatePoolPanel({
 
       {!isConnected && (
         <div className="rounded-2xl border border-white/8 bg-white/3 p-6 text-center">
-          <p className="text-sm text-white/55">Connect your wallet to create a pool.</p>
+          <p className="text-sm text-white/55">New pool creation remains disabled while the replacement DEX is independently reviewed and source-pinned.</p>
         </div>
       )}
 
@@ -765,7 +779,9 @@ function CreatePoolPanel({
           >
             {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
             <span>
-              {creating
+              {!POST_COMPROMISE_REPLACEMENTS_ACTIVE
+                ? 'Liquidity Writes Disabled'
+                : creating
                 ? 'Submitting…'
                 : needsToken0Approval || needsToken1Approval
                   ? (pairExists ? 'Approve & Add Liquidity' : 'Approve & Create Pool')
@@ -1039,17 +1055,21 @@ function TokenButton({
 // ── Wrap / Unwrap Panel ──────────────────────────────────────────────────────
 function WrapUnwrapPanel() {
   const { address, isConnected } = useAccount()
-  const { ensureLitvmWrite, writeContractAsync } = useSafeWriteContract()
+  const { ensureLitvmWrite, writeContractAsync, writeRecoveryContractAsync } = useSafeWriteContract()
   const [mode, setMode] = useState<'wrap' | 'unwrap'>('wrap')
+  const [unwrapDeploymentId, setUnwrapDeploymentId] = useState(CURRENT_WRAPPED_NATIVE_SOURCE.id)
   const [amount, setAmount] = useState('')
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
   const [txOpen, setTxOpen] = useState(false)
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
+  const unwrapDeployment = WRAPPED_NATIVE_RECOVERY_SOURCES.find((deployment) => (
+    deployment.id === unwrapDeploymentId
+  )) ?? CURRENT_WRAPPED_NATIVE_SOURCE
 
   const nativeBal = useBalance({ address, chainId: litvm.id })
   const wzklteBal = useReadContract({
-    address: WRAPPED_ZKLTC_ADDRESS,
+    address: unwrapDeployment.wrappedNative,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
@@ -1087,6 +1107,12 @@ function WrapUnwrapPanel() {
 
   async function handleWrap() {
     if (!isConnected || !address || !amount || parseFloat(amount) <= 0) return
+    if (!POST_COMPROMISE_REPLACEMENTS_ACTIVE) {
+      setTxOpen(true)
+      setTxStatus('error')
+      setTxMessage('New wrapping is disabled until the post-compromise deployment set is source-pinned. Existing wzkLTC may still be unwrapped for recovery.')
+      return
+    }
     if (!(await ensureLitvmWrite({
       action: 'wrapping zkLTC',
       onError: (message) => {
@@ -1136,17 +1162,17 @@ function WrapUnwrapPanel() {
       setTxOpen(true); setTxStatus('pending'); setTxMessage(undefined)
       const value = parseUnits(amount, 18)
       const freshBalance = await readContract(wagmiConfig, {
-        address: WRAPPED_ZKLTC_ADDRESS,
+        address: unwrapDeployment.wrappedNative,
         abi: ERC20_ABI,
         functionName: 'balanceOf',
         args: [address],
         chainId: litvm.id,
       }) as bigint
-      if (!isCanonicalDexDeployment || freshBalance < value) {
-        throw new Error('The canonical wrapped token target or fresh LitVM balance could not be verified.')
+      if (freshBalance < value) {
+        throw new Error('The source-pinned wrapped token target or fresh LitVM balance could not be verified.')
       }
-      const hash = await writeContractAsync({
-        address: WRAPPED_ZKLTC_ADDRESS,
+      const hash = await writeRecoveryContractAsync({
+        address: unwrapDeployment.wrappedNative,
         abi: [
           {
             name: 'withdraw', type: 'function', stateMutability: 'nonpayable',
@@ -1156,6 +1182,10 @@ function WrapUnwrapPanel() {
         functionName: 'withdraw',
         args: [value],
         gas: 500000n,
+      }, {
+        kind: 'wrapped-native',
+        deploymentId: unwrapDeployment.id,
+        wrappedNative: unwrapDeployment.wrappedNative,
       })
       setTxHash(hash)
     } catch (err: unknown) {
@@ -1182,6 +1212,12 @@ function WrapUnwrapPanel() {
         <p className="mt-1 text-sm text-white/45">Convert between native zkLTC and wrapped wzkLTC (ERC20).</p>
       </div>
 
+      {!POST_COMPROMISE_REPLACEMENTS_ACTIVE && (
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          New wrapping is disabled while replacements are pending. Unwrap remains available as a recovery-only exit for existing wzkLTC.
+        </div>
+      )}
+
       {/* Mode toggle */}
       <div className="flex gap-2">
         <button
@@ -1207,6 +1243,30 @@ function WrapUnwrapPanel() {
           Unwrap wzkLTC to zkLTC
         </button>
       </div>
+
+      {mode === 'unwrap' && (
+        <label className="block rounded-2xl border border-amber-300/15 bg-amber-300/[0.045] p-4 text-sm text-amber-50/75">
+          Source-pinned wrapped-token recovery deployment
+          <select
+            aria-label="Wrapped-native recovery deployment"
+            value={unwrapDeployment.id}
+            onChange={(event) => {
+              setUnwrapDeploymentId(event.target.value)
+              setAmount('')
+            }}
+            className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-[#120f1d] px-3 text-sm text-white outline-none focus:border-white/25"
+          >
+            {WRAPPED_NATIVE_RECOVERY_SOURCES.map((deployment) => (
+              <option key={deployment.id} value={deployment.id}>
+                {deployment.label}{deployment.id === 'current' ? '' : ' — retired / withdrawal only'}
+              </option>
+            ))}
+          </select>
+          <span className="mt-2 block break-all font-mono text-xs text-amber-50/55">
+            Wrapped token: {unwrapDeployment.wrappedNative}
+          </span>
+        </label>
+      )}
 
       {/* Amount input */}
       <div className="rounded-2xl border border-white/8 bg-[#120f1d] p-4">
@@ -1237,7 +1297,7 @@ function WrapUnwrapPanel() {
 
       <button
         onClick={mode === 'wrap' ? handleWrap : handleUnwrap}
-        disabled={!isConnected || !isCanonicalDexDeployment || !amount || parseFloat(amount) <= 0 || isConfirming}
+        disabled={!isConnected || (mode === 'wrap' && !isCanonicalDexDeployment) || !amount || parseFloat(amount) <= 0 || isConfirming || (mode === 'wrap' && !POST_COMPROMISE_REPLACEMENTS_ACTIVE)}
         className="flex w-full items-center justify-center gap-2 rounded-[18px] px-5 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
         style={{
           background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
@@ -1902,7 +1962,9 @@ function SwapPageInner() {
     setOutputToken(nextOutput)
   }
 
-  const primaryButtonText = !isConnected
+  const primaryButtonText = !POST_COMPROMISE_REPLACEMENTS_ACTIVE
+    ? 'Swaps Disabled'
+    : !isConnected
     ? 'Connect wallet to swap'
     : isWrongNetwork
       ? 'Switch to LitVM'
@@ -1940,21 +2002,24 @@ function SwapPageInner() {
         category="Dex"
         title="Lester"
         titleHighlight="Swap"
-        subtitle="Direct token swaps on Lester Labs' Uniswap V2 fork for LitVM. Quotes come from the live router."
+        subtitle="Read legacy reserve quotes and review recovery status. New swaps, wrapping, pool creation, and liquidity additions are disabled during post-compromise replacement."
         color={ACCENT}
         image="/images/carousel/swap.png"
         imagePosition="center 46%"
         compact
         stats={[
           { label: 'Network', value: 'LitVM · 4441' },
-          { label: 'Swap Fee', value: '0.30%' },
+          { label: 'Mode', value: 'Containment' },
         ]}
       />
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
+        <div className="rounded-[24px] border border-amber-300/20 bg-amber-300/10 p-5 text-sm leading-relaxed text-amber-50">
+          <strong>Legacy DEX recovery only.</strong> Reserve quotes are untrusted read-only observations, not oracle prices or authorization to trade. Do not approve a token, swap, wrap, create a pool, or add liquidity. Only source-pinned LP removal and existing wrapped-native withdrawal may be available after exact runtime checks.
+        </div>
         {!isDexConfigured && (
           <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">
-            Configure factory and router addresses before using the swap page.
+            No approved post-compromise DEX is active. Source-pin an independently reviewed factory, router, wrapped-native contract, controller, and treasury before enabling new writes.
           </div>
         )}
 
@@ -1971,7 +2036,7 @@ function SwapPageInner() {
                   boxShadow: !showCreatePool && !showWrap ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
                 }}
               >
-                Swap
+                Swaps Disabled
               </button>
               <button
                 onClick={() => setShowCreatePool(true)}
@@ -1982,7 +2047,7 @@ function SwapPageInner() {
                   boxShadow: showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
                 }}
               >
-                Create Pool
+                New Pools Disabled
               </button>
               <button
                 onClick={() => { setShowCreatePool(false); setShowWrap(true) }}
@@ -2027,8 +2092,8 @@ function SwapPageInner() {
               <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h1 className="text-2xl font-semibold text-white">Swap</h1>
-                    <p className="mt-1 text-sm text-white/45">Direct pairs from the Lester Labs factory.</p>
+                    <h1 className="text-2xl font-semibold text-white">Read-only legacy quote</h1>
+                    <p className="mt-1 text-sm text-white/45">A bounded reserve observation from the retired Lester Labs factory; submission remains blocked.</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <SlippageSelector valueBps={slippageBps} onChange={setSlippageBps} />
@@ -2091,7 +2156,7 @@ function SwapPageInner() {
                         <div className="text-[2rem] font-semibold text-white">
                           {quotedAmountOutText || '0.0'}
                         </div>
-                        <p className="mt-2 text-sm text-white/40">Live Quote</p>
+                        <p className="mt-2 text-sm text-white/40">Legacy Reserve Quote</p>
                       </div>
                       <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/50">
                         Direct route
@@ -2183,15 +2248,15 @@ function SwapPageInner() {
                   <span>Loaded recent factory cache · {tokenOptions.length} tokens</span>
                 )}
                 {!tokensLoading && cacheStatus === 'idle' && (
-                  <span>{tokenOptions.length} swappable assets detected, including native zkLTC.</span>
+                  <span>{tokenOptions.length} assets found in the bounded factory sample; they are not asserted safe or currently swappable.</span>
                 )}
               </div>
             </div>
 
             <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-xs uppercase tracking-[0.12em] text-white/35">Getting started</p>
+              <p className="text-xs uppercase tracking-[0.12em] text-white/35">Containment guidance</p>
               <p className="mt-2 text-sm leading-6 text-white/45">
-                Connect your wallet, select a token pair, and swap. Add liquidity on the Pool page to earn from trades.
+                No wallet is needed to inspect public reserves. Connect a disposable testnet wallet only for an eligible, source-authenticated legacy withdrawal after reviewing the exact target and calldata.
               </p>
             </div>
 

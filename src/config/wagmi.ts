@@ -1,31 +1,22 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { createConfig, http, injected } from 'wagmi'
-import { litvm, arbitrumSepolia } from './chains'
+import { litvm } from './chains'
 
-const FALLBACK_WALLETCONNECT_PROJECT_ID = 'walletconnect-not-configured'
+// Keep wallet connectivity deterministic while hosting and deployment accounts
+// are being re-established. A mutable build-time project ID must not silently
+// alter the reviewed connector set. Re-enable WalletConnect only with a
+// separately reviewed, source-pinned public project configuration.
+export const walletConnectConfigured = false
 
-export const walletConnectConfigured = Boolean(process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim())
+const chains = [litvm] as const
 
-const walletConnectProjectId =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim() ?? FALLBACK_WALLETCONNECT_PROJECT_ID
-
-const chains = [litvm, arbitrumSepolia] as const
-
-export const wagmiConfig = walletConnectConfigured
-  ? getDefaultConfig({
-      appName: 'Lester-Labs',
-      projectId: walletConnectProjectId,
-      chains,
-      ssr: true,
-    })
-  : createConfig({
-      chains,
-      connectors: [
-        injected(),
-      ],
-      transports: {
-        [litvm.id]: http(litvm.rpcUrls.default.http[0]),
-        [arbitrumSepolia.id]: http(arbitrumSepolia.rpcUrls.default.http[0]),
-      },
-      ssr: true,
-    })
+export const wagmiConfig = createConfig({
+  chains,
+  multiInjectedProviderDiscovery: false,
+  connectors: [
+    injected(),
+  ],
+  transports: {
+    [litvm.id]: http(litvm.rpcUrls.default.http[0]),
+  },
+  ssr: true,
+})

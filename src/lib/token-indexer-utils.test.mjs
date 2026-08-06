@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { findByCanonicalAddress, getBoundedNewestBlockRange, inferFactoryProvenance } from './token-indexer-utils.ts'
+import {
+  findByCanonicalAddress,
+  getBoundedNewestBlockRange,
+  getGovernanceTokenPresentation,
+  inferFactoryProvenance,
+} from './token-indexer-utils.ts'
 
 describe('getBoundedNewestBlockRange', () => {
   it('keeps the newest bounded window and exposes truncation', () => {
@@ -40,5 +45,20 @@ describe('inferFactoryProvenance', () => {
       creationTx: `0x${'ab'.repeat(32)}`,
       creationBlock: 50_000,
     }), 'verified')
+  })
+})
+
+describe('getGovernanceTokenPresentation', () => {
+  it('never presents the retired compromised token as canonical ecosystem governance', () => {
+    const retired = getGovernanceTokenPresentation('retired-compromised-read-only')
+    assert.match(retired.description, /retired compromised legacy/i)
+    assert.match(retired.description, /not canonical/i)
+    assert.equal(retired.isEcosystem, false)
+  })
+
+  it('only presents governance as active after the reviewed replacement latch', () => {
+    const active = getGovernanceTokenPresentation('reviewed-post-compromise-active')
+    assert.match(active.description, /post-compromise/i)
+    assert.equal(active.isEcosystem, true)
   })
 })

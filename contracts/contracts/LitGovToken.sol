@@ -11,15 +11,29 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
  *         Mintable by owner. Holders must delegate to accumulate voting power.
  */
 contract LitGovToken is ERC20, ERC20Votes {
+    uint256 public constant INITIAL_SUPPLY = 10_000_000 ether;
+
     /// @notice Address authorised to mint new tokens
     address public owner;
+    address public immutable deploymentSigner;
+    address public immutable initialHolder;
 
-    /// @notice Token name and symbol
-    string private _name     = "Lit Governance Token";
-    string private _symbol   = "LGT";
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
-    constructor() ERC20(_name, _symbol) EIP712(_name, "1") {
-        owner = msg.sender;
+    constructor(address initialOwner, address _initialHolder)
+        ERC20("Lit Governance Token", "LGT")
+        EIP712("Lit Governance Token", "1")
+    {
+        require(initialOwner != address(0), "LitGovToken: zero owner");
+        require(_initialHolder != address(0), "LitGovToken: zero holder");
+        require(initialOwner != msg.sender && _initialHolder != msg.sender, "LitGovToken: deployer control");
+        require(initialOwner != _initialHolder, "LitGovToken: roles must differ");
+        deploymentSigner = msg.sender;
+        initialHolder = _initialHolder;
+        owner = initialOwner;
+        _mint(_initialHolder, INITIAL_SUPPLY);
+        _delegate(_initialHolder, _initialHolder);
+        emit OwnershipTransferred(address(0), initialOwner);
     }
 
     modifier onlyOwner() {
@@ -54,15 +68,16 @@ contract LitGovToken is ERC20, ERC20Votes {
      */
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "LitGovToken: zero address");
+        require(newOwner != deploymentSigner, "LitGovToken: deployer control");
+        require(newOwner != initialHolder, "LitGovToken: roles must differ");
+        address previousOwner = owner;
         owner = newOwner;
+        emit OwnershipTransferred(previousOwner, newOwner);
     }
 
     // ── ERC20Votes override ────────────────────────────────────────────
 
-    function _update(address from, address to, uint256 value)
-        internal
-        override(ERC20, ERC20Votes)
-    {
+    function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Votes) {
         super._update(from, to, value);
     }
 }

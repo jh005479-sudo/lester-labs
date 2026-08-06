@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
-import { useAccount, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useAccount, useBytecode, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { waitForTransactionReceipt } from '@wagmi/core'
-import { isAddress, parseUnits } from 'viem'
+import { isAddress, keccak256, parseUnits } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Coins, Download, ExternalLink, Loader2, Send, TriangleAlert, Zap } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
@@ -15,7 +15,13 @@ import {
   ERC20_APPROVE_ABI,
   DISPERSE_ADDRESS,
 } from '@/lib/contracts/airdrop'
-import { isValidContractAddress } from '@/config/contracts'
+import {
+  DISPERSE_RUNTIME_CODE_HASH,
+  LITVM_CURRENT_CONTRACTS,
+  POST_COMPROMISE_REPLACEMENTS_ACTIVE,
+  isCanonicalLitvmContract,
+} from '@/config/contracts'
+import { litvm } from '@/config/chains'
 import { wagmiConfig } from '@/config/wagmi'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
@@ -176,14 +182,36 @@ export function AirdropForm() {
   const submissionLockRef = useRef(false)
   const lastProgressKeyRef = useRef<string | null>(null)
 
-  const { data: receipt } = useWaitForTransactionReceipt({ hash: currentTxHash })
+  const { data: receipt } = useWaitForTransactionReceipt({
+    hash: currentTxHash,
+    chainId: litvm.id,
+  })
   void receipt // used as dependency for re-renders
+
+  const { data: disperseBytecode, isLoading: isDisperseAttestationLoading } = useBytecode({
+    address: DISPERSE_ADDRESS,
+    chainId: litvm.id,
+  })
+  const disperseRuntimeCodeHash = useMemo(
+    () => disperseBytecode && disperseBytecode !== '0x' ? keccak256(disperseBytecode) : undefined,
+    [disperseBytecode],
+  )
+  const isContractConfigured = isCanonicalLitvmContract(
+    DISPERSE_ADDRESS,
+    LITVM_CURRENT_CONTRACTS.disperse,
+  )
+  const isContractAttested = Boolean(
+    isContractConfigured &&
+    disperseRuntimeCodeHash &&
+    disperseRuntimeCodeHash.toLowerCase() === DISPERSE_RUNTIME_CODE_HASH.toLowerCase(),
+  )
 
   // Fetch actual token decimals on-chain (F-009 fix)
   const { data: fetchedDecimals, isLoading: isDecimalsLoading } = useReadContract({
     address: isAddress(tokenAddress) ? (tokenAddress as `0x${string}`) : undefined,
     abi: ERC20_DECIMALS_ABI,
     functionName: 'decimals',
+    chainId: litvm.id,
     query: {
       enabled: mode === 'token' && isAddress(tokenAddress),
     },
@@ -219,13 +247,13 @@ export function AirdropForm() {
   const batchCount = Math.ceil(validRecipients.length / BATCH_SIZE)
 
   const tokenAddressValid = mode === 'native' || isAddress(tokenAddress)
-  const isContractConfigured = isValidContractAddress(DISPERSE_ADDRESS)
   // For token mode, decimals must be loaded before submit
   const decimalsReady = mode === 'native' || tokenDecimals !== undefined
 
   const canSubmit =
     isConnected &&
-    isContractConfigured &&
+    POST_COMPROMISE_REPLACEMENTS_ACTIVE &&
+    isContractAttested &&
     validRecipients.length > 0 &&
     tokenAddressValid &&
     totalAmount > 0 &&
@@ -318,7 +346,10 @@ export function AirdropForm() {
           const pendingApprovalHash = progress.pendingApprovalTxHash as `0x${string}`
           setCurrentTxHash(pendingApprovalHash)
           setTxMessage('Resuming the pending token approval confirmation…')
-          const approvalReceipt = await waitForTransactionReceipt(wagmiConfig, { hash: pendingApprovalHash })
+          const approvalReceipt = await waitForTransactionReceipt(wagmiConfig, {
+            hash: pendingApprovalHash,
+            chainId: litvm.id,
+          })
           if (approvalReceipt.status !== 'success') {
             saveProgress(clearPendingApproval(progress))
             throw new Error('The previous token approval failed on-chain. Retry to submit a new approval.')
@@ -338,7 +369,10 @@ export function AirdropForm() {
           saveProgress(markApprovalSubmitted(progress, approveHash))
 
           setTxMessage('Waiting for approval confirmation…')
-          const approvalReceipt = await waitForTransactionReceipt(wagmiConfig, { hash: approveHash })
+          const approvalReceipt = await waitForTransactionReceipt(wagmiConfig, {
+            hash: approveHash,
+            chainId: litvm.id,
+          })
           if (approvalReceipt.status !== 'success') {
             saveProgress(clearPendingApproval(progress))
             throw new Error('Token approval failed on-chain')
@@ -351,7 +385,10 @@ export function AirdropForm() {
           const pendingHash = txHash as `0x${string}`
           setCurrentTxHash(pendingHash)
           setTxMessage(`Resuming confirmation for batch ${index + 1} of ${parsedBatches.length}…`)
-          const pendingReceipt = await waitForTransactionReceipt(wagmiConfig, { hash: pendingHash })
+          const pendingReceipt = await waitForTransactionReceipt(wagmiConfig, {
+            hash: pendingHash,
+            chainId: litvm.id,
+          })
           if (pendingReceipt.status !== 'success') {
             saveProgress(clearPendingBatch(progress))
             throw new Error(`Batch ${index + 1} failed on-chain. Retry to resubmit only this batch.`)
@@ -379,7 +416,10 @@ export function AirdropForm() {
           setCurrentTxHash(hash)
           saveProgress(markBatchSubmitted(progress, b, hash))
           setTxMessage(`Confirming batch ${b + 1} of ${parsedBatches.length}…`)
-          const batchReceipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+          const batchReceipt = await waitForTransactionReceipt(wagmiConfig, {
+            hash,
+            chainId: litvm.id,
+          })
           if (batchReceipt.status !== 'success') {
             saveProgress(clearPendingBatch(progress))
             throw new Error(`Batch ${b + 1} failed on-chain. Retry to resubmit only this batch.`)
@@ -393,7 +433,10 @@ export function AirdropForm() {
           const pendingHash = txHash as `0x${string}`
           setCurrentTxHash(pendingHash)
           setTxMessage(`Resuming confirmation for batch ${index + 1} of ${batches.length}…`)
-          const pendingReceipt = await waitForTransactionReceipt(wagmiConfig, { hash: pendingHash })
+          const pendingReceipt = await waitForTransactionReceipt(wagmiConfig, {
+            hash: pendingHash,
+            chainId: litvm.id,
+          })
           if (pendingReceipt.status !== 'success') {
             saveProgress(clearPendingBatch(progress))
             throw new Error(`Batch ${index + 1} failed on-chain. Retry to resubmit only this batch.`)
@@ -423,7 +466,10 @@ export function AirdropForm() {
           setCurrentTxHash(hash)
           saveProgress(markBatchSubmitted(progress, b, hash))
           setTxMessage(`Confirming batch ${b + 1} of ${batches.length}…`)
-          const batchReceipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+          const batchReceipt = await waitForTransactionReceipt(wagmiConfig, {
+            hash,
+            chainId: litvm.id,
+          })
           if (batchReceipt.status !== 'success') {
             saveProgress(clearPendingBatch(progress))
             throw new Error(`Batch ${b + 1} failed on-chain. Retry to resubmit only this batch.`)
@@ -635,13 +681,15 @@ export function AirdropForm() {
           )}
         </section>
 
-        {/* Step 3 — Review & Send */}
+        {/* Step 3 — Review readiness */}
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-bold text-white">
               {mode === 'token' ? '3' : '2'}
             </span>
-            <h2 className="text-base font-semibold text-white">Review & Send</h2>
+            <h2 className="text-base font-semibold text-white">
+              {POST_COMPROMISE_REPLACEMENTS_ACTIVE ? 'Review & Send' : 'Review Local Validation'}
+            </h2>
           </div>
 
           <div className="rounded-lg border border-white/10 bg-white/5 p-4 space-y-3">
@@ -650,7 +698,9 @@ export function AirdropForm() {
               <span className="font-medium text-white">{validRecipients.length}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-white/50">Total to send</span>
+              <span className="text-white/50">
+                {POST_COMPROMISE_REPLACEMENTS_ACTIVE ? 'Total to send' : 'Validated total'}
+              </span>
               <span className="font-medium text-white">
                 {totalAmount > 0 ? totalAmount.toLocaleString() : '—'}{' '}
                 {mode === 'native' ? 'zkLTC' : 'tokens'}
@@ -671,7 +721,9 @@ export function AirdropForm() {
                TODO: Re-add when contract-level fee enforcement is implemented */}
             {mode === 'token' && (
               <div className="rounded-md bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-300">
-                Two-step flow: you&apos;ll first approve the token spend, then confirm the airdrop transaction.
+                {POST_COMPROMISE_REPLACEMENTS_ACTIVE
+                  ? 'Two-step flow: first approve the exact token spend, then confirm the distribution transaction.'
+                  : 'Local validation only. Do not approve a token spend or confirm a distribution transaction while containment is active.'}
               </div>
             )}
             {resumeProgress && resumeProgress.nextBatchIndex > 0 && resumeProgress.nextBatchIndex < batchCount && (
@@ -696,11 +748,30 @@ export function AirdropForm() {
               <div className="grid gap-2 text-xs sm:grid-cols-2">
                 {[
                   { label: 'Network', value: isWrongNetwork ? 'Switch required' : 'LitVM Testnet', ok: !isWrongNetwork },
-                  { label: 'Disperse contract', value: isContractConfigured ? 'Configured' : 'Unavailable', ok: isContractConfigured },
+                  {
+                    label: 'Deployment generation',
+                    value: POST_COMPROMISE_REPLACEMENTS_ACTIVE ? 'Post-compromise active' : 'Replacement pending',
+                    ok: POST_COMPROMISE_REPLACEMENTS_ACTIVE,
+                  },
+                  {
+                    label: 'Disperse contract',
+                    value: isDisperseAttestationLoading
+                      ? 'Attesting code…'
+                      : isContractAttested
+                        ? 'Canonical code verified'
+                        : 'Blocked: code mismatch',
+                    ok: isContractAttested,
+                  },
                   { label: 'Recipients', value: `${validRecipients.length} valid`, ok: validRecipients.length > 0 },
                   { label: 'Amount', value: totalAmount > 0 ? `${totalAmount.toLocaleString()} ${mode === 'native' ? 'zkLTC' : 'tokens'}` : 'Missing', ok: totalAmount > 0 },
                   { label: 'Token decimals', value: decimalsReady ? 'Ready' : 'Loading', ok: decimalsReady },
-                  { label: 'Wallet result', value: mode === 'token' ? 'Approve, then send' : 'Send native batch', ok: true },
+                  {
+                    label: 'Wallet result',
+                    value: POST_COMPROMISE_REPLACEMENTS_ACTIVE
+                      ? mode === 'token' ? 'Approve exact amount, then send' : 'Send native batch'
+                      : 'No wallet request permitted',
+                    ok: POST_COMPROMISE_REPLACEMENTS_ACTIVE,
+                  },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/[0.025] px-3 py-2">
                     <span className="text-white/40">{item.label}</span>
@@ -718,13 +789,33 @@ export function AirdropForm() {
             </div>
           )}
 
-          {isWrongNetwork && (
+          {POST_COMPROMISE_REPLACEMENTS_ACTIVE && isWrongNetwork && (
             <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
               Wallet is connected to the wrong network. Switch to LitVM Testnet before authorising this airdrop.
             </div>
           )}
 
-          {isWrongNetwork ? (
+          {!isDisperseAttestationLoading && !isContractAttested && (
+            <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              The source-pinned LitVM Disperse address or its runtime code does not match the reviewed deployment.
+              Approvals and transfers are blocked.
+            </div>
+          )}
+
+          {!POST_COMPROMISE_REPLACEMENTS_ACTIVE && (
+            <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              New airdrops are disabled until the reviewed post-compromise deployment set is source-pinned and activated. Historical reads and recovery tools remain available.
+            </div>
+          )}
+
+          {!POST_COMPROMISE_REPLACEMENTS_ACTIVE ? (
+            <button
+              disabled
+              className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              New Distributions Disabled
+            </button>
+          ) : isWrongNetwork ? (
             <button
               onClick={handleSwitchNetwork}
               disabled={isSwitchingChain}

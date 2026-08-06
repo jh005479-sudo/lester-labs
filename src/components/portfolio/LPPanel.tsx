@@ -38,80 +38,6 @@ function formatPct(value: number): string {
   return `${(value * 100).toFixed(4)}%`
 }
 
-// Impermanent loss: IL = 1 - sqrt(price_ratio)
-// price_ratio = current_price / initial_price
-function calcIL(priceRatio: number): { ilPct: number; ilAbsolute: number; initialValue: number; currentValue: number } {
-  const sqrtRatio = Math.sqrt(priceRatio)
-  const ilPct = 1 - sqrtRatio // negative means loss, e.g. -0.05 = 5% loss
-  const initialValue = 2 // assume $1 each = $2 initial for normalized calc
-  const hodlValue = priceRatio > 0 ? initialValue * (1 + priceRatio) / 2 : 0
-  const currentValue = initialValue * sqrtRatio
-  const ilAbsolute = hodlValue - currentValue
-  return { ilPct, ilAbsolute, initialValue, currentValue }
-}
-
-// ── IL Calculator ──────────────────────────────────────────────────────────
-
-function ILCalculator({
-  initial0,
-  initial1,
-  current0,
-  current1,
-}: {
-  initial0: string
-  initial1: string
-  current0: string
-  current1: string
-}) {
-  const n0 = parseFloat(initial0) || 0
-  const n1 = parseFloat(initial1) || 0
-  const c0 = parseFloat(current0) || 0
-  const c1 = parseFloat(current1) || 0
-
-  const initialValue = n0 + n1
-  const currentValue = c0 + c1
-  const priceRatio = initialValue > 0 ? currentValue / initialValue : 0
-  const { ilPct } = calcIL(priceRatio)
-  const ilAbsolute = initialValue - currentValue
-  const pnl = currentValue - initialValue
-  const pnlPct = initialValue > 0 ? pnl / initialValue : 0
-
-  return (
-    <div
-      style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: '14px',
-        padding: '16px',
-      }}
-    >
-      <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', marginBottom: '12px' }}>
-        Impermanent Loss Calculator
-      </p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-        {[
-          { label: 'Initial investment', value: initialValue > 0 ? `$${initialValue.toFixed(2)}` : '—' },
-          { label: 'Current value', value: currentValue > 0 ? `$${currentValue.toFixed(2)}` : '—' },
-          { label: 'PnL', value: pnl !== 0 && initialValue > 0 ? `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${(pnlPct * 100).toFixed(2)}%)` : '—' },
-          { label: 'Impermanent loss', value: ilPct !== 0 ? `${(ilPct * 100).toFixed(4)}%` : '—' },
-          { label: 'IL absolute', value: ilAbsolute !== 0 ? `-$${Math.abs(ilAbsolute).toFixed(2)}` : '—' },
-          { label: 'Price ratio', value: priceRatio > 0 ? priceRatio.toFixed(4) : '—' },
-        ].map(({ label, value }) => (
-          <div key={label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '8px 10px' }}>
-            <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '3px' }}>{label}</p>
-            <p style={{ fontSize: '13px', fontWeight: 600, color: ilAbsolute > 0 && label === 'IL absolute' ? '#EF4444' : '#fff' }}>{value}</p>
-          </div>
-        ))}
-      </div>
-
-      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginTop: '10px' }}>
-        IL formula: 1 − √(price_ratio). This is an estimate — fees are excluded.
-      </p>
-    </div>
-  )
-}
-
 // ── LP Position Card ───────────────────────────────────────────────────────
 
 function LPPositionCard({ position }: { position: LPPosition }) {
@@ -297,7 +223,7 @@ async function scanLPPositions(wallet: `0x${string}`): Promise<LPPosition[]> {
   return positions
 }
 
-// ── PnL Calculator ─────────────────────────────────────────────────────────
+// ── Manual value comparison ────────────────────────────────────────────────
 
 function PnLCalculator() {
   const [initialInvestment, setInitialInvestment] = useState('')
@@ -316,8 +242,6 @@ function PnLCalculator() {
   const currentValue = c0 + c1
   const pnl = currentValue - initialValue
   const pnlPct = initialValue > 0 ? pnl / initialValue : 0
-  const priceRatio = initialValue > 0 ? currentValue / initialValue : 0
-  const { ilPct, ilAbsolute } = calcIL(priceRatio)
 
   return (
     <div
@@ -330,7 +254,7 @@ function PnLCalculator() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
         <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)' }}>
-          PnL Calculator
+          Manual Value Comparison
         </p>
         <div style={{ display: 'flex', gap: '4px' }}>
           {(['simple', 'detailed'] as const).map(m => (
@@ -426,23 +350,13 @@ function PnLCalculator() {
         <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
           {[
             {
-              label: 'Total PnL',
+              label: 'Entered value difference',
               value: initialValue > 0 && pnl !== 0
                 ? `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${(pnlPct * 100).toFixed(2)}%)`
                 : parseFloat(initialInvestment) > 0 && currentValue > 0
                   ? `${currentValue >= parseFloat(initialInvestment) ? '+' : ''}$${(currentValue - parseFloat(initialInvestment)).toFixed(2)}`
                   : '—',
               color: pnl >= 0 ? '#34D399' : '#EF4444',
-            },
-            {
-              label: 'Impermanent loss',
-              value: priceRatio > 0 ? `${(ilPct * 100).toFixed(4)}%` : '—',
-              color: '#EF4444',
-            },
-            {
-              label: 'IL absolute',
-              value: priceRatio > 0 ? `-$${Math.abs(ilAbsolute).toFixed(2)}` : '—',
-              color: '#EF4444',
             },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '8px 10px' }}>
@@ -454,7 +368,7 @@ function PnLCalculator() {
       )}
 
       <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', marginTop: '10px' }}>
-        Requires price oracle for full accuracy — showing reserve-based estimate. Fees excluded.
+        Arithmetic on values entered by the viewer. No price oracle, reserve valuation, cost basis, fees, tax data, or investment return is fetched or inferred.
       </p>
     </div>
   )
@@ -486,13 +400,6 @@ export function LPPanel() {
   const { address } = useAccount()
   const [positions, setPositions] = useState<LPPosition[]>([])
   const [loading, setLoading] = useState(true)
-  const [showILCalc, setShowILCalc] = useState(false)
-
-  // IL standalone calculator state
-  const [ilInitial0, setIlInitial0] = useState('')
-  const [ilInitial1, setIlInitial1] = useState('')
-  const [ilCurrent0, setIlCurrent0] = useState('')
-  const [ilCurrent1, setIlCurrent1] = useState('')
 
   useEffect(() => {
     if (!address) { setLoading(false); return }
@@ -516,71 +423,15 @@ export function LPPanel() {
         <div>
           <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)' }}>
             {loading
-              ? 'Scanning factory pairs…'
+              ? 'Scanning the supported factory window…'
               : totalPositions === 0
-                ? 'No LP positions found'
+                ? 'No LP positions found in the supported factory window'
                 : `${totalPositions} LP position${totalPositions !== 1 ? 's' : ''} found`}
           </p>
         </div>
-        <button
-          onClick={() => setShowILCalc(v => !v)}
-          style={{
-            padding: '6px 14px',
-            borderRadius: '10px',
-            border: '1px solid rgba(255,255,255,0.1)',
-            background: showILCalc ? `${ACCENT}22` : 'rgba(255,255,255,0.04)',
-            color: showILCalc ? '#fff' : 'rgba(255,255,255,0.5)',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          {showILCalc ? 'Hide IL calc' : 'IL Calculator'}
-        </button>
       </div>
 
-      {/* Standalone IL Calculator */}
-      {showILCalc && (
-        <div className="space-y-4">
-          <div
-            style={{
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: '14px',
-              padding: '16px',
-            }}
-          >
-            <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', marginBottom: '12px' }}>
-              Impermanent Loss Calculator
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '10px 14px' }}>
-                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}>Token A price at deposit ($)</p>
-                <input value={ilInitial0} onChange={e => setIlInitial0(e.target.value)} placeholder="0.0" type="number"
-                  style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 600, color: '#fff' }} />
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '10px 14px' }}>
-                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}>Token B price at deposit ($)</p>
-                <input value={ilInitial1} onChange={e => setIlInitial1(e.target.value)} placeholder="0.0" type="number"
-                  style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 600, color: '#fff' }} />
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '10px 14px' }}>
-                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}>Token A price now ($)</p>
-                <input value={ilCurrent0} onChange={e => setIlCurrent0(e.target.value)} placeholder="0.0" type="number"
-                  style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 600, color: '#fff' }} />
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '10px 14px' }}>
-                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}>Token B price now ($)</p>
-                <input value={ilCurrent1} onChange={e => setIlCurrent1(e.target.value)} placeholder="0.0" type="number"
-                  style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', fontWeight: 600, color: '#fff' }} />
-              </div>
-            </div>
-            <ILCalculator initial0={ilInitial0} initial1={ilInitial1} current0={ilCurrent0} current1={ilCurrent1} />
-          </div>
-        </div>
-      )}
-
-      {/* PnL Calculator */}
+      {/* Manual viewer-supplied value comparison */}
       <PnLCalculator />
 
       {/* LP Positions */}
@@ -590,7 +441,7 @@ export function LPPanel() {
         <div style={{ textAlign: 'center', padding: '48px 0' }}>
           <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '14px' }}>No liquidity pool positions detected.</p>
           <p style={{ color: 'rgba(255,255,255,0.15)', fontSize: '12px', marginTop: '6px' }}>
-            Add liquidity on the Pool page to see your positions here.
+            This bounded scan can omit positions outside its supported factory window; verify exact pair and wallet addresses independently.
           </p>
         </div>
       )}

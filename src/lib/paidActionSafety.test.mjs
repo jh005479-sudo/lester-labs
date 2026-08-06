@@ -1,38 +1,70 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+  APPROVED_LESTER_CONTROLLER_ADDRESS,
+  APPROVED_LESTER_TREASURY_ADDRESS,
+  DISPOSABLE_TESTNET_FROZEN_AUTHORITY,
+  EXPECTED_GAS_ONLY_DEPLOYER_ADDRESS,
+  LITVM_COMPROMISED_LEGACY_GOVERNANCE,
+  POST_COMPROMISE_GOVERNANCE_ACTIVE,
   hasApprovedLesterControl,
-  LESTER_TREASURY_ADDRESS,
+  hasApprovedGovernanceWritePath,
+  POST_COMPROMISE_REPLACEMENTS_ACTIVE,
 } from '../config/contracts.ts'
 
 const retiredAuthority = '0xDD221FBbCb0f6092AfE51183d964AA89A968eE13'
 
 describe('paid contract authority gates', () => {
-  it('accepts an ownable paid contract only when its owner is the approved treasury', () => {
-    assert.equal(hasApprovedLesterControl({ owner: LESTER_TREASURY_ADDRESS.toLowerCase() }), true)
+  it('fails every owner-gated paid action closed before replacements are activated', () => {
+    assert.equal(POST_COMPROMISE_REPLACEMENTS_ACTIVE, false)
+    assert.equal(APPROVED_LESTER_CONTROLLER_ADDRESS, undefined)
+    assert.equal(APPROVED_LESTER_TREASURY_ADDRESS, undefined)
+    assert.equal(EXPECTED_GAS_ONLY_DEPLOYER_ADDRESS, undefined)
+    assert.equal(hasApprovedLesterControl({ owner: '0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28' }), false)
+    assert.equal(hasApprovedLesterControl({ owner: DISPOSABLE_TESTNET_FROZEN_AUTHORITY }), false)
     assert.equal(hasApprovedLesterControl({ owner: retiredAuthority }), false)
     assert.equal(hasApprovedLesterControl({ owner: undefined }), false)
   })
 
-  it('requires both owner and treasury when the paid contract routes funds directly', () => {
+  it('does not accept matching but unapproved owner and treasury values', () => {
+    const unapproved = '0x1111111111111111111111111111111111111111'
     assert.equal(hasApprovedLesterControl({
-      owner: LESTER_TREASURY_ADDRESS,
-      treasury: LESTER_TREASURY_ADDRESS.toLowerCase(),
+      owner: unapproved,
+      treasury: unapproved,
       treasuryRequired: true,
-    }), true)
+    }), false)
     assert.equal(hasApprovedLesterControl({
-      owner: LESTER_TREASURY_ADDRESS,
+      owner: unapproved,
       treasury: retiredAuthority,
       treasuryRequired: true,
     }), false)
     assert.equal(hasApprovedLesterControl({
       owner: retiredAuthority,
-      treasury: LESTER_TREASURY_ADDRESS,
+      treasury: unapproved,
       treasuryRequired: true,
     }), false)
     assert.equal(hasApprovedLesterControl({
-      owner: LESTER_TREASURY_ADDRESS,
+      owner: unapproved,
       treasuryRequired: true,
+    }), false)
+  })
+
+  it('keeps the independently compromised governance deployment read-only', () => {
+    assert.equal(POST_COMPROMISE_GOVERNANCE_ACTIVE, false)
+    assert.deepEqual(LITVM_COMPROMISED_LEGACY_GOVERNANCE, {
+      token: '0xa5111cedc04554676DbCCA39F2268070008C7A8A',
+      governor: '0x5b0092996BA897617B46D42B3F108B253be9Ad3d',
+      timelock: '0xd38ed693730Db3eB22bA6d6F0050FC45Ac9240ba',
+    })
+    assert.equal(hasApprovedGovernanceWritePath({
+      token: LITVM_COMPROMISED_LEGACY_GOVERNANCE.token,
+      governor: LITVM_COMPROMISED_LEGACY_GOVERNANCE.governor,
+      timelock: LITVM_COMPROMISED_LEGACY_GOVERNANCE.timelock,
+    }), false)
+    assert.equal(hasApprovedGovernanceWritePath({
+      token: '0x1111111111111111111111111111111111111111',
+      governor: '0x2222222222222222222222222222222222222222',
+      timelock: '0x3333333333333333333333333333333333333333',
     }), false)
   })
 })

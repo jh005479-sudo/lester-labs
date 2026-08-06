@@ -1,13 +1,15 @@
-import { ethers } from "hardhat";
+import { network as hardhatNetwork } from "hardhat";
 import {
   EXPECTED_CHAIN_ID,
   RETIRED_TREASURY,
   attestPinnedRuntime,
-} from "./lib/live_treasury_audit";
+} from "./lib/live_treasury_audit.js";
 import {
   assertNoActiveRetiredChildAuthority,
   auditLiveChildAuthority,
-} from "./lib/live_child_authority_audit";
+} from "./lib/live_child_authority_audit.js";
+
+const { ethers } = await hardhatNetwork.create();
 
 async function main() {
   const network = await ethers.provider.getNetwork();

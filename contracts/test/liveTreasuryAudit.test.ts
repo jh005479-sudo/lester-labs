@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers } from "ethers";
 import {
   ADDRESSES,
   PINNED_TIMELOCK_BASELINE_DIGEST,
@@ -10,7 +10,7 @@ import {
   normalized,
   timelockBaselineDigest,
   type TimelockInventory,
-} from "../scripts/lib/live_treasury_audit";
+} from "../scripts/lib/live_treasury_audit.js";
 
 describe("live treasury safety invariants", function () {
   const roles = {

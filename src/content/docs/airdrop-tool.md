@@ -1,59 +1,51 @@
-# LitVM Airdrop Tool — Batch Token Distribution on LitVM
+# LitVM Airdrop Tool — Local Review and Replacement Readiness
 
-## Overview
+> **Current status:** local CSV parsing, address validation, batching previews,
+> and reports remain available. ERC-20 approvals and both token/native
+> distribution writes are disabled until the source-pinned replacement
+> Disperse runtime and clean served build are activated.
 
-The LitVM Airdrop Tool validates recipient lists locally and distributes ERC-20 tokens or native zkLTC in bounded batches. Each batch is a separate wallet-confirmed transaction, and confirmed hashes are retained locally so an interrupted run can resume from the first unconfirmed batch.
+The word “airdrop” describes a sender-directed batch-transfer utility. Using or
+viewing this tool does not enrol a wallet in a reward programme, prove token
+eligibility, or establish LitVM/Litecoin endorsement.
 
-## How it works
+## Safe preparation during containment
 
-The tool calls the Lester Labs Disperse deployment. ERC-20 mode first requests an exact token allowance; native mode sends the batch total with the call. Transfers are atomic within each individual batch, while separate batches remain independent transactions.
+1. Use only test assets and a disposable testnet wallet.
+2. Prepare rows as `address,amount`, using display-unit amounts.
+3. Review every parsed row, the token decimals, duplicate addresses, total
+   amount, and proposed batches locally.
+4. Do not approve a token or sign a distribution while the interface reports
+   containment.
+5. Export the local review report if useful; it is not an on-chain receipt.
 
-## Step-by-step guide
+Lists over 200 valid rows are intended to be split into separate future
+transactions. Duplicate addresses remain separate **recipient entries**, so an
+entry counter is not a unique-wallet count.
 
-1. Connect your wallet and switch to LitVM network
-2. Navigate to Airdrop Tool
-3. Select token to distribute (or choose native zkLTC)
-4. Paste your recipient list — one address and amount per line, or upload a CSV
-5. Review the parsed list and verify totals
-6. Approve the token spend (ERC-20 only — not required for native zkLTC)
-7. Confirm each bounded batch and wait for its receipt before continuing
-8. Keep the transaction hashes as the proof and recovery record for the distribution
+## Legacy deployment
 
-## Parameters
+The Disperse contract at
+`0x3cc66cb4713dca78564df512922adb331ac5ee04` is historical only. Do not grant
+it a new allowance or call it directly. Its address is retained solely for
+historical analysis and provisional activity continuity.
 
-| Field | Description | Constraints |
-|---|---|---|
-| Token | ERC-20 contract address, or native zkLTC | Valid token or native |
-| Recipient List | Addresses + amounts | Up to 200 per batch; amounts in displayed token units |
+## Replacement behavior
 
-**CSV format:**
-```
-0xAddress1,1000
-0xAddress2,2500
-0xAddress3,500
-```
+The reviewed replacement:
 
-Lists over 200 valid recipients are split automatically. Each batch is a separate transaction and consumes network gas.
+- accepts 1–200 positive-value, nonzero-recipient entries per batch;
+- transfers exactly the caller-specified token/native values;
+- has no owner-controlled recipient list or treasury sweep;
+- emits authenticated distribution summaries; and
+- increments a monotonic `totalRecipientEntries` counter.
 
-## Fee structure
+That counter includes duplicate addresses and multiple entries for the same
+wallet. It must be labelled as recipient entries, never as counts of distinct
+wallets or people.
 
-| Fee | Amount | When charged |
-|---|---|---|
-| Platform batch fee | None currently enforced | Network gas still applies to every approval and batch transaction |
-
-## Smart contract
-
-- **Forked from:** Disperse.app
-- **Contract address:** `0x3cc66cb4713dca78564df512922adb331ac5ee04`
-
-**Key functions:**
-- `disperseToken(token, recipients[], amounts[])` — distribute ERC-20 tokens to multiple addresses
-- `disperseEther(recipients[], amounts[])` — distribute native zkLTC to multiple addresses
-
-## Sources
-
-- [Disperse.app](https://github.com/Dispersao/disperse-contracts/blob/master/contracts/Disperse.sol)
-
-## Security
-
-The source follows the small Disperse pattern and has no owner-controlled recipient list. Lester Labs itself is an unaudited testnet deployment. Verify every recipient and amount before signing: a confirmed batch is irreversible even if a later batch fails.
+Before future activation, the exact replacement address/runtime and allowed
+`disperseToken` / `disperseEther` calls must be source-pinned. ERC-20 mode must
+request only the exact batch total from the approved replacement spender; each
+batch needs its own wallet review and receipt. No dependency or upstream
+Disperse ancestry is proof that a deployment is safe.

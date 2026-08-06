@@ -1,15 +1,19 @@
 'use client'
 
-import { useAccount, useChainId, useSwitchChain } from 'wagmi'
-import { litvm } from '@/config/chains'
+import { useState } from 'react'
+import { useLitvmNetwork } from '@/hooks/useLitvmNetwork'
 
 export default function NetworkGuard() {
-  const { isConnected } = useAccount()
-  const chainId = useChainId()
-  const { switchChain, isPending } = useSwitchChain()
+  const { isWrongNetwork, isSwitchingChain, switchToLitvm } = useLitvmNetwork()
+  const [switchError, setSwitchError] = useState<string | null>(null)
 
-  const isWrongNetwork = isConnected && chainId !== litvm.id
   if (!isWrongNetwork) return null
+
+  async function handleSwitch() {
+    setSwitchError(null)
+    const result = await switchToLitvm()
+    if (!result.switched) setSwitchError(result.error ?? 'The wallet did not switch to LitVM LiteForge.')
+  }
 
   return (
     <div style={{
@@ -21,14 +25,17 @@ export default function NetworkGuard() {
       display: 'flex', alignItems: 'center', gap: '14px',
       fontSize: '13px', backdropFilter: 'blur(20px)',
     }}>
-      <span style={{ color: 'var(--warning)' }}>Wrong network — switch to LitVM Testnet (Chain ID 4441)</span>
+      <span style={{ color: 'var(--warning)' }}>
+        Wrong network — switch to LitVM LiteForge (Chain ID 4441)
+        {switchError ? ` · ${switchError}` : ''}
+      </span>
       <button
-        onClick={() => switchChain({ chainId: litvm.id })}
-        disabled={isPending}
+        onClick={() => { void handleSwitch() }}
+        disabled={isSwitchingChain}
         className="cin-btn"
         style={{ padding: '5px 14px', fontSize: '12px', background: 'rgba(251,191,36,0.12)', color: 'var(--warning)', boxShadow: 'none', border: '1px solid rgba(251,191,36,0.2)' }}
       >
-        {isPending ? 'Switching…' : 'Switch to LitVM'}
+        {isSwitchingChain ? 'Switching…' : 'Switch to LitVM'}
       </button>
     </div>
   )

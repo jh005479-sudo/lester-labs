@@ -90,7 +90,7 @@ export function CreateProposalTab() {
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="e.g. Allocate treasury budget to audits and grants"
+            placeholder="e.g. Approve the independent replacement-contract review plan"
             className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-[#E44FB5]/50"
           />
         </div>

@@ -1,26 +1,37 @@
-# Lester Labs Treasury Rotation — 2026-07-27
+# RETIRED — Lester Labs Treasury Rotation — 2026-07-27
+
+> **Do not execute this procedure.** A live RPC check on 2026-08-04 confirmed
+> that the rotation never ran: the core owners, treasuries, DEX `feeTo`, and
+> `feeToSetter` remained at the compromised `0xDD22…` controller. The proposed
+> `0xCbf8…` destination is also unsafe because its private key was disclosed in
+> chat. The old rotation, verification, sweeping, and governance deployment
+> entrypoints now fail closed. Use `POST-COMPROMISE-REDEPLOYMENT.md` with newly
+> approved address-only multisig values instead. The material below is retained
+> only as historical audit context and does not describe current chain state.
 
 ## Status
 
-Repository defaults, write guards, and deployment scripts now use the approved
-treasury:
+Historical repository defaults and the never-executed plan proposed this now
+rejected address:
 
 `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28`
 
-This address is an EOA, not a multisig. The live LitVM contracts still require
-transactions signed by the current controller. Merging this repository does
-not change on-chain state. Do not fund or reuse the retired controller.
+Its private key was disclosed in chat. It is not approved as controller,
+treasury, Timelock delegate, or gas-only deployer; do not fund, sign with, or
+reuse it. The live LitVM contracts still require transactions signed by the
+compromised current controller. Merging this repository does not change
+on-chain state.
 
 The canonical legacy ILO factory is now discovery/recovery-only in the
 frontend. It remains creation-disabled even after treasury rotation. A future
 factory must be separately reviewed and explicitly pinned in source before
 paid creation can be enabled.
 
-## Live migration
+## Retired live-migration design (audit evidence only)
 
-From `contracts/`, configure `LITVM_RPC_URL` and provide
-`DEPLOYER_PRIVATE_KEY` only in an untracked local `.env`. Never paste the
-private key into a terminal command, issue, pull request, or chat.
+Do not configure a key or run this migration. The old write commands are
+fail-closed; only `audit:child-authority:litvm` remains a read-only evidence
+collector. Use the fresh thirteen-contract workflow instead.
 
 Timelock history through block `34,083,003` was independently reconciled
 between Blockscout and a complete deployment-to-checkpoint RPC scan. The eight
@@ -32,15 +43,7 @@ are pinned in source. Each run verifies that checkpoint and reads every
 subsequent Timelock role/operation event directly from canonical RPC, avoiding
 dependence on an explorer indexer while keeping the live preflight practical.
 
-Run:
-
-```sh
-npm run audit:child-authority:litvm
-npm run rotate:treasury:litvm
-npm run verify:treasury:litvm
-```
-
-The rotation script:
+The retired rotation script was designed to:
 
 1. requires chain ID `4441`, the exact current signer, and exact pinned runtime
    hashes for every core live deployment;
@@ -65,10 +68,8 @@ The rotation script:
 9. transfers Uniswap V2 `feeToSetter` before removing the retired signer's
    final Timelock roles, then verifies all resulting state.
 
-Each operation is a separate transaction, so the overall rotation is not
-atomic. The script is resumable and fails closed on an unexpected intermediate
-state. The approved treasury must hold enough native LitVM gas before the
-rotation starts.
+Each proposed operation would have been a separate, non-atomic transaction.
+None is authorized now, and the rejected destination must not be funded.
 
 ## What “non-upgradeable” means here
 
@@ -181,18 +182,10 @@ The canonical legacy factory remains browse/recovery-only regardless of its
 post-rotation treasury value. The deployed legacy connector permanently embeds
 the retired treasury and must not be reused.
 
-After DEX fee rotation, a funded replacement administrator may deploy a
-replacement connector:
-
-```sh
-npm run deploy:connector:litvm
-```
-
-That connector address may be supplied as `UNISWAP_CONNECTOR_ADDRESS` only to
-a separately reviewed future ILOFactory deployment. The deployment scripts
-reject router or treasury mismatches. Frontend creation remains disabled until
-the future factory address and reviewed runtime are explicitly pinned in
-source.
+The old connector-only deployment command is retired and fails closed. A fresh
+connector is deployed only at step four of the nonce-bound thirteen-contract
+replacement sequence. Frontend creation remains disabled until the final
+manifest address and reviewed runtime are explicitly pinned in source.
 
 ## Governance finding
 
@@ -201,16 +194,12 @@ holds the entire 10,000,000-token supply with delegated voting power, and has
 Timelock admin/canceller authority. The sole Governor proposal is an audited
 test no-op and must be canceled.
 
-After rotation, the approved treasury owns the token and full balance, the
-retired balance/votes are zero, the test proposal and all pending Timelock
-operations are canceled, and role membership exactly matches the closed set
-listed above. Only the Governor may execute Timelock operations; execution is
-not open to arbitrary callers.
+The never-executed retired plan would have moved token ownership/balance and
+roles to the now-rejected destination. Those post-rotation claims do not
+describe live state and are not an authorized recovery target.
 
 The retired signer cannot delegate tokens on behalf of the approved treasury.
-The verifier therefore accepts only two target-signed states: no delegate
-(`delegates(target) == address(0)` and zero current votes), which intentionally
-leaves governance unable to propose; or self-delegation with voting power equal
-to the full supply. If governance is to operate, the approved treasury must
-separately call `delegate(0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28)`
-in a target-signed transaction.
+The old verifier's proposed target-signed delegation states are historical
+only. Do not call `delegate` to the rejected `0xCbf8…` address. Replacement
+governance instead mints the exact initial supply to a new distinct treasury
+and self-delegates it atomically in the Token constructor.

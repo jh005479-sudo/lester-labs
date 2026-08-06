@@ -1,7 +1,7 @@
 {
   "name": "Lester Labs",
   "short_name": "Lester Labs",
-  "description": "DeFi Utilities for LitVM",
+  "description": "Open-source LitVM testnet tools with source-pinned contracts and transparent on-chain activity",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#090817",

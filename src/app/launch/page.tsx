@@ -24,19 +24,19 @@ export default function LaunchPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#0a0818', color: '#f0eef5' }}>
       <ToolHero
-        category="Token Creation"
+        category="Containment / Token Factory"
         title="Lester"
         titleHighlight="Minter"
-        subtitle="Deploy a custom ERC-20 token on LitVM in under a minute. No code required. No compromises."
+        subtitle="Inspect the token configuration flow while new deployments remain disabled pending a source-pinned post-compromise factory and controller."
         color={COLOR}
         image="/images/carousel/token-factory.png"
         compact
         flowKey="minter"
         stats={[
           { label: 'Type', value: 'ERC-20' },
-          { label: 'Speed', value: '< 1 min' },
-          { label: 'Code', value: 'None' },
-          { label: 'Fee', value: '0.05 zkLTC' },
+          { label: 'Mode', value: 'Readiness' },
+          { label: 'Writes', value: 'Disabled' },
+          { label: 'Status', value: 'Replacement pending' },
         ]}
       />
 
@@ -57,12 +57,12 @@ export default function LaunchPage() {
           <div>
             <TokenWizard onStateChange={setWizState} />
           </div>
-          {/* Right: live preview */}
+          {/* Right: configuration preview */}
           <div className="tool-preview tool-preview-launch-align">
             <div className="tool-preview-card">
               <div className="tool-preview-header">
                 <div className="tool-preview-dot" style={{ background: COLOR, boxShadow: `0 0 6px ${COLOR}` }} />
-                <div className="tool-preview-label">Live Preview</div>
+                <div className="tool-preview-label">Configuration Preview</div>
               </div>
               <div className="tool-preview-body">
                 <div className="tool-preview-icon" style={{ background: `linear-gradient(135deg,${COLOR},#E44FB5)`, boxShadow: `0 4px 20px rgba(${COLOR_RGB},.2)` }}>
@@ -80,7 +80,7 @@ export default function LaunchPage() {
                 </div>
                 <div className="tool-preview-network">
                   <div className="tool-preview-net-dot" />
-                  <span className="tool-preview-net-text">Deploying to</span>
+                  <span className="tool-preview-net-text">Target network</span>
                   <span className="tool-preview-net-name">LitVM Testnet</span>
                 </div>
               </div>

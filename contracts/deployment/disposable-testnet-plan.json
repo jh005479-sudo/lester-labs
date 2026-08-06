@@ -1,0 +1,23 @@
+{
+  "kind": "lester-labs-post-compromise-replacement",
+  "schemaVersion": 2,
+  "chainId": "4441",
+  "deploymentProfile": "testnet-immutable-disposable",
+  "controller": "0x0000000000000000000000000000000000000001",
+  "treasury": "0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28",
+  "parameters": {
+    "tokenCreationFee": "50000000000000000",
+    "vestingFee": "30000000000000000",
+    "lockFee": "30000000000000000",
+    "iloPlatformFeeBps": "200",
+    "iloCreationFee": "30000000000000000",
+    "ledgerMinFee": "10000000000000000",
+    "ledgerTreasuryCutBps": "5000",
+    "governanceInitialSupply": "10000000000000000000000000",
+    "governanceTimelockDelay": "172800",
+    "governanceVotingDelay": "1",
+    "governanceVotingPeriod": "45600",
+    "governanceProposalThreshold": "100000000000000000000000",
+    "governanceQuorumBps": "400"
+  }
+}

@@ -1,75 +1,49 @@
-# Token Vesting
+# Token Vesting — Legacy Release and Replacement Readiness
 
-## Overview
+> **Current status:** the Vesting Factory at
+> `0x6EE07118D39e9330Ef0658FFA797EeDD2CB823Cf` is a compromised legacy
+> deployment. New schedules, deployment fees, and token approvals to the
+> factory are disabled. Releases from source-authenticated historical vesting
+> wallets remain available when tokens have vested.
 
-Token Vesting creates on-chain vesting schedules for team allocations, investor distributions, and advisor grants. Tokens are locked in a contract and released to a beneficiary address according to a defined schedule — either linear (gradual release over time) or cliff+linear (nothing until a date, then gradual release).
+## Historical behavior
 
-## How it works
+The factory created OpenZeppelin-style VestingWallet children with a start
+time, cliff, duration, initial beneficiary/owner, and funded ERC-20 allocation.
+Vested tokens are released with `release(token)` to the vesting wallet's
+current owner. Anyone may trigger that release.
 
-You deploy a vesting wallet specifying the initial beneficiary, schedule parameters, and token amount. Tokens are transferred into the vesting wallet at creation and held until they vest. Claims follow the OpenZeppelin VestingWallet model: vested tokens are released from the vesting wallet on demand via `release(token)`. The schedule has no clawback, but the beneficiary is the wallet's initial Ownable owner and can transfer ownership; future releases follow the current owner.
+The schedule has no factory-owner clawback, but the VestingWallet owner can
+transfer ownership. “No clawback” therefore does not mean the recipient is
+immutable. Replacing the factory does not migrate, cancel, or change an
+existing child wallet.
 
-## Step-by-step guide
+## Existing-schedule recovery
 
-1. Connect your wallet and switch to LitVM network
-2. Navigate to Token Vesting
-3. Enter the beneficiary wallet address
-4. Select the token to vest
-5. Enter the total amount to vest
-6. Set the start date
-7. Set cliff period (optional — leave 0 for no cliff)
-8. Set total vesting duration
-9. Review the fee (0.03 zkLTC) and confirm
-10. Approve the token spend when prompted
-11. Sign the deployment transaction — the vesting wallet is live
+1. Use only a child discovered through a source-pinned legacy factory and a
+   reviewed child-runtime hash.
+2. Read the current VestingWallet owner, schedule, token balance, released
+   amount, and `releasable(token)` value.
+3. Confirm the expected beneficiary controls the current owner address.
+4. Review a zero-value `release(token)` call to the exact child wallet.
+5. Verify the resulting token transfer independently after confirmation.
 
-Share the resulting vesting wallet address with the beneficiary. Once tokens are vested, anyone can call `release(token)` on that vesting wallet for them.
+Do not approve tokens or create a schedule through the legacy factory. A
+wallet that merely resembles OpenZeppelin VestingWallet is not sufficient
+provenance.
 
-## Parameters
+## Historical fee
 
-| Field | Description | Constraints |
-|---|---|---|
-| Beneficiary | Wallet address that receives tokens | Valid address |
-| Token | ERC-20 token to vest | Must be a valid token contract |
-| Amount | Total tokens to vest | Must be > 0 |
-| Start Date | When vesting begins | Can be in the future |
-| Cliff Period | Period before any tokens vest | 0 for no cliff; must be < total duration |
-| Total Duration | Full vesting period from start | Must be > cliff period |
+The legacy schedule-creation fee was `0.03 zkLTC`. It is not a current offer,
+and no user should pay it during containment.
 
-**Example:** 1,000,000 tokens, 6-month cliff, 24-month total duration → zero tokens claimable for first 6 months (cliff), then linear release of ~55,556 tokens per month for the remaining 18 months (1,000,000 ÷ 18).
+## Replacement design
 
-**Note:** During the cliff period, tokens accumulate but cannot be claimed. On the first day after the cliff, the full cliff-period accumulation becomes claimable at once.
+The prepared replacement gives administrative ownership to the approved
+**controller** and forwards schedule-creation fees directly to the separate
+approved **treasury**. A distinct single-use gas EOA deploys the attested
+artifacts. Activation additionally requires exact factory and child runtime
+hashes plus an explicit frontend target/function/value/spender allowlist.
 
-## Fee structure
-
-| Fee | Amount | When charged |
-|---|---|---|
-| Schedule creation fee | 0.03 zkLTC | At contract deployment |
-
-Fee is non-refundable. One fee per vesting schedule regardless of token amount or duration.
-
-Before approval/deployment, the frontend reads the live VestingFactory owner
-and repeats that check immediately before the paid write. Creation is disabled
-unless the factory owner is the approved treasury controller.
-
-## Smart contract
-
-- **Forked from:** OpenZeppelin VestingWallet
-- **Contract address:** `Pending deployment`
-
-**Key functions:**
-- `constructor(beneficiary, startTimestamp, cliffDuration, vestingDuration)` — deploys schedule
-- `release(token)` — transfers all vested-but-unclaimed tokens to the vesting wallet's current owner (callable by anyone)
-- `vestedAmount(token, timestamp)` — returns total tokens vested as of a given timestamp
-- `releasable(token)` — returns tokens available to claim right now
-
-## Sources
-
-- [OpenZeppelin VestingWallet](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/finance/VestingWallet.sol)
-
-## Security
-
-The implementation uses OpenZeppelin VestingWallet. It has no owner-controlled
-pause or clawback mechanism, so deposited tokens continue vesting on schedule.
-Ownership is nevertheless transferable by the current beneficiary; “no
-clawback” must not be confused with an immutable recipient. Upstream
-OpenZeppelin review is not an audit of Lester Labs' factory or deployment.
+Upstream OpenZeppelin review does not constitute an audit of the Lester factory,
+its child configuration, or the deployment process.

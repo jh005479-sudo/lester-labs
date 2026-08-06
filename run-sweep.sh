@@ -1,5 +1,5 @@
-#!/bin/bash
-# Sweep all Lester Labs protocol fees to treasury
-# Runs at 10:00 UTC daily via cron
-cd /Users/jack/Projects/lester-labs/contracts
-npx hardhat run scripts/sweepFees.ts --network litvm 2>&1
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "RETIRED: replacement fee contracts forward fees directly to the source-pinned treasury; the legacy sweeper must never be scheduled or signed." >&2
+exit 1

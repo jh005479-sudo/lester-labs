@@ -4,7 +4,7 @@ import { litvm } from '@/config/chains'
 import { TOKEN_FACTORY_ADDRESS, WRAPPED_ZKLTC_ADDRESS } from '@/config/contracts'
 import { GOVERNANCE_CONFIG } from '@/config/governance'
 import { sanitizeTokenMetadataText } from './tokenMetadataRequest'
-import { findByCanonicalAddress, getBoundedNewestBlockRange, inferFactoryProvenance } from './token-indexer-utils'
+import { findByCanonicalAddress, getBoundedNewestBlockRange, getGovernanceTokenPresentation, inferFactoryProvenance } from './token-indexer-utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -544,6 +544,7 @@ export async function getFeaturedTokens(): Promise<FeaturedToken[]> {
   const tokens = await getIndexedTokens()
   const wrapped = findTokenByCanonicalAddress(tokens, WRAPPED_ZKLTC_ADDRESS)
   const governance = findTokenByCanonicalAddress(tokens, GOVERNANCE_CONFIG.token.address)
+  const governancePresentation = getGovernanceTokenPresentation(GOVERNANCE_CONFIG.deploymentStatus)
 
   return [
     {
@@ -557,10 +558,10 @@ export async function getFeaturedTokens(): Promise<FeaturedToken[]> {
     },
     {
       symbol: GOVERNANCE_CONFIG.token.symbol,
-      name: GOVERNANCE_CONFIG.token.name,
+      name: `${governancePresentation.namePrefix}${GOVERNANCE_CONFIG.token.name}`,
       address: GOVERNANCE_CONFIG.token.address,
-      description: 'Canonical LitVM governance token',
-      isEcosystem: true,
+      description: governancePresentation.description,
+      isEcosystem: governancePresentation.isEcosystem,
       holderCount: governance?.holderCount,
       txCount24h: governance?.txCount24h,
     },

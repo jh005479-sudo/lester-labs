@@ -10,7 +10,7 @@ import { ToolHero } from '@/components/shared/ToolHero'
 type Tab = 'create' | 'my-locks'
 const COLOR = '#2DCE89'
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'create', label: 'Create Lock' },
+  { id: 'create', label: 'New Lock (Disabled)' },
   { id: 'my-locks', label: 'My Locks' },
 ]
 
@@ -21,10 +21,10 @@ export default function LockerPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
       <ToolHero
-        category="LP Security"
+        category="Containment / LP Security"
         title="Lester"
         titleHighlight="Lockup"
-        subtitle="Lock LP tokens on-chain with time-based release and shareable lock certificates."
+        subtitle="Inspect historical LP locks and the replacement workflow. New paid locks remain disabled during post-compromise containment."
         color={COLOR}
         image="/images/carousel/liquidity-locker.png"
         compact
@@ -32,17 +32,17 @@ export default function LockerPage() {
         stats={[
           { label: 'Proof', value: 'On-chain' },
           { label: 'Certificate', value: 'Shareable' },
-          { label: 'Trust', value: 'Day one' },
-          { label: 'Fee', value: '0.03 zkLTC' },
+          { label: 'Writes', value: 'Disabled' },
+          { label: 'Status', value: 'Replacement pending' },
         ]}
       />
       <div className="tool-page-content" style={{ maxWidth: '920px' }}>
         {!isConnected ? (
           <ConnectWalletPrompt
-            body="Connect to create LP locks, view your existing positions, and generate shareable lock certificates."
+            body="Connect only to inspect locks associated with your wallet or use an available recovery path. New paid lock creation remains disabled."
             previewTitle="Lockup preview"
             previewItems={[
-              { label: 'Certificate', value: 'Shareable proof', detail: 'Turn a lock into a public trust artifact.' },
+              { label: 'Certificate', value: 'Historical proof', detail: 'Inspect the recorded lock state and contract address.' },
               { label: 'Release', value: 'Time-based', detail: 'LP unlocks follow the on-chain schedule.' },
               { label: 'Discovery', value: 'Explorer links', detail: 'Every lock can be independently verified.' },
             ]}

@@ -103,7 +103,7 @@ export default function TutorialsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">LitVM DeFi Tutorials & Guides</h1>
           <p className="text-white/50 text-sm mt-1">
-            Step-by-step guides for every Lester Labs dApp on LitVM. Learn how to swap on the LitVM DEX, run a launchpad presale, deploy tokens, airdrop, vest, and lock LP — all on LitVM testnet.
+            Safety and recovery guides for LitVM LiteForge, including current Lester Labs containment, bounded data coverage, legacy-position recovery, and replacement verification.
           </p>
         </div>
 
@@ -177,10 +177,10 @@ export default function TutorialsPage() {
           borderRadius: '16px', textAlign: 'center',
         }}>
           <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>
-            Ready to build?
+            Verify the current status first
           </h3>
           <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', marginBottom: '24px' }}>
-            Deploy your first token or launch your presale on LitVM testnet.
+            Ordinary writes are disabled while the replacement deployment and served build are independently verified.
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link
@@ -191,7 +191,7 @@ export default function TutorialsPage() {
                 fontSize: '13px', fontWeight: 600, textDecoration: 'none',
               }}
             >
-              Go to Token Factory →
+              Review Factory Status →
             </Link>
             <Link
               href="/launchpad"
@@ -202,7 +202,7 @@ export default function TutorialsPage() {
                 border: '1px solid rgba(255,255,255,0.1)',
               }}
             >
-              View Launchpad →
+              Historical Launchpad →
             </Link>
           </div>
         </div>

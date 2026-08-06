@@ -76,12 +76,12 @@ export default function LedgerPage() {
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Ledger</h1>
-            <p className="text-white/50 text-sm mt-1">Leave your mark on the blockchain. Every message is fee-gated, permanent,<br />and streamed from LitVM in real time.</p>
+            <p className="text-white/50 text-sm mt-1">Read the bounded event-backed message history and verify the source-pinned contract.<br />New paid posts remain disabled during post-compromise containment.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[560px]">
             <div className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3">
-              <p className="text-xs text-white/40 uppercase tracking-wider">Current Fee</p>
+              <p className="text-xs text-white/40 uppercase tracking-wider">Legacy Fee</p>
               <p className="text-sm font-semibold font-mono text-white mt-1">{liveFee === undefined ? 'Loading…' : `${formatLedgerFee(liveFee)} zkLTC`}</p>
             </div>
             <div className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3">
@@ -114,7 +114,7 @@ export default function LedgerPage() {
             >
               <h2 className="text-2xl font-semibold tracking-tight">Ledger address missing</h2>
               <p className="mt-3 max-w-2xl text-sm leading-7" style={{ color: 'rgba(240,238,245,0.52)' }}>
-                Set <code>NEXT_PUBLIC_LEDGER_ADDRESS</code> to the deployed contract address before using this page.
+                The source-pinned Ledger deployment is unavailable or failed canonical-address validation. Update the reviewed deployment registry before using this page.
               </p>
             </div>
           ) : (

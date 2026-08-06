@@ -1,8 +1,8 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'LitVM Block Explorer — Search Blocks, Transactions & Addresses | Lester Labs',
-  description: 'Search and explore the LitVM blockchain. View blocks, transactions, addresses, and token balances. Real-time block data for the LitVM network.',
+  title: 'LitVM RPC Explorer — Exact Lookups & Bounded Recent Samples | Lester Labs',
+  description: 'Look up exact LitVM blocks and transaction hashes and inspect bounded recent block, address, and token samples. Lester Labs does not provide a full-history index.',
   keywords: [
     'LitVM block explorer',
     'LitVM explorer',
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: 'https://www.lester-labs.com/explorer' },
   openGraph: {
-    title: 'LitVM Block Explorer | Lester Labs',
-    description: 'Explore the LitVM blockchain. Search blocks, transactions, addresses, and token balances on LitVM.',
+    title: 'LitVM RPC Explorer — Bounded Samples | Lester Labs',
+    description: 'Exact block and transaction lookups plus explicitly bounded recent samples; not a complete chain index.',
     url: 'https://www.lester-labs.com/explorer',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -23,8 +23,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'LitVM Block Explorer | Lester Labs',
-    description: 'Search and explore the LitVM blockchain. View blocks, transactions, and addresses.',
+    title: 'LitVM RPC Explorer | Lester Labs',
+    description: 'Exact lookups and bounded recent LitVM samples, not a full-history index.',
   },
 }
 
