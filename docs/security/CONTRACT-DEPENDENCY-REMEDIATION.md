@@ -1,8 +1,10 @@
 # Contract Dependency Remediation Review
 
-Date: 2026-08-06
+Date: 2026-08-10
 
-Scope: the final Hardhat 3 contract-tooling migration in `contracts/package.json` and `contracts/package-lock.json`
+Scope: the final Hardhat 3 contract-tooling migration in
+`contracts/package.json` and `contracts/package-lock.json`, including the
+2026-08-10 exact transitive `js-yaml` advisory remediation
 
 Decision: **accept the exact reviewed graph for contract compilation and testing, subject to the controls and limitations below.** No seven-day release-age exception was requested or used.
 
@@ -13,7 +15,7 @@ This is a dependency-review record, not deployment evidence and not a claim that
 | Check | Reviewed result |
 | --- | --- |
 | Package manager | `npm@11.16.0`, exactly pinned in `packageManager` |
-| Contract lock SHA-256 | `c537da287ce1b7b0cf1380625690132a1b5509cd243237b6d3453ee28a3bc2ae` |
+| Contract lock SHA-256 | `43ef3c4be008b667e6a263d8c250d7a12315aa093acb586a8305d490ea360db1` |
 | Lock shape | lockfile v3; 166 package nodes plus the root package; 2 runtime and 14 development direct declarations |
 | Sources | Every locked package with a `resolved` field uses `https://registry.npmjs.org/` and has an integrity digest; no Git, local-path, arbitrary-tarball, or alternate-registry dependency is selected |
 | Vulnerability audit | `npm audit` completed with exit 0 and `0` vulnerabilities at every severity |
@@ -74,6 +76,44 @@ All ten selected direct-package releases above were more than seven days old on 
 - None of the ten reviewed direct package nodes declares `preinstall`, `install`, or `postinstall`; none declares OS/CPU restrictions or `gypfile`. `mocha@11.3.0` contains a publisher-side `prepublishOnly` script, but it is not an install hook and was not run.
 - The final transitive graph includes `esbuild@0.28.1`, whose install hook normally validates/selects its platform binary, and optional macOS-only `fsevents@2.3.3`, whose install hook relates to its native module. They are the only lock nodes marked with install scripts. Neither hook was executed. The clean x64 Linux build must retain `ignore-scripts=true` and `npm ci --ignore-scripts`; do not approve either hook merely to make a build pass.
 
+## 2026-08-10 `js-yaml` advisory remediation
+
+A new high-severity registry advisory,
+`GHSA-5p4m-2wfm-xmqj` (CVSS 7.5), was published after the earlier clean audit.
+It covers quadratic CPU use in `!!omap` processing for `js-yaml` versions
+`>=4.0.0 <4.3.1`. The final Hardhat graph had exactly one installed path:
+`contracts -> mocha@11.3.0 -> js-yaml@4.3.0`.
+
+The minimal compatible fix is exact transitive `js-yaml@4.3.1`; the patched
+3.x release cannot satisfy Mocha's `^4.1.0` range, and a 5.x major update would
+be unnecessary. It was published `2026-07-31T17:39:51.183Z`, so its seven-day
+hold expired `2026-08-07T17:39:51.183Z`. No exception was used.
+
+| Field | Exact review result |
+| --- | --- |
+| Repository / publisher | `github.com/nodeca/js-yaml`; npm maintainer `vitaly` |
+| Licence | MIT |
+| Tarball | 226,859 compressed bytes; 957,953 unpacked bytes; 36 files |
+| Registry integrity | `sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==` |
+| Manual SHA-256 | `08d6282b77a3e7242061f6dd5516c019b25c53041ad267bca3b790d79ddd5f34` |
+| Dependencies | Existing pure-JavaScript `argparse@2.0.1`; no graph addition |
+| Registry verification | Two signatures; no npm/SLSA provenance attestation pointer was published |
+| Lifecycle/native surface | No `preinstall`, `install`, `postinstall`, `prepare`, native binary, or compilation; publisher-side `prepack` plus development scripts were not executed |
+
+The package exposes a JavaScript CLI that reads standard input or a selected
+file and writes standard output. The library has no network, credential,
+environment, native, or process-spawning surface. Manual exact-tarball review
+found the intended duplicate-key complexity fix, rebuilt distribution files
+and source maps, and the package-version change; no dependency, CLI, or
+unrelated source change was found. The selected release's Git source commits
+are unsigned and registry provenance is absent, so the verified registry
+signatures, exact integrity, narrow diff, immutable install, and complete test
+suite are compensating evidence rather than source-to-package proof.
+
+The lockfile update changes only the `version`, official-registry `resolved`
+URL, and integrity fields for `node_modules/js-yaml`. It adds or removes no
+node and does not change `package.json`.
+
 ## Exact transitive overrides
 
 The four overrides are not new direct dependencies. They force reviewed remedial versions on transitive paths and are intentionally exact. Closure counts use the same non-peer method described above.
@@ -103,4 +143,10 @@ The recorded signature and attestation checks establish registry-publication evi
 6. Exclude Hardhat, Mocha, Chai, TypeScript, and all other development tooling from any production runtime artifact. Treat RPC endpoints, compiler inputs, glob patterns, archives, and serialized values as security boundaries.
 7. Monitor the Nomic, ethers, Mocha, DefinitelyTyped, `isaacs`, `cthackers`, and Yahoo publication paths for ownership or release-process changes. Exact pins and signatures limit mutation but do not remove publisher compromise risk.
 
-No third-party dependency was installed while preparing this note. No dependency script was run, no network access was used, no lockfile was changed, and no dependency security rule was relaxed. The only repository change made for this review is this documentation file.
+The `js-yaml` lock selection was updated with the exact pinned npm tool using
+`--package-lock-only --ignore-scripts`; no lifecycle script was run. A fresh
+disposable immutable install selected 141 packages, `npm audit` returned zero,
+and `npm audit signatures` verified all 141 installed-package signatures and
+52 graph attestations. TypeScript, compilation with the three pinned Solidity
+compiler lines, and all 38 contract tests passed. No dependency security rule
+was relaxed.
