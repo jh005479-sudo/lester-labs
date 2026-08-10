@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { getBytecode } from '@wagmi/core'
+import { getBytecode } from 'wagmi/actions'
 import {
   useAccount,
   useReadContract as useWagmiReadContract,

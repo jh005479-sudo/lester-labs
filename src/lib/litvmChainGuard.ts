@@ -1,4 +1,4 @@
-import { getAccount } from '@wagmi/core'
+import { getAccount } from 'wagmi/actions'
 import { litvm } from '@/config/chains'
 import { wagmiConfig } from '@/config/wagmi'
 import {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { waitForTransactionReceipt } from '@wagmi/core'
+import { waitForTransactionReceipt } from 'wagmi/actions'
 import Link from 'next/link'
 import { BuilderChecklist } from '@/components/shared/BuilderChecklist'
 import { ToolHero } from '@/components/shared/ToolHero'

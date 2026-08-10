@@ -36,10 +36,10 @@ The releases and upstream Git references were checked on 2026-08-04. GitHub disp
 
 ## Dependency metadata result
 
-- Application: 28 direct dependency/dev-dependency entries remain pinned to their existing exact versions; `use-sync-external-store` remains exactly overridden to `1.6.0`.
+- Application: 22 direct dependency/dev-dependency entries are pinned to exact versions (14 runtime and 8 development); `use-sync-external-store` remains exactly overridden to `1.6.0`.
 - Contracts: the final Hardhat 3 graph has 2 runtime and 14 development entries, all exact, plus four exact overrides. The lock contains 166 package entries.
-- The application lock graph was not rewritten. The contract lock was intentionally regenerated for the reviewed Hardhat 3 migration; its resulting package nodes, versions, registry URLs and integrity values are part of the final-lock evidence rather than the earlier Hardhat 2 baseline.
-- Publication age was rechecked for the selected contract graph before final locking. No seven-day release-age exception was approved or used.
+- The application lock was intentionally rewritten for the dedicated remediation recorded in `APPLICATION-DEPENDENCY-REMEDIATION.md`; it contains 634 package nodes. The contract lock was intentionally regenerated for the reviewed Hardhat 3 migration. Their resulting package nodes, versions, registry URLs and integrity values are part of the final-lock evidence rather than the earlier baselines.
+- Publication age was rechecked across all 623 unique registry package/version selections in the final application lock and for the selected contract graph. No seven-day release-age exception was approved or used.
 - Both lockfiles use lockfile version 3. Every locked tarball with a `resolved` field uses the official HTTPS npm registry and has an integrity digest.
 - No Git, mutable tag, remote arbitrary tarball, local-path, or unverified-registry source appears in either lockfile.
 
@@ -77,13 +77,7 @@ Existing locked packages that declare install scripts:
 
 | Project | Package | Version |
 | --- | --- | --- |
-| Application | `@tsparticles/engine` | `3.9.1` |
-| Application | `bufferutil` | `4.1.0` |
-| Application | `keccak` | `3.0.4` |
-| Application | `rpc-websockets/node_modules/utf-8-validate` | `6.0.6` |
-| Application | `sharp` | `0.34.5` |
-| Application | `unrs-resolver` | `1.11.1` |
-| Application | `utf-8-validate` | `5.0.10` |
+| Application | `unrs-resolver` | `1.12.2` |
 | Contracts | `esbuild` | `0.28.1` |
 | Contracts | `fsevents` | `2.3.3` |
 
@@ -91,7 +85,20 @@ Their scripts were not executed during this review. `.npmrc`, CI environment var
 
 ### Current vulnerability result
 
-A fresh `npm audit` of the existing application graph on 2026-08-04 reported 37 findings: 1 critical, 10 high, 25 moderate, and 1 low (0 informational). Directly declared packages on affected paths include `next@16.2.6` (high), `@rainbow-me/rainbowkit@2.2.10` (moderate), `viem@2.47.4` (moderate), and `wagmi@2.19.5` (moderate). The critical finding is in transitive `shell-quote@1.8.3`, which is within the reported vulnerable range `<=1.8.4`.
+A fresh `npm audit` of the committed predecessor application graph on
+2026-08-10 reported 46 findings: 1 critical, 20 high, 24 moderate, and 1 low.
+The critical path was the unused
+`@react-native-async-storage/async-storage@1.24.0` peer graph through React
+Native and React DevTools to `shell-quote@1.8.3`. Other affected paths entered
+through `next@16.2.6`, `eslint-config-next@16.1.6`, `wagmi@2.19.5`, and
+`viem@2.47.4`.
+
+The dedicated application remediation removes six unused direct dependencies
+and updates Next, its ESLint configuration, Wagmi, Viem, React, and React DOM to
+the exact versions recorded in `APPLICATION-DEPENDENCY-REMEDIATION.md`. Its
+final immutable install returned `npm audit` exit 0 with zero vulnerabilities
+at every severity. `npm audit signatures` verified all 549 installed-package
+signatures and 105 provenance attestations with exit 0.
 
 The earlier Hardhat 2 contract-tooling graph reported 48 findings: 1 critical,
 24 high, 10 moderate and 13 low. That graph is no longer the contract lock in
@@ -103,19 +110,14 @@ own metadata and are not intended to be arithmetically additive. A matching
 `npm audit signatures` run returned exit 0 with 141 registry-signature-verified
 packages and 52 verified attestations.
 
-The application graph remains release-blocking and is not release-ready. The
-zero-advisory contract result is evidence about known registry advisories, not
-proof that every dependency is benign or that a deployment occurred.
-
-Do not run automatic fixes or silently upgrade the remaining affected
-application packages. Resolve them in a dedicated dependency-only branch and
-pull request that records old and proposed exact versions, release ages,
-advisories and paths, lockfile/transitive changes, lifecycle-script changes,
-ownership/provenance review, tests, audit output and registry-signature results.
-The seven-day hold remains mandatory unless a narrowly documented
-urgent-security exception is explicitly approved. Before merge, keep the
-contract package/lock migration isolated as its own dependency change with the
-same review evidence.
+The application dependency graph is no longer advisory-blocked. This is
+evidence about known registry advisories, not proof that every dependency is
+benign or that a deployment occurred. During the same 2026-08-10 verification,
+a newly published advisory caused the contract graph to report one high
+`js-yaml` finding. The separate preceding contract review updates only that
+transitive selection to exact `js-yaml@4.3.1`; its fresh immutable audit is
+again zero. The contract and application changes remain separate commits and
+review records; no automatic audit fix was used.
 
 ## Verification and limitations
 
@@ -133,17 +135,17 @@ results are not production clean-runner release evidence):
   historical Git text blob;
 - whitespace/error checks with `git diff --check`.
 
-An isolated temporary dependency review also used immutable installs with
-lifecycle scripts disabled and no production credentials. The earlier
-application check reported 1,010/1,010 package signatures and 206 registry
-attestations. Against the final exact contract lock, the current local
-signature check verified 141 packages and 52 registry attestations with exit 0;
-the matching audit reported zero vulnerabilities. A fresh offline Hardhat 3
-compile completed, the complete contract suite passed 38/38, the focused
-post-compromise suite passed 9/9, and TypeScript passed. These results are local
-final-lock evidence, not deployment evidence. Repeat audit, signatures,
-compile, tests and attestation on the authorised release runner and attach the
-outputs by immutable digest before deployment.
+An isolated temporary dependency review used immutable installs with lifecycle
+scripts disabled and no production credentials. Against the final application
+lock, the current local signature check verified 549 packages and 105 registry
+attestations with exit 0; the matching audit reported zero vulnerabilities.
+TypeScript, lint, 164/164 application unit tests, the public-manifest gate, and
+the Next 16.3.0 production build passed. The contract graph's earlier recorded
+141-signature/52-attestation result was repeated after the separate `js-yaml`
+remediation, and its audit returned zero. These are local review results, not
+deployment evidence. Repeat audit, signatures, builds, tests and attestation on
+the authorised release runner and attach the outputs by immutable digest before
+deployment.
 
 The repository policy and history-aware secret scanner were executed with a
 bundled Node.js runtime and passed. Official-registry `npm audit` queries
@@ -161,21 +163,20 @@ applied. The resulting contract audit is zero. This does not mean a deployment
 has occurred; preserve the package and lock changes as a dedicated dependency
 review unit before merge.
 
-The application remediation is still only prepared research. It proposes
-removing unused `@react-native-async-storage/async-storage`, updating to exact
-`next@16.2.11` and `viem@2.54.2`, and adding narrowly reviewed exact transitive
-overrides. Its candidate audit remains 17 findings (0 critical, 2 high,
-14 moderate, 1 low). Although the reviewed `brace-expansion` release line has
-now completed its hold, `hono@4.12.34`, published 2026-08-03T02:36:40Z, does
-not complete seven days until 2026-08-10T02:36:40Z. No release-age exception
-has been approved.
+The application remediation is complete in its dedicated review unit. It
+removes the obsolete wallet, React Native, particle, tooltip, and animation
+surfaces; updates six direct packages to their exact reviewed versions; uses no
+new override; and resolves the earlier `shell-quote`, Hono, WalletConnect,
+MetaMask SDK, Axios, socket.io, Next, Viem, Babel, brace-expansion, js-yaml, and
+`ws` advisory paths. Every selected release completed the seven-day hold; no
+exception was approved.
 
-The application findings must be remediated, and required CI must pass, before
-the public website is released. Keep these residual risks visible:
+Every dependency graph must remain advisory-clean and required CI must pass
+before the public website is released. Keep these residual risks visible:
 
 - The custom secret scanner is intentionally high-confidence and cannot replace GitHub secret scanning, push protection, provider-side revocation, or history scanning. Enable those repository settings manually.
 - CodeQL result upload and dependency review depend on the repository's GitHub security-feature availability.
 - Hardhat 3 may otherwise download Solidity compilers. Release attestation instead requires a pre-populated, digest-reviewed `compilers-v3` cache and an independently enforced network-disabled build; preserve the compiler lists, filenames, native/WASM selection and digests in the evidence package.
 - CODEOWNERS is advisory until branch protection requires Code Owner approval and prevents bypass.
 - Runner images are named (`ubuntu-24.04`) but are not immutable image digests. A higher-assurance release process should use an attested ephemeral runner image pinned by digest.
-- Registry signatures are evidence of registry publication, not proof that package contents are benign. Both graphs still require current release-runner audit/signature evidence and the application graph requires its dedicated remediation review.
+- Registry signatures are evidence of registry publication, not proof that package contents are benign. Both remediated graphs still require current release-runner audit/signature evidence before release.

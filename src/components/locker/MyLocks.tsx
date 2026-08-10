@@ -55,6 +55,23 @@ function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`
 }
 
+function useUnixTimeSeconds(): bigint | null {
+  const [unixTimeSeconds, setUnixTimeSeconds] = useState<bigint | null>(null)
+
+  useEffect(() => {
+    const updateTime = () => setUnixTimeSeconds(BigInt(Math.floor(Date.now() / 1000)))
+    const initialTimer = window.setTimeout(updateTime, 0)
+    const interval = window.setInterval(updateTime, 1000)
+
+    return () => {
+      window.clearTimeout(initialTimer)
+      window.clearInterval(interval)
+    }
+  }, [])
+
+  return unixTimeSeconds
+}
+
 export function MyLocks() {
   const { address: connectedAddress } = useAccount()
   const { ensureLitvmWrite, writeRecoveryContractAsync } = useSafeWriteContract()
@@ -65,6 +82,7 @@ export function MyLocks() {
   const [modalOpen, setModalOpen] = useState(false)
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
+  const unixTimeSeconds = useUnixTimeSeconds()
 
   const target = useMemo(
     () => LOCKER_RECOVERY_TARGETS.find((candidate) => candidate.id === targetId) ?? LOCKER_RECOVERY_TARGETS[0],
@@ -112,7 +130,7 @@ export function MyLocks() {
   const connectedIsWithdrawer = Boolean(
     connectedAddress && lock && connectedAddress.toLowerCase() === lock[3].toLowerCase(),
   )
-  const unlocked = Boolean(lock && lock[2] <= BigInt(Math.floor(Date.now() / 1000)))
+  const unlocked = Boolean(lock && unixTimeSeconds !== null && lock[2] <= unixTimeSeconds)
   const displayDecimals = typeof tokenDecimals === 'number' ? tokenDecimals : 18
   const displaySymbol = typeof tokenSymbol === 'string' && tokenSymbol ? tokenSymbol : 'LP'
 

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useAccount, useBytecode, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
-import { waitForTransactionReceipt } from '@wagmi/core'
+import { waitForTransactionReceipt } from 'wagmi/actions'
 import { isAddress, keccak256, parseUnits } from 'viem'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Coins, Download, ExternalLink, Loader2, Send, TriangleAlert, Zap } from 'lucide-react'

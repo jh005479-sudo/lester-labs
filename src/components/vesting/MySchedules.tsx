@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { getTransactionReceipt } from '@wagmi/core'
+import { getTransactionReceipt } from 'wagmi/actions'
 import { Calendar, CheckCircle2, ExternalLink, Search, TriangleAlert } from 'lucide-react'
 import { useAccount, useBytecode, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
 import { decodeEventLog, formatUnits, isAddress, keccak256 } from 'viem'

@@ -1,6 +1,6 @@
 'use client'
 
-import { waitForTransactionReceipt } from '@wagmi/core'
+import { waitForTransactionReceipt } from 'wagmi/actions'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
