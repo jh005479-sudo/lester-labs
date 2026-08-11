@@ -7,7 +7,7 @@
   "scope": "Lester Labs project configuration, visible team/account security controls, deployment history, and visible account activity. This is a redacted point-in-time observation, not provider-attested audit evidence or production recovery approval.",
   "project": {
     "productionDeploymentId": "dpl_ApzQPMWK4deZofUP35xjjKSTiZWg",
-    "productionSourceCommit": "62910f9238c1a4557bff485693e6da009d367479",
+    "productionSourceCommit": "62910f9238c8df56c7b5c78f8045bbfb7bd76d16",
     "productionDomains": [
       "lester-labs.com",
       "www.lester-labs.com",

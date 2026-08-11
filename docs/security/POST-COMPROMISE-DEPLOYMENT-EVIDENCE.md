@@ -235,7 +235,7 @@ account recovery; it does not relax any full-replacement or appeal gate.
 An authenticated, redacted Vercel dashboard observation at
 `2026-08-11T00:36:28Z` is recorded in
 `evidence/vercel-control-plane-observation-2026-08-11.json` (SHA-256
-`b3d962557a0144e81e70dfa526b68d035687a2d6c41b7dfaff1f4520126619fe`).
+`25f76042dd0cce8a30cf4dd3ffced1283077dfb59f96d3b3da60034852300c7a`).
 During that containment session, the project Git integration was disconnected,
 23 legacy project environment-variable entries were removed, two non-current
 browser sessions were revoked, and the Vercel CLI OAuth application was
