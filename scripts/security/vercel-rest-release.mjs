@@ -887,10 +887,12 @@ function assertNoProductionAliases(deployment) {
     throw new Error("The staged deployment unexpectedly has aliases assigned.");
   }
   const aliases = normalizeAliases(deployment);
-  if (aliases.length !== 0) {
+  const immutableDeploymentHost = new URL(deploymentUrl(deployment)).hostname;
+  const routedAliases = aliases.filter((alias) => alias !== immutableDeploymentHost);
+  if (routedAliases.length !== 0) {
     throw new Error("The staged deployment was assigned an unexpected alias.");
   }
-  return aliases;
+  return routedAliases;
 }
 
 function assertCurrentProductionDeployment(deployment) {
