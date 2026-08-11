@@ -38,6 +38,13 @@ const TRUSTED_OIDC_TOKEN = `${Buffer.from('{"alg":"RS256","typ":"JWT"}').toStrin
 const TEAM_ID = 'team_12345678'
 const CANARY_PROJECT_ID = 'prj_canary123'
 const PRODUCTION_PROJECT_ID = 'prj_product123'
+const REVIEWED_CANARY_TEAM_ID = 'team_vnMG4DPuSLlOs9bEi7QcRjhx'
+const REVIEWED_CANARY_PROJECT_ID = 'prj_sUhxc4VDzA9cWn2rv7gr1cwJOo6K'
+const REVIEWED_CANARY_PROJECT_NAME = 'lester-labs-release-canary'
+const REVIEWED_CANARY_PROVIDER_ALIASES = [
+  'lester-labs-release-canary-jh005479-8603-lester-labs.vercel.app',
+  'lester-labs-release-canary-lester-labs.vercel.app',
+]
 const OLD_DEPLOYMENT_ID = 'dpl_old000001'
 const NEW_DEPLOYMENT_ID = 'dpl_new000001'
 const THIRD_DEPLOYMENT_ID = 'dpl_third00001'
@@ -228,6 +235,7 @@ function createNextPackage() {
 }
 
 function makeVercelMock({
+  teamId = TEAM_ID,
   projectId,
   projectName,
   publicRoutes,
@@ -307,7 +315,7 @@ function makeVercelMock({
     }
     assert.equal(headers.get('authorization'), `Bearer ${TOKEN}`)
     assert.equal(headers.has('x-vercel-trusted-oidc-idp-token'), false, 'the trusted-source OIDC token reached the Vercel API')
-    assert.equal(url.searchParams.get('teamId'), TEAM_ID)
+    assert.equal(url.searchParams.get('teamId'), teamId)
     if (errorBody) return new Response(errorBody, { status: 500 })
     if (method === 'GET' && url.pathname === `/v9/projects/${projectId}`) {
       if (failPromotionProjectPollOnce && state.phase === 'promoted' && !state.promotionPollFailed) {
@@ -322,7 +330,7 @@ function makeVercelMock({
       return Response.json({
         id: projectId,
         name: projectName,
-        accountId: TEAM_ID,
+        accountId: teamId,
         autoAssignCustomDomains,
         targets: { production: { id: state.currentDeploymentId } },
       })
@@ -731,6 +739,83 @@ describe('dependency-free Vercel REST release adapter', () => {
       assert.equal(canary.status, 'PASSED')
       assert.equal(canaryMock.state.currentDeploymentId, OLD_DEPLOYMENT_ID)
       assert.equal(canaryMock.state.deleted, true)
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it('accepts only the exact provider metadata aliases bound to the reviewed canary identity', async () => {
+    const fixture = createEmergencyPackage()
+    try {
+      const canaryMock = makeVercelMock({
+        teamId: REVIEWED_CANARY_TEAM_ID,
+        projectId: REVIEWED_CANARY_PROJECT_ID,
+        projectName: REVIEWED_CANARY_PROJECT_NAME,
+        publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
+        createdAliases: [
+          `new-${REVIEWED_CANARY_PROJECT_NAME}.vercel.app`,
+          ...REVIEWED_CANARY_PROVIDER_ALIASES,
+        ],
+      })
+      const canary = await runProviderCanary({
+        ...CANARY_WORKFLOW_IDENTITY,
+        artifactKind: 'emergency-static',
+        releaseDirectory: fixture.releaseDirectory,
+        sourceDirectory: fixture.sourceDirectory,
+        sourceCommit: SOURCE_COMMIT,
+        maximumUploadBytes: 128_000,
+        token: TOKEN,
+        teamId: REVIEWED_CANARY_TEAM_ID,
+        projectId: REVIEWED_CANARY_PROJECT_ID,
+        projectName: REVIEWED_CANARY_PROJECT_NAME,
+        productionProjectId: PRODUCTION_PROJECT_ID,
+        fetchImpl: canaryMock.fetchImpl,
+        now: () => '2026-08-11T00:30:00.000Z',
+        delay: async () => {},
+        maxPollAttempts: 3,
+        pollIntervalMs: 0,
+      })
+      assert.equal(canary.status, 'PASSED')
+      assert.equal(canary.results.automaticAliasesAbsent, true)
+      assert.equal(canaryMock.state.currentDeploymentId, OLD_DEPLOYMENT_ID)
+      assert.equal(canaryMock.state.deleted, true)
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects the reviewed canary aliases when the project name binding differs', async () => {
+    const fixture = createEmergencyPackage()
+    try {
+      const canaryMock = makeVercelMock({
+        teamId: REVIEWED_CANARY_TEAM_ID,
+        projectId: REVIEWED_CANARY_PROJECT_ID,
+        projectName: 'lookalike-canary',
+        publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
+        createdAliases: REVIEWED_CANARY_PROVIDER_ALIASES,
+      })
+      await assert.rejects(
+        runProviderCanary({
+          ...CANARY_WORKFLOW_IDENTITY,
+          artifactKind: 'emergency-static',
+          releaseDirectory: fixture.releaseDirectory,
+          sourceDirectory: fixture.sourceDirectory,
+          sourceCommit: SOURCE_COMMIT,
+          maximumUploadBytes: 128_000,
+          token: TOKEN,
+          teamId: REVIEWED_CANARY_TEAM_ID,
+          projectId: REVIEWED_CANARY_PROJECT_ID,
+          projectName: 'lookalike-canary',
+          productionProjectId: PRODUCTION_PROJECT_ID,
+          fetchImpl: canaryMock.fetchImpl,
+          delay: async () => {},
+          maxPollAttempts: 3,
+          pollIntervalMs: 0,
+        }),
+        /differs from its reviewed staged-alias binding/i,
+      )
+      assert.equal(canaryMock.state.deleted, true)
+      assert.equal(canaryMock.state.currentDeploymentId, OLD_DEPLOYMENT_ID)
     } finally {
       rmSync(fixture.root, { recursive: true, force: true })
     }
