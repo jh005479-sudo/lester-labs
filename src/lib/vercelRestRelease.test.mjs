@@ -706,6 +706,7 @@ describe('dependency-free Vercel REST release adapter', () => {
         projectId: CANARY_PROJECT_ID,
         projectName: 'lester-provider-canary',
         publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
+        createdAliases: ['new-lester-provider-canary.vercel.app'],
         creationResponseAliases: ['generated-lester-provider-canary.vercel.app'],
         creationResponseAliasAssigned: true,
       })
