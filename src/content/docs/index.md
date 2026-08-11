@@ -1,19 +1,19 @@
-# Lester Labs Documentation — Current Security Status
+# Lester Labs Documentation — Security and Release Status
 
-> **Post-compromise containment is active.** The former build machine, deployer,
-> controller, treasury, and legacy deployment set are not trusted for new
-> activity. Ordinary writes remain disabled until replacements are built on a
-> clean runner, independently attested, deployed from distinct fresh roles, and
-> pinned with their exact runtime hashes in reviewed source.
+> **The legacy deployment set remains permanently contained for new activity.**
+> The application-wide status banner is authoritative for whether a reviewed
+> replacement candidate is present. Even then, public serving is allowed only
+> after the separate protected frontend approval, deployment, and apex/www
+> byte-parity gate passes.
 
 Lester Labs is independent testnet software for LitVM LiteForge (chain ID
 `4441`). It is not operated by LitVM or Litecoin, does not run a reward or
 eligibility programme, and does not ask for seed phrases, private keys, wallet
 passwords, or opaque signatures.
 
-## What is available now
+## Legacy deployment availability
 
-| Surface | Current posture |
+| Surface | Legacy-deployment posture |
 |---|---|
 | Explorer, analytics, charts | Read-only, explicitly bounded RPC samples; not complete indexes |
 | Token Factory | Legacy factory is read-only; new token creation disabled |
@@ -41,9 +41,10 @@ The replacement deployment requires three distinct fresh public addresses:
   deployment sequence, then retired. It must be distinct from both controller
   and treasury.
 
-No replacement address is approved yet. The formerly compromised controller
-and the address derived from the publicly disclosed test key are both rejected
-for every role.
+Replacement addresses are usable only when the checked-in approval package and
+both source latches agree. Otherwise the application fails closed. The formerly
+compromised controller and the address derived from the publicly disclosed test
+key are always rejected for every production role.
 
 ## Two independent release gates
 

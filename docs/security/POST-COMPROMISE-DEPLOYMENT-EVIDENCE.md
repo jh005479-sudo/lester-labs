@@ -62,12 +62,12 @@ State whether the warning appears before connection, on connection, on a particu
 
 ## 2. Containment and account recovery
 
-- [ ] The suspected device is isolated and is not used for recovery, signing, building, or deployment.
+- [ ] Production recovery, signing, building, and deployment do not use the originally suspected device. The separately authorised factory-reset-Mac disposable-testnet exception is documented and is not treated as production provenance.
 - [ ] Recovery was performed from a separately trusted device and network.
 - [ ] Three fresh addresses were generated from trusted systems: controller, treasury, and a single-use gas EOA; this record contains public addresses only.
 - [ ] Controller and treasury are distinct deployed contract authorities, and all replacement constructor/setter/ownership invariants reject collapsing those roles.
 - [ ] Each production multisig implementation/runtime, owners, threshold, enabled modules, guard, fallback handler, and recovery policy was independently verified and recorded; contract code alone was not treated as proof of a safe multisig.
-- [ ] A fresh nonce-zero single-use gas EOA was generated on the trusted deployment runner; it is neither known incident address, and it signed only the thirteen reviewed CREATE transactions.
+- [ ] A fresh nonce-zero single-use gas EOA was generated on the trusted deployment runner; it is not a known incident address, and it signed only the thirteen reviewed CREATE transactions.
 - [ ] No address whose private key was exposed in source, chat, logs, tests, browser state, or the suspected device is used for durable authority.
 - [ ] Active GitHub, hosting, DNS, registry, email, RPC, monitoring, and wallet sessions were revoked.
 - [ ] Personal access tokens, deploy hooks, API keys, SSH keys, GPG keys, OAuth grants, recovery codes, and environment secrets were inventoried and rotated as applicable.
@@ -81,7 +81,10 @@ State whether the warning appears before connection, on connection, on a particu
 Evidence locations, event IDs, revocation times, and reviewers (never secret values):
 
 ```text
-TODO
+Checked-in fail-closed inventory: docs/security/evidence/production-control-plane-recovery.json
+GitHub repository observation: docs/security/evidence/github-control-plane-observation-2026-08-10.json
+GitHub observation SHA-256: 97be8998a89ca5d17654ec438cb9abfcb9c7ef2287874ae2230e670754a232f5
+External redacted evidence bundle and SHA-256: TODO
 ```
 
 ## 3. Reviewed source provenance
@@ -132,6 +135,7 @@ Required results:
 | --- | --- |
 | `node scripts/security/verify-package-policy.mjs` | TODO |
 | `node scripts/security/scan-secrets.mjs` | TODO |
+| `node scripts/security/verify-control-plane-recovery.mjs --require-reviewed` | TODO |
 | `npm ci --ignore-scripts` (application) | TODO |
 | `npm ci --ignore-scripts` (contracts) | TODO |
 | `npm audit --audit-level=high` (both projects) | TODO |
@@ -146,6 +150,7 @@ Required results:
 - [ ] No production, wallet, cloud, DNS, SSH, signing, or deployment credential was available during installation or untrusted build steps.
 - [ ] The build did not reuse `node_modules`, npm cache, browser profiles, shell profiles, or artifacts from the suspected device.
 - [ ] The frontend production build completed with outbound network disabled; it uses reviewed local/system font stacks and performs no `next/font/google` or other remote font download.
+- [ ] Ordinary security CI passed `LESTER_RELEASE_BUILD_ID` from the event SHA, proved it was a lower-case 40-hex value equal to both `GITHUB_SHA` and the checked-out `HEAD`, and then built that exact revision. An approved package was not tested with an absent or synthetic build identity.
 - [ ] The external attestation records the deterministic full `node_modules` tree digest (every sorted relative path, type, mode, internal symlink target, and file content); all regular files/directories are non-writable, all symlinks resolve inside the tree, and pre-deploy plus post-attempt digests match.
 - [ ] The live runner enforced `node_modules` with a read-only mount, immutable container layer, or separate ownership before key injection; compiler cache, Hardhat artifacts/cache, and TypeChain outputs remained outside it. Residual host/process/TOCTOU trust was reviewed manually.
 - [ ] Attestation, preview, deployment, and independent verification ran as an unprivileged non-root user on the required x64 Linux runner.
@@ -192,12 +197,61 @@ measured 500,457 from the factory nonce at LitVM block 36,763,170, hash
 timestamp 2026-08-04T19:30:12Z. This rapid movement proves that the committed
 500,139 value is only an initial incident floor, not the final value to deploy.
 Run `npm run security:capture-activity` immediately before alias cutover,
-independently review the two bounded display counters, confirm every replacement
-counter is zero, and commit the final block/hash/totals before activation.
+independently review the two bounded display counters, and save the output as
+an immutable candidate. From a second clean network and a different credential-
+free HTTPS RPC URL, run
+`node scripts/security/verify-platform-activity-cutover.mjs <candidate.json> <second-public-rpc-url>`.
+Preserve the complete URL and both raw output digests. The clean production
+exporter must live re-run that proof and the full deployment manifest against a
+distinct reviewed RPC origin, perform source-pinned authority verification, and
+prove every replacement counter is zero at the same exact block. The approval
+payload must embed and digest-bind that second-RPC report, including its URL,
+exact block/hash, manifest digest, verified scope, complete Safe facts, and zero
+counters; a transient successful exporter run is not enough.
 
 Re-run these observations from two clean networks after registrar and Vercel
 recovery. Export the registrar and hosting audit logs, verify every DNS record
 and certificate-transparency entry, and attach raw command output by digest.
+
+A fresh unauthenticated observation at `2026-08-10T22:13:57Z` is recorded in
+`evidence/public-origin-observation-2026-08-10.json` (SHA-256
+`71009f7e02dd97caab1b8c6c98be5528643154abbb66c46b3cafbaf2958b746d`).
+The apex still redirects to a byte-identical `www` HTML response from deployment
+`dpl_ApzQPMWK4deZofUP35xjjKSTiZWg`; the cached object was approximately 13.9
+days old, still presented the active pre-containment product copy, and still
+lacked a Content-Security-Policy header. The remediated source is not live.
+
+A later containment check at `2026-08-11T00:07:21Z` is recorded in
+`evidence/public-origin-containment-check-2026-08-11.json` (SHA-256
+`de95704d57a947f0c8065b89023ff829fd9d500923bfad8fb89d87fb141c3174`).
+The `www` body was
+still exactly 93,701 bytes with the same
+`87c114fd4338883fbd0521457cd3449a38164fdc2af1531859a1769418148351`
+SHA-256, a cache age of 1,205,446 seconds, no CSP or `Clear-Site-Data`, and the
+wallet/DeFi interaction copy still present. This makes the separately packaged
+wallet-free emergency containment release the first hosting action after
+account recovery; it does not relax any full-replacement or appeal gate.
+
+An authenticated, redacted Vercel dashboard observation at
+`2026-08-11T00:36:28Z` is recorded in
+`evidence/vercel-control-plane-observation-2026-08-11.json` (SHA-256
+`3c59ce6cb0e630b9f050ee4cca0e0a2b677354e18cbe1b4e7425648cf7039aa5`).
+During that containment session, the project Git integration was disconnected,
+23 legacy project environment-variable entries were removed, two non-current
+browser sessions were revoked, and the Vercel CLI OAuth application was
+disconnected. No deploy hook or project webhook remained visible. The live
+deployment was deliberately left unchanged pending signed-artifact staging and
+parity checks. Account-level 2FA/passkey enrolment, global credential review,
+registrar/DNS recovery, and independent approval remain release blockers; this
+dashboard observation is not a provider-attested audit export.
+
+MetaMask's official public `eth-phishing-detect` utility returned “This domain
+is not blocked” for both the apex and `www` inputs at
+`2026-08-10T22:18:13Z`. The observation is recorded in
+`evidence/metamask-public-list-observation-2026-08-10.json` (SHA-256
+`1b694dc43d3dd19424032c002c1b9af09909da3c2f51b2dd1418c45cacc33c9d`).
+That public-list result does not clear the separately observed dapp-scanner
+`BLOCK` / critical `DRAINER` classification and is not an appeal decision.
 
 | Field | Evidence |
 | --- | --- |
@@ -220,16 +274,20 @@ and certificate-transparency entry, and attach raw command output by digest.
 
 ## 6. Served-artifact parity
 
-- [ ] The source-pinned `APPROVED` public package contains the complete verified production manifest, child-runtime attestations, and exact activity cutover block/hash/totals. Its recomputed canonical payload SHA-256 matches `approvalPayloadSha256`; the nested manifest also independently matches `deploymentManifestSha256`.
+- [ ] The source-pinned `APPROVED` public package contains the complete verified production manifest, child-runtime attestations, raw production-authority/control-plane evidence digests, full exact-block Safe verification report, independent cutover candidate/proof digests and URL, exact block/hash/totals, and five literal zero replacement counters. It also embeds the full distinct-origin second-RPC manifest/Safe/counter verification report and binds that report to its own recomputed digest, the exact manifest digest, and the exact cutover block/hash. Its recomputed canonical payload SHA-256 matches `approvalPayloadSha256`; the nested manifest also independently matches `deploymentManifestSha256`.
 - [ ] Every one of the thirteen manifest addresses equals the deterministic `CREATE(gasOnlyDeployer, nonce)` address for its declared nonce; no disposable-stack address was relabelled as production evidence.
-- [ ] Treat `approvalPayloadSha256` as a self-consistency and served-artifact parity check, not proof of authorship. Authenticity comes from the clean external exporter, independently reviewed source/build attestation, recovered publishing accounts, and protected review of the commit that pins the digest.
+- [ ] Treat `approvalPayloadSha256` and the two-or-more structured reviewer records as auditable consistency records, not cryptographic signatures, proof of authorship, or the reviewer-authentication mechanism. Authenticity and promotion authority come from the separate protected frontend approval/promotion envelope, direct independent reviewer confirmation, independently reviewed source/build attestation, recovered publishing accounts, and protected review of the commit that pins the digest.
 - [ ] Controller and treasury existed as contract authorities before the first replacement deployment, do not overlap any replacement or known compromised legacy address, and have separately reviewed multisig implementation, owners, and threshold.
 - [ ] At the exact cutover block, the replacement TokenFactory account nonce is `1` and replacement Router swaps, Disperse recipient entries, Ledger messages, and ILO children are all zero; only activity from `throughBlock + 1` is added to the preserved historical floor.
 - [ ] Pair and ILO child runtime hashes and the VestingWallet normalized runtime/immutable ranges were generated from the sixteen-artifact clean-build attestation, not typed manually.
 - [ ] The approved package cutover chain/block/hash exactly equals the committed post-replacement platform-activity snapshot; every new activity delta begins at `throughBlock + 1`.
 - [ ] Both application and governance latches were activated in the same reviewed change; no disposable profile address or incident address is present.
+- [ ] The contract/control-plane/cutover package produced only a release candidate. The public aliases did not move until the separate protected frontend manifest was `APPROVED`, the exact build ID was deployed, and apex/www parity succeeded.
 
-Record at least two independent fetches from clean networks and browser profiles.
+Record at least two independent credential-free HTTP fetches from clean networks
+and multiple user-agent profiles. These are HTTP observations, not browser-engine
+proof. Also record real digest-pinned Chromium and Firefox sessions and a genuine
+MetaMask session with redacted network traces.
 
 | Item | Build artifact digest | Live digest | Match |
 | --- | --- | --- | --- |
@@ -336,6 +394,13 @@ Record whether the reputation result is deterministic, route-specific, wallet-sp
   third-party farming claims and does not repeat those claims as fact.
 - [ ] The revised anti-scam tutorial and its served-artifact digest are included
   in the remediation evidence.
+- [ ] After the clean containment/full release is live, request recrawl or
+  removal of stale pre-containment results through the verified Google Search
+  Console and Bing Webmaster accounts, record the request IDs/timestamps, and
+  verify that indexed snippets no longer advertise retired wallet actions.
+- [ ] Request correction from the identifiable authors or hosts of preserved
+  reward/farming claims. Keep the request factual, do not claim control over the
+  third party, and preserve the public URL plus before/after digest evidence.
 
 ## 10. Findings, remediation, and residual risk
 
@@ -352,6 +417,10 @@ Explicitly state which of these conclusions the evidence supports:
 - [ ] Evidence remains insufficient; do not appeal yet.
 
 ## 11. Appeal package
+
+The fail-closed submission template is
+[`METAMASK-APPEAL-DRAFT.md`](METAMASK-APPEAL-DRAFT.md). It remains marked
+`NOT READY TO SUBMIT` until this checklist and its placeholders are complete.
 
 - [ ] Concise incident timeline and containment summary.
 - [ ] Exact affected origin/address and warning reproduction.

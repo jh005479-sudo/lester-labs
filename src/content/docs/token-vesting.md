@@ -1,6 +1,6 @@
 # Token Vesting — Legacy Release and Replacement Readiness
 
-> **Current status:** the Vesting Factory at
+> **Legacy deployment status:** the Vesting Factory at
 > `0x6EE07118D39e9330Ef0658FFA797EeDD2CB823Cf` is a compromised legacy
 > deployment. New schedules, deployment fees, and token approvals to the
 > factory are disabled. Releases from source-authenticated historical vesting

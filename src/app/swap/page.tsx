@@ -43,6 +43,7 @@ import {
   computeAddLiquidityMinimums,
   sameAddress,
 } from '@/lib/dexTransactionSafety'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 const ACCENT = '#E44FB5'
 const NATIVE_GAS_RESERVE = parseUnits('0.01', 18)
@@ -650,7 +651,11 @@ function CreatePoolPanel({
 
       {!isConnected && (
         <div className="rounded-2xl border border-white/8 bg-white/3 p-6 text-center">
-          <p className="text-sm text-white/55">New pool creation remains disabled while the replacement DEX is independently reviewed and source-pinned.</p>
+          <p className="text-sm text-white/55">
+            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+              ? 'Connect an injected wallet to create a pool through the source-pinned replacement DEX.'
+              : 'New pool creation remains disabled while the replacement DEX is independently reviewed and source-pinned.'}
+          </p>
         </div>
       )}
 
@@ -2007,20 +2012,26 @@ function SwapPageInner() {
         category="Dex"
         title="Lester"
         titleHighlight="Swap"
-        subtitle="Read legacy reserve quotes and review recovery status. New swaps, wrapping, pool creation, and liquidity additions are disabled during post-compromise replacement."
+        subtitle={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+          ? 'Use the source-pinned replacement DEX and review bounded reserve quotes or authenticated legacy recovery.'
+          : 'Read legacy reserve quotes and review recovery status. New swaps, wrapping, pool creation, and liquidity additions are disabled during post-compromise replacement.'}
         color={ACCENT}
         image="/images/carousel/swap.png"
         imagePosition="center 46%"
         compact
         stats={[
           { label: 'Network', value: 'LitVM · 4441' },
-          { label: 'Mode', value: 'Containment' },
+          { label: 'Mode', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Replacement candidate' : 'Containment' },
         ]}
       />
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
-        <div className="rounded-[24px] border border-amber-300/20 bg-amber-300/10 p-5 text-sm leading-relaxed text-amber-50">
-          <strong>Legacy DEX recovery only.</strong> Reserve quotes are untrusted read-only observations, not oracle prices or authorization to trade. Do not approve a token, swap, wrap, create a pool, or add liquidity. Only source-pinned LP removal and existing wrapped-native withdrawal may be available after exact runtime checks.
+        <div className={`rounded-[24px] border p-5 text-sm leading-relaxed ${PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-50' : 'border-amber-300/20 bg-amber-300/10 text-amber-50'}`}>
+          {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? (
+            <><strong>Reviewed replacement DEX candidate.</strong> Candidate actions target the source-pinned factory, router, and wrapped-native deployment; public serving remains separately gated. Reserve ratios are not oracle prices; verify every wallet prompt. Legacy selections remain recovery-only.</>
+          ) : (
+            <><strong>Legacy DEX recovery only.</strong> Reserve quotes are untrusted read-only observations, not oracle prices or authorization to trade. Do not approve a token, swap, wrap, create a pool, or add liquidity. Only source-pinned LP removal and existing wrapped-native withdrawal may be available after exact runtime checks.</>
+          )}
         </div>
         {!isDexConfigured && (
           <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">
@@ -2041,7 +2052,7 @@ function SwapPageInner() {
                   boxShadow: !showCreatePool && !showWrap ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
                 }}
               >
-                Swaps Disabled
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Swap' : 'Swaps Disabled'}
               </button>
               <button
                 onClick={() => setShowCreatePool(true)}
@@ -2052,7 +2063,7 @@ function SwapPageInner() {
                   boxShadow: showCreatePool ? '0 4px 16px rgba(228,79,181,0.3)' : 'none',
                 }}
               >
-                New Pools Disabled
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Create Pool' : 'New Pools Disabled'}
               </button>
               <button
                 onClick={() => { setShowCreatePool(false); setShowWrap(true) }}
@@ -2259,9 +2270,13 @@ function SwapPageInner() {
             </div>
 
             <div className="analytics-card rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-xs uppercase tracking-[0.12em] text-white/35">Containment guidance</p>
+              <p className="text-xs uppercase tracking-[0.12em] text-white/35">
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Transaction guidance' : 'Containment guidance'}
+              </p>
               <p className="mt-2 text-sm leading-6 text-white/45">
-                No wallet is needed to inspect public reserves. Connect a disposable testnet wallet only for an eligible, source-authenticated legacy withdrawal after reviewing the exact target and calldata.
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                  ? 'No wallet is needed to inspect public reserves. For a replacement action or eligible legacy withdrawal, use a disposable testnet wallet and review the exact chain, target, function, value, and calldata.'
+                  : 'No wallet is needed to inspect public reserves. Connect a disposable testnet wallet only for an eligible, source-authenticated legacy withdrawal after reviewing the exact target and calldata.'}
               </p>
             </div>
 

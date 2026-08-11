@@ -2,10 +2,13 @@ import fs from 'fs'
 import path from 'path'
 import { Metadata } from 'next'
 import { DocsClient } from './DocsClient'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 export const metadata: Metadata = {
   title: 'Security, Recovery & Deployment Docs | Lester Labs',
-  description: 'Current containment status, legacy recovery boundaries, replacement role separation, bounded data coverage, and source-pinned deployment requirements for Lester Labs on LitVM testnet.',
+  description: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+    ? 'Reviewed replacement-candidate status, legacy recovery boundaries, separated authorities, bounded data coverage, and the protected production-serving gate for Lester Labs on LitVM testnet.'
+    : 'Current containment status, legacy recovery boundaries, replacement role separation, bounded data coverage, and source-pinned deployment requirements for Lester Labs on LitVM testnet.',
   keywords: [
     'Lester Labs docs',
     'LitVM DEX recovery documentation',
@@ -17,7 +20,9 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://www.lester-labs.com/docs' },
   openGraph: {
     title: 'Security, Recovery & Deployment Docs | Lester Labs',
-    description: 'Containment, recovery boundaries, replacement roles, and source-pinned deployment requirements.',
+    description: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+      ? 'Reviewed candidate, recovery boundaries, replacement roles, and the separate protected deployment requirements.'
+      : 'Containment, recovery boundaries, replacement roles, and source-pinned deployment requirements.',
     url: 'https://www.lester-labs.com/docs',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -26,7 +31,9 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Security, Recovery & Deployment Docs | Lester Labs',
-    description: 'Current containment and replacement-deployment documentation for independent review.',
+    description: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+      ? 'Reviewed replacement-candidate and protected deployment-gate documentation for independent review.'
+      : 'Current containment and replacement-deployment documentation for independent review.',
   },
 }
 

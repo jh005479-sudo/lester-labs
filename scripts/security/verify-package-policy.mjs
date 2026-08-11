@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,6 +31,7 @@ const projects = [
 const errors = [];
 const installScriptPackages = [];
 let directDependencyCount = 0;
+let pinnedActionCount = 0;
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -190,12 +191,37 @@ for (const { label, directory } of projects) {
   }
 }
 
+const workflowDirectory = join(repositoryRoot, ".github/workflows");
+for (const entry of readdirSync(workflowDirectory, { withFileTypes: true })) {
+  if (!entry.isFile() || !/\.ya?ml$/u.test(entry.name)) continue;
+  const workflowPath = join(workflowDirectory, entry.name);
+  const workflow = readFileSync(workflowPath, "utf8");
+  if (/^\s*pull_request_target\s*:/mu.test(workflow)) {
+    errors.push(`${entry.name}: pull_request_target is prohibited for this repository`);
+  }
+  for (const line of workflow.split(/\r?\n/u)) {
+    const match = /^\s*(?:-\s*)?uses:\s*([^#]+?)(?:\s+#.*)?$/u.exec(line);
+    if (!match) continue;
+    const reference = match[1].trim().replace(/^(?:"([^"]+)"|'([^']+)')$/u, "$1$2");
+    if (reference.startsWith("./")) continue;
+    if (
+      !/^[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+@[0-9a-f]{40}$/u.test(reference) &&
+      !/^docker:\/\/[^\s@]+@sha256:[0-9a-f]{64}$/u.test(reference)
+    ) {
+      errors.push(`${entry.name}: GitHub Action must use a full immutable commit SHA; found ${reference}`);
+    } else {
+      pinnedActionCount += 1;
+    }
+  }
+}
+
 if (errors.length > 0) {
   console.error("Package policy verification failed:");
   for (const error of errors) console.error(`- ${error}`);
   process.exitCode = 1;
 } else {
   console.log(`Package policy verified for ${projects.length} projects and ${directDependencyCount} direct pins.`);
+  console.log(`${pinnedActionCount} GitHub Action invocations use immutable commit SHAs.`);
   console.log(
     `${installScriptPackages.length} locked packages declare install scripts; project policy prevents their execution.`,
   );

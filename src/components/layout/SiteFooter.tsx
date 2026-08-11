@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 const toolLinks = [
   { href: '/swap', label: 'Swap' },
@@ -28,7 +29,7 @@ export function SiteFooter() {
       <div className="footer-inner">
         <div className="footer-brand">
           <p className="logo">Lester<span>Labs</span></p>
-          <p className="desc">Independent LitVM testnet software in post-compromise containment.</p>
+          <p className="desc">{PUBLIC_RELEASE_STATUS.footer}</p>
         </div>
         <div className="footer-cols">
           <div className="footer-col">

@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { ArrowRight, LayoutGrid } from 'lucide-react'
 import { PlatformStats } from './PlatformStats'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () => void }) {
   const bgImgRef = useRef<HTMLImageElement>(null)
@@ -177,7 +178,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
                 letterSpacing: 0,
               }}
             >
-              Post-compromise containment and recovery
+              {PUBLIC_RELEASE_STATUS.homepage.heroTagline}
             </span>
           </div>
 
@@ -200,9 +201,8 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
               backdropFilter: 'blur(12px)',
             }}
           >
-            <strong>Security containment active.</strong> Ordinary contract writes are disabled while replacement
-            deployments and the served build are independently verified. Read-only views and narrowly labelled
-            legacy recovery actions remain available.
+            <strong>{PUBLIC_RELEASE_STATUS.homepage.heroHeading}</strong>{' '}
+            {PUBLIC_RELEASE_STATUS.homepage.heroDetail}
           </Link>
 
           <div className="scroll-hero-actions hero-cta-group" style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 36 }}>

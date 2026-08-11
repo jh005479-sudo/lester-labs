@@ -31,8 +31,17 @@ The npm package has development and release scripts in its published manifest, i
 | `actions/setup-node` | `48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e` | `v6.4.0` | 2026-04-20 | Required to provision exact Node.js; accepted with automatic package-manager caching disabled. |
 | `github/codeql-action` | `7211b7c8077ea37d8641b6271f6a365a22a5fbfa` | `v4.36.0` | 2026-05-22 | Required for GitHub CodeQL static analysis; accepted with only `contents: read` and `security-events: write`. The immutable annotated release tag resolves to this commit. |
 | `actions/dependency-review-action` | `a1d282b36b6f3519aa1f3fc636f609c47dddb294` | `v5.0.0` | 2026-05-08 | Required to reject pull requests introducing high/critical dependency vulnerabilities; accepted with read-only repository permission and no PR comment permission. |
+| `actions/attest-build-provenance` | `0f67c3f4856b2e3261c31976d6725780e5e4c373` | `v4.1.1` | 2026-06-26 | Required to sign exact release and recovery evidence subjects; accepted only in the specific jobs granted `id-token: write` and `attestations: write`, with repository contents otherwise read-only. |
+| `actions/download-artifact` | `018cc2cf5baa6db3ef3c5f8a56943fffe632ef53` | `v6.0.0` | 2025-10-24 | Required to retrieve exact run-ID/run-attempt-qualified evidence packages; accepted only in jobs with `actions: read` and `contents: read`, with cross-run downloads bound to the recovered repository and validated originating run. |
+| `actions/upload-artifact` | `ea165f8d65b6e75b540449e92b4886f43607fa02` | `v4.6.2` | 2025-03-19 | Required to retain explicit evidence directories; accepted with missing-file failure, bounded retention, no wildcard workspace upload, and no additional repository write permission. |
 
-The releases and upstream Git references were checked on 2026-08-04. GitHub displayed verified signatures for the reviewed releases. Action code executes on the CI runner and may access the network; pinning limits mutation risk but does not eliminate trust in GitHub, the runner image, action code, or downloaded analysis/runtime artifacts.
+The original four releases and upstream Git references were checked on
+2026-08-04; the three release-evidence actions were checked on 2026-08-11.
+GitHub displayed verified signatures for the reviewed releases, and every
+selected release was older than seven days at its review date. Action code
+executes on the CI runner and may access the network; pinning limits mutation
+risk but does not eliminate trust in GitHub, the runner image, action code, or
+downloaded analysis/runtime artifacts.
 
 ## Dependency metadata result
 
@@ -149,8 +158,9 @@ deployment.
 
 The repository policy and history-aware secret scanner were executed with a
 bundled Node.js runtime and passed. Official-registry `npm audit` queries
-reconfirmed the 37 application findings and the final contract graph's zero
-findings described above. CodeQL, GitHub dependency review, protected-branch
+reconfirmed zero findings in both the final application and contract graphs
+described above. The earlier 37-finding application graph is retained only as
+pre-remediation comparison evidence. CodeQL, GitHub dependency review, protected-branch
 enforcement and provider-side secret scanning still require an authenticated
 GitHub account and CI run.
 

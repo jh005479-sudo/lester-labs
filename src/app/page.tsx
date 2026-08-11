@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import ScrollHero from '@/components/home/ScrollHero'
 import { ResumeDashboard } from '@/components/shared/ResumeDashboard'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 type ProductLink = {
   name: string
@@ -47,6 +48,11 @@ type DirectoryTool = ProductLink & {
   icon: LucideIcon
 }
 
+const ordinaryWritesEnabled = PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+const releaseVariant = (containment: string, approved: string) => (
+  ordinaryWritesEnabled ? approved : containment
+)
+
 const ecosystemStages: EcosystemStage[] = [
   {
     key: 'discover',
@@ -66,29 +72,35 @@ const ecosystemStages: EcosystemStage[] = [
   {
     key: 'create',
     title: 'Create',
-    eyebrow: 'Replacement readiness',
-    description: 'Review historical deployments and the controls required before replacement creation flows can be activated.',
+    eyebrow: releaseVariant('Replacement readiness', 'Reviewed creation'),
+    description: releaseVariant(
+      'Review historical deployments and the controls required before replacement creation flows can be activated.',
+      'Create with the source-pinned replacement contracts or inspect authenticated legacy deployments.',
+    ),
     href: '/launch',
     cta: 'Review factory status',
     color: '#6B4FFF',
     icon: Rocket,
     products: [
-      { name: 'Minter', href: '/launch', note: 'creation disabled' },
-      { name: 'Launchpad', href: '/launchpad', note: 'historical recovery' },
+      { name: 'Minter', href: '/launch', note: releaseVariant('creation disabled', 'reviewed replacement') },
+      { name: 'Launchpad', href: '/launchpad', note: releaseVariant('historical recovery', 'launch and recover') },
       { name: 'Airdrop', href: '/airdrop', note: 'local list review' },
     ],
   },
   {
     key: 'trade',
     title: 'Trade',
-    eyebrow: 'DEX containment',
-    description: 'Inspect legacy pairs and recover existing positions while new swaps and liquidity writes remain disabled.',
+    eyebrow: releaseVariant('DEX containment', 'Reviewed DEX'),
+    description: releaseVariant(
+      'Inspect legacy pairs and recover existing positions while new swaps and liquidity writes remain disabled.',
+      'Use the source-pinned replacement DEX or inspect and recover eligible legacy positions.',
+    ),
     href: '/swap',
     cta: 'Review DEX status',
     color: '#E44FB5',
     icon: Droplets,
     products: [
-      { name: 'Swap', href: '/swap', note: 'new swaps disabled' },
+      { name: 'Swap', href: '/swap', note: releaseVariant('new swaps disabled', 'source-pinned swaps') },
       { name: 'Pools', href: '/pool', note: 'inspect and recover LP' },
       { name: 'Charts', href: '/charts', note: 'bounded reserve views' },
     ],
@@ -112,13 +124,16 @@ const ecosystemStages: EcosystemStage[] = [
     key: 'publish',
     title: 'Publish',
     eyebrow: 'Historical records',
-    description: 'Read sampled on-chain messages and review governance and deployment documentation without submitting paid writes.',
+    description: releaseVariant(
+      'Read sampled on-chain messages and review governance and deployment documentation without submitting paid writes.',
+      'Read sampled on-chain messages, use reviewed replacement posting and governance, and inspect deployment evidence.',
+    ),
     href: '/ledger',
     cta: 'Read historical records',
     color: '#F5A623',
     icon: MessageSquareText,
     products: [
-      { name: 'Ledger', href: '/ledger', note: 'posting disabled' },
+      { name: 'Ledger', href: '/ledger', note: releaseVariant('posting disabled', 'source-pinned posting') },
       { name: 'Governance', href: '/governance', note: 'readiness guidance' },
       { name: 'Docs', href: '/docs', note: 'builder guidance' },
     ],
@@ -144,14 +159,14 @@ const ecosystemDirectory: DirectoryTool[] = [
   { name: 'Explorer', href: '/explorer', note: 'Search exact blocks and transactions; feeds are bounded samples.', group: 'Discover', icon: Search },
   { name: 'Analytics', href: '/analytics', note: 'Explicitly bounded network and activity samples.', group: 'Discover', icon: Activity },
   { name: 'Charts', href: '/charts', note: 'Newest-pair reserve ratios, not prices or TVL.', group: 'Discover', icon: LineChart },
-  { name: 'Minter', href: '/launch', note: 'Review the disabled legacy factory and replacement status.', group: 'Create', icon: Coins },
-  { name: 'Launchpad', href: '/launchpad', note: 'Browse and recover historical presales; creation is disabled.', group: 'Create', icon: Rocket },
-  { name: 'Airdrop', href: '/airdrop', note: 'Review recipient lists locally; distribution writes are disabled.', group: 'Create', icon: Gift },
-  { name: 'Swap', href: '/swap', note: 'Inspect quotes and recovery status; new swaps are disabled.', group: 'Trade', icon: Sparkles },
+  { name: 'Minter', href: '/launch', note: releaseVariant('Review the disabled legacy factory and replacement status.', 'Create through the reviewed source-pinned replacement factory.'), group: 'Create', icon: Coins },
+  { name: 'Launchpad', href: '/launchpad', note: releaseVariant('Browse and recover historical presales; creation is disabled.', 'Create reviewed presales or recover eligible historical positions.'), group: 'Create', icon: Rocket },
+  { name: 'Airdrop', href: '/airdrop', note: releaseVariant('Review recipient lists locally; distribution writes are disabled.', 'Review recipient lists and submit bounded replacement batches.'), group: 'Create', icon: Gift },
+  { name: 'Swap', href: '/swap', note: releaseVariant('Inspect quotes and recovery status; new swaps are disabled.', 'Review source-pinned replacement quotes and legacy recovery.'), group: 'Trade', icon: Sparkles },
   { name: 'Pool', href: '/pool', note: 'Inspect positions and authenticated legacy LP recovery.', group: 'Trade', icon: Droplets },
   { name: 'Locker', href: '/locker', note: 'Inspect locks and withdraw matured legacy positions.', group: 'Protect', icon: Lock },
   { name: 'Vesting', href: '/vesting', note: 'Inspect schedules and release vested legacy positions.', group: 'Protect', icon: Landmark },
-  { name: 'Ledger', href: '/ledger', note: 'Read historical messages; paid posting is disabled.', group: 'Publish', icon: MessageSquareText },
+  { name: 'Ledger', href: '/ledger', note: releaseVariant('Read historical messages; paid posting is disabled.', 'Read history or post through the source-pinned replacement.'), group: 'Publish', icon: MessageSquareText },
   { name: 'Governance', href: '/governance', note: 'Review process guidance; legacy governance is retired.', group: 'Publish', icon: BarChart3 },
   { name: 'Portfolio', href: '/portfolio', note: 'Bounded wallet views and recovery links.', group: 'Return', icon: Wallet },
   { name: 'Docs', href: '/docs', note: 'Guides and contract references.', group: 'Learn', icon: BookOpen },
@@ -172,7 +187,7 @@ function EcosystemSuite() {
           <span className="word highlight">DeFi suite</span>
         </h2>
         <p className="suite-sub sub-reveal">
-          Read-only discovery and narrowly authenticated recovery remain available while replacement writes are disabled.
+          {PUBLIC_RELEASE_STATUS.homepage.suiteSummary}
         </p>
       </div>
 
@@ -183,7 +198,10 @@ function EcosystemSuite() {
           </div>
           <div>
             <p>Native LitVM loop</p>
-            <strong>Every surface must disclose whether it is read-only, recovery-only, or pending replacement.</strong>
+            <strong>{releaseVariant(
+              'Every surface must disclose whether it is read-only, recovery-only, or pending replacement.',
+              'Every surface must disclose whether it uses an active replacement, a bounded read, or legacy recovery.',
+            )}</strong>
           </div>
         </div>
 
@@ -393,13 +411,11 @@ export default function HomePage() {
         >
 
         <section className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
-          <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm leading-relaxed text-amber-50">
-            <strong>Post-compromise containment is active.</strong> The former build machine, deployer, treasury,
-            controller, and legacy contract set are not trusted for new activity. Ordinary writes stay disabled until
-            both independent gates pass: authority/control-plane recovery, and malicious-flag/source/runtime/served-build remediation.
-            Passing either gate alone is insufficient; an appeal follows only after both pass.
+          <div className={`mb-4 rounded-2xl border p-4 text-sm leading-relaxed ${PUBLIC_RELEASE_STATUS.tone === 'success' ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-50' : 'border-amber-300/25 bg-amber-300/10 text-amber-50'}`}>
+            <strong>{PUBLIC_RELEASE_STATUS.homepage.noticeHeading}</strong>{' '}
+            {PUBLIC_RELEASE_STATUS.homepage.noticeDetail}{' '}
             Historical counters are first-party continuity records, not independently verified counts of unique wallets or people.{' '}
-            <Link href="/security" prefetch={false} className="font-semibold text-amber-100 underline underline-offset-4">
+            <Link href="/security" prefetch={false} className="font-semibold underline underline-offset-4">
               Read the security status.
             </Link>
           </div>
@@ -418,15 +434,15 @@ export default function HomePage() {
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <div className='section-label'>Getting Started</div>
             <h2 className="getting-started-title">Explore the LitVM ecosystem</h2>
-            <p style={{ fontSize: '16px', color: 'rgba(240,238,245,0.45)', maxWidth: 560, margin: '0 auto' }}>Review network setup, current containment, historical contract behavior, and the checks required before replacement writes can resume.</p>
+            <p style={{ fontSize: '16px', color: 'rgba(240,238,245,0.45)', maxWidth: 560, margin: '0 auto' }}>{PUBLIC_RELEASE_STATUS.homepage.gettingStarted}</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
             {[
               { href: '/litvm-testnet', label: 'LitVM Testnet', desc: 'Add the network, claim test tokens, and start exploring.' },
-              { href: '/litvm-dex', label: 'LitVM DEX', desc: 'Why the legacy DEX is recovery-only and what a replacement must prove.' },
-              { href: '/litvm-swap', label: 'LitVM Swap', desc: 'Swap containment status and transaction-verification guidance.' },
-              { href: '/litvm-airdrop', label: 'LitVM Airdrop', desc: 'Local recipient-list review; distribution writes remain disabled.' },
-              { href: '/litvm-launchpad', label: 'LitVM Launchpad', desc: 'Historical presale recovery and replacement readiness.' },
+              { href: '/litvm-dex', label: 'LitVM DEX', desc: releaseVariant('Why the legacy DEX is recovery-only and what a replacement must prove.', 'Active replacement DEX evidence and legacy recovery boundaries.') },
+              { href: '/litvm-swap', label: 'LitVM Swap', desc: releaseVariant('Swap containment status and transaction-verification guidance.', 'Source-pinned swap status and transaction-verification guidance.') },
+              { href: '/litvm-airdrop', label: 'LitVM Airdrop', desc: releaseVariant('Local recipient-list review; distribution writes remain disabled.', 'Recipient-list review and bounded replacement distribution.') },
+              { href: '/litvm-launchpad', label: 'LitVM Launchpad', desc: releaseVariant('Historical presale recovery and replacement readiness.', 'Reviewed replacement launches and historical recovery.') },
             ].map((item) => (
               <Link key={item.href} href={item.href} prefetch={false} style={{ display: 'block', padding: '20px 22px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, textDecoration: 'none', transition: 'border-color 0.2s, background 0.2s' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(107,79,255,0.3)' }}
@@ -480,14 +496,17 @@ export default function HomePage() {
             <div className="trust-card reveal reveal-delay-2 tilt-card" style={{ '--tc-color-10': 'rgba(107,79,255,.1)', '--tc-color-15': 'rgba(107,79,255,.15)', '--tc-color-20': 'rgba(107,79,255,.2)', '--tc-color-30': 'rgba(107,79,255,.3)', '--tc-color-40': 'rgba(107,79,255,.4)', '--tc-glow': 'rgba(107,79,255,.06)' } as React.CSSProperties}>
               <div className="tc-status">
                 <div className="tc-dot" style={{ background: '#6B4FFF' }} />
-                <span className="tc-status-text">Containment on Testnet</span>
+                <span className="tc-status-text">{releaseVariant('Containment on Testnet', 'Replacement Candidate on Testnet')}</span>
               </div>
               <div className="tc-icon-wrap" style={{ background: 'rgba(107,79,255,.08)', border: '1px solid rgba(107,79,255,.12)' }}>
                 <div className="tc-ring" />
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B4FFF" strokeWidth="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
               </div>
               <div className="tc-value">LitVM Native</div>
-              <div className="tc-label">Read-only testnet views and narrowly authenticated legacy recovery while replacement deployments remain pending.</div>
+              <div className="tc-label">{releaseVariant(
+                'Read-only testnet views and narrowly authenticated legacy recovery while replacement deployments remain pending.',
+                'Bounded testnet views, source-pinned replacement actions, and narrowly authenticated legacy recovery.',
+              )}</div>
               <div className="tc-data">
                 <div className="tc-data-item"><span>Network</span><span>LitVM</span></div>
                 <div className="tc-data-item"><span>Status</span><span>Testnet</span></div>
@@ -506,7 +525,7 @@ export default function HomePage() {
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E44FB5" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </div>
               <div className="tc-value">Community</div>
-              <div className="tc-label">An independent project publishing containment status, source, and deployment evidence for public review.</div>
+              <div className="tc-label">{PUBLIC_RELEASE_STATUS.homepage.trustLabel}</div>
               <div className="tc-data">
                 <div className="tc-data-item"><span>Focus</span><span>LitVM-first</span></div>
                 <div className="tc-data-item"><span>DEX</span><span>Testnet</span></div>
@@ -721,12 +740,12 @@ export default function HomePage() {
             {/* Right: text + buttons */}
             <div className="cta-text reveal reveal-delay-2">
               <h2 className="cta-title"><span className="grad">Verify first.</span><br />Sign later.</h2>
-              <p>Review the containment status, source-pinned targets, and decoded transaction before connecting a disposable testnet wallet.</p>
+              <p>{PUBLIC_RELEASE_STATUS.homepage.ctaDetail}</p>
               <div className="cta-buttons">
                 <Link prefetch={false} href="/security" className="btn-primary magnetic">Security Status →</Link>
                 <Link href="/docs" prefetch={false} className="btn-ghost magnetic">Read the Docs ↗</Link>
               </div>
-              <p className="cta-fine">Source availability and upstream standards are not an audit. Ordinary writes remain disabled until replacement deployment and served-build verification are complete.</p>
+              <p className="cta-fine">{PUBLIC_RELEASE_STATUS.homepage.ctaFinePrint}</p>
             </div>
           </div>
         </section>

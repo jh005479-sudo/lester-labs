@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
+import { PUBLIC_RELEASE_STATUS } from './publicReleaseStatus.ts'
 
 function read(relativePath) {
   return readFileSync(new URL(relativePath, import.meta.url), 'utf8')
@@ -12,17 +13,17 @@ describe('public containment posture', () => {
     const security = read('../app/security/page.tsx')
     const docs = read('../content/docs/index.md')
 
-    for (const source of [homepage, security, docs]) {
-      assert.match(source, /authority(?: and |\/)control-plane|authority and control-plane/i)
-      assert.match(source, /source.*runtime|runtime.*source/i)
-      assert.match(source, /both (?:independent )?(?:release )?gates pass/i)
-    }
-    assert.match(security, /appeal is submitted only after both gates pass/i)
+    assert.match(homepage, /PUBLIC_RELEASE_STATUS/)
+    assert.match(security, /PUBLIC_RELEASE_STATUS/)
+    assert.match(docs, /authority(?: and |\/)control-plane|authority and control-plane/i)
+    assert.match(docs, /source.*runtime|runtime.*source/i)
+    assert.match(docs, /both (?:independent )?(?:release )?gates pass/i)
+    assert.match(PUBLIC_RELEASE_STATUS.security.gatesSummary, /appeal is submitted only after both gates pass/i)
   })
 
   it('does not market the contained homepage as an active fee or grant service', () => {
     const homepage = read('../app/page.tsx')
-    assert.match(homepage, /Post-compromise containment is active/i)
+    assert.match(PUBLIC_RELEASE_STATUS.homepage.noticeHeading, /Post-compromise containment is active/i)
     assert.doesNotMatch(homepage, /Fee capture layer|Docs, grants|audited unique-user/i)
   })
 })

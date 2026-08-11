@@ -1,0 +1,717 @@
+name: Protected frontend release evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_commit:
+        description: Exact lowercase commit on the protected main branch
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-release-attestation-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_IMAGE: docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5
+
+jobs:
+  build:
+    name: Two isolated untrusted builds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the reviewed revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enforce protected main and exact commit
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          OBSERVED_COMMIT: ${{ github.sha }}
+          OBSERVED_REF: ${{ github.ref }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$OBSERVED_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$REVIEWED_COMMIT" = "$OBSERVED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$OBSERVED_COMMIT"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Verify the digest-pinned x64 builder
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "x86_64"
+          docker pull --platform linux/amd64 "$RELEASE_IMAGE"
+          docker image inspect "$RELEASE_IMAGE" --format '{{json .RepoDigests}}' \
+            | grep -F 'sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5'
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+            "$RELEASE_IMAGE" sh -eu -c '
+              test "$(node --version)" = "v24.18.0"
+              test "$(npm --version)" = "11.16.0"
+              test "$(node -p process.platform)" = "linux"
+              test "$(node -p process.arch)" = "x64"
+            '
+
+      - name: Verify reviewed source and fail-closed release prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+            -e CI=true -e NEXT_TELEMETRY_DISABLED=1 \
+            -v "$GITHUB_WORKSPACE:/source:ro" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/verify-package-policy.mjs
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+            -e CI=true -e NEXT_TELEMETRY_DISABLED=1 \
+            -v "$GITHUB_WORKSPACE:/source:ro" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/scan-secrets.mjs
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+            -v "$GITHUB_WORKSPACE:/source:ro" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/verify-control-plane-recovery.mjs --require-reviewed
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+            -v "$GITHUB_WORKSPACE:/source:ro" -w /source \
+            "$RELEASE_IMAGE" node --input-type=module -e '
+              import { readFileSync } from "node:fs";
+              const value = JSON.parse(readFileSync("src/config/approvedPublicReplacement.json", "utf8"));
+              if (value.status !== "APPROVED") throw new Error("Production frontend evidence requires an APPROVED public replacement package.");
+            '
+
+      - name: Create two independent immutable dependency trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          prepare_install() {
+            install_root="$1"
+            mkdir -p "$install_root"
+            cp -- package.json package-lock.json .npmrc "$install_root/"
+            docker run --rm --platform linux/amd64 --network bridge \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=2g --pids-limit 512 \
+              -e CI=true -e NPM_CONFIG_CACHE=/tmp/npm-cache -e NPM_CONFIG_USERCONFIG=/install/.npmrc \
+              -e NPM_CONFIG_IGNORE_SCRIPTS=true -e NPM_CONFIG_FUND=false -e NPM_CONFIG_AUDIT=true \
+              -v "$install_root:/install:rw" -w /install \
+              "$RELEASE_IMAGE" npm ci --ignore-scripts
+            cmp -- package.json "$install_root/package.json"
+            cmp -- package-lock.json "$install_root/package-lock.json"
+            cmp -- .npmrc "$install_root/.npmrc"
+          }
+          prepare_install "$RUNNER_TEMP/install-one"
+          prepare_install "$RUNNER_TEMP/install-two"
+          test "$RUNNER_TEMP/install-one/node_modules" -ef "$RUNNER_TEMP/install-two/node_modules" && exit 1 || true
+
+      - name: Independently audit both installed graphs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/frontend-build-package/logs"
+          audit_install() {
+            install_root="$1"
+            label="$2"
+            docker run --rm --platform linux/amd64 --network bridge \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=1g --pids-limit 512 \
+              -e CI=true -e NPM_CONFIG_CACHE=/tmp/npm-cache -e NPM_CONFIG_USERCONFIG=/install/.npmrc \
+              -e NPM_CONFIG_IGNORE_SCRIPTS=true \
+              -v "$install_root:/install:ro" -w /install \
+              "$RELEASE_IMAGE" npm audit --audit-level=low \
+              2>&1 | tee "$RUNNER_TEMP/frontend-build-package/logs/$label-audit.txt"
+            docker run --rm --platform linux/amd64 --network bridge \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=1g --pids-limit 512 \
+              -e CI=true -e NPM_CONFIG_CACHE=/tmp/npm-cache -e NPM_CONFIG_USERCONFIG=/install/.npmrc \
+              -e NPM_CONFIG_IGNORE_SCRIPTS=true \
+              -v "$install_root:/install:ro" -w /install \
+              "$RELEASE_IMAGE" npm audit signatures \
+              2>&1 | tee "$RUNNER_TEMP/frontend-build-package/logs/$label-signatures.txt"
+          }
+          audit_install "$RUNNER_TEMP/install-one" pass-one
+          audit_install "$RUNNER_TEMP/install-two" pass-two
+
+      - name: Run gates, lint, and tests with source and dependencies read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p node_modules .next
+          run_checked() {
+            docker run --rm --platform linux/amd64 --network none \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=2g --pids-limit 512 \
+              -e CI=true -e NEXT_TELEMETRY_DISABLED=1 -e NPM_CONFIG_CACHE=/tmp/npm-cache \
+              -e NPM_CONFIG_IGNORE_SCRIPTS=true \
+              -v "$GITHUB_WORKSPACE:/source:ro" \
+              -v "$RUNNER_TEMP/install-one/node_modules:/source/node_modules:ro" \
+              -w /source "$RELEASE_IMAGE" "$@"
+          }
+          run_checked node scripts/security/verify-approved-public-replacement.mjs \
+            2>&1 | tee "$RUNNER_TEMP/frontend-build-package/logs/public-replacement.txt"
+          run_checked npm run lint \
+            2>&1 | tee "$RUNNER_TEMP/frontend-build-package/logs/lint.txt"
+          run_checked npm run test:unit \
+            2>&1 | tee "$RUNNER_TEMP/frontend-build-package/logs/unit-tests.txt"
+
+      - name: Build twice from independent read-only dependency trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_epoch="$(git show -s --format=%ct "$GITHUB_SHA")"
+          mkdir -p "$RUNNER_TEMP/pass-one" "$RUNNER_TEMP/pass-two"
+          run_build() {
+            install_root="$1"
+            output_root="$2"
+            docker run --rm --platform linux/amd64 --network none \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=2g --pids-limit 512 \
+              -e CI=true -e NEXT_TELEMETRY_DISABLED=1 -e NPM_CONFIG_CACHE=/tmp/npm-cache \
+              -e NPM_CONFIG_IGNORE_SCRIPTS=true -e TZ=UTC -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 \
+              -e LESTER_RELEASE_BUILD_ID="$GITHUB_SHA" -e SOURCE_DATE_EPOCH="$release_epoch" \
+              -v "$GITHUB_WORKSPACE:/source:ro" \
+              -v "$install_root/node_modules:/source/node_modules:ro" \
+              -v "$output_root:/source/.next:rw" \
+              -w /source "$RELEASE_IMAGE" npm run build
+          }
+          run_build "$RUNNER_TEMP/install-one" "$RUNNER_TEMP/pass-one" \
+            2>&1 | tee "$RUNNER_TEMP/frontend-build-package/logs/build-one.txt"
+          run_build "$RUNNER_TEMP/install-two" "$RUNNER_TEMP/pass-two" \
+            2>&1 | tee "$RUNNER_TEMP/frontend-build-package/logs/build-two.txt"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Reject unsafe build objects with the immutable stdlib verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify_build() {
+            build_root="$1"
+            sanitized_name="$2"
+            output_name="$3"
+            docker run --rm --platform linux/amd64 --network none \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+              -v "$GITHUB_WORKSPACE:/source:ro" -v "$build_root:/build:ro" \
+              -v "$RUNNER_TEMP/frontend-build-package:/package:rw" -w /source \
+              "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs package \
+                --build-dir /build --output-dir "/package/$sanitized_name"
+            docker run --rm --platform linux/amd64 --network none \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+              -e NPM_CONFIG_CACHE=/tmp/npm-cache \
+              -v "$GITHUB_WORKSPACE:/source:ro" \
+              -v "$RUNNER_TEMP/frontend-build-package/$sanitized_name:/build:ro" \
+              -v "$RUNNER_TEMP/frontend-build-package:/package:rw" -w /source \
+              "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs inventory \
+                --root /source --build-dir /build --public-dir /source/public \
+                --source-commit "$GITHUB_SHA" --builder-image "$RELEASE_IMAGE" \
+                --output "/package/$output_name"
+          }
+          verify_build "$RUNNER_TEMP/pass-one" build-one preliminary-one.inventory.json
+          verify_build "$RUNNER_TEMP/pass-two" build-two preliminary-two.inventory.json
+
+      - name: Create and compare deterministic standalone deployment payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_epoch="$(git show -s --format=%ct "$GITHUB_SHA")"
+          create_payload() {
+            build_name="$1"
+            payload_root="$2"
+            inventory_name="$3"
+            archive_name="$4"
+            docker run --rm --platform linux/amd64 --network none \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+              -v "$GITHUB_WORKSPACE:/source:ro" \
+              -v "$RUNNER_TEMP/frontend-build-package/$build_name:/build:ro" \
+              -v "$RUNNER_TEMP/frontend-build-package:/package:rw" \
+              -v "$payload_root:/payload-parent:rw" -w /source \
+              "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs deployable \
+                --build-dir /build --public-dir /source/public \
+                --output-dir /payload-parent/root \
+                --inventory-output "/package/$inventory_name"
+            docker run --rm --platform linux/amd64 --network none \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+              -v "$payload_root/root:/payload:ro" \
+              -v "$RUNNER_TEMP/frontend-build-package:/package:rw" \
+              "$RELEASE_IMAGE" tar --sort=name --format=posix --mtime="@$release_epoch" \
+                --owner=0 --group=0 --numeric-owner --mode='u+rwX,go+rX,go-w' \
+                --pax-option=delete=atime,delete=ctime -C /payload -cf "/package/$archive_name" .
+          }
+          mkdir -p "$RUNNER_TEMP/deployable-one" "$RUNNER_TEMP/deployable-two"
+          create_payload build-one "$RUNNER_TEMP/deployable-one" deployment-one.inventory.json deployment-one.tar
+          create_payload build-two "$RUNNER_TEMP/deployable-two" deployment-two.inventory.json deployment-two.tar
+          cmp -- "$RUNNER_TEMP/frontend-build-package/deployment-one.inventory.json" \
+            "$RUNNER_TEMP/frontend-build-package/deployment-two.inventory.json"
+          cmp -- "$RUNNER_TEMP/frontend-build-package/deployment-one.tar" \
+            "$RUNNER_TEMP/frontend-build-package/deployment-two.tar"
+          cp -- "$RUNNER_TEMP/frontend-build-package/deployment-two.inventory.json" \
+            "$RUNNER_TEMP/frontend-build-package/deployment-payload.inventory.json"
+          cp -- "$RUNNER_TEMP/frontend-build-package/deployment-two.tar" \
+            "$RUNNER_TEMP/frontend-build-package/frontend-standalone.tar"
+
+      - name: Capture critical local routes across an isolated internal network
+        shell: bash
+        run: |
+          set -euo pipefail
+          network_name="frontend-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          server_name="release-server"
+          cleanup() {
+            docker rm -f "$server_name" >/dev/null 2>&1 || true
+            docker network rm "$network_name" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker network create --internal "$network_name" >/dev/null
+          docker run -d --name "$server_name" --platform linux/amd64 --network "$network_name" \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=512m --pids-limit 512 \
+            -e NODE_ENV=production -e NEXT_TELEMETRY_DISABLED=1 -e HOSTNAME=0.0.0.0 -e PORT=3100 \
+            -v "$RUNNER_TEMP/deployable-two/root:/app:ro" \
+            -w /app "$RELEASE_IMAGE" node server.js >/dev/null
+          docker run --rm --platform linux/amd64 --network "$network_name" \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=256m \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$RUNNER_TEMP/frontend-build-package:/capture:rw" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs capture \
+              --local-origin http://release-server:3100 \
+              --output /capture/raw-route-capture.json
+          docker logs "$server_name" > "$RUNNER_TEMP/frontend-build-package/logs/local-server.txt" 2>&1
+          cleanup
+          trap - EXIT
+
+      - name: Finalize the sanitized unsigned build package
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/frontend-build-package/build-one/BUILD_ID"
+          test -f "$RUNNER_TEMP/frontend-build-package/build-two/BUILD_ID"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Upload unsigned build inputs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unsigned-frontend-build-inputs-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/frontend-build-package/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          include-hidden-files: true
+
+  verify-and-attest:
+    name: Fresh-checkout verification and signing
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the reviewed revision again
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Re-enforce protected main and exact commit
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          OBSERVED_COMMIT: ${{ github.sha }}
+          OBSERVED_REF: ${{ github.ref }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$OBSERVED_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$REVIEWED_COMMIT" = "$OBSERVED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$OBSERVED_COMMIT"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          docker pull --platform linux/amd64 "$RELEASE_IMAGE"
+          test "$(uname -m)" = "x86_64"
+
+      - name: Download unsigned build inputs
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: unsigned-frontend-build-inputs-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/frontend-build-package
+
+      - name: Recompute both inventories with the fresh immutable verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/release-evidence"
+          recompute() {
+            build_root="$1"
+            output_name="$2"
+            docker run --rm --platform linux/amd64 --network none \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+              -e NPM_CONFIG_CACHE=/tmp/npm-cache \
+              -v "$GITHUB_WORKSPACE:/source:ro" -v "$build_root:/build:ro" \
+              -v "$GITHUB_WORKSPACE/release-evidence:/evidence:rw" -w /source \
+              "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs inventory \
+                --root /source --build-dir /build --public-dir /source/public \
+                --source-commit "$GITHUB_SHA" --builder-image "$RELEASE_IMAGE" \
+                --output "/evidence/$output_name"
+          }
+          recompute "$RUNNER_TEMP/frontend-build-package/build-one" build-one.inventory.json
+          recompute "$RUNNER_TEMP/frontend-build-package/build-two" build-two.inventory.json
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=256m \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$GITHUB_WORKSPACE/release-evidence:/evidence:rw" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs compare \
+              /evidence/build-one.inventory.json /evidence/build-two.inventory.json \
+            | tee "$GITHUB_WORKSPACE/release-evidence/reproducibility.json"
+
+      - name: Independently generate the lock-bound CycloneDX SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+            -e NPM_CONFIG_CACHE=/tmp/npm-cache -e NPM_CONFIG_USERCONFIG=/source/.npmrc \
+            -e NPM_CONFIG_IGNORE_SCRIPTS=true \
+            -v "$GITHUB_WORKSPACE:/source:ro" -w /source \
+            "$RELEASE_IMAGE" npm sbom --package-lock-only --sbom-format=cyclonedx --sbom-type=application \
+            > "$GITHUB_WORKSPACE/release-evidence/application.cdx.json"
+
+      - name: Recompute the deterministic deployable archive from the reviewed build
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_epoch="$(git show -s --format=%ct "$GITHUB_SHA")"
+          mkdir -p "$RUNNER_TEMP/verified-deployable"
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$RUNNER_TEMP/frontend-build-package/build-two:/build:ro" \
+            -v "$RUNNER_TEMP/verified-deployable:/payload-parent:rw" \
+            -v "$GITHUB_WORKSPACE/release-evidence:/evidence:rw" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs deployable \
+              --build-dir /build --public-dir /source/public \
+              --output-dir /payload-parent/root \
+              --inventory-output /evidence/deployment-payload.inventory.json
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+            -v "$RUNNER_TEMP/verified-deployable/root:/payload:ro" \
+            -v "$GITHUB_WORKSPACE/release-evidence:/evidence:rw" \
+            "$RELEASE_IMAGE" tar --sort=name --format=posix --mtime="@$release_epoch" \
+              --owner=0 --group=0 --numeric-owner --mode='u+rwX,go+rX,go-w' \
+              --pax-option=delete=atime,delete=ctime -C /payload \
+              -cf /evidence/frontend-standalone.tar .
+          cmp -- release-evidence/deployment-payload.inventory.json \
+            "$RUNNER_TEMP/frontend-build-package/deployment-payload.inventory.json"
+          cmp -- release-evidence/frontend-standalone.tar \
+            "$RUNNER_TEMP/frontend-build-package/frontend-standalone.tar"
+
+      - name: Create the final candidate from fresh source and raw route responses
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=256m \
+            -e NPM_CONFIG_CACHE=/tmp/npm-cache \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$RUNNER_TEMP/frontend-build-package/build-two:/build:ro" \
+            -v "$RUNNER_TEMP/frontend-build-package:/package:ro" \
+            -v "$GITHUB_WORKSPACE/release-evidence:/evidence:rw" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs attest \
+              --root /source --build-dir /build --public-dir /source/public \
+              --source-commit "$GITHUB_SHA" --builder-image "$RELEASE_IMAGE" \
+              --sbom /evidence/application.cdx.json \
+              --deployment-artifact /evidence/frontend-standalone.tar \
+              --deployment-inventory /evidence/deployment-payload.inventory.json \
+              --route-capture /package/raw-route-capture.json \
+              --output /evidence/frontend-release-candidate.json
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Create GitHub/Sigstore build provenance
+        id: provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            release-evidence/frontend-release-candidate.json
+            release-evidence/application.cdx.json
+            release-evidence/reproducibility.json
+            release-evidence/frontend-standalone.tar
+            release-evidence/deployment-payload.inventory.json
+
+      - name: Preserve the signed provenance bundle
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" release-evidence/github-sigstore-provenance.jsonl
+
+      - name: Upload the reviewed evidence package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-release-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          include-hidden-files: false
+
+  source-security-approval:
+    name: Protected source-security approval
+    needs: verify-and-attest
+    runs-on: ubuntu-24.04
+    environment: frontend-release-source-security
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact candidate source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Re-enforce protected main and immutable workflow identity
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$REVIEWED_COMMIT" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(uname -m)" = "x86_64"
+          docker pull --platform linux/amd64 "$RELEASE_IMAGE"
+
+      - name: Download the already-signed candidate
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: frontend-release-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/candidate-evidence
+
+      - name: Create the role-bound approval envelope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/release-approval"
+          created_at="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$RUNNER_TEMP/candidate-evidence:/candidate:ro" \
+            -v "$GITHUB_WORKSPACE/release-approval:/approval:rw" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs approval-envelope \
+              --candidate /candidate/frontend-release-candidate.json \
+              --candidate-provenance /candidate/github-sigstore-provenance.jsonl \
+              --role source-security --environment frontend-release-source-security \
+              --repository "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" \
+              --workflow-path .github/workflows/frontend-release-attestation.yml \
+              --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" \
+              --requested-by "$GITHUB_ACTOR" --created-at "$created_at" \
+              --output /approval/source-security-approval.json
+
+      - name: Sign the protected source-security approval
+        id: source-approval-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: release-approval/source-security-approval.json
+
+      - name: Preserve source-security provenance
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.source-approval-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" release-approval/source-security-approval.provenance.jsonl
+
+      - name: Upload the protected source-security evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-release-source-security-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-approval/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+  release-operations-approval:
+    name: Protected release-operations approval and promotion package
+    needs: source-security-approval
+    runs-on: ubuntu-24.04
+    environment: frontend-release-operations
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact candidate source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Re-enforce protected main and immutable workflow identity
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$REVIEWED_COMMIT" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(uname -m)" = "x86_64"
+          docker pull --platform linux/amd64 "$RELEASE_IMAGE"
+
+      - name: Download the signed candidate
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: frontend-release-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/downloaded
+
+      - name: Download the first protected approval
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: frontend-release-source-security-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/downloaded
+
+      - name: Verify candidate and source-security Sigstore provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          verify_subject() {
+            subject="$1"
+            bundle="$2"
+            gh attestation verify "$subject" \
+              --repo jh005479-sudo/lester-labs --bundle "$bundle" \
+              --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/frontend-release-attestation.yml \
+              --source-ref refs/heads/main --source-digest "$GITHUB_SHA" \
+              --signer-digest "$GITHUB_SHA" --deny-self-hosted-runners --format json >/dev/null
+          }
+          verify_subject "$RUNNER_TEMP/downloaded/frontend-release-candidate.json" \
+            "$RUNNER_TEMP/downloaded/github-sigstore-provenance.jsonl"
+          verify_subject "$RUNNER_TEMP/downloaded/source-security-approval.json" \
+            "$RUNNER_TEMP/downloaded/source-security-approval.provenance.jsonl"
+
+      - name: Create the role-bound release-operations envelope
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/release-approval"
+          created_at="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$RUNNER_TEMP/downloaded:/downloaded:ro" \
+            -v "$GITHUB_WORKSPACE/release-approval:/approval:rw" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs approval-envelope \
+              --candidate /downloaded/frontend-release-candidate.json \
+              --candidate-provenance /downloaded/github-sigstore-provenance.jsonl \
+              --role release-operations --environment frontend-release-operations \
+              --repository "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" \
+              --workflow-path .github/workflows/frontend-release-attestation.yml \
+              --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" \
+              --requested-by "$GITHUB_ACTOR" --created-at "$created_at" \
+              --output /approval/release-operations-approval.json
+
+      - name: Sign the protected release-operations approval
+        id: operations-approval-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: release-approval/release-operations-approval.json
+
+      - name: Assemble and validate the approved immutable release package
+        shell: bash
+        env:
+          OPERATIONS_PROVENANCE_BUNDLE: ${{ steps.operations-approval-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          test -f "$OPERATIONS_PROVENANCE_BUNDLE"
+          cp -- "$OPERATIONS_PROVENANCE_BUNDLE" release-approval/release-operations-approval.provenance.jsonl
+          gh attestation verify release-approval/release-operations-approval.json \
+            --repo jh005479-sudo/lester-labs \
+            --bundle release-approval/release-operations-approval.provenance.jsonl \
+            --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/frontend-release-attestation.yml \
+            --source-ref refs/heads/main --source-digest "$GITHUB_SHA" \
+            --signer-digest "$GITHUB_SHA" --deny-self-hosted-runners --format json >/dev/null
+          mkdir -p "$GITHUB_WORKSPACE/approved-release"
+          cp -R -- "$RUNNER_TEMP/downloaded/." "$GITHUB_WORKSPACE/approved-release/"
+          cp -R -- release-approval/. "$GITHUB_WORKSPACE/approved-release/"
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$GITHUB_WORKSPACE/approved-release:/release:rw" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs approve \
+              --candidate /release/frontend-release-candidate.json \
+              --source-envelope /release/source-security-approval.json \
+              --source-provenance /release/source-security-approval.provenance.jsonl \
+              --operations-envelope /release/release-operations-approval.json \
+              --operations-provenance /release/release-operations-approval.provenance.jsonl \
+              --output /release/approved-manifest.json
+
+      - name: Sign the final approved manifest
+        id: approved-manifest-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: approved-release/approved-manifest.json
+
+      - name: Preserve final provenance and upload the immutable promotion package
+        shell: bash
+        env:
+          APPROVED_PROVENANCE_BUNDLE: ${{ steps.approved-manifest-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$APPROVED_PROVENANCE_BUNDLE"
+          cp -- "$APPROVED_PROVENANCE_BUNDLE" approved-release/approved-manifest.provenance.jsonl
+          test -s approved-release/frontend-standalone.tar
+          test -s approved-release/approved-manifest.json
+
+      - name: Upload the approved immutable release package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-release-approved-evidence-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: approved-release/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          include-hidden-files: false

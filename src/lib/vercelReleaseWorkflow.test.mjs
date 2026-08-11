@@ -1,0 +1,183 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { describe, it } from 'node:test'
+
+function workflow(name) {
+  return readFileSync(new URL(`../../.github/workflows/${name}`, import.meta.url), 'utf8')
+}
+
+function shellRunBlocks(contents) {
+  const lines = contents.split('\n')
+  const blocks = []
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = /^(\s*)run: \|[-+]?\s*$/u.exec(lines[index])
+    if (!match) continue
+    const indentation = match[1].length
+    const block = []
+    for (index += 1; index < lines.length; index += 1) {
+      const line = lines[index]
+      if (line.trim() !== '' && /^\s*/u.exec(line)[0].length <= indentation) {
+        index -= 1
+        break
+      }
+      block.push(line)
+    }
+    blocks.push(block.join('\n'))
+  }
+  return blocks
+}
+
+describe('Vercel release orchestration', () => {
+  it('separates validation, disposable canary, staging, human approval, promotion, and rollback', () => {
+    const canary = workflow('vercel-provider-canary.yml')
+    const release = workflow('vercel-production-release.yml')
+    const rollback = workflow('vercel-production-rollback.yml')
+
+    assert.match(canary, /validate-inputs:\n[\s\S]*?runs-on: ubuntu-24\.04/)
+    assert.match(canary, /canary:\n[\s\S]*?needs: validate-inputs[\s\S]*?environment: frontend-vercel-provider-canary/)
+    assert.match(canary, /test "\$CANARY_PROJECT_ID" != "\$PRODUCTION_PROJECT_ID"/)
+    assert.match(canary, /provider-canary-(?:emergency|next)/)
+
+    assert.match(release, /validate-inputs:\n[\s\S]*?runs-on: ubuntu-24\.04/)
+    assert.match(release, /stage:\n[\s\S]*?environment: frontend-vercel-staging/)
+    assert.match(release, /staged-parity:\n[\s\S]*?name: frontend-vercel-staged-parity/)
+    assert.match(release, /promotion-approval:\n[\s\S]*?name: frontend-production-promotion/)
+    assert.match(release, /name: Human approval for \$\{\{ needs\.stage\.outputs\.deployment_id \}\}/)
+    assert.match(release, /url: \$\{\{ needs\.stage\.outputs\.deployment_url \}\}/)
+    assert.match(release, /promote:\n[\s\S]*?environment: frontend-vercel-promotion-executor/)
+    assert.match(release, /id: compensate-promotion-failure[\s\S]*?VERCEL_PROMOTION_COMPENSATION_TOKEN/)
+    assert.match(release, /steps\.promote-operation\.outcome != 'success'/)
+    assert.match(release, /steps\.upload-promotion-evidence\.outcome != 'success'/)
+    assert.match(release, /vercel-rest-release\.mjs recover-promotion/)
+    assert.match(release, /vercel-promotion-compensation\/recovery-evidence\.json/)
+    assert.match(release, /vercel-rest-release\.mjs cleanup-stage/)
+    assert.match(release, /VERCEL_STAGE_CLEANUP_TOKEN/)
+    assert.match(release, /rollback-on-parity-failure:\n[\s\S]*?environment: frontend-vercel-automatic-rollback/)
+    assert.match(release, /needs\.frontend-production-parity\.result != 'success'/)
+    assert.match(release, /needs\.emergency-production-parity\.result != 'success'/)
+    assert.match(release, /uses: \.\/\.github\/workflows\/frontend-served-parity\.yml/)
+    assert.match(release, /uses: \.\/\.github\/workflows\/emergency-served-parity\.yml/)
+
+    assert.match(rollback, /expected_promoted_deployment_id:/)
+    assert.match(rollback, /adapter_commit:/)
+    assert.match(rollback, /promotion_source_commit:/)
+    assert.match(rollback, /environment: frontend-vercel-rollback/)
+    assert.match(rollback, /value\.deployment\?\.id !== deploymentId/)
+    assert.match(rollback, /vercel-rest-release\.mjs rollback/)
+  })
+
+  it('cryptographically binds exact source, canary, stage, parity, approval, and promotion subjects', () => {
+    const canary = workflow('vercel-provider-canary.yml')
+    const release = workflow('vercel-production-release.yml')
+    const rollback = workflow('vercel-production-rollback.yml')
+    const emergencyParity = workflow('emergency-served-parity.yml')
+    const frontendParity = workflow('frontend-served-parity.yml')
+
+    for (const contents of [canary, release, emergencyParity]) {
+      assert.match(contents, /--source-ref refs\/heads\/main/)
+      assert.match(contents, /--source-digest "\$REVIEWED_COMMIT"/)
+      assert.match(contents, /--signer-digest "\$REVIEWED_COMMIT"/)
+    }
+    assert.match(frontendParity, /--source-digest "\$GITHUB_SHA"/)
+    assert.match(frontendParity, /--signer-digest "\$GITHUB_SHA"/)
+    assert.match(rollback, /--source-digest "\$PROMOTION_SOURCE_COMMIT"/)
+    assert.match(rollback, /--signer-digest "\$PROMOTION_SOURCE_COMMIT"/)
+    assert.match(canary, /--deny-self-hosted-runners/)
+    assert.match(release, /provider-canary\.provenance\.jsonl/)
+    assert.match(release, /stage-evidence\.provenance\.jsonl/)
+    assert.match(release, /staged-parity\.provenance\.jsonl/)
+    assert.match(release, /promotion-approval\.provenance\.jsonl/)
+    assert.match(release, /promotion-evidence\.provenance\.jsonl/)
+    assert.match(release, /--stage-provenance/)
+    assert.match(release, /--provider-canary-evidence/)
+    assert.match(release, /--provider-canary-provenance/)
+    assert.match(release, /safe_rollback_commit:/)
+    assert.match(release, /safe_rollback_run_id:/)
+    assert.match(release, /--safe-rollback-promotion-evidence/)
+    assert.match(release, /--safe-rollback-parity-evidence/)
+    assert.match(release, /signed hold-or-safe-rollback disposition/)
+    assert.match(release, /provider_canary_run_attempt/)
+    assert.match(release, /attestation_run_attempt/)
+    assert.match(emergencyParity, /promotion_run_attempt/)
+    assert.match(frontendParity, /promotion_run_attempt/)
+    assert.match(frontendParity, /--promotion-verification -/)
+    assert.match(emergencyParity, /--promotion-verification -/)
+    assert.match(rollback, /--deny-self-hosted-runners/)
+  })
+
+  it('keeps Vercel tokens step-scoped and performs no dependency install or provider CLI execution', () => {
+    const files = [
+      'vercel-provider-canary.yml',
+      'vercel-production-release.yml',
+      'vercel-production-rollback.yml',
+      'emergency-served-parity.yml',
+      'frontend-served-parity.yml',
+    ]
+    const combined = files.map(workflow).join('\n')
+    assert.doesNotMatch(combined, /npm\s+(?:ci|install)|npm exec|\bnpx\b/)
+    assert.doesNotMatch(combined, /\bvercel\s+(?:deploy|promote|rollback|build|pull)\b/)
+    assert.doesNotMatch(combined, /(?:echo|printf)[^\n]*VERCEL_(?:CANARY|STAGING|PROMOTION(?:_COMPENSATION)?|AUTOMATIC_ROLLBACK|ROLLBACK)_TOKEN/)
+    assert.equal((combined.match(/VERCEL_TOKEN: \$\{\{ secrets\./g) ?? []).length, 7)
+    assert.match(combined, /ACTIONS_ID_TOKEN_REQUEST_URL/)
+    assert.match(combined, /::add-mask::/)
+    assert.match(combined, /VERCEL_TRUSTED_OIDC_TOKEN=\\n/)
+  })
+
+  it('pins the gh verifier inside every attestation-verification shell block', () => {
+    const files = [
+      'frontend-release-attestation.yml',
+      'vercel-provider-canary.yml',
+      'vercel-production-release.yml',
+      'vercel-production-rollback.yml',
+      'emergency-served-parity.yml',
+      'frontend-served-parity.yml',
+    ]
+    let verificationBlocks = 0
+    for (const name of files) {
+      for (const block of shellRunBlocks(workflow(name))) {
+        if (!block.includes('gh attestation verify')) continue
+        verificationBlocks += 1
+        assert.match(block, /gh version \| head -n 1 \| cut -d' ' -f3\)" = "2\.96\.0"/)
+      }
+    }
+    assert.ok(verificationBlocks >= 10)
+  })
+
+  it('uses run-attempt-qualified release artifacts and has one EU and one US vantage job', () => {
+    const release = workflow('vercel-production-release.yml')
+    const emergencyParity = workflow('emergency-served-parity.yml')
+    const frontendParity = workflow('frontend-served-parity.yml')
+    const source = workflow('frontend-release-attestation.yml')
+    const emergencySource = workflow('emergency-containment-attestation.yml')
+    const combined = [release, emergencyParity, frontendParity, source, emergencySource].join('\n')
+    for (const prefix of [
+      'vercel-stage-',
+      'vercel-promotion-',
+      'emergency-parity-',
+      'frontend-parity-',
+      'frontend-release-candidate-',
+      'frontend-release-approved-evidence-',
+      'emergency-containment-',
+    ]) {
+      const lines = combined.split('\n').filter((line) => line.includes(`name: ${prefix}`))
+      assert.ok(lines.length > 0, `missing ${prefix} artifact coverage`)
+      assert.equal(
+        lines.every((line) => line.includes('run_attempt') || line.includes('run-attempt') || line.includes('artifact_name')),
+        true,
+        `${prefix} artifact name is not run-attempt qualified`,
+      )
+    }
+    assert.equal((frontendParity.match(/^  vantage-eu:/gmu) ?? []).length, 1)
+    assert.equal((frontendParity.match(/^  vantage-us:/gmu) ?? []).length, 1)
+    assert.equal((emergencyParity.match(/^  vantage-eu:/gmu) ?? []).length, 1)
+    assert.equal((emergencyParity.match(/^  vantage-us:/gmu) ?? []).length, 1)
+  })
+
+  it('prints each release evidence digest once', () => {
+    const adapter = readFileSync(
+      new URL('../../scripts/security/vercel-rest-release.mjs', import.meta.url),
+      'utf8',
+    )
+    assert.equal((adapter.match(/process\.stdout\.write\(`\$\{label\}:/g) ?? []).length, 1)
+  })
+})

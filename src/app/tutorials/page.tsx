@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Zap, Shield, ArrowRight, Layers, Clock } from 'lucide-react'
 import { TUTORIALS } from '@/lib/tutorials-content'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
   return (
@@ -103,7 +104,9 @@ export default function TutorialsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">LitVM DeFi Tutorials & Guides</h1>
           <p className="text-white/50 text-sm mt-1">
-            Safety and recovery guides for LitVM LiteForge, including current Lester Labs containment, bounded data coverage, legacy-position recovery, and replacement verification.
+            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+              ? 'Safety and recovery guides for LitVM LiteForge, including the reviewed replacement candidate, bounded data coverage, legacy-position recovery, and the separate production-serving gate.'
+              : 'Safety and recovery guides for LitVM LiteForge, including current Lester Labs containment, bounded data coverage, legacy-position recovery, and replacement verification.'}
           </p>
         </div>
 
@@ -177,10 +180,12 @@ export default function TutorialsPage() {
           borderRadius: '16px', textAlign: 'center',
         }}>
           <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>
-            Verify the current status first
+            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Verify the candidate and deployment gate first' : 'Verify the current status first'}
           </h3>
           <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', marginBottom: '24px' }}>
-            Ordinary writes are disabled while the replacement deployment and served build are independently verified.
+            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+              ? 'Candidate replacement targets are source-pinned. Public serving still requires the separate approved frontend manifest and apex/www byte-parity proof.'
+              : 'Ordinary writes are disabled while the replacement deployment and served build are independently verified.'}
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link

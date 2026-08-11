@@ -28,6 +28,7 @@ import {
 } from '@/lib/dexTransactionReads'
 import { computeRemoveLiquidityMinimums, sameAddress, validateSlippageBps } from '@/lib/dexTransactionSafety'
 import { wagmiConfig } from '@/config/wagmi'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 const ACCENT = '#E44FB5'
 const PAGE_SIZE = 10
@@ -136,11 +137,11 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
             </button>
           )}
           <Link
-            href="/security"
+            href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/security'}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
           >
             <Plus size={12} />
-            New liquidity disabled
+            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Add liquidity' : 'New liquidity disabled'}
           </Link>
           <Link
             href={`/charts?pair=${pairAddress}`}
@@ -1125,7 +1126,9 @@ export default function PoolPage() {
         category="Dex"
         title="Liquidity"
         titleHighlight="Pool"
-        subtitle="Inspect the bounded newest factory-pair window and eligible wallet positions. New pools and liquidity additions are disabled; authenticated legacy removal is recovery-only."
+        subtitle={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+          ? 'Inspect bounded source-pinned replacement pairs, create liquidity, or recover eligible legacy LP positions.'
+          : 'Inspect the bounded newest factory-pair window and eligible wallet positions. New pools and liquidity additions are disabled; authenticated legacy removal is recovery-only.'}
         color={ACCENT}
         image="/images/carousel/pool.png"
         imagePosition="center 65px"
@@ -1143,7 +1146,9 @@ export default function PoolPage() {
         <section className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">Source-pinned recovery deployment</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned DEX candidate' : 'Source-pinned recovery deployment'}
+              </p>
               <h2 className="mt-2 text-lg font-semibold text-white">{selectedDexDeployment.label}</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/50">
                 Positions, allowances, quotes, and removal calls below are scoped to this exact factory/router/wrapped-native tuple. Changing the selection clears any open removal flow.
@@ -1245,7 +1250,7 @@ export default function PoolPage() {
               </div>
             )}
             <Link
-              href="/security"
+              href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/security'}
               className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition sm:flex-none"
               style={{
                 background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
@@ -1253,7 +1258,7 @@ export default function PoolPage() {
               }}
             >
               <Plus size={14} />
-              New Pools Disabled
+              {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Create Pool' : 'New Pools Disabled'}
             </Link>
           </div>
         </div>
@@ -1281,17 +1286,19 @@ export default function PoolPage() {
               </div>
               <h2 className="mt-5 text-2xl font-semibold text-white">No pools in the loaded window</h2>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/45">
-                This bounded newest-pair view returned no pools. New pool creation remains disabled.
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                  ? 'This bounded newest-pair view returned no pools. Open the source-pinned replacement pool creation flow to create one.'
+                  : 'This bounded newest-pair view returned no pools. New pool creation remains disabled.'}
               </p>
               <Link
-                href="/security"
+                href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/security'}
                 className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition"
                 style={{
                   background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
                 }}
               >
                 <Plus size={14} />
-                Review Security Status
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Create Pool' : 'Review Security Status'}
               </Link>
             </div>
           ) : (
@@ -1402,7 +1409,9 @@ export default function PoolPage() {
                 </div>
                 <h2 className="mt-5 text-2xl font-semibold text-white">No LP positions</h2>
                 <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/45">
-                  No LP balance was found in the loaded newest-pair window. This is not a complete wallet history, and new liquidity additions remain disabled.
+                  {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                    ? 'No LP balance was found in the loaded newest-pair window. This is not a complete wallet history; use the source-pinned replacement DEX to review new liquidity.'
+                    : 'No LP balance was found in the loaded newest-pair window. This is not a complete wallet history, and new liquidity additions remain disabled.'}
                 </p>
                 <Link
                   href="/swap"
@@ -1410,7 +1419,7 @@ export default function PoolPage() {
                   style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)` }}
                 >
                   <Droplets size={14} />
-                  Review DEX Status
+                  {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Open DEX' : 'Review DEX Status'}
                 </Link>
               </div>
             ) : (

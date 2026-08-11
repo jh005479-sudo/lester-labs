@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 export const metadata: Metadata = {
   title: 'LitVM LiteForge Testnet Safety Guide | Lester Labs',
@@ -24,7 +25,9 @@ export default function LitvmTestnetPage() {
         <p className="mt-6 max-w-3xl text-lg leading-8 text-white/55">
           Cross-check these values at LitVM&apos;s independently located official testnet hub. Testnet assets are for
           testing; the network, bridge, contracts, fees, and behaviour do not guarantee any future mainnet deployment.
-          Lester Labs ordinary writes remain disabled during its post-compromise cutover.
+          {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+            ? ' Lester Labs candidate replacement writes target only this testnet and remain chain-guarded to ID 4441; public serving is separately gated.'
+            : ' Lester Labs ordinary writes remain disabled during its post-compromise cutover.'}
         </p>
         <dl className="mt-10 overflow-hidden rounded-2xl border border-white/10">
           {parameters.map(([label, value]) => (

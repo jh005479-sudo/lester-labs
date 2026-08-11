@@ -1,6 +1,6 @@
 # Token Factory — Containment and Replacement Readiness
 
-> **Current status:** the legacy Token Factory at
+> **Legacy deployment status:** the legacy Token Factory at
 > `0x93acc61fcdc2e3407A0c03450Adfd8aE78964948` remains controlled by the
 > compromised legacy authority. New token creation and its paid write are
 > disabled. Do not call `createToken` directly or send zkLTC to the factory.
@@ -29,7 +29,7 @@ factory owner. That fee is a historical parameter, not a current offer.
 
 ## Replacement design
 
-A replacement factory is prepared but not active. Its reviewed deployment must:
+Any replacement factory is treated as a candidate only after its reviewed deployment:
 
 - be deployed from the separately attested single-use gas EOA;
 - place administrative ownership with the approved **controller**;

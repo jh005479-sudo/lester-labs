@@ -1,0 +1,133 @@
+name: Wallet-free emergency containment evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_commit:
+        description: Exact lowercase commit on protected main
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emergency-containment-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_IMAGE: docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5
+
+jobs:
+  attest:
+    name: Verify, package, and sign the static containment site
+    runs-on: ubuntu-24.04
+    environment: frontend-emergency-containment
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact reviewed revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enforce protected main, exact commit, and clean source
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$REVIEWED_COMMIT" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(uname -m)" = "x86_64"
+
+      - name: Verify the digest-pinned packaging runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull --platform linux/amd64 "$RELEASE_IMAGE"
+          docker image inspect "$RELEASE_IMAGE" --format '{{json .RepoDigests}}' \
+            | grep -F 'sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5'
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=64m \
+            "$RELEASE_IMAGE" sh -eu -c '
+              test "$(node --version)" = "v24.18.0"
+              test "$(node -p process.arch)" = "x64"
+              tar --version | grep -F "GNU tar"
+            '
+
+      - name: Verify and package the four-file static artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/emergency-release" "$RUNNER_TEMP/reverify"
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=64m \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$GITHUB_WORKSPACE/emergency-release:/release:rw" -w /source \
+            "$RELEASE_IMAGE" sh -eu -c '
+              node scripts/security/verify-emergency-containment.mjs \
+                --root /source/emergency-site \
+                --output /release/emergency-containment.inventory.json
+              tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+                --format=ustar -C /source/emergency-site \
+                -cf /release/emergency-containment.tar \
+                .well-known/security.txt index.html robots.txt vercel.json
+            '
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=64m \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$GITHUB_WORKSPACE/emergency-release:/release:ro" \
+            -v "$RUNNER_TEMP/reverify:/reverify:rw" -w /source \
+            "$RELEASE_IMAGE" sh -eu -c '
+              tar --extract --file /release/emergency-containment.tar \
+                --directory /reverify --no-same-owner --no-same-permissions
+              node scripts/security/verify-emergency-containment.mjs \
+                --root /reverify --output /reverify/reverified.json
+              cmp /release/emergency-containment.inventory.json /reverify/reverified.json
+            '
+
+      - name: Sign the emergency inventory
+        id: inventory-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: emergency-release/emergency-containment.inventory.json
+
+      - name: Sign the emergency archive
+        id: archive-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: emergency-release/emergency-containment.tar
+
+      - name: Preserve provenance bundles
+        shell: bash
+        env:
+          INVENTORY_PROVENANCE: ${{ steps.inventory-provenance.outputs.bundle-path }}
+          ARCHIVE_PROVENANCE: ${{ steps.archive-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$INVENTORY_PROVENANCE"
+          test -f "$ARCHIVE_PROVENANCE"
+          cp -- "$INVENTORY_PROVENANCE" emergency-release/emergency-containment.inventory.provenance.jsonl
+          cp -- "$ARCHIVE_PROVENANCE" emergency-release/emergency-containment.archive.provenance.jsonl
+
+      - name: Upload the signed wallet-free containment package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: emergency-containment-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: emergency-release/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          include-hidden-files: false

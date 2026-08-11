@@ -1,6 +1,6 @@
 # Governance — Retired Legacy Stack and Replacement Readiness
 
-> **Current status:** the legacy governance token, governor, and timelock are
+> **Legacy deployment status:** the legacy governance token, governor, and timelock are
 > retired and read-only. Proposal submission, voting, delegation, queueing,
 > cancellation, and execution are disabled in the Lester Labs application.
 

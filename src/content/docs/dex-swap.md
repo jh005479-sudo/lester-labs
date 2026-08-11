@@ -1,7 +1,7 @@
 # LitVM DEX — Legacy Recovery and Replacement Readiness
 
-> **Current status:** the factory, router, and wrapped-native contract currently
-> visible in the application are compromised legacy deployments. New swaps,
+> **Legacy deployment status:** the factory, router, and wrapped-native contract
+> retained for recovery are compromised legacy deployments. New swaps,
 > token approvals for trading, wrapping, pool creation, and liquidity additions
 > are disabled. Only source-pinned, runtime-authenticated withdrawal paths for
 > existing LP or wrapped-native positions may remain available.
@@ -78,9 +78,11 @@ first-party continuity analytics. It counts one successful public router call,
 regardless of hop count, and excludes direct pair swaps. That extension does not
 change pair accounting.
 
-No replacement is active until factory, router, wrapper, pair init-code/runtime,
-constructor inputs, role assignments, and the clean served frontend are all
-independently attested and source-pinned.
+A replacement is treated as a candidate only when factory, router, wrapper,
+pair init-code/runtime, constructor inputs, role assignments, and the exact
+approval evidence are independently attested and source-pinned. Public serving
+additionally requires the separate approved frontend manifest and served-
+artifact parity proof.
 
 ## Network configuration
 

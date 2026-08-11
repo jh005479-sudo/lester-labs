@@ -90,6 +90,71 @@ interface ApprovedPublicReplacementDeployment {
   runtimeCodeBytes: number
 }
 
+interface ApprovedSafeAuthorityVerification {
+  address: LitvmContractAddress
+  factoryAddress: LitvmContractAddress
+  deploymentTransactionHash: RuntimeCodeHash
+  deploymentBlockNumber: number
+  deploymentBlockHash: RuntimeCodeHash
+  deploymentBlockTimestamp: number
+  saltNonce: string
+  proxyRuntimeCodeHash: RuntimeCodeHash
+  implementationAddress: LitvmContractAddress
+  implementationRuntimeCodeHash: RuntimeCodeHash
+  safeVersion: string
+  owners: readonly LitvmContractAddress[]
+  threshold: number
+  nonce: 0
+  enabledModules: readonly LitvmContractAddress[]
+  guard: LitvmContractAddress
+  fallbackHandler: LitvmContractAddress
+  benignSafeReceivedLogCount: number
+}
+
+interface ApprovedProductionAuthorityVerification {
+  inventorySha256: RuntimeCodeHash
+  chainId: '4441'
+  blockNumber: number
+  blockHash: RuntimeCodeHash
+  blockTimestamp: number
+  authorityReviewMaxAgeSeconds: number
+  gasOnlyDeployer: LitvmContractAddress
+  controller: ApprovedSafeAuthorityVerification
+  treasury: ApprovedSafeAuthorityVerification
+}
+
+const PRODUCTION_AUTHORITY_REVIEW_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+const PRODUCTION_AUTHORITY_VERIFICATION_KEYS = [
+  'inventorySha256', 'chainId', 'blockNumber', 'blockHash', 'blockTimestamp',
+  'authorityReviewMaxAgeSeconds', 'gasOnlyDeployer', 'controller', 'treasury',
+] as const
+const SAFE_AUTHORITY_VERIFICATION_KEYS = [
+  'address', 'factoryAddress', 'deploymentTransactionHash', 'deploymentBlockNumber',
+  'deploymentBlockHash', 'deploymentBlockTimestamp', 'saltNonce', 'proxyRuntimeCodeHash',
+  'implementationAddress', 'implementationRuntimeCodeHash', 'safeVersion', 'owners',
+  'threshold', 'nonce', 'enabledModules', 'guard', 'fallbackHandler',
+  'benignSafeReceivedLogCount',
+] as const
+
+interface ApprovedReplacementCountersAtCutover {
+  tokensMinted: 0
+  walletsAirdropped: 0
+  presalesCreated: 0
+  swapsCompleted: 0
+  onChainMessages: 0
+}
+
+const INDEPENDENT_REPLACEMENT_VERIFICATION_CHECKS = Object.freeze([
+  'source-and-build-attestation',
+  'legacy-runtime-anchors',
+  'deployment-transactions-and-receipts',
+  'replacement-runtime-code-and-byte-lengths',
+  'constructor-parameters-and-role-bindings',
+  'production-safe-creation-history-and-owner-eoas',
+  'production-safe-authorities',
+  'zero-replacement-counters-at-cutover',
+] as const)
+
 export interface ApprovedPublicReplacementPackage {
   status: 'APPROVED'
   approvalPayloadSha256: RuntimeCodeHash
@@ -131,6 +196,24 @@ export interface ApprovedPublicReplacementPackage {
     }
     iloChild: RuntimeCodeHash
   }
+  sourceEvidence: {
+    productionAuthoritiesRawSha256: RuntimeCodeHash
+    controlPlaneRecoveryRawSha256: RuntimeCodeHash
+    productionAuthorityVerification: ApprovedProductionAuthorityVerification
+    independentReplacementVerification: {
+      reportSha256: RuntimeCodeHash
+      status: 'VERIFIED_INDEPENDENT_RPC'
+      primaryRpcOrigin: string
+      rpcUrl: string
+      chainId: '4441'
+      blockNumber: number
+      blockHash: RuntimeCodeHash
+      deploymentManifestSha256: RuntimeCodeHash
+      verifiedChecks: readonly (typeof INDEPENDENT_REPLACEMENT_VERIFICATION_CHECKS)[number][]
+      productionAuthorityVerification: ApprovedProductionAuthorityVerification
+      replacementCountersAtCutover: ApprovedReplacementCountersAtCutover
+    }
+  }
   activityCutover: {
     throughBlock: number
     blockHash: RuntimeCodeHash
@@ -141,7 +224,21 @@ export interface ApprovedPublicReplacementPackage {
       swapsCompleted: number
       onChainMessages: number
     }
+    independentSecondRpc: {
+      candidateRawSha256: RuntimeCodeHash
+      candidatePayloadSha256: RuntimeCodeHash
+      proofRawSha256: RuntimeCodeHash
+      rpcUrl: string
+    }
+    replacementCountersAtCutover: ApprovedReplacementCountersAtCutover
   }
+  reviewerApprovals: readonly {
+    reviewer: string
+    reviewRole: string
+    approvalPayloadSha256: RuntimeCodeHash
+    evidenceSha256: RuntimeCodeHash
+    approvedAt: string
+  }[]
 }
 
 const PUBLIC_REPLACEMENT_MANIFEST_KEYS = Object.freeze([
@@ -201,7 +298,9 @@ export function assertExactApprovedPublicReplacementPackageShape(
     'deploymentManifestSha256',
     'deploymentManifest',
     'frontendRuntimeAttestations',
+    'sourceEvidence',
     'activityCutover',
+    'reviewerApprovals',
   ], 'The APPROVED public replacement package')
   if (value.status !== 'APPROVED') throw new Error('The public replacement package status is not APPROVED.')
 
@@ -267,12 +366,90 @@ export function assertExactApprovedPublicReplacementPackageShape(
     assertExactObjectKeys(reference, ['start', 'length'], 'A VestingWallet immutable reference')
   }
 
-  assertExactObjectKeys(value.activityCutover, ['throughBlock', 'blockHash', 'totals'], 'The activity cutover')
+  assertExactObjectKeys(
+    value.sourceEvidence,
+    [
+      'productionAuthoritiesRawSha256',
+      'controlPlaneRecoveryRawSha256',
+      'productionAuthorityVerification',
+      'independentReplacementVerification',
+    ],
+    'The source evidence inventory',
+  )
+  assertExactObjectKeys(
+    value.sourceEvidence.productionAuthorityVerification,
+    PRODUCTION_AUTHORITY_VERIFICATION_KEYS,
+    'The production authority verification',
+  )
+  for (const [label, authority] of [
+    ['controller', value.sourceEvidence.productionAuthorityVerification.controller],
+    ['treasury', value.sourceEvidence.productionAuthorityVerification.treasury],
+  ] as const) {
+    assertExactObjectKeys(
+      authority,
+      SAFE_AUTHORITY_VERIFICATION_KEYS,
+      `The verified production ${label}`,
+    )
+  }
+  assertExactObjectKeys(
+    value.sourceEvidence.independentReplacementVerification,
+    [
+      'reportSha256', 'status', 'primaryRpcOrigin', 'rpcUrl', 'chainId', 'blockNumber',
+      'blockHash', 'deploymentManifestSha256', 'verifiedChecks',
+      'productionAuthorityVerification', 'replacementCountersAtCutover',
+    ],
+    'The independent replacement verification report',
+  )
+  assertExactObjectKeys(
+    value.sourceEvidence.independentReplacementVerification.productionAuthorityVerification,
+    PRODUCTION_AUTHORITY_VERIFICATION_KEYS,
+    'The independent production authority verification',
+  )
+  for (const [label, authority] of [
+    ['controller', value.sourceEvidence.independentReplacementVerification.productionAuthorityVerification.controller],
+    ['treasury', value.sourceEvidence.independentReplacementVerification.productionAuthorityVerification.treasury],
+  ] as const) {
+    assertExactObjectKeys(
+      authority,
+      SAFE_AUTHORITY_VERIFICATION_KEYS,
+      `The independently verified production ${label}`,
+    )
+  }
+  assertExactObjectKeys(
+    value.sourceEvidence.independentReplacementVerification.replacementCountersAtCutover,
+    ['tokensMinted', 'walletsAirdropped', 'presalesCreated', 'swapsCompleted', 'onChainMessages'],
+    'The independently verified replacement cutover counters',
+  )
+  assertExactObjectKeys(
+    value.activityCutover,
+    ['throughBlock', 'blockHash', 'totals', 'independentSecondRpc', 'replacementCountersAtCutover'],
+    'The activity cutover',
+  )
   assertExactObjectKeys(
     value.activityCutover.totals,
     ['tokensMinted', 'walletsAirdropped', 'presalesCreated', 'swapsCompleted', 'onChainMessages'],
     'The activity cutover totals',
   )
+  assertExactObjectKeys(
+    value.activityCutover.independentSecondRpc,
+    ['candidateRawSha256', 'candidatePayloadSha256', 'proofRawSha256', 'rpcUrl'],
+    'The independent second-RPC cutover evidence',
+  )
+  assertExactObjectKeys(
+    value.activityCutover.replacementCountersAtCutover,
+    ['tokensMinted', 'walletsAirdropped', 'presalesCreated', 'swapsCompleted', 'onChainMessages'],
+    'The replacement cutover counters',
+  )
+  if (!Array.isArray(value.reviewerApprovals) || value.reviewerApprovals.length < 2) {
+    throw new Error('The approved public replacement package requires at least two reviewer approval records.')
+  }
+  for (const approval of value.reviewerApprovals) {
+    assertExactObjectKeys(
+      approval,
+      ['reviewer', 'reviewRole', 'approvalPayloadSha256', 'evidenceSha256', 'approvedAt'],
+      'A public replacement reviewer approval',
+    )
+  }
 }
 
 function loadApprovedPublicReplacementPackage(value: unknown): ApprovedPublicReplacementPackage | undefined {
@@ -690,6 +867,7 @@ export const CONTRACT_TARGET_OVERRIDE_ENV_VARS = Object.freeze([
   'NEXT_PUBLIC_GOVERNOR_ADDRESS',
   'NEXT_PUBLIC_GOVERNANCE_TIMELOCK_ADDRESS',
   'NEXT_PUBLIC_LITVM_RPC_URL',
+  'NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID',
 ] as const)
 
 export function isValidContractAddress(address: string | undefined): address is LitvmContractAddress {
@@ -844,6 +1022,24 @@ export function assertCanonicalContractConfiguration(): void {
       ['plan hash', manifest.planHash],
       ['build attestation SHA-256', manifest.buildAttestationSha256],
       ['activity cutover block hash', approvedPackage.activityCutover.blockHash],
+      ['production authority inventory raw SHA-256', approvedPackage.sourceEvidence.productionAuthoritiesRawSha256],
+      ['control-plane recovery raw SHA-256', approvedPackage.sourceEvidence.controlPlaneRecoveryRawSha256],
+      ['activity cutover candidate raw SHA-256', approvedPackage.activityCutover.independentSecondRpc.candidateRawSha256],
+      ['activity cutover candidate payload SHA-256', approvedPackage.activityCutover.independentSecondRpc.candidatePayloadSha256],
+      ['activity cutover second-RPC proof raw SHA-256', approvedPackage.activityCutover.independentSecondRpc.proofRawSha256],
+      ['verified production authority inventory SHA-256', approvedPackage.sourceEvidence.productionAuthorityVerification.inventorySha256],
+      ['verified production authority block hash', approvedPackage.sourceEvidence.productionAuthorityVerification.blockHash],
+      ['verified controller creation transaction hash', approvedPackage.sourceEvidence.productionAuthorityVerification.controller.deploymentTransactionHash],
+      ['verified controller creation block hash', approvedPackage.sourceEvidence.productionAuthorityVerification.controller.deploymentBlockHash],
+      ['verified controller proxy runtime hash', approvedPackage.sourceEvidence.productionAuthorityVerification.controller.proxyRuntimeCodeHash],
+      ['verified controller implementation runtime hash', approvedPackage.sourceEvidence.productionAuthorityVerification.controller.implementationRuntimeCodeHash],
+      ['verified treasury proxy runtime hash', approvedPackage.sourceEvidence.productionAuthorityVerification.treasury.proxyRuntimeCodeHash],
+      ['verified treasury creation transaction hash', approvedPackage.sourceEvidence.productionAuthorityVerification.treasury.deploymentTransactionHash],
+      ['verified treasury creation block hash', approvedPackage.sourceEvidence.productionAuthorityVerification.treasury.deploymentBlockHash],
+      ['verified treasury implementation runtime hash', approvedPackage.sourceEvidence.productionAuthorityVerification.treasury.implementationRuntimeCodeHash],
+      ['independent replacement verification report SHA-256', approvedPackage.sourceEvidence.independentReplacementVerification.reportSha256],
+      ['independent replacement verification block hash', approvedPackage.sourceEvidence.independentReplacementVerification.blockHash],
+      ['independent replacement verification manifest SHA-256', approvedPackage.sourceEvidence.independentReplacementVerification.deploymentManifestSha256],
       ['Uniswap V2 Pair runtime hash', approvedPackage.frontendRuntimeAttestations.uniswapV2Pair],
       ['ILO child runtime hash', approvedPackage.frontendRuntimeAttestations.iloChild],
     ] as const) {
@@ -878,6 +1074,139 @@ export function assertCanonicalContractConfiguration(): void {
       )
     ) {
       throw new Error('The approved public replacement must bind exactly five non-negative activity totals.')
+    }
+    if (
+      Object.keys(approvedPackage.activityCutover.replacementCountersAtCutover).length !== expectedActivityTotalNames.length ||
+      expectedActivityTotalNames.some(
+        (name) => approvedPackage.activityCutover.replacementCountersAtCutover[name] !== 0,
+      )
+    ) {
+      throw new Error('Every approved replacement activity counter must be exactly zero at the cutover block.')
+    }
+    const authorityVerification = approvedPackage.sourceEvidence.productionAuthorityVerification
+    if (
+      authorityVerification.inventorySha256 !== approvedPackage.sourceEvidence.productionAuthoritiesRawSha256 ||
+      authorityVerification.chainId !== '4441' ||
+      authorityVerification.gasOnlyDeployer.toLowerCase() !== manifest.gasOnlyDeployer.toLowerCase() ||
+      authorityVerification.blockNumber !== approvedPackage.activityCutover.throughBlock ||
+      authorityVerification.blockHash.toLowerCase() !== approvedPackage.activityCutover.blockHash.toLowerCase() ||
+      !Number.isSafeInteger(authorityVerification.blockTimestamp) || authorityVerification.blockTimestamp <= 0 ||
+      authorityVerification.authorityReviewMaxAgeSeconds !== PRODUCTION_AUTHORITY_REVIEW_MAX_AGE_SECONDS
+    ) {
+      throw new Error('The production authority verification must bind the exact inventory, chain, and activity cutover block.')
+    }
+    for (const [label, authority, expectedAddress] of [
+      ['controller', authorityVerification.controller, manifest.controller],
+      ['treasury', authorityVerification.treasury, manifest.treasury],
+    ] as const) {
+      if (
+        !ADDRESS_PATTERN.test(authority.address) ||
+        authority.address.toLowerCase() !== expectedAddress.toLowerCase() ||
+        !ADDRESS_PATTERN.test(authority.factoryAddress) ||
+        !CODE_HASH_PATTERN.test(authority.deploymentTransactionHash) ||
+        !Number.isSafeInteger(authority.deploymentBlockNumber) ||
+        authority.deploymentBlockNumber <= 0 ||
+        authority.deploymentBlockNumber > approvedPackage.activityCutover.throughBlock ||
+        !CODE_HASH_PATTERN.test(authority.deploymentBlockHash) ||
+        !Number.isSafeInteger(authority.deploymentBlockTimestamp) ||
+        authority.deploymentBlockTimestamp <= 0 ||
+        authority.deploymentBlockTimestamp > authorityVerification.blockTimestamp ||
+        !/^\d+$/.test(authority.saltNonce) ||
+        !ADDRESS_PATTERN.test(authority.implementationAddress) ||
+        authority.factoryAddress.toLowerCase() === manifest.gasOnlyDeployer.toLowerCase() ||
+        authority.implementationAddress.toLowerCase() === manifest.gasOnlyDeployer.toLowerCase() ||
+        !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(authority.safeVersion) ||
+        authority.owners.length < 2 || authority.owners.length > 32 ||
+        authority.owners.some((owner) => !ADDRESS_PATTERN.test(owner)) ||
+        authority.owners.some((owner) => owner.toLowerCase() === manifest.gasOnlyDeployer.toLowerCase()) ||
+        new Set(authority.owners.map((owner) => owner.toLowerCase())).size !== authority.owners.length ||
+        !Number.isSafeInteger(authority.threshold) || authority.threshold < 2 || authority.threshold > authority.owners.length ||
+        authority.nonce !== 0 ||
+        authority.enabledModules.length > 32 ||
+        authority.enabledModules.some((address) => !ADDRESS_PATTERN.test(address)) ||
+        new Set(authority.enabledModules.map((address) => address.toLowerCase())).size !== authority.enabledModules.length ||
+        !ADDRESS_PATTERN.test(authority.guard) ||
+        !ADDRESS_PATTERN.test(authority.fallbackHandler) ||
+        !Number.isSafeInteger(authority.benignSafeReceivedLogCount) ||
+        authority.benignSafeReceivedLogCount < 0
+      ) throw new Error(`The verified production ${label} Safe facts are invalid or do not match the manifest.`)
+    }
+    if (
+      authorityVerification.controller.factoryAddress.toLowerCase() !==
+        authorityVerification.treasury.factoryAddress.toLowerCase() ||
+      authorityVerification.controller.deploymentTransactionHash ===
+        authorityVerification.treasury.deploymentTransactionHash
+    ) {
+      throw new Error('The verified production Safes must use one pinned factory and distinct creation transactions.')
+    }
+    const independentVerification = approvedPackage.sourceEvidence.independentReplacementVerification
+    if (
+      independentVerification.status !== 'VERIFIED_INDEPENDENT_RPC' ||
+      independentVerification.chainId !== '4441' ||
+      independentVerification.blockNumber !== approvedPackage.activityCutover.throughBlock ||
+      independentVerification.blockHash.toLowerCase() !== approvedPackage.activityCutover.blockHash.toLowerCase() ||
+      independentVerification.deploymentManifestSha256 !== approvedPackage.deploymentManifestSha256 ||
+      independentVerification.rpcUrl !== approvedPackage.activityCutover.independentSecondRpc.rpcUrl ||
+      JSON.stringify(independentVerification.verifiedChecks) !==
+        JSON.stringify(INDEPENDENT_REPLACEMENT_VERIFICATION_CHECKS) ||
+      JSON.stringify(independentVerification.productionAuthorityVerification) !==
+        JSON.stringify(authorityVerification) ||
+      JSON.stringify(independentVerification.replacementCountersAtCutover) !==
+        JSON.stringify(approvedPackage.activityCutover.replacementCountersAtCutover)
+    ) {
+      throw new Error('The independent replacement verification report must bind the exact manifest, authorities, counters, and cutover block.')
+    }
+    let secondRpcUrl: URL
+    try {
+      secondRpcUrl = new URL(approvedPackage.activityCutover.independentSecondRpc.rpcUrl)
+    } catch {
+      throw new Error('The approved activity cutover second-RPC URL is invalid.')
+    }
+    if (
+      secondRpcUrl.protocol !== 'https:' ||
+      secondRpcUrl.username || secondRpcUrl.password || secondRpcUrl.search || secondRpcUrl.hash ||
+      secondRpcUrl.origin === 'https://liteforge.rpc.caldera.xyz'
+    ) {
+      throw new Error('The approved activity cutover must use a distinct credential-free HTTPS second-RPC URL.')
+    }
+    let primaryRpcOrigin: URL
+    try {
+      primaryRpcOrigin = new URL(independentVerification.primaryRpcOrigin)
+    } catch {
+      throw new Error('The independent replacement verification primary RPC origin is invalid.')
+    }
+    if (
+      primaryRpcOrigin.protocol !== 'https:' ||
+      primaryRpcOrigin.username || primaryRpcOrigin.password || primaryRpcOrigin.search || primaryRpcOrigin.hash ||
+      primaryRpcOrigin.origin !== independentVerification.primaryRpcOrigin ||
+      primaryRpcOrigin.pathname !== '/' ||
+      primaryRpcOrigin.origin === secondRpcUrl.origin
+    ) {
+      throw new Error('The independent replacement verification must bind distinct reviewed HTTPS RPC origins.')
+    }
+    const approvalReviewers = new Set<string>()
+    const approvalRoles = new Set<string>()
+    const approvalEvidence = new Set<string>()
+    for (const approval of approvedPackage.reviewerApprovals) {
+      if (
+        approval.approvalPayloadSha256 !== approvedPackage.approvalPayloadSha256 ||
+        !CODE_HASH_PATTERN.test(approval.evidenceSha256) ||
+        approval.evidenceSha256 === ZERO_HASH ||
+        typeof approval.reviewer !== 'string' || approval.reviewer.length < 2 || approval.reviewer.length > 120 ||
+        typeof approval.reviewRole !== 'string' || approval.reviewRole.length < 2 || approval.reviewRole.length > 120 ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(approval.approvedAt) ||
+        Number.isNaN(Date.parse(approval.approvedAt))
+      ) throw new Error('A public replacement reviewer approval is invalid or not bound to the exact approval payload.')
+      approvalReviewers.add(approval.reviewer.toLowerCase())
+      approvalRoles.add(approval.reviewRole.toLowerCase())
+      approvalEvidence.add(approval.evidenceSha256.toLowerCase())
+    }
+    if (
+      approvalReviewers.size !== approvedPackage.reviewerApprovals.length ||
+      approvalRoles.size < 2 ||
+      approvalEvidence.size !== approvedPackage.reviewerApprovals.length
+    ) {
+      throw new Error('Public replacement approval records require distinct reviewers, roles, and evidence identities.')
     }
     if (manifest.startingNonce !== 0) {
       throw new Error('The approved production manifest must use a fresh nonce-zero gas-only EOA.')

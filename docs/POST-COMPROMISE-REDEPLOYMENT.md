@@ -26,8 +26,27 @@ Two source-pinned deployment profiles deliberately serve different purposes:
 | `testnet-immutable-disposable` | `contracts/deployment/disposable-testnet-plan.json` | Isolated valueless functional testing only | Disclosed wallet is gas payer and fee recipient only; every administrative and governance capability is frozen at LitVM's `0x0000000000000000000000000000000000000001` ECRECOVER precompile |
 
 The production plan's controller and treasury remain zero-address
-placeholders, so every production preview and deployment fails until reviewed
-address-only values are committed. A private key pasted into chat is disclosed
+placeholders, and `contracts/deployment/production-authorities.json` remains an
+`UNREVIEWED` sentinel, so every production preview and deployment fails until
+reviewed values for both files are committed together. The authority inventory
+strictly pins each Safe address, proxy runtime, slot-zero implementation,
+implementation runtime, official Safe source release and full commit, exact
+owner order, and threshold. The proxy and SafeL2 implementation hashes are
+derived from the signed, exact Safe 1.4.1 artifact documented in
+[`security/SAFE-RUNTIME-PROVENANCE.md`](security/SAFE-RUNTIME-PROVENANCE.md),
+not accepted from an operator's source claim. Both proxies must use the same
+pinned singleton implementation. New incident-recovery Safes must have no
+enabled module, guard, or fallback handler, closing extension paths that could
+bypass their signer thresholds; a zero address cannot masquerade as an
+unreviewed value.
+The inventory requires two distinct reviewer approvals with separate evidence
+digests. The validator requires at least two owners and a threshold of at least
+two, rejects EOAs for both durable authorities, and rejects every known
+incident-associated or chat-disclosed address. Shared owners are permitted only
+when their count is below both Safe thresholds; a shared coalition therefore
+cannot control either authority. Identical owner sets are also rejected so
+separate Safe addresses cannot masquerade as separate control domains. A
+private key pasted into chat is disclosed
 even if it was newly generated. It must never be a production owner,
 administrator, treasury, fee setter, multisig signer, or deployer. A public key
 can be drained or nonce-raced by anyone. Production therefore uses a new,
@@ -59,6 +78,50 @@ Controller and treasury are deliberately separate security domains. The plan,
 every role-bearing replacement constructor, every treasury setter and every
 ownership-transfer path rejects a collapsed owner/controller and treasury.
 The DEX likewise rejects `feeToSetter == feeTo`.
+
+Before attestation, run the credential-free authority check from `contracts/`
+with `DEPLOYER_PRIVATE_KEY` absent:
+
+```sh
+npm run verify:production-authorities:litvm
+```
+
+The command pins all reads to one exact positive LitVM block, confirms that the
+block hash stays stable for the full check, and prints a JSON evidence record
+containing the inventory SHA-256, block number/hash, and verified public Safe
+facts. Preserve that output and its SHA-256 in the production evidence bundle.
+The production build attestation separately binds the exact authority-inventory
+file. Preview/deployment repeat the current-state check before any CREATE, and
+the independent manifest verifier requires the same inventory at both the
+pre-deployment checkpoint and its current verification block. This verifier
+also binds each authority to the exact pinned SafeProxyFactory transaction,
+chain-specific CREATE2 derivation, creation block/hash, and zero-extension Safe
+initializer. It requires no code at the prior block, exactly one ProxyCreation
+and SafeSetup, Safe nonce zero, and EOA owners at the verification block. It
+exhaustively scans Safe-address logs from creation in bounded block ranges and
+rejects every later execution, hash approval, signer/threshold/configuration
+change, extension, and unknown event. The sole permitted later event is a
+well-formed `SafeReceived`, because any account can send harmless native dust
+to the authority; its count is recorded in the verification report. Review
+approvals must postdate both canonical creation-block timestamps, cannot
+postdate the canonical verification block, and expire after 30 days. This
+renewable review window provides chain-rate-independent freshness without
+forcing clean, unused Safes to be recreated as block height advances. The
+independently reviewed gas-only deployer is
+rejected if it is either Safe, either singleton/factory, or any owner. The same
+facts are rerun through the distinct secondary RPC before activation. This
+verifier must never be run with a signing key.
+
+On-chain history cannot prove that an owner key has never produced an offline
+ECDSA signature. The external authority-review evidence must therefore record a
+fresh hardware-backed owner-key ceremony, independent custody, no chat or build
+machine exposure, and direct reviewer confirmation. The runtime check proves
+that every listed owner is an EOA at cutover; it does not substitute for that
+custody evidence. Native value forced in without executing Safe code (for
+example by contract destruction), ERC-20 balances transferred to the Safe, and
+ordinary `SafeReceived` dust do not alter authority storage and are not treated
+as evidence of Safe use. Reviewers must still account for material unexpected
+balances separately.
 
 ## Exact deployment order
 
@@ -148,11 +211,26 @@ has no authenticated counter/event and the historical swap API can be bounded
 or cached. Review those limitations rather than presenting them as unique-user
 or volume measurements.
 
-Repeat the capture from a second clean network. Confirm every replacement
-counter is still zero, replace `platformActivitySnapshot.ts` with the reviewed
-output, set each replacement activity start block to `throughBlock + 1`, and
-only then turn on the activation latches. The source configuration intentionally
-fails its build if activation is attempted with the provisional snapshot kind.
+Save that JSON as an immutable candidate. From a second clean network, use a
+different credential-free HTTPS RPC URL to re-read the candidate's exact
+`throughBlock`. Paths are allowed; credentials, query strings, fragments, and
+the primary Caldera RPC origin are rejected:
+
+```bash
+node scripts/security/verify-platform-activity-cutover.mjs <candidate.json> <second-public-rpc-url>
+```
+
+Save the verifier JSON as a second immutable file. The verifier rejects the primary capture origin, credentialed/query-string
+endpoints, changed block identity, altered source configuration, counters below
+the continuity floors, mismatched exact-block legacy runtimes, or any counter
+disagreement. The production exporter canonical-validates the candidate, live
+re-runs the second-RPC proof through the preserved URL, and proves at the same
+block that TokenFactory creations, Router swaps, Disperse recipient entries,
+Ledger messages, and ILO children are all zero in the replacement deployment.
+It binds both raw files, the canonical candidate digest, and the literal zero
+counters into the independently reviewed approval payload. Set each replacement
+activity start block to `throughBlock + 1`; the source configuration fails its
+build if activation is attempted with an inconsistent floor.
 
 ## Read-only preview
 
@@ -192,7 +270,8 @@ artifact supplies a canonical `buildInfoId`; the attestation binds both
 `.dbg.json` files are neither
 trusted nor required. The record also binds all three exact compiler builds,
 the Node and absolute-path Git executables, Hardhat package metadata and CLI,
-lockfile, `.npmrc`, config, plan and source commit. It walks every
+lockfile, `.npmrc`, config, plan, production authority inventory (for the
+production profile), and source commit. It walks every
 `node_modules` entry without exclusions and hashes the sorted relative path,
 type, mode, symlink target and file content. A writable entry, special file,
 escaping symlink, changed tree between compiler passes, or non-directory tree
@@ -255,7 +334,8 @@ unset REPLACEMENT_PREVIEW_ONLY
 ```
 
 Preview mode verifies the LitVM chain ID, locally pinned legacy runtime hashes,
-the reviewed plan and build attestation, the configured public gas-only
+the reviewed plan and build attestation, every source-pinned production Safe
+fact, the configured public gas-only
 address, absence of pending transactions for that address, and all predicted
 CREATE addresses without loading a signer. Using the
 absolute digest-pinned Git executable with hooks, fsmonitor and external config
@@ -345,19 +425,65 @@ derive—not hand-enter—the frontend activation package on the clean runner:
 ```sh
 export REPLACEMENT_DEPLOYMENT_PROFILE=production-separated-authority
 export REPLACEMENT_MANIFEST_PATH=/absolute/path/to/replacement-manifest.json
-export PLATFORM_ACTIVITY_CUTOVER_PATH=/absolute/path/to/approved-cutover.json
-export PUBLIC_FRONTEND_PACKAGE_OUTPUT_PATH=/absolute/private/external/frontend-approval.json
+export PLATFORM_ACTIVITY_CUTOVER_PATH=/absolute/path/to/cutover-candidate.json
+export PLATFORM_ACTIVITY_SECOND_RPC_PROOF_PATH=/absolute/path/to/second-rpc-proof.json
+export PUBLIC_FRONTEND_PACKAGE_OUTPUT_PATH=/absolute/private/external/frontend-candidate.json
 npm run export:public-frontend:litvm
 ```
 
-The exporter re-runs the full manifest verifier, checks the cutover block hash
-on LitVM, requires an explicitly approved five-counter snapshot, and derives
-Pair/ILO child hashes plus VestingWallet immutable references from attested
-compiler output. Review the candidate independently, then commit it as
-`src/config/approvedPublicReplacement.json` in the same change that replaces
-the platform snapshot and activates both source latches. `next build` and
-`npm run security:public-manifest` recompute the canonical manifest digest and
-fail on a partial or mismatched package.
+Without `PUBLIC_FRONTEND_APPROVALS_PATH`, the exporter emits a fail-closed
+`CANDIDATE` and its exact `approvalPayloadSha256`. It requires distinct reviewed
+HTTPS RPC origins, re-runs the complete manifest verifier against both RPCs, and
+independently checks deployment transactions/receipts, runtime bytecode and
+lengths, constructor parameters, role bindings, legacy anchors, exact-block Safe
+facts, and all five literal-zero replacement counters. The payload embeds that
+second-RPC report, its RPC URL, exact block/hash, verified scope, complete Safe
+report, counters, manifest digest, and an independently recomputed report digest.
+It also binds the raw production-authority and control-plane recovery files and
+derives Pair/ILO child hashes plus VestingWallet immutable ranges from attested
+compiler output.
+
+At least two protected independent reviewers must review that exact payload and
+produce an external file of this shape:
+
+```json
+{
+  "approvalPayloadSha256": "0x<64 lower-case hex characters>",
+  "reviewerApprovals": [
+    {
+      "reviewer": "<reviewed identity>",
+      "reviewRole": "source-security",
+      "approvalPayloadSha256": "0x<same payload digest>",
+      "evidenceSha256": "0x<reviewer evidence digest>",
+      "approvedAt": "2026-08-10T20:00:00.000Z"
+    },
+    {
+      "reviewer": "<different reviewed identity>",
+      "reviewRole": "release-operations",
+      "approvalPayloadSha256": "0x<same payload digest>",
+      "evidenceSha256": "0x<different reviewer evidence digest>",
+      "approvedAt": "2026-08-10T20:01:00.000Z"
+    }
+  ]
+}
+```
+
+These records are auditable review assertions, **not cryptographic signatures**
+and not the reviewer-authentication mechanism. Their strings and digests cannot
+establish authorship. Reviewer authenticity and promotion authority therefore
+come from the separate protected frontend approval/promotion envelope, protected
+branch and environment controls, and direct independent confirmation. Re-run
+the exporter with `PUBLIC_FRONTEND_APPROVALS_PATH` and a new
+nonexistent output path; only then can it emit `APPROVED`. Commit that exact
+package as `src/config/approvedPublicReplacement.json` with both source latches.
+`next build` and `npm run security:public-manifest` recompute the digests and
+reject partial, duplicated, mismatched, nonzero-counter, or stale-evidence data.
+
+The resulting build is still a release candidate. It must not be served on the
+public origins until the separate protected x64 Linux frontend `APPROVED`
+manifest, deployment, and apex/www byte-for-byte parity gate passes. That
+frontend artifact is deliberately not embedded in this payload because doing
+so would create an impossible self-reference.
 
 ### Disposable functional-test profile
 

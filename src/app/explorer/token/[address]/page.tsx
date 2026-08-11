@@ -10,6 +10,7 @@ import { formatAddress, LITVM_EXPLORER_URL, rpc } from '@/lib/explorerRpc'
 import { checkTokenSafety, type SafetyReport } from '@/lib/token-safety'
 import { BarChart3, BookmarkCheck, BookmarkPlus, Copy, Droplets, ExternalLink, Share2, ArrowLeft, ShieldCheck, ShieldAlert, ShieldX, Users } from 'lucide-react'
 import { aggregateInboundTransferSample, type TransferSampleLog } from '../transferSample'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 // ─── Holder distribution ──────────────────────────────────────────────────
 
@@ -431,7 +432,11 @@ export default function TokenDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-sm font-medium text-white/50">Inspection & Recovery Links</h2>
-              <p className="mt-1 text-xs text-white/35">Ordinary writes are disabled; these routes provide bounded data or containment/recovery status.</p>
+              <p className="mt-1 text-xs text-white/35">
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                  ? 'These routes provide bounded data, candidate replacement actions, or separately labelled legacy recovery status.'
+                  : 'Ordinary writes are disabled; these routes provide bounded data or containment/recovery status.'}
+              </p>
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

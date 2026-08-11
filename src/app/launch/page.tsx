@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { TokenWizard } from '@/components/launch/TokenWizard'
 import { BuilderChecklist } from '@/components/shared/BuilderChecklist'
 import { ToolHero } from '@/components/shared/ToolHero'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 const COLOR = '#6B4FFF'
 const COLOR_RGB = '107,79,255'
@@ -24,19 +25,21 @@ export default function LaunchPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#0a0818', color: '#f0eef5' }}>
       <ToolHero
-        category="Containment / Token Factory"
+        category={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Reviewed / Token Factory' : 'Containment / Token Factory'}
         title="Lester"
         titleHighlight="Minter"
-        subtitle="Inspect the token configuration flow while new deployments remain disabled pending a source-pinned post-compromise factory and controller."
+        subtitle={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+          ? 'Configure and deploy through the source-pinned post-compromise Token Factory after reviewing the exact fee and wallet prompt.'
+          : 'Inspect the token configuration flow while new deployments remain disabled pending a source-pinned post-compromise factory and controller.'}
         color={COLOR}
         image="/images/carousel/token-factory.png"
         compact
         flowKey="minter"
         stats={[
           { label: 'Type', value: 'ERC-20' },
-          { label: 'Mode', value: 'Readiness' },
-          { label: 'Writes', value: 'Disabled' },
-          { label: 'Status', value: 'Replacement pending' },
+          { label: 'Mode', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Reviewed creation' : 'Readiness' },
+          { label: 'Writes', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned' : 'Disabled' },
+          { label: 'Status', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Replacement candidate' : 'Replacement pending' },
         ]}
       />
 

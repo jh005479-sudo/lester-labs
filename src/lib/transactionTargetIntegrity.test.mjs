@@ -69,6 +69,12 @@ describe('LitVM transaction target integrity', () => {
       }),
       /source-pinned/i,
     )
+    assert.throws(
+      () => assertNoContractTargetEnvironmentOverrides({
+        NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: 'legacy-hosting-project',
+      }),
+      /NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID/,
+    )
     assert.doesNotThrow(() => assertNoContractTargetEnvironmentOverrides({}))
   })
 

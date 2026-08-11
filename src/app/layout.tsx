@@ -4,6 +4,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
 import { SiteFooter } from '@/components/layout/SiteFooter'
 import { PremiumBackdrop } from '@/components/layout/PremiumBackdrop'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 import './globals.css'
 
 export const viewport: Viewport = {
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
     // Route metadata already includes the brand. Keep it from being appended twice.
     template: '%s',
   },
-  description: 'Lester Labs is independent LitVM testnet software in post-compromise containment. Historical reads and narrow recovery paths remain available; ordinary writes are disabled pending source-pinned replacements.',
+  description: PUBLIC_RELEASE_STATUS.metadataDescription,
   keywords: [
     'Lester Labs',
     'LitVM DEX',
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
   openGraph: {
     title: 'Lester Labs — LitVM Testnet Security & Recovery',
-    description: 'Post-compromise containment, historical reads, and narrow recovery paths while ordinary writes remain disabled.',
+    description: PUBLIC_RELEASE_STATUS.openGraphDescription,
     url: 'https://www.lester-labs.com',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -51,7 +52,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Lester Labs — LitVM Testnet Security & Recovery',
-    description: 'Independent testnet software in post-compromise containment. No reward, allocation, affiliation, or eligibility is promised.',
+    description: PUBLIC_RELEASE_STATUS.twitterDescription,
   },
 }
 
@@ -77,7 +78,7 @@ export default function RootLayout({
               name: 'Lester Labs',
               url: 'https://www.lester-labs.com',
               logo: 'https://www.lester-labs.com/favicon.ico',
-              description: 'Independent LitVM testnet software in post-compromise containment. Historical reads and narrow recovery paths remain available; ordinary writes are disabled.',
+              description: PUBLIC_RELEASE_STATUS.structuredDataDescription,
               sameAs: [
                 'https://x.com/lesterlabshq',
               ],
