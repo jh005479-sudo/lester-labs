@@ -1378,9 +1378,10 @@ export async function stageVercelRelease({
     if (created.projectId !== projectId || created.target !== "production") {
       throw new Error("Vercel created a deployment outside the reviewed project or target.");
     }
-    if (created.aliasAssigned === true || normalizeAliases(created).length !== 0) {
-      throw new Error("Vercel assigned an alias during staged deployment creation.");
-    }
+    // The create response can contain Vercel's generated deployment URL in its
+    // alias fields even when no routing mutation occurred. Treat the subsequent
+    // deployment read as authoritative: pollStagedDeployment requires
+    // aliasAssigned=false, an empty alias set, and READY/STAGED before returning.
     const { deployment, aliases } = await pollStagedDeployment(
       api,
       target,
@@ -1741,9 +1742,9 @@ export async function runProviderCanary({
     if (created.projectId !== target.projectId || created.target !== "production") {
       throw new Error("Vercel created a deployment outside the reviewed canary project or target.");
     }
-    if (created.aliasAssigned === true || normalizeAliases(created).length !== 0) {
-      throw new Error("Vercel assigned an alias during canary deployment creation.");
-    }
+    // Creation responses may describe the immutable per-deployment URL as an
+    // alias. The authoritative deployment read below still rejects any routed
+    // alias or aliasAssigned=true state before a canary probe can run.
     const { deployment: staged } = await pollStagedDeployment(api, target, stagedDeploymentId, controls);
     await preflight(api, target, { expectedCurrentDeploymentId: rollbackDeploymentId });
     stagedHttpSha256 = await verifyCanaryHttp(staged, prepared, publicFetchImpl, trustedProbeHeaders);

@@ -241,6 +241,8 @@ function makeVercelMock({
   failStageCreateResponseOnce = false,
   failRollbackResponseOnce = false,
   createdAliases = [],
+  creationResponseAliases = createdAliases,
+  creationResponseAliasAssigned = false,
   emptyDeploymentListsAfterCreate = 0,
   failDeploymentListOnce = false,
 } = {}) {
@@ -367,8 +369,8 @@ function makeVercelMock({
         id: NEW_DEPLOYMENT_ID,
         projectId,
         target: 'production',
-        aliasAssigned: false,
-        alias: createdAliases,
+        aliasAssigned: creationResponseAliasAssigned,
+        alias: creationResponseAliases,
       }, { status: 201 })
     }
     if (method === 'POST' && url.pathname.endsWith(`/promote/${NEW_DEPLOYMENT_ID}`)) {
@@ -697,6 +699,42 @@ async function prepareNextPromotionScenario(mockOptions = {}) {
 }
 
 describe('dependency-free Vercel REST release adapter', () => {
+  it('uses the authoritative deployment read when creation reports a generated URL as an alias', async () => {
+    const fixture = createEmergencyPackage()
+    try {
+      const canaryMock = makeVercelMock({
+        projectId: CANARY_PROJECT_ID,
+        projectName: 'lester-provider-canary',
+        publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
+        creationResponseAliases: ['generated-lester-provider-canary.vercel.app'],
+        creationResponseAliasAssigned: true,
+      })
+      const canary = await runProviderCanary({
+        ...CANARY_WORKFLOW_IDENTITY,
+        artifactKind: 'emergency-static',
+        releaseDirectory: fixture.releaseDirectory,
+        sourceDirectory: fixture.sourceDirectory,
+        sourceCommit: SOURCE_COMMIT,
+        maximumUploadBytes: 128_000,
+        token: TOKEN,
+        teamId: TEAM_ID,
+        projectId: CANARY_PROJECT_ID,
+        projectName: 'lester-provider-canary',
+        productionProjectId: PRODUCTION_PROJECT_ID,
+        fetchImpl: canaryMock.fetchImpl,
+        now: () => '2026-08-11T00:30:00.000Z',
+        delay: async () => {},
+        maxPollAttempts: 3,
+        pollIntervalMs: 0,
+      })
+      assert.equal(canary.status, 'PASSED')
+      assert.equal(canaryMock.state.currentDeploymentId, OLD_DEPLOYMENT_ID)
+      assert.equal(canaryMock.state.deleted, true)
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
   it('runs the emergency provider canary, stages and promotes, but refuses the unsafe pre-containment rollback', async () => {
     const fixture = createEmergencyPackage()
     try {
@@ -897,7 +935,7 @@ describe('dependency-free Vercel REST release adapter', () => {
           maxPollAttempts: 3,
           pollIntervalMs: 0,
         }),
-        /assigned an alias/i,
+        /assigned an unexpected alias/i,
       )
       assert.equal(canaryMock.state.stageCreateResponseFailed, true)
       assert.equal(canaryMock.state.deleted, true)
@@ -963,7 +1001,7 @@ describe('dependency-free Vercel REST release adapter', () => {
           maxPollAttempts: 3,
           pollIntervalMs: 0,
         }),
-        /assigned an alias/i,
+        /assigned an unexpected alias/i,
       )
       assert.equal(productionMock.state.stageCreateResponseFailed, true)
       assert.equal(productionMock.state.deleted, true)
