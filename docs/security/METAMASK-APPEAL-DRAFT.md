@@ -1,6 +1,6 @@
 # MetaMask Classification Review Draft
 
-Status: **NOT READY TO SUBMIT**
+Status: **READY FOR OWNER REVIEW; EXTENSION RETEST STILL OPEN**
 
 This draft is deliberately fail-closed. Do not submit it, claim a false
 positive, or request removal until every release prerequisite below is checked
@@ -29,22 +29,28 @@ the current process linked from:
       runtimes, and child runtimes pass the source-pinned verifier.
 - [x] The exact-block analytics capture, distinct-origin second-RPC repeat,
       and five zero replacement counters are digest-pinned.
-- [ ] Both immutable dependency graphs audit at zero, registry signatures pass,
+- [x] Both immutable dependency graphs audit at zero, registry signatures pass,
       and lifecycle scripts remain denied on the release runner.
-- [ ] The exact approved frontend commit is built reproducibly with lifecycle
-      scripts denied and the resulting artifact manifest is digest-pinned.
-- [ ] Apex and `www` route and asset bytes match the approved manifest under
-      multiple credential-free HTTP user-agent profiles from two clean network
-      vantage points; separate real Chromium, Firefox, and genuine MetaMask
-      sessions have also been captured and reviewed.
-- [ ] DNS/TLS/headers and the production hosting deployment are re-observed;
+- [x] Exact commit `3e70876ed6e5e2b987ef1bb9d6990ab87eda7335`
+      was built with `npm ci --ignore-scripts`, zero audit findings, and no
+      existing Vercel build cache. The exact deployment and served-route
+      digest evidence are pinned.
+- [x] All 34 reviewed routes match byte-for-byte between `www` and the
+      production Vercel alias under desktop, mobile, and scanner profiles (204
+      origin/route/profile checks), with the same deployment ID and policy
+      headers and no response cookies.
+- [ ] The protected two-network-vantage workflow and separate genuine Chrome,
+      Firefox, and MetaMask-extension sessions remain unavailable in this
+      workspace. Do not describe the one-vantage evidence as independent
+      two-vantage evidence.
+- [x] DNS/TLS/headers and the production hosting deployment were re-observed;
       the stale deployment is no longer served and Content-Security-Policy is
       present.
-- [ ] The clean origin publishes an explicit anti-scam statement disavowing
-      unaffiliated reward, allocation, eligibility, and activity-farming
-      claims. Search-engine recrawl/removal requests for stale pre-containment
-      pages are recorded, and any third-party correction request is preserved
-      without presenting the third party as affiliated with Lester Labs.
+- [x] The clean origin publishes explicit anti-scam and no-reward language and
+      disavows unaffiliated reward, allocation, eligibility, and
+      activity-farming claims.
+- [ ] Search-engine recrawl/removal requests and any third-party correction
+      requests still require the account owner’s authenticated sessions.
 - [ ] MetaMask checks are repeated with a disposable testnet wallet. No
       credential request, approval substitution, recipient substitution,
       unexplained value, or unexpected chain/contract target is observed.
@@ -90,9 +96,10 @@ the extra transfer may resemble a transaction-scanner drainer heuristic.
 We also found unaffiliated social posts that linked to Lester Labs while urging
 users to manufacture testnet activity and claiming a confirmed future reward
 or allocation. Those statements were not authored or endorsed by Lester Labs.
-We removed the former speculative eligibility language from the application,
-publish an explicit no-reward/no-eligibility warning, and requested correction
-and recrawl of stale copies. We include the before/after evidence because this
+We removed the former speculative eligibility language from the application
+and publish an explicit no-reward/no-eligibility warning. Authenticated
+third-party correction and search recrawl requests remain pending with the
+account owner. We include the before/after evidence because this
 external reputation signal may have contributed to the classification even
 though it is not evidence of credential theft by the application.
 
@@ -101,15 +108,14 @@ its public block list at our recorded observation time. We understand that this
 does not itself clear the separate dapp-scanner result.
 
 Public evidence:
-- Incident/remediation summary: [FINAL URL]
-- Reviewed source commit: [40-CHARACTER COMMIT]
-- Dependency/SBOM/provenance bundle: [FINAL URL + SHA-256]
-- Contract deployment and authority verification: [FINAL URL + SHA-256]
-- Analytics cutover and independent second-RPC proof: [FINAL URL + SHA-256]
-- Approved frontend manifest: [FINAL URL + SHA-256]
-- Two-vantage served apex/www parity evidence: [FINAL URLS + SHA-256]
-- DNS/TLS/hosting recovery observation: [FINAL URL + SHA-256]
-- Anti-scam copy and stale-search remediation record: [FINAL URL + SHA-256]
+- Incident/remediation summary: https://github.com/jh005479-sudo/lester-labs/blob/main/docs/security/POST-COMPROMISE-DEPLOYMENT-EVIDENCE.md
+- Reviewed source commit: https://github.com/jh005479-sudo/lester-labs/commit/3e70876ed6e5e2b987ef1bb9d6990ab87eda7335
+- Dependency/SBOM/provenance documentation: https://github.com/jh005479-sudo/lester-labs/tree/main/docs/security
+- Contract deployment manifest: https://github.com/jh005479-sudo/lester-labs/blob/main/docs/security/evidence/disposable-testnet-4441-2026-08-06/deployment-manifest.json (raw SHA-256 `ab5b035f537ee29f354ac3c6ef08c8c19f726058e8e776bf65ea4a950528a2eb`)
+- Analytics cutover and second-RPC proof: https://github.com/jh005479-sudo/lester-labs/tree/main/docs/security/evidence/public-testnet-4441-cutover-2026-08-11
+- Frontend production cutover evidence: https://github.com/jh005479-sudo/lester-labs/blob/main/docs/security/evidence/frontend-production-cutover-2026-08-11.json
+- Served-route digest evidence: https://github.com/jh005479-sudo/lester-labs/blob/main/docs/security/evidence/frontend-production-route-digests-2026-08-11.json (raw SHA-256 `76bb76a143bf005196107da00280fd457eae1692959abecc3736e322b62e6b2d`)
+- Public security and anti-scam disclosure: https://www.lester-labs.com/security
 
 No production secret or private wallet material is included. Please re-scan
 both hostnames and let us know which remaining observable behavior, if any,
@@ -118,14 +124,20 @@ supports the classification.
 
 ## Current evidence that must not be overstated
 
-The 2026-08-10 public-list observation records “not blocked” for the apex and
+The 2026-08-10 public-list observation recorded “not blocked” for the apex and
 `www`, but the separately observed dapp scanner had returned `BLOCK` with a
-critical `DRAINER` factor. The live origin observation on the same date still
-found the stale pre-containment Vercel deployment and no Content-Security-Policy
-header. Those facts make submission premature.
+critical `DRAINER` factor. The live origin observation on that date still found
+the stale pre-containment Vercel deployment and no Content-Security-Policy
+header. Those facts made submission premature; the 2026-08-11 cutover evidence
+now records the cacheless replacement deployment and policy headers without
+retroactively claiming that the old observation was clean.
 
 The immutable testnet deployment made with the disclosed valueless signer is
-now included only in the bounded `public-testnet-immutable` release and appeal
+included only in the bounded `public-testnet-immutable` release and appeal
 evidence. It is explicitly excluded from any real-value production claim. The
 disclosed wallet can spend test gas but has no authority over the already
-deployed contracts.
+deployed contracts. The cacheless deployment
+`dpl_BpJHwiNjru7nj2hBsuDPSi8oKtdn` is now current on `www`; the apex redirects
+to it. The public list utility returned “not blocked” for both hostnames on
+2026-08-11, but the separate genuine MetaMask-extension/dapp-scanner retest is
+still open because Chrome control was unavailable in this workspace.

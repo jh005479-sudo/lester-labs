@@ -1,0 +1,152 @@
+{
+  "kind": "lester-labs-frontend-production-cutover",
+  "schemaVersion": 1,
+  "status": "LIVE_PUBLIC_TESTNET",
+  "observedAt": "2026-08-11T08:35:27Z",
+  "releaseProfile": "public-testnet-immutable",
+  "scope": "Valueless LitVM LiteForge testnet chain 4441 only. Production Safe authorities and independent reviewer gates are intentionally not claimed for this release.",
+  "source": {
+    "repository": "https://github.com/jh005479-sudo/lester-labs",
+    "commit": "3e70876ed6e5e2b987ef1bb9d6990ab87eda7335",
+    "mergePullRequest": "https://github.com/jh005479-sudo/lester-labs/pull/39",
+    "contractDeploymentManifest": "docs/security/evidence/disposable-testnet-4441-2026-08-06/deployment-manifest.json",
+    "contractDeploymentManifestRawSha256": "ab5b035f537ee29f354ac3c6ef08c8c19f726058e8e776bf65ea4a950528a2eb",
+    "approvedReplacementPayloadSha256": "989b5e170b66c16041fa82568efd81a789772c4dce767426bda9676e135bb999"
+  },
+  "deployment": {
+    "provider": "Vercel",
+    "projectId": "prj_dbAIzvnFWLzxkt2dpphAWbserIG7",
+    "deploymentId": "dpl_BpJHwiNjru7nj2hBsuDPSi8oKtdn",
+    "immutableUrl": "https://lester-labs-rmjqigpt4-lester-labs.vercel.app",
+    "productionAlias": "https://lester-labs-psi.vercel.app",
+    "publicWww": "https://www.lester-labs.com",
+    "publicApex": "https://lester-labs.com",
+    "sourceCommitObservedInProvider": "3e70876ed6e5e2b987ef1bb9d6990ab87eda7335",
+    "buildRegion": "iad1",
+    "buildMachine": "4 cores, 8 GB",
+    "vercelCliVersion": "58.1.0",
+    "installCommand": "npm ci --ignore-scripts",
+    "installResult": "553 packages installed and 554 packages audited; zero vulnerabilities",
+    "buildCommand": "npm run build",
+    "buildDuration": "1m 39s",
+    "buildCache": "SKIPPED",
+    "buildCacheEvidence": "Skipping build cache, deployment was triggered without cache.",
+    "promotedWithoutRebuild": true,
+    "providerStatus": "Ready / Production / Current"
+  },
+  "rejectedArtifact": {
+    "deploymentId": "dpl_C6NVSP2sytRCUMvkS1Mr6hQzAZ8f",
+    "reason": "The first staged build restored a cache from pre-remediation deployment dpl_ApzQPMWK4deZofUP35xjjKSTiZWg. It was not promoted; the same source was rebuilt with the existing build cache disabled."
+  },
+  "servedParity": {
+    "status": "PASSED",
+    "origins": [
+      "https://www.lester-labs.com",
+      "https://lester-labs-psi.vercel.app"
+    ],
+    "profiles": [
+      "desktop Chromium",
+      "mobile Safari/MetaMask-like",
+      "security scanner"
+    ],
+    "routesPerProfile": 34,
+    "totalOriginRouteProfileChecks": 204,
+    "profileMatrixSha256": {
+      "desktop": "87fed08b8984c8f6dfdd112f0bf548726c697f41ba9ef5203f9188f4ffd9044c",
+      "mobile": "87fed08b8984c8f6dfdd112f0bf548726c697f41ba9ef5203f9188f4ffd9044c",
+      "scanner": "87fed08b8984c8f6dfdd112f0bf548726c697f41ba9ef5203f9188f4ffd9044c"
+    },
+    "byteMismatches": 0,
+    "headerMismatches": 0,
+    "unexpectedCookies": 0,
+    "deploymentIdentityMismatches": 0,
+    "routeDigestEvidence": "docs/security/evidence/frontend-production-route-digests-2026-08-11.json",
+    "routeDigestEvidenceRawSha256": "76bb76a143bf005196107da00280fd457eae1692959abecc3736e322b62e6b2d",
+    "networkVantageCount": 1,
+    "limitation": "This is a credential-free same-vantage parity observation across two production origins and three request profiles, not the unavailable protected EU/US two-vantage workflow."
+  },
+  "publicOrigins": {
+    "apex": {
+      "status": 307,
+      "location": "https://www.lester-labs.com/",
+      "aRecord": "216.198.79.1",
+      "tlsSubject": "CN=lester-labs.com",
+      "tlsIssuer": "Let's Encrypt YR2",
+      "tlsNotBefore": "2026-06-14T19:05:52Z",
+      "tlsNotAfter": "2026-09-12T19:05:51Z",
+      "tlsCertificateSha256": "3BD3D5EC93A62FA5AE39DBD9A49E845C077EDB0EB8859DAA8DA5169ABFD73445"
+    },
+    "www": {
+      "status": 200,
+      "cname": "lester-labs.com.",
+      "tlsSubject": "CN=www.lester-labs.com",
+      "tlsIssuer": "Let's Encrypt YR2",
+      "tlsNotBefore": "2026-06-14T04:02:43Z",
+      "tlsNotAfter": "2026-09-12T04:02:42Z",
+      "tlsCertificateSha256": "1F240C4D5F535AE08A865D8CA79F1D547998566FDABFBA00CFA8BBCBA46EDBA6"
+    }
+  },
+  "criticalResponseHeaders": {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://raw.githubusercontent.com; font-src 'self' data:; connect-src 'self' https://liteforge.rpc.caldera.xyz wss://liteforge.rpc.caldera.xyz; frame-src 'none'; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Strict-Transport-Security": "max-age=63072000",
+    "X-XSS-Protection": "0"
+  },
+  "analyticsContinuity": {
+    "cutoverThroughBlock": 38999871,
+    "cutoverBlockHash": "0x0f08a4e58106a4cd465555c5a3b0a2bf44e723277ff69f0a6c0b22de3c77c9da",
+    "replacementActivityStartBlock": 38999872,
+    "observedApi": "https://www.lester-labs.com/api/platform-stats",
+    "totals": {
+      "tokensMinted": 517422,
+      "walletsAirdropped": 16433,
+      "presalesCreated": 8511,
+      "swapsCompleted": 12975,
+      "onChainMessages": 66832
+    },
+    "postCutoverDeltas": {
+      "tokensMinted": 0,
+      "walletsAirdropped": 0,
+      "presalesCreated": 0,
+      "swapsCompleted": 0,
+      "onChainMessages": 0
+    }
+  },
+  "contractReverification": {
+    "status": "VERIFIED_TWO_RPC",
+    "observedBlock": 39015631,
+    "observedBlockHash": "0xc22b6a7b8ad4e7a3993fe91380f88bbf430a5d49ad878509c718a1a9954ae808",
+    "reportSha256": "ff1e303687879772b8a9414e05f9f165c0a2e212f5cb0b43c702d6f7336ac4d8",
+    "primaryRpcOrigin": "https://liteforge.rpc.caldera.xyz",
+    "secondRpcOrigin": "https://rpc.lite-node.com",
+    "controller": "0x0000000000000000000000000000000000000001",
+    "treasuryAndGasOnlyDeployer": "0x439945924515218061b644901a31aC4A6c00957c"
+  },
+  "hostingContainment": {
+    "gitRepositoryConnected": false,
+    "deployHooks": 0,
+    "webhooks": 0,
+    "projectEnvironmentVariables": 0,
+    "autoAssignCustomProductionDomains": false,
+    "manualPromotionRequired": true
+  },
+  "metamask": {
+    "publicEthPhishingDetectUtility": {
+      "observedAt": "2026-08-11T08:31:00Z",
+      "apex": "This domain is not blocked! No problem here.",
+      "www": "This domain is not blocked! No problem here."
+    },
+    "interpretation": "The public list is clear, but this does not clear the separately observed dapp-scanner BLOCK / critical DRAINER signal.",
+    "genuineExtensionRetest": "NOT_COMPLETED_CHROME_CONTROL_UNAVAILABLE"
+  },
+  "remainingManualAccountControls": [
+    "Registrar, DNS-provider, email, GitHub-owner and other account-level session/recovery review remains an account-owner responsibility.",
+    "Vercel account-level 2FA/passkey enrolment requires the owner to choose and retain recovery material.",
+    "A genuine MetaMask-extension transaction preview and wrong-chain interaction retest requires a connected Chrome session with the extension installed."
+  ]
+}
