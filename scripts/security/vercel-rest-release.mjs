@@ -903,7 +903,14 @@ function reviewedStagedProviderAliases(target) {
 
 function assertNoProductionAliases(deployment, target) {
   if (deployment.aliasAssigned !== false) {
-    throw new Error("The staged deployment unexpectedly has aliases assigned.");
+    throw new Error(
+      `The staged deployment unexpectedly has aliases assigned: ${canonicalJson({
+        deploymentUrl: deploymentUrl(deployment),
+        readyState: deployment?.readyState,
+        readySubstate: deployment?.readySubstate,
+        aliases: normalizeAliases(deployment),
+      }).trim()}`,
+    );
   }
   const aliases = normalizeAliases(deployment);
   const immutableDeploymentHost = new URL(deploymentUrl(deployment)).hostname;
