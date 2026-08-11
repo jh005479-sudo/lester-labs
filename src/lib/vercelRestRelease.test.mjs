@@ -896,6 +896,49 @@ describe('dependency-free Vercel REST release adapter', () => {
     }
   })
 
+  it('reports only the public HTTP status when a protected canary probe is rejected', async () => {
+    const fixture = createEmergencyPackage()
+    try {
+      const publicRoutes = emergencyPublicRoutes(fixture.sourceDirectory)
+      publicRoutes.get('/').status = 403
+      const canaryMock = makeVercelMock({
+        teamId: REVIEWED_CANARY_TEAM_ID,
+        projectId: REVIEWED_CANARY_PROJECT_ID,
+        projectName: REVIEWED_CANARY_PROJECT_NAME,
+        expectedTrustedOidcToken: TRUSTED_OIDC_TOKEN,
+        publicRoutes,
+        createdAliases: REVIEWED_CANARY_PROVIDER_ALIASES,
+        stagedAliasAssigned: true,
+      })
+      await assert.rejects(
+        runProviderCanary({
+          ...CANARY_WORKFLOW_IDENTITY,
+          artifactKind: 'emergency-static',
+          releaseDirectory: fixture.releaseDirectory,
+          sourceDirectory: fixture.sourceDirectory,
+          sourceCommit: SOURCE_COMMIT,
+          maximumUploadBytes: 128_000,
+          token: TOKEN,
+          teamId: REVIEWED_CANARY_TEAM_ID,
+          projectId: REVIEWED_CANARY_PROJECT_ID,
+          projectName: REVIEWED_CANARY_PROJECT_NAME,
+          productionProjectId: PRODUCTION_PROJECT_ID,
+          trustedOidcToken: TRUSTED_OIDC_TOKEN,
+          fetchImpl: canaryMock.fetchImpl,
+          delay: async () => {},
+          maxPollAttempts: 3,
+          pollIntervalMs: 0,
+        }),
+        (error) => /returned status 403; expected 200/i.test(error.message) &&
+          !error.message.includes(TOKEN) && !error.message.includes(TRUSTED_OIDC_TOKEN),
+      )
+      assert.equal(canaryMock.state.deleted, true)
+      assert.equal(canaryMock.state.currentDeploymentId, OLD_DEPLOYMENT_ID)
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
   it('runs the emergency provider canary, stages and promotes, but refuses the unsafe pre-containment rollback', async () => {
     const fixture = createEmergencyPackage()
     try {
