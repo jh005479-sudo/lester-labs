@@ -18,8 +18,8 @@ import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import {
   APPROVED_ILO_CREATION_FACTORY_ADDRESS,
-  ILO_FACTORY_ADDRESS,
   LESTER_TREASURY_STATUS,
+  LITVM_LEGACY_ILO_FACTORIES,
   isApprovedIloCreationFactory,
   isApprovedLesterTreasury,
 } from '@/config/contracts'
@@ -72,6 +72,31 @@ const ILO_CREATED_EVENT_ABI = [
 ] as const
 
 type Tab = LaunchpadTab
+type IloBrowseSource = {
+  id: string
+  label: string
+  address: `0x${string}`
+  kind: 'current' | 'legacy'
+}
+
+const ILO_BROWSE_SOURCES: readonly IloBrowseSource[] = Object.freeze([
+  ...(APPROVED_ILO_CREATION_FACTORY_ADDRESS
+    ? [{
+        id: 'current',
+        label: 'Current replacement presales',
+        address: APPROVED_ILO_CREATION_FACTORY_ADDRESS,
+        kind: 'current' as const,
+      }]
+    : []),
+  ...LITVM_LEGACY_ILO_FACTORIES.map((deployment) => ({
+    id: deployment.id,
+    label: deployment.label,
+    address: deployment.address,
+    kind: 'legacy' as const,
+  })),
+])
+
+const DEFAULT_ILO_BROWSE_SOURCE_ID = ILO_BROWSE_SOURCES[0]?.id ?? 'current'
 const useReadContract: typeof useWagmiReadContract = ((parameters: Parameters<typeof useWagmiReadContract>[0]) =>
   useWagmiReadContract({ ...parameters, chainId: litvm.id } as never)) as typeof useWagmiReadContract
 const INITIAL_PRESALE_VISIBLE_COUNT = 24
@@ -105,10 +130,15 @@ function replaceLaunchpadTabParam(tab: Tab) {
 }
 
 // Fetches the newest visible ILO addresses by count instead of eagerly loading the full factory history.
-function useAllILOAddresses(count: number, visibleCount: number, enabled: boolean) {
+function useAllILOAddresses(
+  factoryAddress: `0x${string}` | undefined,
+  count: number,
+  visibleCount: number,
+  enabled: boolean,
+) {
   const indices = enabled ? getRecentWindowIndices(count, visibleCount) : []
   const calls = indices.map((index) => ({
-    address: ILO_FACTORY_ADDRESS,
+    address: factoryAddress,
     abi: ILO_FACTORY_ABI,
     functionName: 'allILOs',
     args: [index],
@@ -116,7 +146,7 @@ function useAllILOAddresses(count: number, visibleCount: number, enabled: boolea
 
   const { data: results, isLoading } = useReadContracts({
     contracts: calls.map((contract) => ({ ...contract, chainId: litvm.id })),
-    query: { enabled: enabled && isTrustedIloFactoryConfigured() && indices.length > 0 },
+    query: { enabled: enabled && Boolean(factoryAddress) && isTrustedIloFactoryConfigured() && indices.length > 0 },
   })
 
   const addresses = (results ?? [])
@@ -384,7 +414,7 @@ function CreatePresaleForm() {
     if (!creationFactoryApproved || !creationFactoryAddress) {
       setModalOpen(true)
       setTxStatus('error')
-      setTxMessage('The legacy ILO Factory is retired for new presales. Creation remains disabled until an independently reviewed replacement is explicitly source-pinned in this application.')
+      setTxMessage('Presale creation is disabled because the approved replacement ILO Factory is unavailable or failed source-pinned address validation.')
       return
     }
     if (!factoryTreasuryApproved) {
@@ -520,7 +550,7 @@ function CreatePresaleForm() {
         }}
       >
         <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '8px' }}>
-          Presale creation disabled
+          {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Create a presale' : 'Presale creation disabled'}
         </h2>
         <p
           style={{
@@ -529,7 +559,9 @@ function CreatePresaleForm() {
             marginBottom: '28px',
           }}
         >
-          This form is retained to document the intended replacement flow. Do not fund, approve, or submit it while the legacy factories and connector remain retired.
+          {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+            ? 'Create through the source-pinned immutable replacement factory. Your wallet must show LitVM chain 4441, the reviewed factory target, and the exact live creation fee before you approve.'
+            : 'This form is retained to document the intended replacement flow. Do not fund, approve, or submit it while the legacy factories and connector remain retired.'}
         </p>
 
         <div style={{ display: 'grid', gap: '20px' }}>
@@ -699,7 +731,9 @@ function CreatePresaleForm() {
                 cursor: 'pointer',
               }}
             >
-              Whitelist option (configuration preview only while creation is disabled)
+              {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                ? 'Enable contributor whitelist'
+                : 'Whitelist option (configuration preview only while creation is disabled)'}
             </label>
           </div>
 
@@ -1221,11 +1255,14 @@ export default function LaunchpadPage() {
   const [presaleSearch, setPresaleSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<PresaleStatus>('All')
   const [qualityFilter, setQualityFilter] = useState<PresaleQualityFilter>('All')
+  const [iloBrowseSourceId, setIloBrowseSourceId] = useState(DEFAULT_ILO_BROWSE_SOURCE_ID)
   const [participatedOnly, setParticipatedOnly] = useState(false)
   const { addActivity, isWatched, saveSearch, scopedSearches, toggleWatchlist } = useLocalEngagement()
   const savedLaunchpadSearches = scopedSearches('launchpad')
   const activeTab = tab ?? 'browse'
   const readPlan = tab === null ? DISABLED_LAUNCHPAD_READ_PLAN : getLaunchpadReadPlan(tab)
+  const iloBrowseSource = ILO_BROWSE_SOURCES.find((source) => source.id === iloBrowseSourceId) ?? ILO_BROWSE_SOURCES[0]
+  const iloBrowseFactoryAddress = iloBrowseSource?.address
 
   useEffect(() => {
     setTab(getInitialLaunchpadTab())
@@ -1242,15 +1279,20 @@ export default function LaunchpadPage() {
   }, [])
 
   const iloCount = useReadContract({
-    address: ILO_FACTORY_ADDRESS,
+    address: iloBrowseFactoryAddress,
     abi: ILO_FACTORY_ABI,
     functionName: 'getILOCount',
-    query: { enabled: readPlan.factoryCount && isTrustedIloFactoryConfigured() },
+    query: { enabled: readPlan.factoryCount && Boolean(iloBrowseFactoryAddress) && isTrustedIloFactoryConfigured() },
   })
   const liveCount = Number(iloCount.data ?? 0)
   const iloCountLoading = iloCount.isLoading
   const visiblePresaleCount = readPlan.presaleAddresses ? Math.min(liveCount, presaleLimit) : 0
-  const { addresses: liveAddresses, isLoading: iloLoading } = useAllILOAddresses(liveCount, visiblePresaleCount, readPlan.presaleAddresses)
+  const { addresses: liveAddresses, isLoading: iloLoading } = useAllILOAddresses(
+    iloBrowseFactoryAddress,
+    liveCount,
+    visiblePresaleCount,
+    readPlan.presaleAddresses,
+  )
   const hasMorePresales = readPlan.presaleAddresses && visiblePresaleCount < liveCount
   const raisedLabel = hasMorePresales ? 'Loaded Raised' : 'Total Raised'
 
@@ -1339,8 +1381,8 @@ export default function LaunchpadPage() {
         compact
         flowKey="launchpad"
         stats={[
-          { label: 'Mode', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Candidate + recovery' : 'Recovery only' },
-          { label: 'Factories', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Candidate + legacy' : 'Legacy' },
+          { label: 'Mode', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Replacement + recovery' : 'Recovery only' },
+          { label: 'Factories', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Replacement + legacy' : 'Legacy' },
           { label: 'New writes', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned' : 'Disabled' },
         ]}
       />
@@ -1360,9 +1402,9 @@ export default function LaunchpadPage() {
         >
           {(
             [
-              ['Legacy children', readPlan.factoryCount ? (iloCountLoading ? '…' : liveCount.toString()) : '—'],
+              [iloBrowseSource?.kind === 'current' ? 'Replacement children' : 'Legacy children', readPlan.factoryCount ? (iloCountLoading ? '…' : liveCount.toString()) : '—'],
               [raisedLabel, iloDataLoading ? '…' : totalRaised],
-              ['Historical finalization fee', '2%'],
+              [iloBrowseSource?.kind === 'current' ? 'Platform fee' : 'Historical finalization fee', '2%'],
             ] as [string, string][]
           ).map(([label, value], i, arr) => (
             <div
@@ -1452,7 +1494,11 @@ export default function LaunchpadPage() {
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 {t === 'browse' ? <Radio size={14} /> : <Rocket size={14} />}
-                {t === 'browse' ? 'Historical Presales' : 'Creation Disabled'}
+                {t === 'browse'
+                  ? 'Browse Presales'
+                  : PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                    ? 'Create Presale'
+                    : 'Creation Disabled'}
               </span>
             </button>
           ))}
@@ -1465,6 +1511,49 @@ export default function LaunchpadPage() {
           </div>
         ) : tab === 'browse' ? (
           <div>
+            <div
+              className="analytics-card"
+              style={{
+                display: 'grid',
+                gap: '8px',
+                marginBottom: '14px',
+                padding: '14px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.03)',
+              }}
+            >
+              <label htmlFor="ilo-browse-source" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.45)' }}>
+                Presale source
+              </label>
+              <select
+                id="ilo-browse-source"
+                aria-label="Presale source"
+                value={iloBrowseSourceId}
+                onChange={(event) => {
+                  setIloBrowseSourceId(event.target.value)
+                  setPresaleLimit(INITIAL_PRESALE_VISIBLE_COUNT)
+                }}
+                style={{
+                  width: '100%',
+                  minHeight: '44px',
+                  padding: '10px 12px',
+                  borderRadius: '9px',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: '#111629',
+                  color: '#fff',
+                }}
+              >
+                {ILO_BROWSE_SOURCES.map((source) => (
+                  <option key={source.id} value={source.id}>{source.label}</option>
+                ))}
+              </select>
+              <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.42)' }}>
+                {iloBrowseSource?.kind === 'current'
+                  ? 'New presales created through the immutable replacement factory appear here.'
+                  : 'This retired factory is available only for bounded reads and state-dependent recovery.'}
+              </p>
+            </div>
             <div
               className="analytics-card"
               style={{

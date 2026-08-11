@@ -164,7 +164,7 @@ export default function TransactionDetailsPage({ params }: { params: Promise<{ h
             <span className="font-medium uppercase tracking-wider">Ledger Message</span>
           </div>
           <p className="font-mono text-base leading-relaxed text-zinc-100">{ledgerMessage}</p>
-          <p className="mt-3 text-xs text-zinc-500">Decoded from a legacy Ledger transaction. Long-term testnet/RPC history availability is not guaranteed.</p>
+          <p className="mt-3 text-xs text-zinc-500">Decoded from the source-pinned replacement Ledger transaction. Long-term testnet/RPC history availability is not guaranteed.</p>
         </div>
       )}
     </div>

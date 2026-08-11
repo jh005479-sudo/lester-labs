@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { type Address, type Hex } from 'viem'
 import { isValidContractAddress } from '@/config/contracts'
 import { getLatestBlockNumber, getTransactionReceipt, rpc } from '@/lib/rpcClient'
-import { getDescendingLedgerIndexPage, padUint256Topic } from '@/lib/ledgerPagination'
 import {
   compareLedgerMessages,
   decodeLedgerLog,
@@ -18,6 +17,10 @@ import {
   type LedgerMessage,
   type LedgerRpcLog,
 } from '@/lib/contracts/ledger'
+import {
+  fetchLedgerHistoryPage,
+  type LedgerHistoryCursor,
+} from '@/lib/contracts/ledgerHistory'
 
 type ConnectionMode = 'connecting' | 'websocket' | 'polling'
 
@@ -61,7 +64,8 @@ export function useLedgerFeed({
   const messageMapRef = useRef(new Map<string, LedgerMessage>())
   const historyBufferRef = useRef<LedgerMessage[]>([])
   const historyBlockCursorRef = useRef<number | null>(null)
-  const historyIndexCursorRef = useRef<bigint | null>(null)
+  const historyIndexCursorRef = useRef<LedgerHistoryCursor | null | undefined>(undefined)
+  const historyIndexExhaustedRef = useRef(false)
   const latestSeenBlockRef = useRef(0)
   const loadInFlightRef = useRef(false)
   const pollInFlightRef = useRef(false)
@@ -86,7 +90,7 @@ export function useLedgerFeed({
     const loaded = BigInt(messageMapRef.current.size + historyBufferRef.current.length)
 
     if (totalKnown !== undefined) {
-      setHasMore(loaded < totalKnown)
+      setHasMore(!historyIndexExhaustedRef.current && loaded < totalKnown)
       return
     }
 
@@ -210,30 +214,39 @@ export function useLedgerFeed({
   }
 
   async function loadIndexedHistoryPage(session: number, totalKnown: bigint): Promise<LedgerMessage[]> {
-    if (historyIndexCursorRef.current === null) {
-      historyIndexCursorRef.current = totalKnown
-    }
+    if (historyIndexExhaustedRef.current) return []
 
-    const indices = getDescendingLedgerIndexPage(historyIndexCursorRef.current, LEDGER_PAGE_SIZE)
-    if (!indices.length) return []
-
-    const logs = await rpc<LedgerRpcLog[]>('eth_getLogs', [
-      {
-        address,
-        topics: [LEDGER_MESSAGE_POSTED_TOPIC, null, indices.map(padUint256Topic)],
-        fromBlock: '0x1',
-        toBlock: 'latest',
-      },
-    ])
+    const page = await fetchLedgerHistoryPage(address, historyIndexCursorRef.current ?? undefined)
 
     if (session !== sessionRef.current) return []
 
-    historyIndexCursorRef.current = indices[indices.length - 1] ?? 0n
+    historyIndexCursorRef.current = page.nextCursor
+    historyIndexExhaustedRef.current = page.nextCursor === null
 
-    return logs
+    const decoded = page.logs
       .map((log) => decodeLedgerLog(log))
       .filter((message): message is LedgerMessage => Boolean(message))
       .sort(compareLedgerMessages)
+
+    const newMessageIds = new Set(
+      decoded
+        .filter((message) => !messageMapRef.current.has(message.id))
+        .map((message) => message.id),
+    )
+    const returnedCount = BigInt(
+      messageMapRef.current.size +
+      newMessageIds.size,
+    )
+
+    if (historyIndexExhaustedRef.current && returnedCount < totalKnown) {
+      const unavailable = totalKnown - returnedCount
+      setError(
+        `The public chain index returned ${returnedCount.toLocaleString()} of ${totalKnown.toLocaleString()} counter-recorded messages. ` +
+        `${unavailable.toLocaleString()} older event${unavailable === 1n ? ' is' : 's are'} currently unavailable from the provider archive.`,
+      )
+    }
+
+    return decoded
   }
 
   async function loadMore() {
@@ -417,7 +430,8 @@ export function useLedgerFeed({
     messageMapRef.current = new Map()
     historyBufferRef.current = []
     historyBlockCursorRef.current = null
-    historyIndexCursorRef.current = null
+    historyIndexCursorRef.current = undefined
+    historyIndexExhaustedRef.current = false
     latestSeenBlockRef.current = 0
     loadInFlightRef.current = false
     pollInFlightRef.current = false

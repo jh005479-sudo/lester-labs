@@ -80,14 +80,14 @@ export default function LedgerPage() {
             <p className="text-white/50 text-sm mt-1">
               Read the bounded event-backed message history and verify the source-pinned contract.<br />
               {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-                ? 'Candidate paid posts target the reviewed replacement Ledger; public serving is separately gated.'
+                ? 'New testnet posts target the source-pinned immutable replacement Ledger.'
                 : 'New paid posts remain disabled during post-compromise containment.'}
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[560px]">
             <div className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3">
-              <p className="text-xs text-white/40 uppercase tracking-wider">Legacy Fee</p>
+              <p className="text-xs text-white/40 uppercase tracking-wider">Posting Fee</p>
               <p className="text-sm font-semibold font-mono text-white mt-1">{liveFee === undefined ? 'Loading…' : `${formatLedgerFee(liveFee)} zkLTC`}</p>
             </div>
             <div className="analytics-card rounded-lg border border-white/10 bg-[var(--surface-1)] px-4 py-3">

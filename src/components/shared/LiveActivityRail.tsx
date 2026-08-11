@@ -71,7 +71,7 @@ const rails: Record<'explorer' | 'analytics' | 'portfolio' | 'ledger', RailConfi
     icon: MessageSquareText,
     accent: '#F5A623',
     items: [
-      { label: 'Messages', value: 'Paginated RPC view', detail: 'Not a complete or perpetual archive.' },
+      { label: 'Messages', value: 'Validated public index', detail: 'Not a complete or perpetual archive.' },
       {
         label: 'Posting',
         value: writesActive ? 'Public-testnet replacement' : 'Disabled',

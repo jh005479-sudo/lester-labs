@@ -498,6 +498,7 @@ describe('frontend release artifact attestation', () => {
       assert.equal(candidate.status, 'CANDIDATE')
       assert.equal(candidate.routeSnapshots.length, policy.routes.length)
       assert.deepEqual(candidate.routeSnapshots[0].thirdPartyOrigins, [
+        'https://liteforge.explorer.caldera.xyz',
         'https://liteforge.rpc.caldera.xyz',
         'https://raw.githubusercontent.com',
         'https://x.com',
@@ -726,6 +727,7 @@ describe('credential-free served frontend parity', () => {
         HTTP_USER_AGENT_PROFILES.map(({ userAgent }) => userAgent).sort(),
       )
       assert.deepEqual(result.capturedThirdPartyOrigins, [
+        'https://liteforge.explorer.caldera.xyz',
         'https://liteforge.rpc.caldera.xyz',
         'https://raw.githubusercontent.com',
         'https://x.com',
