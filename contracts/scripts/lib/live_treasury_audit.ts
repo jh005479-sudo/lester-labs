@@ -1,5 +1,4 @@
-import { ethers } from "hardhat";
-import type { Log, Provider } from "ethers";
+import { ethers, type Log, type Provider } from "ethers";
 
 export const EXPECTED_CHAIN_ID = 4441n;
 export const RETIRED_TREASURY = "0xdd221fbbcb0f6092afe51183d964aa89a968ee13";

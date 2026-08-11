@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { network } from "hardhat";
 import {
   ADDRESSES,
   PINNED_TIMELOCK_BASELINE_DIGEST,
@@ -10,7 +10,9 @@ import {
   normalized,
   timelockBaselineDigest,
   type TimelockInventory,
-} from "../scripts/lib/live_treasury_audit";
+} from "../scripts/lib/live_treasury_audit.js";
+
+const { ethers } = await network.create();
 
 describe("live treasury safety invariants", function () {
   const roles = {

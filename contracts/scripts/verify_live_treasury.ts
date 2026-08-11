@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { network } from "hardhat";
 import type { Contract } from "ethers";
 import {
   ADDRESSES,
@@ -14,11 +14,13 @@ import {
   inventoryTimelock,
   normalized,
   type TimelockInventory,
-} from "./lib/live_treasury_audit";
+} from "./lib/live_treasury_audit.js";
 import {
   assertNoActiveRetiredChildAuthority,
   auditLiveChildAuthority,
-} from "./lib/live_child_authority_audit";
+} from "./lib/live_child_authority_audit.js";
+
+const { ethers } = await network.create();
 
 const ZERO_STORAGE = `0x${"00".repeat(32)}`;
 const EIP1967_SLOTS = {

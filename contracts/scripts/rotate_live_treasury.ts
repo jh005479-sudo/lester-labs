@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { network } from "hardhat";
 import type { Contract } from "ethers";
 import {
   ADDRESSES,
@@ -15,7 +15,9 @@ import {
   inventoryTimelock,
   normalized,
   type TimelockInventory,
-} from "./lib/live_treasury_audit";
+} from "./lib/live_treasury_audit.js";
+
+const { ethers } = await network.create();
 
 const OWNABLE_ABI = [
   "function owner() view returns (address)",

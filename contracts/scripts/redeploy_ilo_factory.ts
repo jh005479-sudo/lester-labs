@@ -1,4 +1,6 @@
-import { ethers } from "hardhat";
+import { network } from "hardhat";
+
+const { ethers } = await network.create();
 
 const TREASURY = "0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28";
 

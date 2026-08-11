@@ -10,9 +10,19 @@
  *
  * Or configure hardhat.config.ts with a forking network alias.
  */
-import { ethers, network } from "hardhat";
+import { network } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
+
+const hardhatConnection = await network.create();
+const hardhatEthers = hardhatConnection.ethers;
+const ethers = hardhatEthers as Omit<
+  typeof hardhatEthers,
+  "getContractFactory" | "getContractAt"
+> & {
+  getContractFactory: (...args: any[]) => Promise<any>;
+  getContractAt: (...args: any[]) => Promise<any>;
+};
 
 const ADDRESSES_FILE = path.join(__dirname, "../deployed-addresses.json");
 

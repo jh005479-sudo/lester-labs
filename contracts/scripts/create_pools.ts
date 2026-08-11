@@ -7,7 +7,7 @@
  * Run: npx ts-node scripts/create_pools.ts
  */
 
-import { ethers } from 'hardhat'
+import { ethers } from 'ethers'
 
 const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || '0x...'
 const RPC_URL = 'https://liteforge.rpc.caldera.xyz/http'

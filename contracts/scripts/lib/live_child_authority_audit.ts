@@ -1,11 +1,10 @@
-import { ethers } from "hardhat";
-import type { Log, Provider } from "ethers";
+import { ethers, type Log, type Provider } from "ethers";
 import {
   ADDRESSES,
   RETIRED_TREASURY,
   normalized,
   readExplorerEventLogs,
-} from "./live_treasury_audit";
+} from "./live_treasury_audit.js";
 
 const DEFAULT_LITVM_RPC_URL =
   "https://liteforge.rpc.caldera.xyz/infra-partner-http";

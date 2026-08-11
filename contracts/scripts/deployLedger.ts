@@ -1,6 +1,8 @@
-import { ethers } from "hardhat";
+import { network as hardhatNetwork } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
+
+const { ethers } = await hardhatNetwork.create();
 
 async function main() {
   const [deployer] = await ethers.getSigners();

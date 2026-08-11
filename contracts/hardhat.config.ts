@@ -1,9 +1,20 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
-import * as dotenv from "dotenv";
-dotenv.config();
+import hardhatEthers from "@nomicfoundation/hardhat-ethers";
+import hardhatEthersChaiMatchers from "@nomicfoundation/hardhat-ethers-chai-matchers";
+import hardhatMocha from "@nomicfoundation/hardhat-mocha";
+import hardhatNetworkHelpers from "@nomicfoundation/hardhat-network-helpers";
+import { defineConfig } from "hardhat/config";
 
-const config: HardhatUserConfig = {
+const configuredAccounts = process.env.DEPLOYER_PRIVATE_KEY
+  ? [process.env.DEPLOYER_PRIVATE_KEY]
+  : [];
+
+export default defineConfig({
+  plugins: [
+    hardhatEthers,
+    hardhatEthersChaiMatchers,
+    hardhatMocha,
+    hardhatNetworkHelpers,
+  ],
   solidity: {
     compilers: [
       {
@@ -38,19 +49,17 @@ const config: HardhatUserConfig = {
   },
   networks: {
     arbitrumSepolia: {
+      type: "http",
+      chainType: "generic",
       url: "https://sepolia-rollup.arbitrum.io/rpc",
-      accounts: process.env.DEPLOYER_PRIVATE_KEY
-        ? [process.env.DEPLOYER_PRIVATE_KEY]
-        : [],
+      accounts: configuredAccounts,
     },
     litvm: {
+      type: "http",
+      chainType: "generic",
       url: process.env.LITVM_RPC_URL || "https://liteforge.rpc.caldera.xyz/infra-partner-http",
       chainId: 4441,
-      accounts: process.env.DEPLOYER_PRIVATE_KEY
-        ? [process.env.DEPLOYER_PRIVATE_KEY]
-        : [],
+      accounts: configuredAccounts,
     },
   },
-};
-
-export default config;
+});

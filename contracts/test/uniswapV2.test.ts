@@ -1,6 +1,17 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
-import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
+import { network } from "hardhat";
+
+const hardhatConnection = await network.create();
+const { networkHelpers } = hardhatConnection;
+const hardhatEthers = hardhatConnection.ethers;
+const ethers = hardhatEthers as Omit<
+  typeof hardhatEthers,
+  "getContractFactory" | "getContractAt"
+> & {
+  getContractFactory: (...args: any[]) => Promise<any>;
+  getContractAt: (...args: any[]) => Promise<any>;
+};
+const { loadFixture, time } = networkHelpers;
 
 const TREASURY_FEE_TARGET = "0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28";
 const ONE_DAY = 24 * 60 * 60;
@@ -226,7 +237,7 @@ describe("Lester Labs Uniswap V2 fork", function () {
     await time.increaseTo(startTime + 1);
     await ilo.connect(contributor).contribute({ value: ethers.parseEther("10") });
 
-    await expect(ilo.connect(projectOwner).finalize()).to.be.reverted;
+    await expect(ilo.connect(projectOwner).finalize()).to.revert(ethers);
   });
 
   it("refuses to seed launchpad liquidity if fee routing drifts away from the treasury", async function () {

@@ -1,6 +1,8 @@
-import { ethers, network } from "hardhat";
+import { network } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
+
+const { ethers, networkName } = await network.create();
 
 const ADDRESSES_FILE = path.join(__dirname, "../deployed-addresses.json");
 const TREASURY = "0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28";
@@ -60,7 +62,7 @@ async function main() {
     UniSwapConnector: connectorAddress,
     WrappedZkLTC: wrappedNativeAddress,
     treasury: TREASURY,
-    network: network.name,
+    network: networkName,
     chainId: chainId.toString(),
     deployedAt: new Date().toISOString(),
     deployer: deployer.address,

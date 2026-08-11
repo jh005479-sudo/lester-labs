@@ -1,6 +1,16 @@
-import { ethers } from "hardhat";
+import { network } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
+
+const hardhatConnection = await network.create();
+const hardhatEthers = hardhatConnection.ethers;
+const ethers = hardhatEthers as Omit<
+  typeof hardhatEthers,
+  "getContractFactory" | "getContractAt"
+> & {
+  getContractFactory: (...args: any[]) => Promise<any>;
+  getContractAt: (...args: any[]) => Promise<any>;
+};
 
 async function main() {
   const [deployer] = await ethers.getSigners();

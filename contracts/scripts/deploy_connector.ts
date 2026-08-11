@@ -1,4 +1,6 @@
-import { ethers } from "hardhat";
+import { network } from "hardhat";
+
+const { ethers } = await network.create();
 
 const EXPECTED_CHAIN_ID = 4441n;
 const TARGET_TREASURY = "0xcbf819017ae48f261fe143b2a7c8a29d9a2fcd28";

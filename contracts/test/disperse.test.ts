@@ -1,6 +1,8 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { network } from "hardhat";
+
+const { ethers, networkHelpers } = await network.create();
+const { loadFixture } = networkHelpers;
 
 async function deployDisperseFixture() {
   const [sender, alice, bob] = await ethers.getSigners();
@@ -26,17 +28,22 @@ describe("Disperse", function () {
 
   it("sends the exact native amounts and leaves no refund balance", async function () {
     const { alice, bob, disperse } = await loadFixture(deployDisperseFixture);
+    const aliceBalanceBefore = await ethers.provider.getBalance(alice.address);
+    const bobBalanceBefore = await ethers.provider.getBalance(bob.address);
 
-    await expect(
-      disperse.disperseEther(
-        [alice.address, bob.address],
-        [ethers.parseEther("0.4"), ethers.parseEther("0.6")],
-        { value: ethers.parseEther("1") },
-      ),
-    ).to.changeEtherBalances(
-      [alice, bob, disperse],
-      [ethers.parseEther("0.4"), ethers.parseEther("0.6"), 0n],
+    await disperse.disperseEther(
+      [alice.address, bob.address],
+      [ethers.parseEther("0.4"), ethers.parseEther("0.6")],
+      { value: ethers.parseEther("1") },
     );
+
+    expect(await ethers.provider.getBalance(alice.address)).to.equal(
+      aliceBalanceBefore + ethers.parseEther("0.4"),
+    );
+    expect(await ethers.provider.getBalance(bob.address)).to.equal(
+      bobBalanceBefore + ethers.parseEther("0.6"),
+    );
+    expect(await ethers.provider.getBalance(await disperse.getAddress())).to.equal(0n);
   });
 
   it("does not refund unrelated native balance to the caller", async function () {

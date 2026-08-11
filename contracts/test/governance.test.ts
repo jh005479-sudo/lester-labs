@@ -1,6 +1,18 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
-import { loadFixture, mine, time } from "@nomicfoundation/hardhat-network-helpers";
+import type { Log, LogDescription } from "ethers";
+import { network } from "hardhat";
+
+const hardhatConnection = await network.create();
+const { networkHelpers } = hardhatConnection;
+const hardhatEthers = hardhatConnection.ethers;
+const ethers = hardhatEthers as Omit<
+  typeof hardhatEthers,
+  "getContractFactory" | "getContractAt"
+> & {
+  getContractFactory: (...args: any[]) => Promise<any>;
+  getContractAt: (...args: any[]) => Promise<any>;
+};
+const { loadFixture, mine, time } = networkHelpers;
 
 const MIN_DELAY = 2 * 24 * 60 * 60;
 
@@ -87,14 +99,14 @@ async function createSucceededProposal() {
   );
   const proposeReceipt = await proposeTx.wait();
   const createdEvent = proposeReceipt?.logs
-    .map((log) => {
+    .map((log: Log) => {
       try {
         return governor.interface.parseLog(log);
       } catch {
         return null;
       }
     })
-    .find((event) => event?.name === "ProposalCreated");
+    .find((event: LogDescription | null) => event?.name === "ProposalCreated");
 
   if (!createdEvent) {
     throw new Error("ProposalCreated event not found");
@@ -133,7 +145,7 @@ describe("LitGovernor timelock integration", function () {
     expect(await timelock.isOperation(opId)).to.equal(true);
     expect(await governor.state(proposalId)).to.equal(4n); // Queued
 
-    await expect(governor.execute(proposalId)).to.be.reverted;
+    await expect(governor.execute(proposalId)).to.revert(ethers);
 
     await time.increase(MIN_DELAY + 1);
     await (await governor.executeTimelocked(proposalId)).wait();

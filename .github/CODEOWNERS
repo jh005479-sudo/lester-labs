@@ -1,0 +1,32 @@
+# Default ownership. Branch protection must require Code Owner approval for this
+# file to become an enforcement boundary.
+* @jh005479-sudo
+
+# Dependency and package-manager controls
+/.npmrc @jh005479-sudo
+/package.json @jh005479-sudo
+/package-lock.json @jh005479-sudo
+/contracts/.npmrc @jh005479-sudo
+/contracts/package.json @jh005479-sudo
+/contracts/package-lock.json @jh005479-sudo
+/scripts/security/ @jh005479-sudo
+
+# CI, security policy, and secret-scanner configuration
+/.github/CODEOWNERS @jh005479-sudo
+/.github/dependabot.yml @jh005479-sudo
+/.github/workflows/ @jh005479-sudo
+/.gitleaks.toml @jh005479-sudo
+/.gitleaksignore @jh005479-sudo
+/SECURITY.md @jh005479-sudo
+/docs/security/ @jh005479-sudo
+
+# Deployment, contracts, and privileged operational scripts
+/vercel.json @jh005479-sudo
+/emergency-site/ @jh005479-sudo
+/next.config.ts @jh005479-sudo
+/run-sweep.sh @jh005479-sudo
+/contracts/hardhat.config.ts @jh005479-sudo
+/contracts/contracts/ @jh005479-sudo
+/contracts/scripts/ @jh005479-sudo
+Dockerfile @jh005479-sudo
+**/Dockerfile @jh005479-sudo
