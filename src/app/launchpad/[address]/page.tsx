@@ -772,7 +772,7 @@ export default function PresalePage() {
             </h1>
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
               {isChecking
-                ? 'Checking this contract against both source-pinned legacy Lester Labs ILO factories and reviewed child runtimes.'
+                ? 'Checking this contract against the source-pinned replacement and legacy Lester Labs ILO factories, plus reviewed child runtimes.'
                 : provenanceStatus === 'error'
                   ? 'The LitVM provenance check is temporarily unavailable. Transaction controls remain disabled until verification succeeds.'
                   : 'This contract did not authenticate against the exact source factory it reports. Lester Labs will not offer transaction controls for it.'}
@@ -1233,12 +1233,15 @@ export default function PresalePage() {
           {status === 'Live' ? (
             <div style={{ display: 'grid', gap: '12px' }}>
               <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.58)', lineHeight: 1.6 }}>
-                The recorded sale window is still open in legacy contract state, but new contributions are disabled.
-                Existing contributors should use only a claim or refund action when the authenticated child state permits it.
+                {paidWritesApproved
+                  ? 'This source-pinned replacement sale is live. Confirm chain 4441, the authenticated child address, contribution value, and wallet prompt before submitting.'
+                  : 'The recorded sale window is still open in legacy contract state, but new contributions are disabled. Existing contributors should use only a claim or refund action when the authenticated child state permits it.'}
               </p>
               {whitelistEnabled && !isWhitelisted && isConnected && (
                 <div style={{ border: '1px solid rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.08)', borderRadius: '10px', padding: '12px 14px', color: '#fcd34d', fontSize: '13px' }}>
-                  This historical sale is whitelist-gated. New contributions and whitelist changes remain disabled.
+                  {paidWritesApproved
+                    ? 'This replacement sale is whitelist-gated. The connected account must be approved by the sale owner before it can contribute.'
+                    : 'This historical sale is whitelist-gated. New contributions and whitelist changes remain disabled.'}
                 </div>
               )}
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -1280,8 +1283,9 @@ export default function PresalePage() {
             </div>
           ) : (
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.58)', lineHeight: 1.6 }}>
-              New contributions are disabled regardless of the historical sale window. Authenticated claims, refunds,
-              and post-finalization recovery actions are shown only when the contract reaches the corresponding state.
+              {paidWritesApproved
+                ? 'Contributions are available only while this replacement sale is live. Claims, refunds, and post-finalization actions appear only when its authenticated state permits them.'
+                : 'New contributions are disabled regardless of the historical sale window. Authenticated claims, refunds, and post-finalization recovery actions are shown only when the contract reaches the corresponding state.'}
             </p>
           )}
 

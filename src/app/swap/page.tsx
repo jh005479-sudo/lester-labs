@@ -1453,6 +1453,26 @@ function SwapPageInner() {
 
   const initialCreatePoolToken0 = resolveCreatePoolToken(urlToken0)
   const initialCreatePoolToken1 = resolveCreatePoolToken(urlToken1)
+  const appliedSwapUrlRef = useRef<string | null>(null)
+  const swapUrlKey = `${urlToken0 ?? ''}:${urlToken1 ?? ''}`
+
+  useEffect(() => {
+    if ((!urlToken0 && !urlToken1) || appliedSwapUrlRef.current === swapUrlKey) return
+    if (urlLookupAddresses.length > 0 && urlTokenMetadataReads.isPending) return
+
+    if (initialCreatePoolToken0) setInputToken(initialCreatePoolToken0)
+    if (initialCreatePoolToken1) setOutputToken(initialCreatePoolToken1)
+    setAmountIn('')
+    appliedSwapUrlRef.current = swapUrlKey
+  }, [
+    initialCreatePoolToken0,
+    initialCreatePoolToken1,
+    swapUrlKey,
+    urlLookupAddresses.length,
+    urlToken0,
+    urlToken1,
+    urlTokenMetadataReads.isPending,
+  ])
 
   // Persist swap card state to sessionStorage (debounced 500ms)
   useEffect(() => {
@@ -2108,8 +2128,14 @@ function SwapPageInner() {
               <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h1 className="text-2xl font-semibold text-white">Read-only legacy quote</h1>
-                    <p className="mt-1 text-sm text-white/45">A bounded reserve observation from the retired Lester Labs factory; submission remains blocked.</p>
+                    <h1 className="text-2xl font-semibold text-white">
+                      {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Swap' : 'Read-only legacy quote'}
+                    </h1>
+                    <p className="mt-1 text-sm text-white/45">
+                      {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                        ? 'A source-pinned replacement DEX quote on chain 4441. Reserve ratios are not oracle prices; verify the exact wallet prompt before submitting.'
+                        : 'A bounded reserve observation from the retired Lester Labs factory; submission remains blocked.'}
+                    </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <SlippageSelector valueBps={slippageBps} onChange={setSlippageBps} />

@@ -95,7 +95,7 @@ export function MessageFeed({
           </span>
           <h2 className="text-2xl font-semibold tracking-tight">Newest returned marks</h2>
           <p className="mt-2 text-sm leading-6" style={{ color: 'rgba(240,238,245,0.5)' }}>
-            Newly returned events are prepended, and older logs load in 50-message pages. This RPC-backed view is not a complete archive.
+            Newly returned events are prepended, and older logs load in bounded pages from the chain&apos;s public index. Every item is decoded against the source-pinned contract event, but this convenience view is not a complete archive.
           </p>
         </div>
 

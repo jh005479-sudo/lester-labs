@@ -170,26 +170,33 @@ async function readErc20Meta(address: `0x${string}`): Promise<{ name: string; sy
   const cached = erc20MetaCache.get(address.toLowerCase())
   if (cached) return cached
 
-  try {
-    const [name, symbol, decimals, totalSupply] = await Promise.all([
-      client.readContract({ address, abi: ERC20_ABI, functionName: 'name' }),
-      client.readContract({ address, abi: ERC20_ABI, functionName: 'symbol' }),
-      client.readContract({ address, abi: ERC20_ABI, functionName: 'decimals' }),
-      client.readContract({ address, abi: ERC20_ABI, functionName: 'totalSupply' }),
-    ])
-    if (!name || !symbol) return null
-    const parsedDecimals = Number(decimals)
-    const meta = {
-      name: sanitizeTokenMetadataText(name, 'Unknown token'),
-      symbol: sanitizeTokenMetadataText(symbol, 'TOKEN'),
-      decimals: Number.isInteger(parsedDecimals) && parsedDecimals >= 0 && parsedDecimals <= 255 ? parsedDecimals : 18,
-      totalSupply: totalSupply as bigint,
+  // The public LitVM RPC can transiently reject a burst of parallel calls.
+  // Read the four ERC-20 fields sequentially and retry the bounded group so a
+  // temporary transport error is not mislabeled as "not an ERC-20 token".
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const name = await client.readContract({ address, abi: ERC20_ABI, functionName: 'name' })
+      const symbol = await client.readContract({ address, abi: ERC20_ABI, functionName: 'symbol' })
+      const decimals = await client.readContract({ address, abi: ERC20_ABI, functionName: 'decimals' })
+      const totalSupply = await client.readContract({ address, abi: ERC20_ABI, functionName: 'totalSupply' })
+      if (!name || !symbol) return null
+      const parsedDecimals = Number(decimals)
+      const meta = {
+        name: sanitizeTokenMetadataText(name, 'Unknown token'),
+        symbol: sanitizeTokenMetadataText(symbol, 'TOKEN'),
+        decimals: Number.isInteger(parsedDecimals) && parsedDecimals >= 0 && parsedDecimals <= 255 ? parsedDecimals : 18,
+        totalSupply: totalSupply as bigint,
+      }
+      erc20MetaCache.set(address.toLowerCase(), meta)
+      return meta
+    } catch {
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)))
+      }
     }
-    erc20MetaCache.set(address.toLowerCase(), meta)
-    return meta
-  } catch {
-    return null
   }
+
+  return null
 }
 
 // ── Paginated getLogs ──────────────────────────────────────────────────────
@@ -463,7 +470,7 @@ export async function getTokenDetails(contractAddress: string): Promise<TokenDet
   const cached = tokenCache.find(t => t.address.toLowerCase() === contractAddress.toLowerCase())
 
   const meta = await readErc20Meta(addr)
-  if (!meta) throw new Error('Not a valid ERC-20 token')
+  if (!meta) throw new Error('Token metadata could not be verified after bounded RPC retries')
 
   const latest = await client.getBlockNumber()
   const fromBlock = cached ? cached.creationBlock : Math.max(0, Number(latest) - INITIAL_SCAN_BLOCKS + 1)

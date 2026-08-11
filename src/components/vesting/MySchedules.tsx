@@ -44,7 +44,7 @@ interface VestingRecoveryTarget {
 const VESTING_RECOVERY_TARGETS: readonly VestingRecoveryTarget[] = Object.freeze([
   {
     id: 'current',
-    label: 'Pre-cutover VestingFactory — recovery only',
+    label: 'Current source-pinned VestingFactory',
     address: LITVM_CURRENT_CONTRACTS.vestingFactory,
     runtimeCodeHash: VESTING_FACTORY_RUNTIME_CODE_HASH,
     childRuntimeAttestation: LITVM_CURRENT_VESTING_CHILD_RUNTIME_ATTESTATION,
@@ -289,7 +289,7 @@ export function MySchedules() {
         <div>
           <h3 className="text-base font-semibold text-white">Direct VestingWallet Recovery</h3>
           <p className="mt-1 text-sm text-white/50">
-            Vesting wallets are independent child contracts. Recovery requires the exact factory receipt so the child address, beneficiary, factory bytecode, and historical child bytecode generation can all be attested before release.
+            Vesting wallets are independent child contracts. Release requires the exact factory receipt so the child address, beneficiary, factory bytecode, and child bytecode generation can all be attested before any transaction is offered.
           </p>
         </div>
         <label className="block space-y-1.5 text-xs text-white/50">
