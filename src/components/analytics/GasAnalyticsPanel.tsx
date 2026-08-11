@@ -128,7 +128,7 @@ export function GasAnalyticsPanel() {
         <StatCard
           icon={Zap}
           label="Network Utilization"
-          value={loading ? '—' : `${Math.round(62 + Math.random() * 20)}%`}
+          value="Not measured"
           color="text-yellow-400"
         />
       </div>
@@ -192,7 +192,7 @@ export function GasAnalyticsPanel() {
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-white/40">Block #</span>
-              <span className="font-mono text-white">{loading ? '—' : Math.floor(18000000 + Math.random() * 100000)}</span>
+              <span className="font-mono text-white">Not measured</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-white/40">Base Fee</span>
@@ -200,7 +200,7 @@ export function GasAnalyticsPanel() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-white/40">Gas Used</span>
-              <span className="font-mono text-white">{loading ? '—' : `${Math.round(85 + Math.random() * 14)}%`}</span>
+              <span className="font-mono text-white">Not measured</span>
             </div>
           </div>
         </div>

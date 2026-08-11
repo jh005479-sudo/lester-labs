@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { ConnectButton } from '@/components/shared/LocalWalletConnect'
 import { ChevronDown, Grid3X3, Menu, Wallet, X } from 'lucide-react'
 import { appGroups, isActivePath } from '@/lib/product-flow'
 
@@ -237,7 +237,7 @@ export function Navbar() {
                     onClick={openAccountModal}
                     type="button"
                     className="inline-flex h-11 min-w-[64px] items-center justify-center rounded-[14px] px-3"
-                    aria-label="Open wallet account"
+                    aria-label="Disconnect wallet"
                     style={{
                       background: 'rgba(74, 49, 220, 0.22)',
                       border: '1px solid rgba(167, 137, 255, 0.46)',

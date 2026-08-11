@@ -101,7 +101,16 @@ export function TokenTracker() {
     return () => { stop?.() }
   }, [])
 
-  const now = Math.floor(Date.now() / 1000)
+  const [now, setNow] = useState(0)
+  useEffect(() => {
+    const updateNow = () => setNow(Math.floor(Date.now() / 1000))
+    const initialTimer = window.setTimeout(updateNow, 0)
+    const interval = window.setInterval(updateNow, 60_000)
+    return () => {
+      window.clearTimeout(initialTimer)
+      window.clearInterval(interval)
+    }
+  }, [])
 
   const lpTokenCount = tokens.filter(isLPToken).length
   const visibleTokens = hideLp ? tokens.filter(t => !isLPToken(t)) : tokens

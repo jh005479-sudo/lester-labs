@@ -1,6 +1,6 @@
 'use client'
 
-import { readContract } from '@wagmi/core'
+import { readContract } from 'wagmi/actions'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -323,6 +323,10 @@ const UNISWAP_V2_ROUTER_EXTENDED_ABI = [
 
 const DEFAULT_DEADLINE_SECONDS = 20 * 60
 
+function getTransactionDeadline(): bigint {
+  return BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
+}
+
 // ── Remove Liquidity Panel ──────────────────────────────────────────────────
 function RemoveLiquidityPanel({
   pairAddress,
@@ -540,7 +544,6 @@ function RemoveLiquidityPanel({
       setTxStatus('pending')
       setTxMessage(undefined)
 
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
       validateSlippageBps(slippageBps)
       await attestFreshDexRuntime()
       const freshPair = await readFreshCanonicalPair(token0, token1, pairAddress)
@@ -578,6 +581,7 @@ function RemoveLiquidityPanel({
       const token0IsPair0 = sameAddress(token0, freshPair.token0)
       const amount0Min = token0IsPair0 ? freshQuote.amount0Min : freshQuote.amount1Min
       const amount1Min = token0IsPair0 ? freshQuote.amount1Min : freshQuote.amount0Min
+      const deadline = getTransactionDeadline()
 
       let hash: `0x${string}`
 

@@ -1,4 +1,4 @@
-import { readContract } from '@wagmi/core'
+import { readContract } from 'wagmi/actions'
 import { zeroAddress } from 'viem'
 import { UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
 import { litvm } from '@/config/chains'

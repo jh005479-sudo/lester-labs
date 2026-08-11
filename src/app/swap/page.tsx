@@ -1,6 +1,6 @@
 'use client'
 
-import { getBalance, readContract, waitForTransactionReceipt } from '@wagmi/core'
+import { getBalance, readContract, waitForTransactionReceipt } from 'wagmi/actions'
 import Link from 'next/link'
 import { Suspense, useEffect, useRef, useState, startTransition } from 'react'
 import { ArrowDownUp, ChevronDown, Droplets, Loader2, Plus, Wallet, X, ArrowLeftRight } from 'lucide-react'
@@ -45,6 +45,10 @@ const NATIVE_GAS_RESERVE = parseUnits('0.01', 18)
 const DEFAULT_DEADLINE_SECONDS = 20 * 60
 const ZERO_ADDRESS = zeroAddress as `0x${string}`
 const CHAIN_ID = 4441
+
+function getTransactionDeadline(): bigint {
+  return BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
+}
 
 // ── Pinned tokens shown at the top of every dropdown ────────────────────────
 const PINNED_TOKENS: { address: `0x${string}`; symbol: string; name: string; isNative: boolean }[] = [
@@ -1312,6 +1316,7 @@ function SwapPageInner() {
     pairAddress: `0x${string}`
     quotedAmountOut: bigint
     minimumAmountOut: bigint
+    previewDeadline: bigint
   } | null>(null)
 
   useEffect(() => {
@@ -1720,7 +1725,7 @@ function SwapPageInner() {
         },
       }))) return
       const freshQuote = await readFreshSwapIntent()
-      setSettlementQuote(freshQuote)
+      setSettlementQuote({ ...freshQuote, previewDeadline: getTransactionDeadline() })
       setShowSettlementPreview(true)
     } catch (error) {
       setTxMessage(error instanceof Error ? error.message.slice(0, 220) : 'Unable to authenticate a fresh LitVM quote.')
@@ -1739,10 +1744,10 @@ function SwapPageInner() {
   // Build callData for the settlement preview
   function buildSwapCallData(): { fn: string; data: string; target: string } {
     if (resolvedOutput === null) return { fn: '', data: '0x', target: UNISWAP_V2_ROUTER_ADDRESS }
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
+    const deadline = settlementQuote?.previewDeadline
     const path = [wrappedInputAddress, wrappedOutputAddress] as `0x${string}`[]
     const previewMinimumAmountOut = settlementQuote?.minimumAmountOut
-    if (!previewMinimumAmountOut) return { fn: '', data: '0x', target: UNISWAP_V2_ROUTER_ADDRESS }
+    if (!deadline || !previewMinimumAmountOut) return { fn: '', data: '0x', target: UNISWAP_V2_ROUTER_ADDRESS }
     if (resolvedInput.isNative) {
       return {
         fn: 'swapExactETHForTokens',
@@ -1840,9 +1845,9 @@ function SwapPageInner() {
       const submissionMinimumAmountOut = submissionQuote.minimumAmountOut > settlementQuote.minimumAmountOut
         ? submissionQuote.minimumAmountOut
         : settlementQuote.minimumAmountOut
-      setSettlementQuote(submissionQuote)
+      setSettlementQuote({ ...submissionQuote, previewDeadline: settlementQuote.previewDeadline })
 
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
+      const deadline = getTransactionDeadline()
       const path = [wrappedInputAddress, wrappedOutputAddress] as `0x${string}`[]
       setTxAction('swap')
 

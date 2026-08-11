@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { ConnectButton } from '@/components/shared/LocalWalletConnect'
 import { useAccount, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
 import { ExternalLink, Loader2, PenLine, Wallet } from 'lucide-react'
 import { toHex, type Hex } from 'viem'

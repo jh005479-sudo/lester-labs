@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { waitForTransactionReceipt } from '@wagmi/core'
+import { ConnectButton } from '@/components/shared/LocalWalletConnect'
+import { waitForTransactionReceipt } from 'wagmi/actions'
 import Link from 'next/link'
 import { BuilderChecklist } from '@/components/shared/BuilderChecklist'
 import { ToolHero } from '@/components/shared/ToolHero'

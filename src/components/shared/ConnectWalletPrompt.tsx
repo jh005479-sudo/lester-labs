@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { ConnectButton } from '@/components/shared/LocalWalletConnect'
 import { ArrowUpRight, CheckCircle2, FileSearch, Wallet } from 'lucide-react'
 import { walletConnectConfigured } from '@/config/wagmi'
 

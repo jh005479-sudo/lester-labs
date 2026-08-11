@@ -69,8 +69,10 @@ export function useLedgerFeed({
   const highlightTimeoutsRef = useRef(new Set<number>())
   const userCountRef = useRef(0)
 
-  totalMessageCountRef.current = totalMessageCount
-  viewerAddressRef.current = viewerAddress
+  useEffect(() => {
+    totalMessageCountRef.current = totalMessageCount
+    viewerAddressRef.current = viewerAddress
+  }, [totalMessageCount, viewerAddress])
 
   function clearHighlights() {
     for (const timeout of highlightTimeoutsRef.current) {
