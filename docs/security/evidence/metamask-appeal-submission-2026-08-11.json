@@ -1,0 +1,41 @@
+{
+  "kind": "lester-labs-metamask-classification-review-submission",
+  "schemaVersion": 1,
+  "status": "SUBMITTED",
+  "submittedAt": "2026-08-11T08:46:47Z",
+  "repository": "MetaMask/eth-phishing-detect",
+  "issueNumber": 281296,
+  "issueUrl": "https://github.com/MetaMask/eth-phishing-detect/issues/281296",
+  "title": "Classification review request: lester-labs.com and www.lester-labs.com",
+  "domains": [
+    "https://lester-labs.com/",
+    "https://www.lester-labs.com/"
+  ],
+  "requestedOutcome": "Rescan both hostnames and identify any remaining observable behavior supporting the previously observed dapp-scanner classification.",
+  "publicEvidenceCommit": "ff122b5673fd38b3d2edd960e6ab398e7ffaf7e9",
+  "frontendProductionCutoverEvidence": {
+    "path": "docs/security/evidence/frontend-production-cutover-2026-08-11.json",
+    "rawSha256": "77658bb02be8fbe0b56b2e391a7ac5f8afef9e4fb5d31dedbfb3523c4ec1e827"
+  },
+  "servedRouteDigestEvidence": {
+    "path": "docs/security/evidence/frontend-production-route-digests-2026-08-11.json",
+    "rawSha256": "76bb76a143bf005196107da00280fd457eae1692959abecc3736e322b62e6b2d"
+  },
+  "contractDeploymentManifest": {
+    "sourceCommit": "abcf1b75ee7945f557163dce11485555da63a5b6",
+    "path": "docs/security/evidence/disposable-testnet-4441-2026-08-06/deployment-manifest.json",
+    "rawSha256": "ab5b035f537ee29f354ac3c6ef08c8c19f726058e8e776bf65ea4a950528a2eb"
+  },
+  "publicListObservation": {
+    "observedAt": "2026-08-11T08:31:00Z",
+    "apex": "This domain is not blocked! No problem here.",
+    "www": "This domain is not blocked! No problem here."
+  },
+  "limitationsDisclosedInSubmission": [
+    "The public eth-phishing-detect utility result does not clear the separately observed dapp-scanner signal.",
+    "A genuine MetaMask-extension retest was unavailable in the controlled workspace because Chrome control was not connected.",
+    "The release is limited to valueless LitVM LiteForge testnet chain 4441 and makes no real-value production claim.",
+    "The parity evidence is one network vantage across two origins and three request profiles, not the protected EU/US two-vantage workflow."
+  ],
+  "sensitiveMaterialIncluded": false
+}
