@@ -19,25 +19,44 @@ const inactiveSignals = Object.freeze({
   replacementsActive: false,
   governanceActive: false,
   approvedPackagePresent: false,
+  publicTestnetRelease: false,
 })
 
 const activeSignals = Object.freeze({
   replacementsActive: true,
   governanceActive: true,
   approvedPackagePresent: true,
+  publicTestnetRelease: false,
+})
+
+const publicTestnetSignals = Object.freeze({
+  replacementsActive: true,
+  governanceActive: false,
+  approvedPackagePresent: true,
+  publicTestnetRelease: true,
 })
 
 describe('public release status', () => {
-  it('preserves the current fail-closed containment presentation', () => {
+  it('preserves fail-closed containment presentation for a fully inactive package', () => {
     const status = getPublicReleaseStatus(inactiveSignals)
 
-    assert.equal(status, PUBLIC_RELEASE_STATUS)
     assert.equal(status.mode, 'containment')
     assert.equal(status.ordinaryWritesEnabled, false)
     assert.match(status.banner, /ordinary contract writes are disabled/i)
     assert.match(status.homepage.noticeHeading, /post-compromise containment is active/i)
     assert.match(status.security.gatesSummary, /only after both gates pass/i)
     assert.equal(status.security.rows.find((row) => row.area === 'Application writes')?.status, 'Contained')
+  })
+
+  it('publishes the exact immutable public-testnet authority model while governance remains disabled', () => {
+    const status = getPublicReleaseStatus(publicTestnetSignals)
+    assert.equal(status, PUBLIC_RELEASE_STATUS)
+    assert.equal(status.mode, 'approved-public-testnet')
+    assert.equal(status.ordinaryWritesEnabled, true)
+    assert.match(status.banner, /chain 4441 guard|public testnet replacement active/i)
+    assert.match(status.homepage.noticeDetail, /no Safe authorities or independent reviewer requirement/i)
+    assert.match(status.security.gateADetail, /production multisig and independent-reviewer requirements remain reserved/i)
+    assert.equal(status.security.rows.find((row) => row.area === 'Governance writes')?.status, 'Disabled')
   })
 
   it('switches every key status surface to the reviewed candidate without claiming served parity', () => {
@@ -68,8 +87,9 @@ describe('public release status', () => {
       { ...inactiveSignals, replacementsActive: true },
       { ...inactiveSignals, approvedPackagePresent: true },
       { ...activeSignals, governanceActive: false },
+      { ...publicTestnetSignals, governanceActive: true },
     ]) {
-      assert.throws(() => getPublicReleaseStatus(partial), /must match replacement writes, governance writes/i)
+      assert.throws(() => getPublicReleaseStatus(partial), /must match the approved production or bounded public-testnet/i)
     }
   })
 

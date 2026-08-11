@@ -38,7 +38,7 @@ export function assertCanonicalRouterRuntime(
     throw new Error('DEX transactions are disabled because the router runtime targets could not be authenticated.')
   }
   if (!approvedTreasury || !approvedController) {
-    throw new Error('DEX paid actions are disabled until distinct reviewed post-compromise treasury and controller addresses are source-pinned.')
+    throw new Error('DEX paid actions are disabled until the approved release profile source-pins its exact treasury and controller roles.')
   }
   if (!sameAddress(factoryFeeTo, approvedTreasury) || !sameAddress(factoryFeeToSetter, approvedController)) {
     throw new Error('DEX transactions are disabled because feeTo/feeToSetter do not match the approved treasury/controller roles.')

@@ -61,17 +61,18 @@ describe('launchpad contract provenance', () => {
     assert.equal(isCanonicalLitvmContract(undefined, LITVM_TESTNET_CONTRACTS.iloFactory), false)
   })
 
-  it('fails every treasury gate closed until a reviewed replacement is activated', () => {
-    assert.equal(POST_COMPROMISE_REPLACEMENTS_ACTIVE, false)
-    assert.equal(APPROVED_LESTER_TREASURY_ADDRESS, undefined)
+  it('enables only the source-pinned public-testnet treasury after replacement activation', () => {
+    assert.equal(POST_COMPROMISE_REPLACEMENTS_ACTIVE, true)
+    assert.equal(APPROVED_LESTER_TREASURY_ADDRESS, '0x439945924515218061b644901a31aC4A6c00957c')
     assert.equal(isApprovedLesterTreasury('0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28'), false)
-    assert.equal(isApprovedLesterTreasury('0x439945924515218061b644901a31aC4A6c00957c'), false)
+    assert.equal(isApprovedLesterTreasury('0x439945924515218061b644901a31aC4A6c00957c'), true)
     assert.equal(isApprovedLesterTreasury('0xDD221FBbCb0f6092AfE51183d964AA89A968eE13'), false)
     assert.equal(isApprovedLesterTreasury(undefined), false)
   })
 
-  it('never enables creation through the canonical legacy factory or an environment-selected address', () => {
-    assert.equal(APPROVED_ILO_CREATION_FACTORY_ADDRESS, undefined)
+  it('enables only the replacement ILO factory and never a legacy or environment-selected address', () => {
+    assert.equal(APPROVED_ILO_CREATION_FACTORY_ADDRESS, '0x412e29e77500752A7B62489c0FaAE6560E8c4380')
+    assert.equal(isApprovedIloCreationFactory(APPROVED_ILO_CREATION_FACTORY_ADDRESS), true)
     assert.equal(isApprovedIloCreationFactory(LITVM_TESTNET_CONTRACTS.iloFactory), false)
     assert.equal(isApprovedIloCreationFactory('0x1111111111111111111111111111111111111111'), false)
     assert.equal(isApprovedIloCreationFactory(undefined), false)

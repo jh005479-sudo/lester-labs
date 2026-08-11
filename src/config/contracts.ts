@@ -28,6 +28,8 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 const ZERO_HASH = `0x${'00'.repeat(32)}`
 
 export const PUBLIC_REPLACEMENT_DEPLOYMENT_PROFILE = 'production-separated-authority' as const
+export const PUBLIC_TESTNET_REPLACEMENT_RELEASE_PROFILE = 'public-testnet-immutable' as const
+export const PUBLIC_TESTNET_REPLACEMENT_DEPLOYMENT_PROFILE = 'testnet-immutable-disposable' as const
 
 const PUBLIC_REPLACEMENT_DEPLOYMENT_NAMES = Object.freeze([
   'WrappedZkLTC',
@@ -155,7 +157,7 @@ const INDEPENDENT_REPLACEMENT_VERIFICATION_CHECKS = Object.freeze([
   'zero-replacement-counters-at-cutover',
 ] as const)
 
-export interface ApprovedPublicReplacementPackage {
+export interface ApprovedProductionPublicReplacementPackage {
   status: 'APPROVED'
   approvalPayloadSha256: RuntimeCodeHash
   deploymentManifestSha256: RuntimeCodeHash
@@ -241,6 +243,42 @@ export interface ApprovedPublicReplacementPackage {
   }[]
 }
 
+export interface ApprovedPublicTestnetReplacementPackage {
+  status: 'APPROVED'
+  releaseProfile: typeof PUBLIC_TESTNET_REPLACEMENT_RELEASE_PROFILE
+  approvalPayloadSha256: RuntimeCodeHash
+  deploymentManifestSha256: RuntimeCodeHash
+  deploymentManifest: Omit<
+    ApprovedProductionPublicReplacementPackage['deploymentManifest'],
+    'deploymentProfile'
+  > & {
+    deploymentProfile: typeof PUBLIC_TESTNET_REPLACEMENT_DEPLOYMENT_PROFILE
+  }
+  frontendRuntimeAttestations: ApprovedProductionPublicReplacementPackage['frontendRuntimeAttestations']
+  sourceEvidence: {
+    buildAttestationRawSha256: RuntimeCodeHash
+    deploymentManifestRawSha256: RuntimeCodeHash
+    initialIndependentVerifierRawSha256: RuntimeCodeHash
+    initialRuntimeSnapshotRawSha256: RuntimeCodeHash
+    liveVerificationRawSha256: RuntimeCodeHash
+    liveVerificationReportSha256: RuntimeCodeHash
+  }
+  activityCutover: ApprovedProductionPublicReplacementPackage['activityCutover']
+  testnetAcceptance: {
+    acceptedBy: 'repository-owner'
+    scope: 'litvm-chain-4441-valueless-public-testnet-only'
+    authorityModel: 'immutable-ecrecover-precompile-no-admin-key'
+    fundsModel: 'disclosed-eoa-valueless-test-gas-and-test-fees-only'
+    reviewModel: 'sole-owner-testnet-exception-no-independent-reviewers'
+    acceptedAt: string
+    safeguards: readonly string[]
+  }
+}
+
+export type ApprovedPublicReplacementPackage =
+  | ApprovedProductionPublicReplacementPackage
+  | ApprovedPublicTestnetReplacementPackage
+
 const PUBLIC_REPLACEMENT_MANIFEST_KEYS = Object.freeze([
   'buildAttestationSha256',
   'buildSourceCommit',
@@ -289,9 +327,9 @@ function assertExactObjectKeys(value: unknown, expectedKeys: readonly string[], 
   ) throw new Error(`${label} must contain exactly the reviewed fields.`)
 }
 
-export function assertExactApprovedPublicReplacementPackageShape(
+function assertExactApprovedProductionPublicReplacementPackageShape(
   value: unknown,
-): asserts value is ApprovedPublicReplacementPackage {
+): asserts value is ApprovedProductionPublicReplacementPackage {
   assertExactObjectKeys(value, [
     'status',
     'approvalPayloadSha256',
@@ -452,6 +490,93 @@ export function assertExactApprovedPublicReplacementPackageShape(
   }
 }
 
+function assertExactApprovedPublicTestnetReplacementPackageShape(
+  value: unknown,
+): asserts value is ApprovedPublicTestnetReplacementPackage {
+  assertExactObjectKeys(value, [
+    'status',
+    'releaseProfile',
+    'approvalPayloadSha256',
+    'deploymentManifestSha256',
+    'deploymentManifest',
+    'frontendRuntimeAttestations',
+    'sourceEvidence',
+    'activityCutover',
+    'testnetAcceptance',
+  ], 'The APPROVED public-testnet replacement package')
+  if (
+    value.status !== 'APPROVED' ||
+    value.releaseProfile !== PUBLIC_TESTNET_REPLACEMENT_RELEASE_PROFILE
+  ) throw new Error('The public-testnet replacement package identity is invalid.')
+  assertExactObjectKeys(value.deploymentManifest, PUBLIC_REPLACEMENT_MANIFEST_KEYS, 'The public-testnet replacement manifest')
+  assertExactObjectKeys(value.deploymentManifest.parameters, Object.keys(PUBLIC_REPLACEMENT_PARAMETERS), 'The public-testnet parameters')
+  assertExactObjectKeys(
+    value.deploymentManifest.legacyRecovery,
+    ['addresses', 'runtimeCodeHashes', 'iloFactoryProvenance'],
+    'The public-testnet legacy-recovery inventory',
+  )
+  assertExactObjectKeys(value.deploymentManifest.legacyRecovery.addresses, PUBLIC_REPLACEMENT_LEGACY_RECOVERY_NAMES, 'The public-testnet legacy addresses')
+  assertExactObjectKeys(value.deploymentManifest.legacyRecovery.runtimeCodeHashes, PUBLIC_REPLACEMENT_LEGACY_RECOVERY_NAMES, 'The public-testnet legacy runtime hashes')
+  if (
+    !Array.isArray(value.deploymentManifest.legacyRecovery.iloFactoryProvenance) ||
+    value.deploymentManifest.legacyRecovery.iloFactoryProvenance.length !== 2
+  ) throw new Error('The public-testnet ILO provenance must contain exactly two records.')
+  for (const provenance of value.deploymentManifest.legacyRecovery.iloFactoryProvenance) {
+    assertExactObjectKeys(provenance, ['label', 'address', 'runtimeCodeHash', 'observedChildCount', 'observedOn'], 'A public-testnet legacy ILO record')
+  }
+  if (!Array.isArray(value.deploymentManifest.deployments) || value.deploymentManifest.deployments.length !== 13) {
+    throw new Error('The public-testnet manifest must contain exactly thirteen deployments.')
+  }
+  for (const deployment of value.deploymentManifest.deployments) {
+    assertExactObjectKeys(
+      deployment,
+      ['name', 'artifact', 'address', 'nonce', 'transactionHash', 'blockNumber', 'runtimeCodeHash', 'runtimeCodeBytes'],
+      'A public-testnet deployment record',
+    )
+  }
+  assertExactObjectKeys(value.frontendRuntimeAttestations, ['uniswapV2Pair', 'vestingWallet', 'iloChild'], 'The public-testnet child runtimes')
+  assertExactObjectKeys(value.frontendRuntimeAttestations.vestingWallet, ['normalizedRuntimeCodeHash', 'runtimeCodeBytes', 'immutableReferences'], 'The public-testnet VestingWallet runtime')
+  if (!Array.isArray(value.frontendRuntimeAttestations.vestingWallet.immutableReferences)) {
+    throw new Error('The public-testnet VestingWallet immutable references must be an array.')
+  }
+  for (const reference of value.frontendRuntimeAttestations.vestingWallet.immutableReferences) {
+    assertExactObjectKeys(reference, ['start', 'length'], 'A public-testnet VestingWallet immutable reference')
+  }
+  assertExactObjectKeys(value.sourceEvidence, [
+    'buildAttestationRawSha256',
+    'deploymentManifestRawSha256',
+    'initialIndependentVerifierRawSha256',
+    'initialRuntimeSnapshotRawSha256',
+    'liveVerificationRawSha256',
+    'liveVerificationReportSha256',
+  ], 'The public-testnet source evidence')
+  assertExactObjectKeys(value.activityCutover, ['throughBlock', 'blockHash', 'totals', 'independentSecondRpc', 'replacementCountersAtCutover'], 'The public-testnet cutover')
+  assertExactObjectKeys(value.activityCutover.totals, ['tokensMinted', 'walletsAirdropped', 'presalesCreated', 'swapsCompleted', 'onChainMessages'], 'The public-testnet cutover totals')
+  assertExactObjectKeys(value.activityCutover.independentSecondRpc, ['candidateRawSha256', 'candidatePayloadSha256', 'proofRawSha256', 'rpcUrl'], 'The public-testnet second-RPC proof')
+  assertExactObjectKeys(value.activityCutover.replacementCountersAtCutover, ['tokensMinted', 'walletsAirdropped', 'presalesCreated', 'swapsCompleted', 'onChainMessages'], 'The public-testnet replacement counters')
+  assertExactObjectKeys(
+    value.testnetAcceptance,
+    ['acceptedAt', 'acceptedBy', 'authorityModel', 'fundsModel', 'reviewModel', 'safeguards', 'scope'],
+    'The public-testnet risk acceptance',
+  )
+  if (!Array.isArray(value.testnetAcceptance.safeguards)) {
+    throw new Error('The public-testnet risk acceptance safeguards must be an array.')
+  }
+}
+
+export function assertExactApprovedPublicReplacementPackageShape(
+  value: unknown,
+): asserts value is ApprovedPublicReplacementPackage {
+  if (
+    value && typeof value === 'object' && !Array.isArray(value) &&
+    (value as Record<string, unknown>).releaseProfile === PUBLIC_TESTNET_REPLACEMENT_RELEASE_PROFILE
+  ) {
+    assertExactApprovedPublicTestnetReplacementPackageShape(value)
+    return
+  }
+  assertExactApprovedProductionPublicReplacementPackageShape(value)
+}
+
 function loadApprovedPublicReplacementPackage(value: unknown): ApprovedPublicReplacementPackage | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('The approved public replacement package must be a JSON object.')
@@ -464,7 +589,7 @@ function loadApprovedPublicReplacementPackage(value: unknown): ApprovedPublicRep
     return undefined
   }
   if (record.status !== 'APPROVED') {
-    throw new Error('The public replacement package must be the exact NOT_APPROVED sentinel or an APPROVED production package.')
+    throw new Error('The public replacement package must be the exact NOT_APPROVED sentinel or an APPROVED bounded release package.')
   }
   assertExactApprovedPublicReplacementPackageShape(value)
   return value
@@ -472,6 +597,12 @@ function loadApprovedPublicReplacementPackage(value: unknown): ApprovedPublicRep
 
 export const APPROVED_PUBLIC_REPLACEMENT_PACKAGE = loadApprovedPublicReplacementPackage(
   approvedPublicReplacementJson as unknown,
+)
+
+export const PUBLIC_TESTNET_REPLACEMENT_ACTIVE = Boolean(
+  APPROVED_PUBLIC_REPLACEMENT_PACKAGE &&
+  'releaseProfile' in APPROVED_PUBLIC_REPLACEMENT_PACKAGE &&
+  APPROVED_PUBLIC_REPLACEMENT_PACKAGE.releaseProfile === PUBLIC_TESTNET_REPLACEMENT_RELEASE_PROFILE,
 )
 
 function approvedPublicDeployment(
@@ -541,7 +672,7 @@ export const LITVM_CURRENT_CONTRACTS = Object.freeze(
     : { ...LITVM_COMPROMISED_LEGACY_DEPLOYMENTS },
 ) as Readonly<Record<keyof typeof LITVM_COMPROMISED_LEGACY_DEPLOYMENTS, LitvmContractAddress>>
 
-export const POST_COMPROMISE_REPLACEMENTS_ACTIVE = false as boolean
+export const POST_COMPROMISE_REPLACEMENTS_ACTIVE = Boolean(APPROVED_PUBLIC_REPLACEMENT_PACKAGE)
 
 /**
  * Governance has its own activation latch because replacing the application
@@ -550,12 +681,24 @@ export const POST_COMPROMISE_REPLACEMENTS_ACTIVE = false as boolean
  * source-pinned together before any governance write can be re-enabled.
  */
 export const POST_COMPROMISE_GOVERNANCE_ACTIVE = false as boolean
-export const APPROVED_GOVERNANCE_TOKEN_ADDRESS = approvedPublicDeployment('LitGovToken')?.address
-export const APPROVED_GOVERNOR_ADDRESS = approvedPublicDeployment('LitGovernor')?.address
-export const APPROVED_GOVERNANCE_TIMELOCK_ADDRESS = approvedPublicDeployment('LitTimelock')?.address
-export const APPROVED_GOVERNANCE_TOKEN_RUNTIME_CODE_HASH = approvedPublicDeployment('LitGovToken')?.runtimeCodeHash
-export const APPROVED_GOVERNOR_RUNTIME_CODE_HASH = approvedPublicDeployment('LitGovernor')?.runtimeCodeHash
-export const APPROVED_GOVERNANCE_TIMELOCK_RUNTIME_CODE_HASH = approvedPublicDeployment('LitTimelock')?.runtimeCodeHash
+export const APPROVED_GOVERNANCE_TOKEN_ADDRESS = POST_COMPROMISE_GOVERNANCE_ACTIVE
+  ? approvedPublicDeployment('LitGovToken')?.address
+  : undefined
+export const APPROVED_GOVERNOR_ADDRESS = POST_COMPROMISE_GOVERNANCE_ACTIVE
+  ? approvedPublicDeployment('LitGovernor')?.address
+  : undefined
+export const APPROVED_GOVERNANCE_TIMELOCK_ADDRESS = POST_COMPROMISE_GOVERNANCE_ACTIVE
+  ? approvedPublicDeployment('LitTimelock')?.address
+  : undefined
+export const APPROVED_GOVERNANCE_TOKEN_RUNTIME_CODE_HASH = POST_COMPROMISE_GOVERNANCE_ACTIVE
+  ? approvedPublicDeployment('LitGovToken')?.runtimeCodeHash
+  : undefined
+export const APPROVED_GOVERNOR_RUNTIME_CODE_HASH = POST_COMPROMISE_GOVERNANCE_ACTIVE
+  ? approvedPublicDeployment('LitGovernor')?.runtimeCodeHash
+  : undefined
+export const APPROVED_GOVERNANCE_TIMELOCK_RUNTIME_CODE_HASH = POST_COMPROMISE_GOVERNANCE_ACTIVE
+  ? approvedPublicDeployment('LitTimelock')?.runtimeCodeHash
+  : undefined
 
 /**
  * Retired deployments are kept only for historical discovery and recovery.
@@ -833,11 +976,13 @@ export const DISPOSABLE_TESTNET_DISCLOSED_KEY_ADDRESS = '0x439945924515218061b64
 export const DISPOSABLE_TESTNET_FROZEN_AUTHORITY = '0x0000000000000000000000000000000000000001' as const
 export const APPROVED_LESTER_CONTROLLER_ADDRESS = APPROVED_PUBLIC_REPLACEMENT_PACKAGE?.deploymentManifest.controller
 export const APPROVED_LESTER_TREASURY_ADDRESS = APPROVED_PUBLIC_REPLACEMENT_PACKAGE?.deploymentManifest.treasury
-// Derived only from the source-pinned approved production manifest package.
-// The disclosed test-gas key and disposable manifest are rejected before any
-// public address, hash, role, or activity start can be selected.
+// Derived only from the source-pinned approved release package. The bounded
+// public-testnet profile deliberately permits the disclosed valueless gas EOA
+// as treasury while keeping every administrative role frozen at 0x...01.
 export const EXPECTED_GAS_ONLY_DEPLOYER_ADDRESS = APPROVED_PUBLIC_REPLACEMENT_PACKAGE?.deploymentManifest.gasOnlyDeployer
-export const LESTER_TREASURY_STATUS = 'no distinct approved post-compromise controller, treasury, and single-use gas EOA are source-pinned'
+export const LESTER_TREASURY_STATUS = PUBLIC_TESTNET_REPLACEMENT_ACTIVE
+  ? 'public-testnet only: disclosed valueless test-gas treasury; immutable controller; no administrative key'
+  : 'no distinct approved post-compromise controller, treasury, and single-use gas EOA are source-pinned'
 
 // The canonical ILO factory is retained for discovery and recovery only. A
 // replacement must be audited and pinned here before the frontend can create
@@ -1000,49 +1145,66 @@ export function assertCanonicalContractConfiguration(): void {
   })
 
   if (Boolean(APPROVED_PUBLIC_REPLACEMENT_PACKAGE) !== POST_COMPROMISE_REPLACEMENTS_ACTIVE) {
-    throw new Error('Public replacement activation requires one source-pinned approved production manifest package.')
+    throw new Error('Public replacement activation requires one source-pinned approved release package.')
   }
   if (POST_COMPROMISE_REPLACEMENTS_ACTIVE) {
     const approvedPackage = APPROVED_PUBLIC_REPLACEMENT_PACKAGE
     if (!approvedPackage) {
-      throw new Error('The approved production manifest package is missing.')
+      throw new Error('The approved release manifest package is missing.')
     }
     const manifest = approvedPackage.deploymentManifest
+    const publicTestnetRelease = PUBLIC_TESTNET_REPLACEMENT_ACTIVE
     if (
       manifest.kind !== 'lester-labs-post-compromise-replacement' ||
       manifest.schemaVersion !== 2 ||
       manifest.chainId !== '4441' ||
-      manifest.deploymentProfile !== PUBLIC_REPLACEMENT_DEPLOYMENT_PROFILE
+      manifest.deploymentProfile !== (
+        publicTestnetRelease
+          ? PUBLIC_TESTNET_REPLACEMENT_DEPLOYMENT_PROFILE
+          : PUBLIC_REPLACEMENT_DEPLOYMENT_PROFILE
+      )
     ) {
-      throw new Error('Only a schema-2 production-separated-authority manifest may activate the public frontend.')
+      throw new Error('Only a schema-2 manifest matching the selected bounded release profile may activate the public frontend.')
     }
-    for (const [label, hash] of [
+    const commonApprovedHashes = [
       ['complete approval payload SHA-256', approvedPackage.approvalPayloadSha256],
       ['deployment manifest SHA-256', approvedPackage.deploymentManifestSha256],
       ['plan hash', manifest.planHash],
       ['build attestation SHA-256', manifest.buildAttestationSha256],
       ['activity cutover block hash', approvedPackage.activityCutover.blockHash],
-      ['production authority inventory raw SHA-256', approvedPackage.sourceEvidence.productionAuthoritiesRawSha256],
-      ['control-plane recovery raw SHA-256', approvedPackage.sourceEvidence.controlPlaneRecoveryRawSha256],
       ['activity cutover candidate raw SHA-256', approvedPackage.activityCutover.independentSecondRpc.candidateRawSha256],
       ['activity cutover candidate payload SHA-256', approvedPackage.activityCutover.independentSecondRpc.candidatePayloadSha256],
       ['activity cutover second-RPC proof raw SHA-256', approvedPackage.activityCutover.independentSecondRpc.proofRawSha256],
-      ['verified production authority inventory SHA-256', approvedPackage.sourceEvidence.productionAuthorityVerification.inventorySha256],
-      ['verified production authority block hash', approvedPackage.sourceEvidence.productionAuthorityVerification.blockHash],
-      ['verified controller creation transaction hash', approvedPackage.sourceEvidence.productionAuthorityVerification.controller.deploymentTransactionHash],
-      ['verified controller creation block hash', approvedPackage.sourceEvidence.productionAuthorityVerification.controller.deploymentBlockHash],
-      ['verified controller proxy runtime hash', approvedPackage.sourceEvidence.productionAuthorityVerification.controller.proxyRuntimeCodeHash],
-      ['verified controller implementation runtime hash', approvedPackage.sourceEvidence.productionAuthorityVerification.controller.implementationRuntimeCodeHash],
-      ['verified treasury proxy runtime hash', approvedPackage.sourceEvidence.productionAuthorityVerification.treasury.proxyRuntimeCodeHash],
-      ['verified treasury creation transaction hash', approvedPackage.sourceEvidence.productionAuthorityVerification.treasury.deploymentTransactionHash],
-      ['verified treasury creation block hash', approvedPackage.sourceEvidence.productionAuthorityVerification.treasury.deploymentBlockHash],
-      ['verified treasury implementation runtime hash', approvedPackage.sourceEvidence.productionAuthorityVerification.treasury.implementationRuntimeCodeHash],
-      ['independent replacement verification report SHA-256', approvedPackage.sourceEvidence.independentReplacementVerification.reportSha256],
-      ['independent replacement verification block hash', approvedPackage.sourceEvidence.independentReplacementVerification.blockHash],
-      ['independent replacement verification manifest SHA-256', approvedPackage.sourceEvidence.independentReplacementVerification.deploymentManifestSha256],
       ['Uniswap V2 Pair runtime hash', approvedPackage.frontendRuntimeAttestations.uniswapV2Pair],
       ['ILO child runtime hash', approvedPackage.frontendRuntimeAttestations.iloChild],
-    ] as const) {
+    ] as const
+    const profileApprovedHashes = publicTestnetRelease
+      ? [
+          ['raw build attestation SHA-256', (approvedPackage as ApprovedPublicTestnetReplacementPackage).sourceEvidence.buildAttestationRawSha256],
+          ['raw deployed manifest SHA-256', (approvedPackage as ApprovedPublicTestnetReplacementPackage).sourceEvidence.deploymentManifestRawSha256],
+          ['initial independent verifier SHA-256', (approvedPackage as ApprovedPublicTestnetReplacementPackage).sourceEvidence.initialIndependentVerifierRawSha256],
+          ['initial runtime snapshot SHA-256', (approvedPackage as ApprovedPublicTestnetReplacementPackage).sourceEvidence.initialRuntimeSnapshotRawSha256],
+          ['two-RPC live verification raw SHA-256', (approvedPackage as ApprovedPublicTestnetReplacementPackage).sourceEvidence.liveVerificationRawSha256],
+          ['two-RPC live verification report SHA-256', (approvedPackage as ApprovedPublicTestnetReplacementPackage).sourceEvidence.liveVerificationReportSha256],
+        ] as const
+      : [
+          ['production authority inventory raw SHA-256', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthoritiesRawSha256],
+          ['control-plane recovery raw SHA-256', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.controlPlaneRecoveryRawSha256],
+          ['verified production authority inventory SHA-256', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthorityVerification.inventorySha256],
+          ['verified production authority block hash', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthorityVerification.blockHash],
+          ['verified controller creation transaction hash', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthorityVerification.controller.deploymentTransactionHash],
+          ['verified controller creation block hash', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthorityVerification.controller.deploymentBlockHash],
+          ['verified controller proxy runtime hash', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthorityVerification.controller.proxyRuntimeCodeHash],
+          ['verified controller implementation runtime hash', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthorityVerification.controller.implementationRuntimeCodeHash],
+          ['verified treasury proxy runtime hash', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthorityVerification.treasury.proxyRuntimeCodeHash],
+          ['verified treasury creation transaction hash', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthorityVerification.treasury.deploymentTransactionHash],
+          ['verified treasury creation block hash', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthorityVerification.treasury.deploymentBlockHash],
+          ['verified treasury implementation runtime hash', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.productionAuthorityVerification.treasury.implementationRuntimeCodeHash],
+          ['independent replacement verification report SHA-256', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.independentReplacementVerification.reportSha256],
+          ['independent replacement verification block hash', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.independentReplacementVerification.blockHash],
+          ['independent replacement verification manifest SHA-256', (approvedPackage as ApprovedProductionPublicReplacementPackage).sourceEvidence.independentReplacementVerification.deploymentManifestSha256],
+        ] as const
+    for (const [label, hash] of [...commonApprovedHashes, ...profileApprovedHashes]) {
       if (!CODE_HASH_PATTERN.test(hash)) {
         throw new Error(`The approved public replacement ${label} is invalid.`)
       }
@@ -1083,9 +1245,11 @@ export function assertCanonicalContractConfiguration(): void {
     ) {
       throw new Error('Every approved replacement activity counter must be exactly zero at the cutover block.')
     }
-    const authorityVerification = approvedPackage.sourceEvidence.productionAuthorityVerification
+    if (!publicTestnetRelease) {
+    const productionPackage = approvedPackage as ApprovedProductionPublicReplacementPackage
+    const authorityVerification = productionPackage.sourceEvidence.productionAuthorityVerification
     if (
-      authorityVerification.inventorySha256 !== approvedPackage.sourceEvidence.productionAuthoritiesRawSha256 ||
+      authorityVerification.inventorySha256 !== productionPackage.sourceEvidence.productionAuthoritiesRawSha256 ||
       authorityVerification.chainId !== '4441' ||
       authorityVerification.gasOnlyDeployer.toLowerCase() !== manifest.gasOnlyDeployer.toLowerCase() ||
       authorityVerification.blockNumber !== approvedPackage.activityCutover.throughBlock ||
@@ -1139,7 +1303,7 @@ export function assertCanonicalContractConfiguration(): void {
     ) {
       throw new Error('The verified production Safes must use one pinned factory and distinct creation transactions.')
     }
-    const independentVerification = approvedPackage.sourceEvidence.independentReplacementVerification
+    const independentVerification = productionPackage.sourceEvidence.independentReplacementVerification
     if (
       independentVerification.status !== 'VERIFIED_INDEPENDENT_RPC' ||
       independentVerification.chainId !== '4441' ||
@@ -1187,7 +1351,7 @@ export function assertCanonicalContractConfiguration(): void {
     const approvalReviewers = new Set<string>()
     const approvalRoles = new Set<string>()
     const approvalEvidence = new Set<string>()
-    for (const approval of approvedPackage.reviewerApprovals) {
+    for (const approval of productionPackage.reviewerApprovals) {
       if (
         approval.approvalPayloadSha256 !== approvedPackage.approvalPayloadSha256 ||
         !CODE_HASH_PATTERN.test(approval.evidenceSha256) ||
@@ -1202,29 +1366,55 @@ export function assertCanonicalContractConfiguration(): void {
       approvalEvidence.add(approval.evidenceSha256.toLowerCase())
     }
     if (
-      approvalReviewers.size !== approvedPackage.reviewerApprovals.length ||
+      approvalReviewers.size !== productionPackage.reviewerApprovals.length ||
       approvalRoles.size < 2 ||
-      approvalEvidence.size !== approvedPackage.reviewerApprovals.length
+      approvalEvidence.size !== productionPackage.reviewerApprovals.length
     ) {
       throw new Error('Public replacement approval records require distinct reviewers, roles, and evidence identities.')
     }
+    } else {
+      const testnetPackage = approvedPackage as ApprovedPublicTestnetReplacementPackage
+      const acceptance = testnetPackage.testnetAcceptance
+      const expectedSafeguards = [
+        'litvm-chain-id-4441-only',
+        'immutable-ecrecover-precompile-controller',
+        'disclosed-wallet-has-no-administrative-role',
+        'exact-runtime-and-target-preflight-before-every-write',
+        'replacement-governance-writes-disabled',
+        'legacy-contracts-recovery-only',
+        'post-cutover-analytics-deltas-only',
+      ]
+      if (
+        manifest.controller.toLowerCase() !== DISPOSABLE_TESTNET_FROZEN_AUTHORITY ||
+        manifest.treasury.toLowerCase() !== DISPOSABLE_TESTNET_DISCLOSED_KEY_ADDRESS.toLowerCase() ||
+        manifest.gasOnlyDeployer.toLowerCase() !== DISPOSABLE_TESTNET_DISCLOSED_KEY_ADDRESS.toLowerCase() ||
+        acceptance.acceptedBy !== 'repository-owner' ||
+        acceptance.scope !== 'litvm-chain-4441-valueless-public-testnet-only' ||
+        acceptance.authorityModel !== 'immutable-ecrecover-precompile-no-admin-key' ||
+        acceptance.fundsModel !== 'disclosed-eoa-valueless-test-gas-and-test-fees-only' ||
+        acceptance.reviewModel !== 'sole-owner-testnet-exception-no-independent-reviewers' ||
+        JSON.stringify(acceptance.safeguards) !== JSON.stringify(expectedSafeguards) ||
+        Number.isNaN(Date.parse(acceptance.acceptedAt)) ||
+        new Date(acceptance.acceptedAt).toISOString() !== acceptance.acceptedAt
+      ) throw new Error('The public-testnet release is not bound to its exact immutable, valueless, sole-owner exception.')
+    }
     if (manifest.startingNonce !== 0) {
-      throw new Error('The approved production manifest must use a fresh nonce-zero gas-only EOA.')
+      throw new Error('The approved manifest must use the source-pinned nonce-zero deployment sequence.')
     }
     if (
       Object.keys(manifest.parameters).length !== Object.keys(PUBLIC_REPLACEMENT_PARAMETERS).length ||
       Object.entries(PUBLIC_REPLACEMENT_PARAMETERS).some(
         ([name, value]) => manifest.parameters[name] !== value,
       )
-    ) throw new Error('The approved production manifest parameters differ from reviewed source.')
+    ) throw new Error('The approved manifest parameters differ from reviewed source.')
     if (JSON.stringify(manifest.legacyRecovery) !== JSON.stringify(PUBLIC_REPLACEMENT_PINNED_LEGACY_RECOVERY)) {
-      throw new Error('The approved production manifest legacy-recovery inventory differs from reviewed source.')
+      throw new Error('The approved manifest legacy-recovery inventory differs from reviewed source.')
     }
     if (
       !Number.isSafeInteger(manifest.confirmations) ||
       manifest.confirmations < 1 ||
       manifest.confirmations > 64
-    ) throw new Error('The approved production manifest confirmation count is invalid.')
+    ) throw new Error('The approved manifest confirmation count is invalid.')
 
     if (manifest.deployments.length !== PUBLIC_REPLACEMENT_DEPLOYMENT_NAMES.length) {
       throw new Error('The approved public manifest must contain exactly thirteen replacement deployments.')
@@ -1324,8 +1514,12 @@ export function assertCanonicalContractConfiguration(): void {
   ) {
     throw new Error('Replacement activation and distinct controller/treasury/single-use-deployer addresses must be source-pinned together.')
   }
-  if (POST_COMPROMISE_GOVERNANCE_ACTIVE !== POST_COMPROMISE_REPLACEMENTS_ACTIVE) {
-    throw new Error('Application and governance replacement activation must use the same verified thirteen-contract manifest.')
+  if (
+    PUBLIC_TESTNET_REPLACEMENT_ACTIVE
+      ? POST_COMPROMISE_GOVERNANCE_ACTIVE
+      : POST_COMPROMISE_GOVERNANCE_ACTIVE !== POST_COMPROMISE_REPLACEMENTS_ACTIVE
+  ) {
+    throw new Error('Public-testnet governance writes must remain disabled; production governance requires its fully reviewed release profile.')
   }
 
 
@@ -1392,8 +1586,10 @@ export function assertCanonicalContractConfiguration(): void {
   const rejectedAuthorityAddresses = [
     RETIRED_COMPROMISED_CONTROLLER_ADDRESS,
     REJECTED_JULY_TARGET_ADDRESS,
-    DISPOSABLE_TESTNET_DISCLOSED_KEY_ADDRESS,
-    DISPOSABLE_TESTNET_FROZEN_AUTHORITY,
+    ...(PUBLIC_TESTNET_REPLACEMENT_ACTIVE ? [] : [
+      DISPOSABLE_TESTNET_DISCLOSED_KEY_ADDRESS,
+      DISPOSABLE_TESTNET_FROZEN_AUTHORITY,
+    ]),
     ...Object.values(LITVM_COMPROMISED_LEGACY_DEPLOYMENTS),
     ...Object.values(LITVM_COMPROMISED_LEGACY_GOVERNANCE),
     ...Object.values(LITVM_LEGACY_CONTRACTS),
@@ -1410,7 +1606,10 @@ export function assertCanonicalContractConfiguration(): void {
     for (let comparison = index + 1; comparison < pinnedRoleAddresses.length; comparison += 1) {
       const [leftRole, leftAddress] = pinnedRoleAddresses[index]
       const [rightRole, rightAddress] = pinnedRoleAddresses[comparison]
-      if (isCanonicalLitvmContract(leftAddress, rightAddress)) {
+      const allowedTestnetTreasuryDeployerOverlap = PUBLIC_TESTNET_REPLACEMENT_ACTIVE &&
+        new Set([leftRole, rightRole]).has('treasury') &&
+        new Set([leftRole, rightRole]).has('gasOnlyDeployer')
+      if (isCanonicalLitvmContract(leftAddress, rightAddress) && !allowedTestnetTreasuryDeployerOverlap) {
         throw new Error(`Post-compromise roles must be distinct: ${leftRole} overlaps ${rightRole}.`)
       }
     }

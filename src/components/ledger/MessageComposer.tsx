@@ -255,7 +255,9 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
           </span>
           <h2 className="text-2xl font-semibold tracking-tight">Message composer</h2>
           <p className="mt-2 max-w-xl text-sm leading-6" style={{ color: 'rgba(240,238,245,0.52)' }}>
-            Historical messages are decoded from bounded contract-event reads. New paid posts remain disabled until the replacement roles and runtime are verified.
+            {paidActionReady
+              ? 'Historical messages are decoded from bounded reads. New testnet posts use only the source-pinned immutable Ledger after chain, runtime, target, message, and value checks.'
+              : 'Historical messages are decoded from bounded reads. New paid posts remain disabled until the replacement roles and runtime are verified.'}
           </p>
         </div>
 

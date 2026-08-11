@@ -74,6 +74,23 @@ describe('production build control-plane gate', () => {
     )
   })
 
+  it('uses the full package verifier but not production Safe/control-plane review for the bounded public-testnet profile', () => {
+    let recoveryCalls = 0
+    let replacementCalls = 0
+    assert.doesNotThrow(() => assertProductionBuildControlPlane({
+      publicReplacementStatus: 'APPROVED',
+      releaseProfile: 'public-testnet-immutable',
+      releaseBuildId: SOURCE_COMMIT,
+      verifyRecovery: () => { recoveryCalls += 1 },
+      verifyPublicReplacement: () => {
+        replacementCalls += 1
+        return { status: 'APPROVED' }
+      },
+    }))
+    assert.equal(replacementCalls, 1)
+    assert.equal(recoveryCalls, 0)
+  })
+
   it('runs the complete approved public replacement verifier', () => {
     assert.throws(
       () => assertProductionBuildControlPlane({

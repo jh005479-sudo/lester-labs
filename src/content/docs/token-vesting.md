@@ -1,10 +1,14 @@
-# Token Vesting — Legacy Release and Replacement Readiness
+# Token Vesting — Immutable Replacement and Legacy Release
 
 > **Legacy deployment status:** the Vesting Factory at
 > `0x6EE07118D39e9330Ef0658FFA797EeDD2CB823Cf` is a compromised legacy
 > deployment. New schedules, deployment fees, and token approvals to the
 > factory are disabled. Releases from source-authenticated historical vesting
 > wallets remain available when tokens have vested.
+
+New schedules use only the approved immutable factory at
+`0x1808852Ce3EBbD2242174Eea672498a384108E2d` and its attested child runtime,
+after chain-`4441`, target, spender, fee, and runtime checks pass.
 
 ## Historical behavior
 
@@ -34,16 +38,17 @@ provenance.
 
 ## Historical fee
 
-The legacy schedule-creation fee was `0.03 zkLTC`. It is not a current offer,
-and no user should pay it during containment.
+The legacy schedule-creation fee was `0.03 zkLTC`; never send it to the legacy
+factory. The replacement uses the same amount as valueless testnet protocol fee.
 
-## Replacement design
+## Approved replacement
 
-The prepared replacement gives administrative ownership to the approved
-**controller** and forwards schedule-creation fees directly to the separate
-approved **treasury**. A distinct single-use gas EOA deploys the attested
-artifacts. Activation additionally requires exact factory and child runtime
-hashes plus an explicit frontend target/function/value/spender allowlist.
+The replacement freezes administrative ownership at the no-key `0x…01`
+precompile and forwards schedule-creation fees directly to the disclosed
+valueless test treasury, which has no admin role. The frontend requires exact
+factory and child runtime hashes plus explicit chain/target/function/value/
+spender checks. Existing children keep their own transferable beneficiary-owner
+semantics.
 
 Upstream OpenZeppelin review does not constitute an audit of the Lester factory,
 its child configuration, or the deployment process.

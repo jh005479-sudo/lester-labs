@@ -16,8 +16,8 @@ export default function LitvmLaunchpadPage() {
   return (
     <main className="min-h-screen bg-[var(--bg)] px-6 py-28 text-white">
       <div className="mx-auto max-w-4xl">
-        <p className={`text-xs font-bold uppercase tracking-[0.16em] ${writesActive ? 'text-emerald-300' : 'text-amber-300'}`}>{writesActive ? 'Replacement candidate + legacy recovery' : 'Recovery-only service'}</p>
-        <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-6xl">{writesActive ? 'Reviewed LitVM launchpad candidate' : 'New LitVM presales are disabled'}</h1>
+        <p className={`text-xs font-bold uppercase tracking-[0.16em] ${writesActive ? 'text-emerald-300' : 'text-amber-300'}`}>{writesActive ? 'Public-testnet replacement + legacy recovery' : 'Recovery-only service'}</p>
+        <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-6xl">{writesActive ? 'Immutable LitVM public-testnet launchpad' : 'New LitVM presales are disabled'}</h1>
         <p className="mt-6 max-w-3xl text-lg leading-8 text-white/55">
           Production traffic referenced an ILO factory absent from reachable Git history, and both known legacy
           factories embed compromised treasury provenance.{' '}

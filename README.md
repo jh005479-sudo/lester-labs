@@ -162,29 +162,32 @@ direct-to-`feeTo` split:
 
 - legacy total fee per trade: `0.30%`, split into a direct `0.20%` input-token
   transfer to mutable `feeTo` and only `0.10%` retained in-pool;
-- replacement swap fee: the full canonical `0.30%` remains in-pool; and
-- when replacement protocol fees are enabled, treasury receives newly minted
-  LP tokens on a later mint/burn using the canonical one-sixth growth formula.
+- immutable testnet replacement fee: the same disclosed `0.20%` direct transfer
+  goes to the fixed valueless test treasury and approximately `0.10%` remains
+  in-pool; and
+- replacement `feeToSetter` is frozen at the no-key `0x…01` precompile, so the
+  direct recipient cannot be redirected.
 
 That direct extra token recipient is not an arbitrary drain, but it is a
 plausible transaction-scanner heuristic and the compromised `feeToSetter` could
 redirect it. The legacy DEX is therefore recovery-only: no swaps, pool creation,
-liquidity additions, or new wrapping. The replacement deployment must use
-canonical Uniswap V2 pair fee behavior.
+liquidity additions, or new wrapping. The immutable testnet replacement
+publishes this behavior as a known scanner-relevant divergence. A future real-
+value production design must reassess it.
 
 `contracts/contracts/UniSwapConnector.sol` bridges Launchpad finalization into
 the Lester Labs router. It refuses to add liquidity unless the factory still
 points `feeTo` at the reviewed treasury and `feeToSetter` at the reviewed
 controller. The replacement ILO factory also pins the fresh DEX factory and
-attests the complete connector configuration. No replacement pair transfers a
-portion of each input token directly to `feeTo`.
+attests the complete connector configuration. The replacement Pair's disclosed
+direct fee can reach only the source-pinned treasury.
 
-The currently deployed ILO factory and connector are legacy recovery surfaces:
-new ILO creation, legacy ILO funding, and legacy finalization are disabled in
-the frontend. A separately reviewed future factory must be explicitly pinned
-in source before creation can be re-enabled. Swap, pool, token, vesting,
-locker, and Ledger paid writes independently re-read their live owner/treasury
-or DEX fee controls before submission.
+The older ILO factories and connector are legacy recovery surfaces: new
+creation, funding, contribution, and finalization remain disabled against them.
+New testnet launches use only the immutable replacement factory/connector after
+chain, runtime, target, fee, and state checks. Swap, pool, token, vesting,
+locker, and Ledger paid writes likewise re-read their live owner/treasury or
+DEX fee controls before submission.
 
 ## Documentation
 

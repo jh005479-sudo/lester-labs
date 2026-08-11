@@ -4,11 +4,14 @@ These are exact, post-execution mirrors of the external build attestation and
 deployment manifest for the authorised valueless `testnet-immutable-disposable`
 run on LitVM LiteForge chain 4441.
 
-They are **not** production deployment, public-frontend activation, containment,
-or MetaMask appeal evidence. The disclosed signer can spend the test treasury
-and race future nonces. All contract administration and governance power in
-this disposable stack is frozen at the verified `0x0000000000000000000000000000000000000001`
-ECRECOVER precompile.
+These files were originally deployment-only evidence, not production or public-
+frontend activation evidence. On 2026-08-11 the exact immutable stack was
+incorporated into the separately verified `public-testnet-immutable` approval
+package and cutover evidence. It remains forbidden for real-value production.
+The disclosed signer can spend the valueless test treasury and race its future
+nonces, but cannot alter the already deployed contracts. All administration and
+governance voting power is frozen at the verified
+`0x0000000000000000000000000000000000000001` ECRECOVER precompile.
 
 - Attested/deployed source commit:
   `abcf1b75ee7945f557163dce11485555da63a5b6`
@@ -27,5 +30,7 @@ ECRECOVER precompile.
 The evidence-copy commit necessarily follows the attested source commit. To
 repeat the strict verifier, use a clean checkout of the attested commit, the
 exact Node/Hardhat toolchain bound by the attestation, and independently supply
-the attestation and manifest digests above. Never substitute these disposable
-addresses into the production activation package.
+the attestation and manifest digests above. Never substitute these public-
+testnet addresses into a production activation package. See
+`../public-testnet-4441-cutover-2026-08-11/` for the later two-RPC live
+verification, exact analytics cutover, and public-testnet approval scope.

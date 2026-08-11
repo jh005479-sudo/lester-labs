@@ -1,4 +1,4 @@
-# Governance — Retired Legacy Stack and Replacement Readiness
+# Governance — Intentionally Disabled Immutable Testnet Stack
 
 > **Legacy deployment status:** the legacy governance token, governor, and timelock are
 > retired and read-only. Proposal submission, voting, delegation, queueing,
@@ -21,7 +21,7 @@ application contract set is replaced.
 The explorer may display historical calls, but must label the token and role
 graph as retired. A matching `LGT` symbol is not identity or provenance.
 
-## Safe governance work during containment
+## Safe governance work
 
 Teams may draft proposal text locally, document an intended action, identify a
 public discussion link, and state a future execution path. This is planning
@@ -32,20 +32,21 @@ Do not ask a community to sign an opaque typed-data payload or send a vote to
 the retired contracts. Any third-party forum or Snapshot space must be verified
 independently and is outside Lester Labs' security boundary.
 
-## Replacement design
+## Replacement status
 
-The prepared replacement uses a fresh governance token, timelock, and governor:
+The immutable testnet deployment includes a fresh governance token, timelock,
+and governor, but governance writes intentionally remain disabled:
 
-- the treasury receives and self-delegates the initial governance supply;
-- the timelock owns any future mint authority;
-- the governor is the sole timelock proposer and executor;
-- the distinct controller is an emergency canceller, not the treasury; and
-- the timelock is its own sole administrator after deployment.
+- the complete test governance supply and its delegated votes are held by the
+  no-key `0x…01` precompile, not the disclosed test treasury;
+- the emergency canceller is also frozen at `0x…01`, while the timelock's
+  self-administered Governor path cannot meet the proposal threshold; and
+- the frontend governance latch is false even though the three exact runtimes
+  are retained in the verified deployment manifest.
 
-Governance has a separate activation latch from the rest of the application.
-All three addresses, exact runtime hashes, constructor inputs, initial balances,
-delegations, and final timelock roles must be independently attested and
-source-pinned together before any governance write can be enabled.
+No governance write is authorized for this testnet profile. A future production
+governance deployment requires a separate reviewed, executable multisig/
+timelock authority design and cannot activate merely by changing frontend copy.
 
 No governance outcome is proof of safety or value, and source availability is
 not an audit.

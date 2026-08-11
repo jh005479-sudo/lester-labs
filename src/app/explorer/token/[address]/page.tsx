@@ -434,7 +434,7 @@ export default function TokenDetailPage() {
               <h2 className="text-sm font-medium text-white/50">Inspection & Recovery Links</h2>
               <p className="mt-1 text-xs text-white/35">
                 {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-                  ? 'These routes provide bounded data, candidate replacement actions, or separately labelled legacy recovery status.'
+                  ? 'These routes provide bounded data, source-pinned replacement actions, or separately labelled legacy recovery status.'
                   : 'Ordinary writes are disabled; these routes provide bounded data or containment/recovery status.'}
               </p>
             </div>

@@ -59,8 +59,8 @@ const rails: Record<'explorer' | 'analytics' | 'portfolio' | 'ledger', RailConfi
       { label: 'Recovery', value: 'Locks + vesting', detail: 'Use only authenticated eligible exits.' },
       {
         label: 'Status',
-        value: writesActive ? 'Replacement candidate' : 'Writes disabled',
-        detail: writesActive ? 'Verify the candidate and separate deployment evidence first.' : 'Review replacement readiness first.',
+        value: writesActive ? 'Public-testnet replacement' : 'Writes disabled',
+        detail: writesActive ? 'Verify chain 4441, the source-pinned target, and deployment evidence.' : 'Review replacement readiness first.',
         href: '/security',
       },
     ],
@@ -74,8 +74,8 @@ const rails: Record<'explorer' | 'analytics' | 'portfolio' | 'ledger', RailConfi
       { label: 'Messages', value: 'Paginated RPC view', detail: 'Not a complete or perpetual archive.' },
       {
         label: 'Posting',
-        value: writesActive ? 'Replacement candidate' : 'Disabled',
-        detail: writesActive ? 'The candidate fee and treasury route is source-pinned.' : 'Legacy fee and treasury routes are retired.',
+        value: writesActive ? 'Public-testnet replacement' : 'Disabled',
+        detail: writesActive ? 'The immutable fee and test-treasury route is source-pinned.' : 'Legacy fee and treasury routes are retired.',
       },
       { label: 'Attribution', value: 'Wallet address only', detail: 'Content is not endorsed or verified.' },
     ],

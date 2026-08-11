@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "snapshotKind": "post-replacement-cutover",
+  "reviewStatus": "candidate-read-only-capture",
+  "chainId": 4441,
+  "throughBlock": 38999871,
+  "blockHash": "0x0f08a4e58106a4cd465555c5a3b0a2bf44e723277ff69f0a6c0b22de3c77c9da",
+  "blockTimestamp": "2026-08-11T07:27:41.000Z",
+  "capturedAt": "2026-08-11T07:27:46.305Z",
+  "totals": {
+    "tokensMinted": 517422,
+    "walletsAirdropped": 16433,
+    "presalesCreated": 8511,
+    "swapsCompleted": 12975,
+    "onChainMessages": 66832
+  },
+  "configuration": {
+    "chainId": 4441,
+    "legacy": {
+      "tokenFactory": "0x93acc61fcdc2e3407A0c03450Adfd8aE78964948",
+      "iloFactories": [
+        "0xC9B1961def0cC5bc1ffe3cFe37a4988D7987A43f",
+        "0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB"
+      ],
+      "ledger": "0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079"
+    },
+    "selectors": {
+      "getILOCount": "0xa7113af8",
+      "messageCount": "0x3dbcc8d1"
+    },
+    "runtimeCodeHashes": {
+      "tokenFactory": "0x5b3bb2e693021e2ab040b6bf248785eb627600bbec002e87c10e138521be1d9d",
+      "iloFactories": [
+        "0xed56b878c6c936b7a54c0fc501a87cd96dc185e8d0967759df88817a03bc2dd5",
+        "0x9c52ccc3cf932eeff5f19c65d7055f9c8eaa50b68e64a1e1e6bafebaf0e81b9a"
+      ],
+      "ledger": "0x5bfae473fddc1457d06edc1c5603f0217b0b3debdc34969abe1611b386fb4233"
+    },
+    "continuityFloors": {
+      "tokensMinted": 500139,
+      "walletsAirdropped": 16433,
+      "presalesCreated": 8451,
+      "swapsCompleted": 12975,
+      "onChainMessages": 66776
+    }
+  },
+  "components": {
+    "tokenFactoryNonce": 517423,
+    "iloFactoryCounts": [
+      8389,
+      122
+    ],
+    "runtimeCodeHashes": {
+      "tokenFactory": "0x5b3bb2e693021e2ab040b6bf248785eb627600bbec002e87c10e138521be1d9d",
+      "iloFactories": [
+        "0xed56b878c6c936b7a54c0fc501a87cd96dc185e8d0967759df88817a03bc2dd5",
+        "0x9c52ccc3cf932eeff5f19c65d7055f9c8eaa50b68e64a1e1e6bafebaf0e81b9a"
+      ],
+      "ledger": "0x5bfae473fddc1457d06edc1c5603f0217b0b3debdc34969abe1611b386fb4233"
+    },
+    "productionApiObservedAt": "2026-08-11T07:27:46.106Z",
+    "productionApiCounts": {
+      "tokensMinted": 517422,
+      "walletsAirdropped": 16433,
+      "presalesCreated": 8511,
+      "swapsCompleted": 12975,
+      "onChainMessages": 66832
+    },
+    "productionApiCoverage": {
+      "tokensMinted": {
+        "status": "live",
+        "note": "Factory deployment nonce read at latest block."
+      },
+      "walletsAirdropped": {
+        "status": "audited-baseline",
+        "note": "Audited through block 3412247; unauthenticated event lookalikes are excluded."
+      },
+      "presalesCreated": {
+        "status": "live",
+        "note": "Canonical launchpad factory counters."
+      },
+      "swapsCompleted": {
+        "status": "fallback",
+        "note": "Swap metric timed out; serving the last known value."
+      },
+      "onChainMessages": {
+        "status": "live",
+        "note": "Canonical Ledger message counter."
+      }
+    }
+  },
+  "metricMethods": {
+    "tokensMinted": "Block-pinned legacy TokenFactory CREATE nonce minus the EIP-161 initial contract nonce.",
+    "walletsAirdropped": "First-party historical production display floor; the legacy Disperse contract has no authenticated counter or event and addresses may repeat.",
+    "presalesCreated": "Sum of both source-pinned legacy ILOFactory getILOCount() values at the captured block.",
+    "swapsCompleted": "First-party historical production display floor; the old API may serve a bounded/fallback swap audit and this is not volume or distinct users.",
+    "onChainMessages": "Source-pinned legacy Ledger messageCount() at the captured block."
+  },
+  "warnings": [],
+  "operatorRequirements": [
+    "Do not activate replacements from this output alone.",
+    "Require the clean exporter to prove all five replacement counters are zero at this exact block before using it as the historical floor.",
+    "Verify this exact candidate from a second clean network through a different credential-free RPC origin.",
+    "Review the two first-party bounded counters and their coverage labels explicitly.",
+    "Set every replacement activity start block to throughBlock + 1 and run the full configuration test suite."
+  ]
+}

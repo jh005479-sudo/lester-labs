@@ -1,10 +1,14 @@
-# The Ledger — Historical Reads and Replacement Readiness
+# The Ledger — Immutable Replacement and Historical Reads
 
 > **Legacy deployment status:** the Ledger at
 > `0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079` is a compromised legacy
 > deployment. Historical messages can be sampled and exact transactions can be
 > looked up, but paid posting is disabled. Do not call `post()` directly or send
 > zkLTC to this contract.
+
+New testnet posts use only the approved immutable Ledger at
+`0xEdf195A557EaAE7829f867d6f84316908A65D9B1`, after chain-`4441`, target,
+runtime, message, and native-value checks pass.
 
 ## What the legacy contract recorded
 
@@ -36,15 +40,14 @@ treasury transfer and contract-held balance; both mutable control and fee
 routing were compromised. This is why checking only `owner()` or only
 `treasury()` would be insufficient.
 
-## Replacement design
+## Approved replacement
 
-The prepared replacement keeps the **controller** and **treasury** distinct:
-the controller manages the limited administrative settings, while the treasury
-receives the configured fee share directly. The remaining contract share can
-be withdrawn only to that same pinned treasury. A separate single-use gas EOA
-deploys the attested artifact.
+The replacement freezes its controller at the no-key `0x…01` precompile. The
+disclosed valueless test treasury receives the configured direct share and is
+the only destination for the contract-held share; it has no admin role. There
+is no upgrade path or arbitrary withdrawal recipient.
 
-Posting may resume only after the exact runtime, role graph, fee behavior,
-frontend target/function/value allowlist, and clean served build are verified.
+Posting is available only when the exact runtime, role graph, fee behavior, and
+frontend chain/target/function/value allowlist are verified.
 Historical counts remain first-party activity records, not counts of distinct
 authors, wallets, or people.

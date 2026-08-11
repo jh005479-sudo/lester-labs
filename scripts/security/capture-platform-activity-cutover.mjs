@@ -290,11 +290,10 @@ export async function capture() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    const result = await capture()
+  capture().then((result) => {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
-  } catch (error) {
+  }).catch((error) => {
     process.stderr.write(`Cutover capture failed: ${error instanceof Error ? error.message : String(error)}\n`)
     process.exitCode = 1
-  }
+  })
 }

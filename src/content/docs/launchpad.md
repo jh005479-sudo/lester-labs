@@ -1,4 +1,4 @@
-# LitVM Launchpad — Historical Recovery and Replacement Readiness
+# LitVM Launchpad — Immutable Replacement and Historical Recovery
 
 > **Legacy deployment status:** both known ILO factories and every child created by them
 > are legacy deployments. New creation, sale-token funding, contributions,
@@ -6,12 +6,17 @@
 > cancellation, refund, token claim, LP claim, and excess-asset recovery remain
 > available only for source-authenticated children.
 
+New testnet launches use only the approved immutable factory at
+`0x412e29e77500752A7B62489c0FaAE6560E8c4380` and connector at
+`0xbB4e527216ac0e0709Bf57ff718ca417ba85AaDF`, with exact chain, target,
+runtime, spender, fee, and state checks before every wallet request.
+
 Do not send tokens or zkLTC directly to a legacy factory or ILO. A contract
 remaining callable on-chain is not an endorsement to use it.
 
 ## Source-pinned historical factories
 
-| Deployment | Address | Provisional child count at block 36,723,038 |
+| Deployment | Address | Frozen child count at block 38,999,871 |
 |---|---|---:|
 | Production legacy ILO Factory | `0xC9B1961def0cC5bc1ffe3cFe37a4988D7987A43f` | 8,330 |
 | Earlier legacy ILO Factory | `0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB` | 121 |
@@ -48,25 +53,26 @@ Those values are historical behavior, not a current service offer. Automatic
 LP creation and locking are disabled because they would route through the
 retired connector and compromised DEX controls.
 
-## Replacement design
+## Approved replacement
 
-The prepared replacement creates one ILO child per reviewed request and uses a
-new connector. The deployment separates:
+The replacement creates one ILO child per request and uses the source-pinned
+connector. Its authority model is:
 
-- **controller:** owns limited factory/connector administrative authority;
-- **treasury:** receives platform fees and must match DEX `feeTo`;
-- **single-use deployer:** broadcasts the attested deployment sequence only.
+- **controller:** permanently frozen at the no-key `0x…01` precompile;
+- **test treasury:** receives creation/platform fees and matches DEX `feeTo`,
+  but has no administrative role; and
+- **disclosed test deployer:** paid gas for the completed attested sequence and
+  has no control over the immutable contracts.
 
-The DEX factory's distinct `feeToSetter` must equal the controller, not the
-treasury. Before seeding liquidity, the connector must verify both mappings,
+The DEX factory's `feeToSetter` equals the frozen controller, not the treasury.
+Before seeding liquidity, the connector verifies both mappings,
 the pinned router/factory/wrapped-native tuple, balances, allowances, minimum
 outputs, and recipient. It resets temporary token allowances after use and
 cannot sweep funds to an arbitrary caller.
 
-No future-design description on this page authorizes a transaction today. New
-creation may be enabled only after the factory, connector, child runtime,
-treasury/controller role graph, and clean served frontend are independently
-attested and source-pinned.
+The frontend enables a transaction only when the factory, connector, child
+runtime, treasury/controller graph, chain, fee, and transaction intent match the
+source-pinned approval package.
 
 ## Security limitations
 

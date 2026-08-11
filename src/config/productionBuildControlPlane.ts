@@ -10,6 +10,7 @@ type PublicReplacementVerifier = () => { status: string }
 
 type ProductionBuildControlPlaneOptions = {
   publicReplacementStatus: string
+  releaseProfile?: string
   releaseBuildId: string | undefined
   verifyRecovery?: RecoveryVerifier
   verifyPublicReplacement?: PublicReplacementVerifier
@@ -31,6 +32,7 @@ export function resolveProductionReleaseBuildId(
 
 export function assertProductionBuildControlPlane({
   publicReplacementStatus,
+  releaseProfile,
   releaseBuildId,
   verifyRecovery = verifyControlPlaneRecoveryEvidence,
   verifyPublicReplacement = verifyApprovedPublicReplacementPackage,
@@ -48,7 +50,9 @@ export function assertProductionBuildControlPlane({
   if (replacement.status !== 'APPROVED') {
     throw new Error('The full public replacement verifier did not return APPROVED.')
   }
-  verifyRecovery(undefined, {
-    requireReviewed: true,
-  })
+  if (releaseProfile !== 'public-testnet-immutable') {
+    verifyRecovery(undefined, {
+      requireReviewed: true,
+    })
+  }
 }

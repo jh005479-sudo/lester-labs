@@ -36,7 +36,7 @@ export default function LockerPage() {
           { label: 'Proof', value: 'On-chain' },
           { label: 'Certificate', value: 'Shareable' },
           { label: 'Writes', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned' : 'Disabled' },
-          { label: 'Status', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Replacement candidate' : 'Replacement pending' },
+          { label: 'Status', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Public-testnet replacement' : 'Replacement pending' },
         ]}
       />
       <div className="tool-page-content" style={{ maxWidth: '920px' }}>

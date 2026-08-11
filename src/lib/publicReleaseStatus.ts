@@ -2,14 +2,16 @@ import {
   APPROVED_PUBLIC_REPLACEMENT_PACKAGE,
   POST_COMPROMISE_GOVERNANCE_ACTIVE,
   POST_COMPROMISE_REPLACEMENTS_ACTIVE,
+  PUBLIC_TESTNET_REPLACEMENT_ACTIVE,
 } from '../config/contracts.ts'
 
-export type PublicReleaseMode = 'containment' | 'approved-production'
+export type PublicReleaseMode = 'containment' | 'approved-production' | 'approved-public-testnet'
 
 export interface PublicReleaseStatusInput {
   replacementsActive: boolean
   governanceActive: boolean
   approvedPackagePresent: boolean
+  publicTestnetRelease: boolean
 }
 
 export interface PublicReleaseStatusRow {
@@ -188,6 +190,73 @@ const APPROVED_PRODUCTION_STATUS: PublicReleaseStatus = Object.freeze({
   }),
 })
 
+const APPROVED_PUBLIC_TESTNET_STATUS: PublicReleaseStatus = Object.freeze({
+  mode: 'approved-public-testnet',
+  ordinaryWritesEnabled: true,
+  tone: 'success',
+  banner: 'LitVM public testnet replacement active: immutable contracts, chain 4441 guard, and valueless test assets only.',
+  footer: 'Independent LitVM public-testnet software using source-pinned immutable replacement contracts.',
+  metadataDescription: 'Lester Labs is independent LitVM public-testnet software using source-pinned immutable replacement contracts on chain 4441.',
+  openGraphDescription: 'Source-pinned immutable LitVM public testnet, preserved historical analytics, and authenticated legacy recovery.',
+  twitterDescription: 'Independent LitVM public-testnet software using immutable source-pinned contracts. Test assets have no represented value.',
+  structuredDataDescription: 'Independent LitVM public-testnet software using source-pinned immutable replacement contracts, bounded analytics, and authenticated legacy recovery.',
+  homepage: Object.freeze({
+    heroTagline: 'Source-pinned immutable LitVM public testnet',
+    heroHeading: 'Replacement testnet stack active.',
+    heroDetail: 'Writes target the source-pinned immutable replacement contracts on LitVM chain 4441. The controller is permanently frozen; the disclosed treasury can receive only valueless test assets.',
+    noticeHeading: 'Immutable public-testnet replacements are active.',
+    noticeDetail: 'This bounded testnet release intentionally uses no Safe authorities or independent reviewer requirement. Every administrative role is frozen at the ECRECOVER precompile, the disclosed wallet is only the valueless test-gas and fee destination, replacement governance writes remain disabled, and legacy contracts remain recovery-only.',
+    suiteSummary: 'Chain-guarded replacement actions sit alongside bounded analytics and authenticated legacy recovery.',
+    gettingStarted: 'Confirm LitVM chain 4441, review the exact contract target and transaction preview, and use only disposable testnet wallets and valueless test assets.',
+    trustLabel: 'An independent testnet project publishing exact source, deployment, runtime, cutover, and served-build evidence for public review.',
+    ctaDetail: 'Verify chain 4441, the source-pinned target, function, recipient, and value before connecting a disposable testnet wallet.',
+    ctaFinePrint: 'Test assets have no represented value. Source availability and automated checks are not an audit; the MetaMask classification is tracked separately.',
+  }),
+  security: Object.freeze({
+    metadataDescription: 'Immutable public-testnet replacement, compromise remediation, legacy recovery boundaries, and site-reputation status for Lester Labs.',
+    heading: 'Immutable public-testnet replacement active',
+    introduction: 'The compromised legacy stack remains quarantined for new paid actions. This release targets a separately deployed, source-pinned replacement stack whose administrative authority is permanently frozen. The disclosed wallet is not an administrator and is accepted only as a valueless test-gas and test-fee destination.',
+    gatesHeading: 'Public-testnet contract and served-build evidence',
+    gateAStatus: 'Passed for the bounded public-testnet model',
+    gateADetail: 'All thirteen deployment transactions, receipts, exact runtimes, role bindings, zero cutover counters, immutable controller, and disclosed test treasury were checked through two distinct RPC origins. Production multisig and independent-reviewer requirements remain reserved for any real-value release.',
+    gateBStatus: 'Served parity and reputation status tracked separately',
+    gateBDetail: 'The release build must still be deployed through the protected frontend workflow and apex/www bytes rechecked before a MetaMask false-classification appeal is submitted.',
+    gatesSummary: 'The testnet authority exception does not weaken the future production profile. Chain/runtime/target guards remain mandatory, governance writes stay disabled, and served-build parity is evidenced separately.',
+    rows: Object.freeze([
+      Object.freeze({
+        area: 'Application writes',
+        status: 'Enabled · public testnet only',
+        detail: 'Writes are restricted to LitVM chain 4441 and exact source-pinned replacement targets with runtime and transaction preflight checks.',
+      }),
+      Object.freeze({
+        area: 'Replacement authority',
+        status: 'Immutable · no admin key',
+        detail: 'Administrative roles point to 0x0000000000000000000000000000000000000001. No wallet can exercise them.',
+      }),
+      Object.freeze({
+        area: 'Test treasury',
+        status: 'Disclosed EOA · valueless assets only',
+        detail: 'The disclosed wallet receives test fees and supplied deployment gas but has no contract administration or governance role.',
+      }),
+      Object.freeze({
+        area: 'Legacy authorities',
+        status: 'Compromised · UI quarantined',
+        detail: 'Legacy authorities remain untrusted and cannot be selected for new paid actions or approvals. Authenticated permissionless recovery remains separately labelled.',
+      }),
+      Object.freeze({
+        area: 'Governance writes',
+        status: 'Disabled',
+        detail: 'The replacement governance contracts are retained as deployment evidence but are intentionally unavailable to the frontend in this immutable testnet profile.',
+      }),
+      Object.freeze({
+        area: 'Site reputation',
+        status: 'Appeal follows served-parity proof',
+        detail: 'The MetaMask warning remains an external classification until the remediated apex/www deployment is verified and the factual appeal is filed.',
+      }),
+    ]),
+  }),
+})
+
 /**
  * Resolve the public release presentation from the same source-pinned signals
  * that enable ordinary writes in the release candidate. A partial activation
@@ -197,17 +266,29 @@ const APPROVED_PRODUCTION_STATUS: PublicReleaseStatus = Object.freeze({
  * remain an external prerequisite for moving the public aliases.
  */
 export function getPublicReleaseStatus(input: PublicReleaseStatusInput): PublicReleaseStatus {
-  const signals = [input.replacementsActive, input.governanceActive, input.approvedPackagePresent]
-  const allInactive = signals.every((value) => value === false)
-  const allActive = signals.every((value) => value === true)
-  if (!allInactive && !allActive) {
-    throw new Error('Public release status must match replacement writes, governance writes, and the approved production package.')
+  const allInactive = [
+    input.replacementsActive,
+    input.governanceActive,
+    input.approvedPackagePresent,
+    input.publicTestnetRelease,
+  ].every((value) => value === false)
+  if (allInactive) return CONTAINMENT_STATUS
+  if (
+    input.replacementsActive && !input.governanceActive &&
+    input.approvedPackagePresent && input.publicTestnetRelease
+  ) return APPROVED_PUBLIC_TESTNET_STATUS
+  if (
+    input.replacementsActive && input.governanceActive &&
+    input.approvedPackagePresent && !input.publicTestnetRelease
+  ) return APPROVED_PRODUCTION_STATUS
+  {
+    throw new Error('Public release status must match the approved production or bounded public-testnet authority model.')
   }
-  return allActive ? APPROVED_PRODUCTION_STATUS : CONTAINMENT_STATUS
 }
 
 export const PUBLIC_RELEASE_STATUS = getPublicReleaseStatus({
   replacementsActive: POST_COMPROMISE_REPLACEMENTS_ACTIVE,
   governanceActive: POST_COMPROMISE_GOVERNANCE_ACTIVE,
   approvedPackagePresent: Boolean(APPROVED_PUBLIC_REPLACEMENT_PACKAGE),
+  publicTestnetRelease: PUBLIC_TESTNET_REPLACEMENT_ACTIVE,
 })

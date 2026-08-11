@@ -39,7 +39,7 @@ export default function LaunchPage() {
           { label: 'Type', value: 'ERC-20' },
           { label: 'Mode', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Reviewed creation' : 'Readiness' },
           { label: 'Writes', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned' : 'Disabled' },
-          { label: 'Status', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Replacement candidate' : 'Replacement pending' },
+          { label: 'Status', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Public-testnet replacement' : 'Replacement pending' },
         ]}
       />
 

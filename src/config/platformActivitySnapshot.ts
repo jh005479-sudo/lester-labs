@@ -1,44 +1,39 @@
 /**
- * Provisional continuity floor for public platform activity counters.
+ * Exact public-testnet cutover floor for public platform activity counters.
  *
- * These are the exact values returned by the production platform-stats API at
- * the initial incident-review observation, pinned to a contemporaneous LitVM
- * block identity. They preserve a visible lower floor, but the stale public
- * deployment and legacy contracts remained callable afterward. They are not
- * the final cutover values or an independently reconstructed on-chain audit.
- *
- * Replacement deployment must atomically recapture every historical source,
- * including both legacy ILO factory series, then replace this provisional floor
- * with a post-replacement cutover block/hash/totals snapshot. Runtime analytics
- * may only add activity from source-pinned replacements after that cutover.
+ * The legacy on-chain counters were read at this block, the two explicitly
+ * bounded first-party display counters were captured from the served API, and
+ * a distinct RPC independently proved the exact block/counter identity. New
+ * analytics add only source-pinned replacement activity from the next block.
  */
 export const PLATFORM_ACTIVITY_BASELINE = Object.freeze({
   schemaVersion: 1,
-  snapshotKind: 'provisional-pre-replacement-floor',
+  snapshotKind: 'post-replacement-cutover',
   chainId: 4441,
-  throughBlock: 36_723_038,
-  blockHash: '0x137d1e60f771a7686ed81f77bcf8c4f4a71e6af7bb96620eda11e34031534552',
-  blockTimestamp: '2026-08-04T16:42:21Z',
+  throughBlock: 38_999_871,
+  blockHash: '0x0f08a4e58106a4cd465555c5a3b0a2bf44e723277ff69f0a6c0b22de3c77c9da',
+  blockTimestamp: '2026-08-11T07:27:41.000Z',
   totals: Object.freeze({
-    tokensMinted: 500_139,
+    tokensMinted: 517_422,
     walletsAirdropped: 16_433,
-    presalesCreated: 8_451,
+    presalesCreated: 8_511,
     swapsCompleted: 12_975,
-    onChainMessages: 66_776,
+    onChainMessages: 66_832,
   }),
   metricMethods: Object.freeze({
-    tokensMinted: 'Production API continuity floor observed during initial incident review; later legacy activity is deliberately deferred to the replacement cutover capture.',
-    walletsAirdropped: 'Production API historical recipient-address floor; addresses may repeat across actions and are not unique people or independently verified users.',
-    presalesCreated: 'Production API aggregate: 8,330 from 0xC9B1961def0cC5bc1ffe3cFe37a4988D7987A43f plus 121 from 0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB.',
-    swapsCompleted: 'Production API historical swap-action floor; exact event provenance must be recaptured at replacement cutover. This is not volume or unique users, and permissionless valid low-value swaps can inflate action counts.',
-    onChainMessages: 'Production API historical on-chain message-action floor observed immediately before containment.',
+    tokensMinted: 'Block-pinned legacy TokenFactory CREATE nonce minus the EIP-161 initial contract nonce.',
+    walletsAirdropped: 'First-party historical production display floor; the legacy Disperse contract has no authenticated counter or event and addresses may repeat.',
+    presalesCreated: 'Sum of both source-pinned legacy ILOFactory getILOCount() values at the captured block.',
+    swapsCompleted: 'First-party historical production display floor; the old API served its last known bounded value and this is not volume or distinct users.',
+    onChainMessages: 'Source-pinned legacy Ledger messageCount() at the captured block.',
   }),
   provenance: Object.freeze({
-    label: 'Lester Labs provisional initial-incident production-counter floor',
+    label: 'Lester Labs immutable public-testnet analytics cutover',
     repositoryUrl: 'https://github.com/jh005479-sudo/lester-labs',
-    productionSnapshotObservedAt: '2026-08-04T16:42:11.165Z',
-    blockReverifiedAt: '2026-08-04T16:42:21Z',
-    disclaimer: 'First-party provisional continuity record, not an independent audit. Historical counts may contain repeated, automated, bot, or spam-heavy on-chain actions.',
-    countingRule: 'Freeze the observed production values. Live deltas stay disabled until replacements deploy and an atomic, overlap-safe cutover block/hash/totals capture replaces this provisional floor.',
+    productionSnapshotObservedAt: '2026-08-11T07:27:46.106Z',
+    blockReverifiedAt: '2026-08-11T07:27:46.305Z',
+    secondRpcOrigin: 'https://rpc.lite-node.com',
+    disclaimer: 'Historical counts may contain repeated, automated, bot, or spam-heavy on-chain actions. Wallet and swap figures are bounded first-party display counters, not unique users or volume.',
+    countingRule: 'Freeze every legacy/display total through block 38,999,871 and add only verified replacement counters beginning at block 38,999,872.',
   }),
 } as const)

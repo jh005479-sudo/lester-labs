@@ -105,7 +105,7 @@ export default function TutorialsPage() {
           <h1 className="text-2xl font-bold tracking-tight">LitVM DeFi Tutorials & Guides</h1>
           <p className="text-white/50 text-sm mt-1">
             {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-              ? 'Safety and recovery guides for LitVM LiteForge, including the reviewed replacement candidate, bounded data coverage, legacy-position recovery, and the separate production-serving gate.'
+              ? 'Safety and recovery guides for LitVM LiteForge, including the immutable public-testnet replacement, bounded data coverage, legacy-position recovery, and future production requirements.'
               : 'Safety and recovery guides for LitVM LiteForge, including current Lester Labs containment, bounded data coverage, legacy-position recovery, and replacement verification.'}
           </p>
         </div>
@@ -180,7 +180,7 @@ export default function TutorialsPage() {
           borderRadius: '16px', textAlign: 'center',
         }}>
           <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>
-            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Verify the candidate and deployment gate first' : 'Verify the current status first'}
+            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Verify chain, target, and deployment evidence first' : 'Verify the current status first'}
           </h3>
           <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', marginBottom: '24px' }}>
             {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled

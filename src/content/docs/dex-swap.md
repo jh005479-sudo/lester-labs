@@ -1,20 +1,27 @@
-# LitVM DEX — Legacy Recovery and Replacement Readiness
+# LitVM DEX — Immutable Replacement and Legacy Recovery
 
-> **Legacy deployment status:** the factory, router, and wrapped-native contract
-> retained for recovery are compromised legacy deployments. New swaps,
-> token approvals for trading, wrapping, pool creation, and liquidity additions
-> are disabled. Only source-pinned, runtime-authenticated withdrawal paths for
-> existing LP or wrapped-native positions may remain available.
+> **Active replacement status:** new testnet swaps, wrapping, pool creation, and
+> liquidity actions use only the source-pinned immutable replacement on chain
+> `4441`. The legacy factory/router/wrapper tuple remains recovery-only.
 
-## Why the legacy DEX is retired
+## Fee behavior and scanner transparency
 
-The legacy V2 pair does not use canonical Uniswap V2 fee behavior. It directly
-transfers `0.20%` of measured swap input to mutable factory `feeTo` and retains
-approximately `0.10%` in-pool. This extra input-token recipient is not an
-arbitrary wallet drain by itself, but it resembles transaction-scanner drainer
-patterns and could be redirected by the compromised `feeToSetter` authority.
+Both the legacy and approved testnet pair use Lester-specific, non-canonical
+fee routing. For each measured swap input, `0.20%` is transferred directly to
+factory `feeTo` and approximately `0.10%` remains in the pool, producing the
+router's effective `997/1000` quote behavior. This is not Uniswap V2's optional
+LP-mint protocol-fee mechanism.
 
-The legacy deployment tuple is:
+An extra input-token recipient can resemble a drainer heuristic to transaction
+scanners. It is not a hidden wallet sweep: the transfer and amount are in the
+published pair source, the replacement recipient is the disclosed valueless
+test treasury, and `feeToSetter` is permanently frozen at
+`0x0000000000000000000000000000000000000001`, so the destination cannot be
+redirected. Users should still review the exact output minimum, path, recipient,
+deadline, value, and decoded call before signing.
+
+The legacy version is retired because its compromised mutable `feeToSetter`
+could redirect the recipient. Its recovery-only tuple is:
 
 | Contract | Recovery-only address |
 |---|---|
@@ -23,66 +30,53 @@ The legacy deployment tuple is:
 | Wrapped zkLTC | `0xd141A5DDE1a3A373B7e9bb603362A58793AB9D97` |
 | Launchpad connector | `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD` |
 
-These addresses are historical references, not approved current targets. The
+These are historical references, not approved new-activity targets. The legacy
 connector immutably embeds the retired treasury and must never be reused.
+
+## Replacement targets and controls
+
+| Contract | Approved public-testnet address |
+|---|---|
+| Factory | `0x301D649fE86d5CAE665944B3C7942bF9f29B81Ca` |
+| Router | `0xf2CA3a3A42136Fd103346914A37b30f3991315EA` |
+| Wrapped zkLTC | `0xA13C8Ea8E4084AeEbcdb1B951dEDF2d641567ed0` |
+| Launchpad connector | `0xbB4e527216ac0e0709Bf57ff718ca417ba85AaDF` |
+
+The factory controller is permanently frozen, the fee recipient has no admin
+role, and the contracts have no upgrade path. Before every write, the frontend
+enforces chain `4441`, exact target/function/value/spender rules, and the
+attested runtime. It asks the wallet to switch networks when needed and fails
+closed if the chain or runtime cannot be proved.
+
+The router adds a monotonic successful public-router swap-action counter for
+continuity analytics. It counts one successful public router call, regardless
+of hop count, and excludes direct pair swaps. It is not volume, unique users, or
+a complete activity index.
 
 ## Existing-position recovery
 
-Replacing a DEX does not migrate old LP tokens. An LP token remains a claim on
-its original pair, and recovery may require the exact original router.
+Replacing a DEX does not migrate old LP tokens. Recovery may require the exact
+original router:
 
-1. Use only a factory/router/wrapped-native tuple in the reviewed, source-pinned
-   legacy recovery registry.
-2. Verify all three exact runtime hashes. Read `token0()` and `token1()` from the
-   LP pair and confirm the legacy factory's `getPair(token0, token1)` returns
-   that exact address.
-3. Confirm the legacy router's `factory()` and `WETH()` values match the same
-   registry entry.
-4. Read current reserves, choose explicit minimum outputs, use a short deadline,
-   and set the connected wallet as recipient.
-5. Approve only the exact LP amount immediately before a source-pinned
-   `removeLiquidity` or `removeLiquidityETH` call. Revoke any residual allowance.
+1. Use only a tuple in the reviewed legacy recovery registry.
+2. Verify all runtime hashes and confirm pair `token0()`, `token1()`, and factory
+   provenance.
+3. Confirm router `factory()` and `WETH()` match the same tuple.
+4. Choose explicit minimum outputs and a short deadline, with the connected
+   wallet as recipient.
+5. Approve only the exact LP amount immediately before the authenticated
+   `removeLiquidity` call, then revoke any residual allowance.
 
-Never swap, wrap, add liquidity, create a pool, or grant a reusable token
-allowance to a retired router. If the tuple is not source-pinned, the
-application must not construct a transaction for it.
-
-Existing wrapped-native withdrawal is similarly limited to an authenticated
-`withdraw(amount)` call against the exact source-pinned legacy wrapper. New
-wrapping remains disabled.
+Never swap, wrap, add liquidity, create a pool, or grant a reusable allowance
+to the retired router. Existing wrapped-native withdrawal is limited to an
+authenticated `withdraw(amount)` call against the source-pinned legacy wrapper.
 
 ## Read-only quotes and charts
 
-Router quotes and pair reserves are untrusted read-only inputs from legacy
-contracts. A reserve ratio is not an oracle price, USD valuation, fair value,
-or promise that a swap can safely execute. The chart view loads at most the 72
+Quotes and reserves are untrusted read-only inputs, not oracle prices, USD
+valuations, fair value, or execution promises. The chart loads at most the 72
 newest factory pairs and up to 80 recent `Sync` points within a bounded
 30,000-block lookback. It is not a complete DEX index.
-
-## Replacement design
-
-The prepared replacement restores canonical Uniswap V2 economics: the
-`997/1000` invariant keeps the swap fee in the pool, and an enabled protocol fee
-is realized through the standard one-sixth LP-token mint on a later liquidity
-event. It does not directly transfer a fixed fraction of every input token to
-`feeTo`.
-
-Replacement governance deliberately separates:
-
-- factory `feeTo` → approved **treasury** (economic recipient);
-- factory `feeToSetter` → distinct approved **controller** (administrative authority);
-- deployment transactions → distinct single-use gas EOA.
-
-The router adds a monotonic successful public-router swap-action counter for
-first-party continuity analytics. It counts one successful public router call,
-regardless of hop count, and excludes direct pair swaps. That extension does not
-change pair accounting.
-
-A replacement is treated as a candidate only when factory, router, wrapper,
-pair init-code/runtime, constructor inputs, role assignments, and the exact
-approval evidence are independently attested and source-pinned. Public serving
-additionally requires the separate approved frontend manifest and served-
-artifact parity proof.
 
 ## Network configuration
 
@@ -90,23 +84,12 @@ artifact parity proof.
 {
   "chainId": "0x1159",
   "chainName": "LitVM LiteForge",
-  "nativeCurrency": {
-    "name": "zkLTC",
-    "symbol": "zkLTC",
-    "decimals": 18
-  },
+  "nativeCurrency": { "name": "zkLTC", "symbol": "zkLTC", "decimals": 18 },
   "rpcUrls": ["https://liteforge.rpc.caldera.xyz/http"],
   "blockExplorerUrls": ["https://liteforge.explorer.caldera.xyz"]
 }
 ```
 
 Cross-check network values through LitVM's independently located official
-documentation before adding them to a wallet.
-
-## Sources
-
-- [Uniswap v2-core](https://github.com/Uniswap/v2-core)
-- [Uniswap v2-periphery](https://github.com/Uniswap/v2-periphery)
-
-Upstream provenance is not an audit of the Lester fork, deployment, frontend,
-or role configuration.
+documentation. Upstream Uniswap ancestry is not an audit of this Lester fork,
+deployment, frontend, or role configuration.

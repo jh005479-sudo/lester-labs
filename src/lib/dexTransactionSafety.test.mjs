@@ -102,7 +102,7 @@ describe('DEX transaction target authentication', () => {
         approvedTreasury,
         undefined,
       ),
-      /distinct reviewed post-compromise/,
+      /approved release profile.*treasury and controller/i,
     )
   })
 

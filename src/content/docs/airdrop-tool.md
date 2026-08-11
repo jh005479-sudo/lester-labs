@@ -1,51 +1,47 @@
-# LitVM Airdrop Tool — Local Review and Replacement Readiness
+# LitVM Airdrop Tool — Immutable Public-Testnet Replacement
 
-> **Release-aware status:** local CSV parsing, address validation, batching
-> previews, and reports remain available. Distribution writes exist only in a
-> source-pinned replacement candidate, and that candidate may be served publicly
-> only after the separate frontend approval and parity gate passes.
+> **Active replacement status:** local CSV parsing, address validation, batching
+> previews, and reports are available. Distribution writes target only the
+> source-pinned immutable replacement on chain `4441` after runtime and chain
+> checks pass.
 
 The word “airdrop” describes a sender-directed batch-transfer utility. Using or
 viewing this tool does not enrol a wallet in a reward programme, prove token
 eligibility, or establish LitVM/Litecoin endorsement.
 
-## Safe preparation during containment
+## Safe use
 
 1. Use only test assets and a disposable testnet wallet.
 2. Prepare rows as `address,amount`, using display-unit amounts.
-3. Review every parsed row, the token decimals, duplicate addresses, total
-   amount, and proposed batches locally.
-4. Do not approve a token or sign a distribution while the interface reports
-   containment.
-5. Export the local review report if useful; it is not an on-chain receipt.
+3. Review every parsed row, token decimals, duplicate address, total amount,
+   proposed batch, target, spender, and native value.
+4. Confirm the wallet is on LitVM LiteForge chain `4441`; the app blocks the
+   transaction if it cannot prove the connected chain and target runtime.
+5. Review each wallet confirmation and receipt independently.
 
-Lists over 200 valid rows are intended to be split into separate future
-transactions. Duplicate addresses remain separate **recipient entries**, so an
-entry counter is not a unique-wallet count.
+Lists over 200 valid rows are split into separate transactions. Duplicate
+addresses remain separate **recipient entries**, so the counter is not a count
+of unique wallets.
 
 ## Legacy deployment
 
 The Disperse contract at
 `0x3cc66cb4713dca78564df512922adb331ac5ee04` is historical only. Do not grant
 it a new allowance or call it directly. Its address is retained solely for
-historical analysis and provisional activity continuity.
+historical analysis and the frozen analytics floor.
 
 ## Replacement behavior
 
-The reviewed replacement:
+The approved replacement at
+`0x80Cc00444Ac78959520052A3333184C5E81B0EA5`:
 
 - accepts 1–200 positive-value, nonzero-recipient entries per batch;
-- transfers exactly the caller-specified token/native values;
-- has no owner-controlled recipient list or treasury sweep;
+- transfers exactly the caller-specified token or native-testnet values;
+- has no owner-controlled recipient list, upgrade path, or treasury sweep;
 - emits authenticated distribution summaries; and
 - increments a monotonic `totalRecipientEntries` counter.
 
-That counter includes duplicate addresses and multiple entries for the same
-wallet. It must be labelled as recipient entries, never as counts of distinct
-wallets or people.
-
-Before future activation, the exact replacement address/runtime and allowed
-`disperseToken` / `disperseEther` calls must be source-pinned. ERC-20 mode must
-request only the exact batch total from the approved replacement spender; each
-batch needs its own wallet review and receipt. No dependency or upstream
-Disperse ancestry is proof that a deployment is safe.
+ERC-20 mode requests only the exact batch total for this source-pinned spender.
+Each batch needs its own wallet review and receipt. Chain, address, function,
+spender, value, and runtime checks fail closed before any wallet write request.
+No dependency or upstream Disperse ancestry is proof that a deployment is safe.

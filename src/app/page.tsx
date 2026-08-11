@@ -496,7 +496,7 @@ export default function HomePage() {
             <div className="trust-card reveal reveal-delay-2 tilt-card" style={{ '--tc-color-10': 'rgba(107,79,255,.1)', '--tc-color-15': 'rgba(107,79,255,.15)', '--tc-color-20': 'rgba(107,79,255,.2)', '--tc-color-30': 'rgba(107,79,255,.3)', '--tc-color-40': 'rgba(107,79,255,.4)', '--tc-glow': 'rgba(107,79,255,.06)' } as React.CSSProperties}>
               <div className="tc-status">
                 <div className="tc-dot" style={{ background: '#6B4FFF' }} />
-                <span className="tc-status-text">{releaseVariant('Containment on Testnet', 'Replacement Candidate on Testnet')}</span>
+                <span className="tc-status-text">{releaseVariant('Containment on Testnet', 'Immutable Replacement on Testnet')}</span>
               </div>
               <div className="tc-icon-wrap" style={{ background: 'rgba(107,79,255,.08)', border: '1px solid rgba(107,79,255,.12)' }}>
                 <div className="tc-ring" />

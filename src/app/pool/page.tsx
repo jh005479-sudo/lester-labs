@@ -1147,7 +1147,7 @@ export default function PoolPage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
-                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned DEX candidate' : 'Source-pinned recovery deployment'}
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned public-testnet DEX' : 'Source-pinned recovery deployment'}
               </p>
               <h2 className="mt-2 text-lg font-semibold text-white">{selectedDexDeployment.label}</h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/50">

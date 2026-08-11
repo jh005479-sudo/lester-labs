@@ -112,23 +112,23 @@ describe('describeSwapCoverage', () => {
   })
 })
 
-describe('provisional historical platform floor', () => {
-  it('preserves production counters without claiming a replacement cutover or independent audit', () => {
-    assert.equal(PLATFORM_ACTIVITY_BASELINE.snapshotKind, 'provisional-pre-replacement-floor')
-    assert.equal(PLATFORM_ACTIVITY_BASELINE.throughBlock, 36_723_038)
+describe('approved historical platform cutover', () => {
+  it('preserves the exact independently rechecked public-testnet cutover without claiming unique users', () => {
+    assert.equal(PLATFORM_ACTIVITY_BASELINE.snapshotKind, 'post-replacement-cutover')
+    assert.equal(PLATFORM_ACTIVITY_BASELINE.throughBlock, 38_999_871)
     assert.equal(
       PLATFORM_ACTIVITY_BASELINE.blockHash,
-      '0x137d1e60f771a7686ed81f77bcf8c4f4a71e6af7bb96620eda11e34031534552',
+      '0x0f08a4e58106a4cd465555c5a3b0a2bf44e723277ff69f0a6c0b22de3c77c9da',
     )
     assert.deepEqual(PLATFORM_ACTIVITY_BASELINE.totals, {
-      tokensMinted: 500_139,
+      tokensMinted: 517_422,
       walletsAirdropped: 16_433,
-      presalesCreated: 8_451,
+      presalesCreated: 8_511,
       swapsCompleted: 12_975,
-      onChainMessages: 66_776,
+      onChainMessages: 66_832,
     })
-    assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.countingRule, /live deltas stay disabled/i)
-    assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.disclaimer, /not an independent audit/i)
+    assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.countingRule, /add only verified replacement counters/i)
+    assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.disclaimer, /not unique users|not unique/i)
     assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.disclaimer, /bot|spam/i)
   })
 })

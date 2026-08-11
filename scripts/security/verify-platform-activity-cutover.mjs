@@ -278,10 +278,8 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    await main()
-  } catch (error) {
+  main().catch((error) => {
     process.stderr.write(`Cutover verification failed: ${error instanceof Error ? error.message : String(error)}\n`)
     process.exitCode = 1
-  }
+  })
 }

@@ -4,6 +4,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getContractAddress } from 'viem'
 import { verifyControlPlaneRecoveryEvidence } from './verify-control-plane-recovery.mjs'
+import {
+  PUBLIC_TESTNET_RELEASE_PROFILE,
+  verifyApprovedPublicTestnetReplacementPackage,
+} from './verify-approved-public-testnet-replacement.mjs'
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const packagePath = resolve(repositoryRoot, 'src/config/approvedPublicReplacement.json')
@@ -850,6 +854,9 @@ export function verifyApprovedPublicReplacementPackage(filePath = packagePath, {
   }
   if (value.status !== 'APPROVED' || !value.deploymentManifest) {
     throw new Error('Public replacement data must be an APPROVED package with a complete deployment manifest.')
+  }
+  if (value.releaseProfile === PUBLIC_TESTNET_RELEASE_PROFILE) {
+    return verifyApprovedPublicTestnetReplacementPackage(filePath)
   }
   assertExactApprovedShape(value)
   assertApprovedProductionSemantics(value)

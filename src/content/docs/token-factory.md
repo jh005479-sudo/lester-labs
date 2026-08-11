@@ -1,59 +1,52 @@
-# Token Factory — Containment and Replacement Readiness
+# Token Factory — Immutable Public-Testnet Replacement
 
-> **Legacy deployment status:** the legacy Token Factory at
-> `0x93acc61fcdc2e3407A0c03450Adfd8aE78964948` remains controlled by the
-> compromised legacy authority. New token creation and its paid write are
-> disabled. Do not call `createToken` directly or send zkLTC to the factory.
+> **Active replacement status:** new token creation targets only the
+> source-pinned immutable factory on LitVM LiteForge chain `4441`. The legacy
+> factory remains retired and read-only.
 
-## Historical behavior
+## Legacy deployment
 
-The legacy factory deployed `LesterToken` ERC-20 contracts and minted the
-configured initial supply to the caller. Token creators selected custom
-decimals and optional owner minting, holder burning, and owner pause controls.
-Each child token has its own transferable owner; replacing the factory does not
-change a child token's owner or make a historical token trusted.
+The factory at `0x93acc61fcdc2e3407A0c03450Adfd8aE78964948`
+remains associated with compromised legacy authority. Do not call its
+`createToken` function or send zkLTC to it. Existing child tokens remain
+independent ERC-20 contracts; replacing the factory does not alter their owners
+or make them trusted.
 
 The legacy creation fee was `0.05 zkLTC` and accrued under the compromised
-factory owner. That fee is a historical parameter, not a current offer.
+factory owner. That is a historical parameter, not a current offer.
 
-## Safe use during containment
+## Approved replacement
 
-- Existing child tokens can still be inspected as independent ERC-20
-  contracts.
-- Verify a token's exact runtime, owner, mintability, pause controls, supply,
-  and factory-event provenance before relying on it.
-- A matching name or symbol does not prove that a token came from the factory.
-- Do not approve, pay, or deploy through the legacy factory.
-- The Lester explorer's factory-token list is a bounded newest-event sample,
-  not a complete index.
+The approved factory is
+`0x1A098a86d4C73b44d38e40711e0dd869591B4F60`. It:
 
-## Replacement design
+- was created in the source-pinned attested deployment sequence;
+- has its administrative owner permanently frozen at
+  `0x0000000000000000000000000000000000000001`;
+- forwards each `0.05 zkLTC` testnet creation fee directly to the disclosed
+  valueless test treasury rather than accumulating funds for an owner sweep;
+- has no upgrade path and rejects invalid role addresses; and
+- is reachable only after the frontend proves chain `4441`, the exact factory
+  address/runtime, function, and native value.
 
-Any replacement factory is treated as a candidate only after its reviewed deployment:
+The fee recipient has no controller authority. This testnet-only authority
+model does not replace the distinct multisig controller/treasury requirements
+for a future real-value production deployment.
 
-- be deployed from the separately attested single-use gas EOA;
-- place administrative ownership with the approved **controller**;
-- forward creation fees directly to the distinct approved **treasury** rather
-  than accumulating them for an owner sweep;
-- reject zero or retired role addresses and pin its exact runtime hash; and
-- remain unreachable from the frontend until the served build and the explicit
-  paid-write allowlist are verified.
+## Child-token behavior
 
-Controller and treasury are deliberately different roles. “The owner matches
-the treasury” is not a valid activation check.
+Token creators select custom decimals and optional owner minting, holder
+burning, and owner pause controls. The initial supply is minted to the creator.
+Child-token ownership belongs to the creator, not Lester Labs:
 
-## Intended replacement interface
+- `mint(address, amount)` — child-owner only, when enabled at creation;
+- `burn(amount)` — holder action, when enabled at creation; and
+- `pause()` / `unpause()` — child-owner controls, when enabled.
 
-- `createToken(...)` — deploy a configured ERC-20 child; disabled until activation
-- `owner()` — returns the controller, not the fee recipient
-- child `mint(address, amount)` — child-owner only, when enabled at creation
-- child `burn(amount)` — holder action, when enabled at creation
-- child `pause()` / `unpause()` — child-owner controls, when enabled
+Verify a child's exact runtime, owner, mintability, pause controls, supply, and
+factory-event provenance. A matching name or symbol does not prove factory
+origin. The explorer list is a bounded newest-event sample, not a complete
+index.
 
-## Sources and limitations
-
-The token implementation composes OpenZeppelin modules with Lester-specific
-configuration. Upstream review does not constitute an audit of Lester Labs,
-the deployment process, or a token creator's choices. No replacement should be
-described as live until its address, constructor inputs, runtime hash, roles,
-and served-frontend target have all been independently verified.
+OpenZeppelin ancestry does not constitute an audit of Lester Labs, the
+deployment process, or a token creator's choices.

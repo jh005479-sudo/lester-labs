@@ -107,8 +107,11 @@ function fakeRuntimeHasher(code) {
 }
 
 describe('platform activity cutover second-RPC verification', () => {
-  it('keeps the verifier continuity floors synchronized with the compiled homepage baseline', () => {
-    assert.deepEqual(PLATFORM_ACTIVITY_CONTINUITY_FLOORS, PLATFORM_ACTIVITY_BASELINE.totals)
+  it('keeps every compiled post-cutover homepage total at or above its immutable continuity floor', () => {
+    assert.equal(PLATFORM_ACTIVITY_BASELINE.snapshotKind, 'post-replacement-cutover')
+    for (const [name, floor] of Object.entries(PLATFORM_ACTIVITY_CONTINUITY_FLOORS)) {
+      assert.ok(PLATFORM_ACTIVITY_BASELINE.totals[name] >= floor)
+    }
   })
 
   it('re-reads only the candidate exact block and proves config, floors, runtimes, and counters', async () => {

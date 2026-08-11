@@ -237,8 +237,8 @@ export const TUTORIALS: TutorialArticle[] = [
 
   {
     slug: 'launchpad-how-it-works',
-    title: 'LitVM Launchpad — Legacy Recovery and Future Design',
-    subtitle: 'Why the current legacy factory is creation-disabled, which recovery actions remain available, and how a future reviewed Launchpad is intended to work.',
+    title: 'LitVM Launchpad — Immutable Replacement and Legacy Recovery',
+    subtitle: 'How the source-pinned immutable testnet Launchpad works and which separately authenticated recovery actions remain for legacy positions.',
     badge: 'Launchpad',
     badgeColor: '#a78bfa',
     readTime: '8 min read',
@@ -249,19 +249,19 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Current operational status',
-        body: 'Both source-pinned ILO factories and their connector are retired legacy deployments whose treasury route points at the compromised former authority. New ILO creation is disabled, and the application blocks additional funding, contributions, whitelist changes, and finalization on legacy ILOs. Do not send assets directly to them.\n\nHistorical cancellation, refund, token claim, LP claim, and excess-asset recovery paths remain visible only when the individual contract state and connected wallet role permit them. A separately reviewed future factory, connector, and child runtime must be explicitly pinned before new creation can be enabled.',
+        body: 'Both historical ILO factories and their connector remain retired because their treasury route points at the compromised former authority. Do not create, fund, contribute to, change a whitelist on, or finalize a legacy ILO. Historical cancellation, refund, claim, and excess-asset recovery remain visible only when contract state and the connected wallet role permit them.\n\nNew testnet launches use the immutable source-pinned factory and connector. The controller is frozen at the no-key 0x…01 precompile, the disclosed test treasury has no admin role, and the frontend checks chain 4441, exact runtimes, targets, spenders, value, and launch state before every write.',
       },
       {
         type: 'step',
-        heading: 'Future design reference — currently disabled',
+        heading: 'Using the immutable testnet replacement',
         steps: [
           {
             title: 'Have a deployed ERC-20 token',
-            body: 'A future launch would require an independently reviewed ERC-20 token address. The current Token Factory is also a retired paid-write target, so do not deploy or pay through it during containment.',
+            body: 'Use an ERC-20 whose exact address, runtime, owner, supply controls, and provenance you have reviewed. The active immutable Token Factory is separate from the retired legacy factory.',
           },
           {
             title: 'Navigate to the Launchpad',
-            body: 'The current Launchpad is for historical discovery and recovery. Its Create flow remains disabled until a separately reviewed replacement factory is pinned.',
+            body: 'The Create flow targets only the source-pinned immutable ILO Factory on chain 4441. Legacy ILO views remain distinctly labelled recovery-only.',
           },
           {
             title: 'Enter your token address',
@@ -277,15 +277,15 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Choose your timeline',
-            body: 'A future reviewed child would enforce start and end timestamps and its configured cap. This describes intended behavior only; no legacy ILO should be configured or funded.',
+            body: 'The replacement child enforces its configured start/end timestamps and cap. No legacy ILO should be newly configured or funded.',
           },
           {
             title: 'Configure LP settings',
-            body: 'A future reviewed child would record a liquidity percentage and LP lock duration. More deposited liquidity is not a promise of safety, fair pricing, market depth, or project legitimacy.',
+            body: 'The replacement child records a liquidity percentage and LP lock duration. More deposited liquidity is not a promise of safety, fair pricing, market depth, or project legitimacy.',
           },
           {
             title: 'Deploy and deposit',
-            body: 'Do not perform this step on either source-pinned legacy factory or any existing legacy ILO. In a future approved deployment, the application will re-authenticate the pinned replacement factory before accepting the creation fee or showing funding instructions.',
+            body: 'The app re-authenticates the replacement factory, runtime, chain, fee, spender, and token details before accepting a testnet creation request or showing funding instructions. Never perform this step on a legacy factory or ILO.',
           },
         ],
       },
@@ -298,8 +298,8 @@ export const TUTORIALS: TutorialArticle[] = [
       },
       {
         type: 'text',
-        heading: 'How future LP creation is intended to work',
-        body: 'In a separately reviewed future deployment, an ILO would hand launch liquidity to a new `UniSwapConnector`. Before seeding, it must verify factory `feeTo` equals the approved treasury and the distinct `feeToSetter` equals the approved controller. A third, single-use gas EOA deploys the attested artifacts. The current legacy connector embeds the retired treasury and must not be reused.',
+        heading: 'How replacement LP creation works',
+        body: 'A replacement ILO hands launch liquidity to the source-pinned `UniSwapConnector`. Before seeding, it verifies factory `feeTo` equals the disclosed test treasury and `feeToSetter` equals the frozen controller. It checks the exact router/factory/wrapper tuple, balances, allowances, minimum outputs, and recipient, then clears temporary allowances. The legacy connector embeds the retired treasury and is never reused.',
       },
     ],
     related: ['token-factory-guide', 'liquidity-locker-guide'],
@@ -307,8 +307,8 @@ export const TUTORIALS: TutorialArticle[] = [
 
   {
     slug: 'how-to-use-dex-swap',
-    title: 'LitVM DEX — Legacy Recovery and Replacement Checks',
-    subtitle: 'Why new swaps and liquidity writes are disabled, how to inspect bounded reserve data, and how authenticated legacy LP or wrapped-native recovery works.',
+    title: 'LitVM DEX — Immutable Replacement and Legacy Recovery',
+    subtitle: 'How new chain-guarded testnet swaps work, why the direct fee route is disclosed, and how authenticated legacy LP recovery remains separate.',
     badge: 'DEX',
     badgeColor: '#E44FB5',
     readTime: '6 min read',
@@ -318,8 +318,8 @@ export const TUTORIALS: TutorialArticle[] = [
     sections: [
       {
         type: 'text',
-        heading: 'Current containment status',
-        body: 'The visible factory, router, wrapped-native contract, and pairs are compromised legacy deployments. New swaps, token approvals for trading, wrapping, pool creation, and liquidity additions are disabled. Router quotes and reserve ratios remain untrusted read-only observations; they are not oracle prices or evidence that a transaction is safe.\n\nThe legacy pair directly routed 0.20% of measured swap input to mutable `feeTo` and retained roughly 0.10% in-pool. That unusual extra recipient is not an arbitrary drain by itself, but it is a plausible malicious-transaction heuristic and could be redirected by the compromised `feeToSetter`.',
+        heading: 'Current immutable replacement status',
+        body: 'New swaps, approvals, wrapping, pool creation, and liquidity actions use only the source-pinned immutable replacement on chain 4441. Quotes and reserve ratios remain untrusted read-only observations; they are not oracle prices or proof that a trade is safe.\n\nThe pair transparently routes 0.20% of measured swap input to the fixed valueless test treasury and retains roughly 0.10% in-pool. This noncanonical extra recipient can resemble a malicious-transaction heuristic, but the replacement `feeToSetter` is frozen at the no-key 0x…01 precompile and cannot redirect it. The old mutable tuple remains recovery-only.',
       },
       {
         type: 'step',
@@ -335,11 +335,11 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Do not approve or swap',
-            body: 'A reserve quote does not authorize a trade. Do not grant a token allowance or submit a swap to the retired router. For recovery, approve only the exact LP amount immediately before the source-pinned removal call and revoke any residual allowance afterward.',
+            body: 'A reserve quote does not authorize a trade. For a new replacement swap, verify chain 4441, exact router/runtime/spender, path, recipient, minimum output, value, and deadline. Never grant a token allowance or submit a swap to the retired router. For recovery, approve only the exact LP amount immediately before removal.',
           },
           {
             title: 'Remove only an authenticated existing position',
-            body: 'Use explicit minimum outputs, a short deadline, and the connected wallet as recipient for `removeLiquidity` or `removeLiquidityETH`. New deposits, pool creation, wrapping, and liquidity additions remain disabled.',
+            body: 'Use explicit minimum outputs, a short deadline, and the connected wallet as recipient for a legacy `removeLiquidity` call. New deposits, pool creation, wrapping, and liquidity additions are allowed only against the separately attested replacement tuple.',
           },
           {
             title: 'Verify the recovery receipt',
@@ -351,7 +351,7 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'tip',
-          text: 'Existing wrapped-native tokens may be withdrawn only through the exact source-pinned legacy wrapper after runtime verification. New wrapping remains disabled.',
+          text: 'Existing legacy wrapped-native tokens may be withdrawn only through the exact source-pinned legacy wrapper after runtime verification. New wrapping targets only the separately attested replacement wrapper on chain 4441.',
         },
       },
       {
@@ -372,8 +372,8 @@ export const TUTORIALS: TutorialArticle[] = [
       },
       {
         type: 'text',
-        heading: 'Replacement economics and role separation',
-        body: 'The prepared replacement restores canonical Uniswap V2 pair economics: the 0.30% fee remains in-pool and an enabled protocol fee is realized through standard LP-token minting on a later liquidity event, not a fixed transfer from every swap input. Factory `feeTo` must equal the approved treasury; the distinct `feeToSetter` must equal the approved controller. The replacement remains inactive until its exact runtimes, role graph, deployment attestation, and clean served frontend are source-pinned.',
+        heading: 'Replacement economics and frozen authority',
+        body: 'The immutable testnet replacement uses Lester-specific noncanonical economics: 0.20% of measured input is sent directly to the disclosed valueless test treasury and roughly 0.10% remains in-pool, yielding the router’s effective 997/1000 quote factor. Factory `feeTo` is fixed to that treasury and `feeToSetter` is frozen at 0x…01. Exact runtimes, roles, fee behavior, and chain-guarded transaction intent are source-pinned and publicly disclosed.',
       },
     ],
     related: ['setting-up-litvm-wallet', 'launchpad-how-it-works', 'liquidity-locker-guide'],
@@ -381,8 +381,8 @@ export const TUTORIALS: TutorialArticle[] = [
 
   {
     slug: 'token-factory-guide',
-    title: 'Token Factory — Legacy Review and Replacement Readiness',
-    subtitle: 'Why token creation is disabled, how to inspect historical child tokens, and what must be verified before a replacement factory can activate.',
+    title: 'Token Factory — Immutable Replacement and Legacy Review',
+    subtitle: 'How chain-guarded testnet token creation works and how to inspect historical child tokens without trusting legacy authority.',
     badge: 'Token Factory',
     badgeColor: '#6366f1',
     readTime: '4 min read',
@@ -392,8 +392,8 @@ export const TUTORIALS: TutorialArticle[] = [
     sections: [
       {
         type: 'text',
-        heading: 'Current containment status',
-        body: 'The legacy Token Factory remains owned by the compromised former controller. New token creation and the historical 0.05 zkLTC fee write are disabled. Do not call `createToken` directly or send zkLTC to the factory.\n\nHistorical LesterToken children combined OpenZeppelin ERC-20 modules with custom decimals and optional owner minting, holder burning, and owner pause controls. Each child has its own transferable owner; replacing the factory does not rotate that owner or make a child trustworthy.',
+        heading: 'Current replacement and legacy status',
+        body: 'The legacy Token Factory remains owned by the compromised former controller. Never call its `createToken` function or send it zkLTC. New testnet creation uses only the immutable source-pinned factory after chain-4441, runtime, target, fee, and decoded-parameter checks. Its controller is frozen at 0x…01 and its test treasury has no admin role.\n\nHistorical LesterToken children combined OpenZeppelin ERC-20 modules with custom decimals and optional owner minting, holder burning, and owner pause controls. Each child has its own transferable owner; replacing the factory does not rotate that owner or make a child trustworthy.',
       },
       {
         type: 'step',
@@ -412,8 +412,8 @@ export const TUTORIALS: TutorialArticle[] = [
             body: 'Determine whether the current token owner can mint additional supply or pause transfers, and whether holders can burn. Treat owner-transfer history and current authority as part of the review.',
           },
           {
-            title: 'Wait for replacement activation',
-            body: 'A replacement may activate only after a distinct controller, treasury, and single-use deployer, exact runtime attestation, and explicit frontend paid-write allowlist are source-pinned. Until then, do not approve or pay a factory.',
+            title: 'Authenticate any new creation',
+            body: 'For the immutable public-testnet replacement, verify chain 4441, exact factory/runtime, 0.05 zkLTC fee, token parameters, and that the frozen controller differs from the fee treasury. Never approve or pay the legacy factory.',
           },
         ],
       },
@@ -430,8 +430,8 @@ export const TUTORIALS: TutorialArticle[] = [
 
   {
     slug: 'liquidity-locker-guide',
-    title: 'Liquidity Locker — Legacy Withdrawal and Replacement Checks',
-    subtitle: 'Why new locks are disabled, what a lock record does and does not prove, and how an authenticated matured legacy withdrawal works.',
+    title: 'Liquidity Locker — Immutable Replacement and Legacy Withdrawal',
+    subtitle: 'How new source-pinned testnet locks work, what a lock does not prove, and how an authenticated matured legacy withdrawal remains separate.',
     badge: 'Locker',
     badgeColor: '#f59e0b',
     readTime: '5 min read',
@@ -448,7 +448,7 @@ export const TUTORIALS: TutorialArticle[] = [
         type: 'callout',
         callout: {
           type: 'info',
-          text: 'New locks and LP-token approvals to the legacy locker are disabled. Only a source-authenticated, matured record for which the connected wallet is the recorded withdrawer is eligible for recovery.',
+          text: 'Never grant an allowance to the legacy locker. New locks use only the immutable replacement after chain/runtime/spender/fee checks. A legacy withdrawal is limited to a source-authenticated matured record whose withdrawer matches the connected wallet.',
         },
       },
       {
@@ -479,8 +479,8 @@ export const TUTORIALS: TutorialArticle[] = [
 
   {
     slug: 'the-ledger-guide',
-    title: 'The Ledger — Historical Reads and Replacement Checks',
-    subtitle: 'How legacy messages were recorded, why paid posting is disabled, and the limits of testnet/RPC data availability.',
+    title: 'The Ledger — Immutable Replacement and Historical Reads',
+    subtitle: 'How new source-pinned testnet posts work, how legacy messages were recorded, and the limits of testnet/RPC data availability.',
     badge: 'The Ledger',
     badgeColor: '#22d3ee',
     readTime: '5 min read',
@@ -513,8 +513,8 @@ export const TUTORIALS: TutorialArticle[] = [
             body: 'Use the displayed hash to retrieve the exact transaction, status, block, sender, target, input data, and event log through an independently selected RPC or explorer.',
           },
           {
-            title: 'Do not post during containment',
-            body: 'The historical 0.01 zkLTC minimum fee and mutable treasury route belong to the compromised legacy deployment. Do not call `post()` directly or send it zkLTC.',
+            title: 'Authenticate the posting target',
+            body: 'Never call the legacy Ledger or send it zkLTC. A new post must target the immutable replacement on chain 4441 and show its exact runtime, message, 0.01 zkLTC minimum value, and fixed test-treasury behavior before signing.',
           },
           {
             title: 'Interpret the record narrowly',
@@ -534,7 +534,7 @@ export const TUTORIALS: TutorialArticle[] = [
   {
     slug: 'airdrop-tool-guide',
     title: 'LitVM Airdrop Tool — Batch Token Distribution on LitVM',
-    subtitle: 'How to review recipient lists locally during containment and what must be verified before replacement distribution writes can resume.',
+    subtitle: 'How to review recipient lists locally and submit bounded batches only through the immutable chain-guarded replacement.',
     badge: 'Airdrop',
     badgeColor: '#f97316',
     readTime: '6 min read',
@@ -545,13 +545,13 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Why batch airdrops matter',
-        body: 'Batch distribution is an operational tool for a sender who already has a reviewed recipient list and a legitimate reason to transfer test assets. It is not evidence of a reward programme, token legitimacy, affiliation, or user eligibility.\n\nThe Lester Labs tool validates CSV recipient addresses and display amounts locally, shows the complete send list, and—only after the reviewed replacement is activated—will split requested ERC-20 or zkLTC transfers into batches of up to 200 recipient entries. Each batch is a separate wallet transaction.',
+        body: 'Batch distribution is an operational tool for a sender who already has a reviewed recipient list and a legitimate reason to transfer test assets. It is not evidence of a reward programme, token legitimacy, affiliation, or user eligibility.\n\nThe Lester Labs tool validates CSV recipient addresses and display amounts locally, shows the complete send list, and uses only the immutable source-pinned replacement to split ERC-20 or zkLTC transfers into batches of up to 200 recipient entries. Each batch is a separate wallet transaction.',
       },
       {
         type: 'callout',
         callout: {
           type: 'info',
-          text: 'Distribution and token-approval writes are currently disabled. Local parsing and reports do not authorize a transaction. Future testnet or mainnet contracts, addresses, limits, and fees require separate verification.',
+          text: 'Local parsing and reports do not authorize a transaction. Distribution requires chain 4441, the exact replacement runtime and target, an exact token allowance, and a separate wallet review for every bounded batch. Future mainnet contracts require a separate review.',
         },
       },
       {
@@ -575,8 +575,8 @@ export const TUTORIALS: TutorialArticle[] = [
             body: 'The tool shows the total amount, validated recipient count, batch count, network, contract readiness, and the wallet confirmations that will be requested. Review carefully: each confirmed batch is irreversible.',
           },
           {
-            title: 'Stop before approval or broadcast',
-            body: 'During containment, do not approve the legacy Disperse contract or sign token/native distribution batches. After a replacement is independently activated, each approval must name the exact source-pinned spender and amount, and each bounded batch must be reviewed as a separate transaction.',
+            title: 'Authenticate approval and broadcast',
+            body: 'Never approve the legacy Disperse contract. Each replacement ERC-20 approval must name the exact source-pinned spender and batch total; every bounded token or native batch must be reviewed as a separate transaction on chain 4441.',
           },
         ],
       },
@@ -590,7 +590,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Verifying the airdrop on-chain',
-        body: 'No transaction should be produced during containment. After a separately attested replacement is activated, open each confirmed hash in an independently selected explorer or RPC. For ERC-20 distributions, verify Transfer logs and base-unit values against the report; for native zkLTC, verify transaction value and the balance changes supported by the data source. Duplicate addresses remain separate recipient entries and are not unique-wallet counts.',
+        body: 'Open each replacement transaction hash in an independently selected explorer or RPC. For ERC-20 distributions, verify Transfer logs and base-unit values against the report; for native zkLTC, verify transaction value and supported balance changes. Duplicate addresses remain separate recipient entries and are not unique-wallet counts.',
       },
     ],
     related: ['token-factory-guide', 'token-vesting-guide'],
@@ -598,8 +598,8 @@ export const TUTORIALS: TutorialArticle[] = [
 
   {
     slug: 'token-vesting-guide',
-    title: 'Token Vesting — Legacy Release and Replacement Checks',
-    subtitle: 'Why new schedules are disabled, what historical VestingWallets do, and how an authenticated vested-token release works.',
+    title: 'Token Vesting — Immutable Replacement and Legacy Release',
+    subtitle: 'How new source-pinned schedules work, what historical VestingWallets do, and how an authenticated legacy release remains separate.',
     badge: 'Vesting',
     badgeColor: '#06b6d4',
     readTime: '7 min read',
@@ -610,7 +610,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'What a vesting schedule proves — and what it does not',
-        body: 'A vesting wallet can restrict when its token balance becomes releasable under its coded schedule. It does not prove token value, project legitimacy, recipient behavior, fair distribution, or future price.\n\nThe legacy Lester factory is compromised and new schedule creation, deployment fees, and token approvals to it are disabled. Existing children remain separate contracts. Their schedule has no factory-owner clawback, but the VestingWallet owner can transfer ownership, so the eventual recipient is not necessarily immutable.',
+        body: 'A vesting wallet can restrict when its token balance becomes releasable under its coded schedule. It does not prove token value, project legitimacy, recipient behavior, fair distribution, or future price.\n\nThe legacy Lester factory is compromised and new schedule creation, deployment fees, and token approvals to it are disabled. The immutable replacement is active only through chain/runtime/target/spender/fee checks. Existing children remain separate contracts. Their schedule has no factory-owner clawback, but the VestingWallet owner can transfer ownership, so the eventual recipient is not necessarily immutable.',
       },
       {
         type: 'callout',
@@ -660,7 +660,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'How vested tokens are released',
-        body: 'The source-reviewed historical child follows the OpenZeppelin VestingWallet release model: anyone may trigger `release(token)`, and the releasable amount is sent to the child’s current owner. The frontend exposes this only as an authenticated recovery path. Replacement schedule creation may resume only after distinct controller, treasury, and deployer roles plus exact factory/child runtime attestation are source-pinned.',
+        body: 'The historical child follows the OpenZeppelin VestingWallet release model: anyone may trigger `release(token)`, and the releasable amount goes to the child’s current owner. The frontend exposes that only as authenticated recovery. New schedules use the immutable replacement factory and attested child runtime after chain, target, spender, fee, token, and schedule checks.',
       },
     ],
     related: ['token-factory-guide', 'launchpad-how-it-works'],
@@ -681,7 +681,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'What is LitVM testnet and why use it',
-        body: 'LiteForge (chain ID 4441) is LitVM’s current test environment. It uses an EVM-compatible Arbitrum Orbit execution stack, but LitVM documents important EVM differences and a phased mainnet/settlement roadmap. Testnet behaviour, addresses, contracts, fees, bridges, and availability must not be treated as future-mainnet guarantees.\n\nLester Labs is in post-compromise containment. Read-only discovery and narrowly authenticated legacy recovery paths remain available; ordinary writes stay disabled until a newly deployed stack, exact runtimes, and clean served build are independently verified.',
+        body: 'LiteForge (chain ID 4441) is LitVM’s current test environment. It uses an EVM-compatible Arbitrum Orbit execution stack, but LitVM documents important EVM differences and a phased mainnet/settlement roadmap. Testnet behaviour, addresses, contracts, fees, bridges, and availability must not be treated as future-mainnet guarantees.\n\nLester Labs uses a source-pinned immutable replacement for ordinary testnet writes. Its controller and governance power are frozen at the no-key 0x…01 precompile, its disclosed test treasury has no admin role, and every write enforces chain 4441 plus exact target/runtime/intent checks. Legacy contracts remain limited to labelled reads and recovery.',
       },
       {
         type: 'callout',
@@ -723,7 +723,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Getting test zkLTC on LitVM',
-        body: 'Open LitVM’s independently located official testnet hub and follow its current faucet link. Supply only a disposable wallet’s public address. Faucet limits and availability can change, and every on-chain action still consumes testnet gas.\n\nDo not buy testnet zkLTC, send LTC to a purported faucet operator, or repeat transactions to manufacture activity. Lester Labs ordinary write features remain disabled during the post-compromise cutover.',
+        body: 'Open LitVM’s independently located official testnet hub and follow its current faucet link. Supply only a disposable wallet’s public address. Faucet limits and availability can change, and every on-chain action still consumes testnet gas.\n\nDo not buy testnet zkLTC, send LTC to a purported faucet operator, or repeat transactions to manufacture activity. Use only the source-pinned immutable Lester replacement after the app proves chain 4441 and the exact transaction intent.',
       },
       {
         type: 'step',
@@ -735,7 +735,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Inspect without signing',
-            body: 'Use read-only explorer and portfolio views to inspect testnet data. A swap or approval must remain blocked until the replacement DEX is deployed and source-pinned.',
+            body: 'Use read-only explorer and portfolio views first. A swap or approval is permitted only after the app proves the immutable replacement DEX runtime, chain 4441, exact spender, path, minimum output, recipient, value, and deadline.',
           },
           {
             title: 'Use recovery paths only when applicable',
@@ -750,7 +750,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Navigating LitVM testnet vs mainnet',
-        body: 'Testnet is an experimental environment and must not be treated as evidence that any mainnet deployment, address, runtime, parameter, fee, or interface will be identical. Lester Labs is currently replacing its testnet contract set after a published security incident; write features remain fail-closed until each reviewed replacement and exact runtime hash is source-pinned.\n\nIf a future mainnet release is announced, verify it independently from reviewed source and published contract addresses. Never reuse a testnet assumption or approval with real-value assets.',
+        body: 'Testnet is an experimental environment and must not be treated as evidence that any mainnet deployment, address, runtime, parameter, fee, or interface will be identical. Lester Labs’ immutable replacement is approved only for valueless chain 4441 and fails closed if its exact runtime or transaction intent cannot be verified.\n\nA future real-value release requires distinct reviewed Safe authorities, a separate gas EOA, recovered accounts, and independent release review. Never reuse a testnet assumption or approval with real-value assets.',
       },
     ],
     related: ['what-is-litvm', 'setting-up-litvm-wallet', 'how-to-use-dex-swap'],
@@ -778,7 +778,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'The “Airdrop Tool” is a distribution utility, not a reward claim',
-        body: 'Lester Labs uses the common word “airdrop” for a batch-send tool. A sender can validate a token, recipient addresses, and exact amounts locally; a future source-pinned replacement is intended to perform those transfers only after activation. Until then, do not approve a distribution transaction. Using the utility does not enrol a wallet in any reward programme and does not prove eligibility for anything.\n\nThe tool has no seed-phrase form, credential recovery flow, hidden reward claim, or authority to distribute a LitVM protocol token. After a replacement is activated, every requested approval and transaction must still identify the source-pinned contract, chain, token, recipients, and amount before signing.',
+        body: 'Lester Labs uses the common word “airdrop” for a batch-send tool. A sender can validate a token, recipient addresses, and exact amounts locally and submit through the immutable source-pinned replacement. Using the utility does not enrol a wallet in a reward programme or prove eligibility for anything.\n\nThe tool has no seed-phrase form, credential recovery flow, hidden reward claim, or authority to distribute a LitVM protocol token. Every requested approval and transaction must identify chain 4441, the source-pinned contract, token, exact spender/amount, and recipients before signing.',
       },
       {
         type: 'step',
@@ -944,7 +944,7 @@ export const TUTORIALS: TutorialArticle[] = [
       {
         type: 'text',
         heading: 'Verifying your own LitVM activity',
-        body: 'During containment, ordinary Lester Labs writes are disabled. For an eligible recovery transaction, preserve the exact hash and verify its target, calldata, value, status, logs, and state change using more than one independently selected data source where practical.\n\nThe Lester Labs explorer is a convenience interface to RPC data. It does not provide a completeness, archival-retention, contract-safety, or identity guarantee.',
+        body: 'For any immutable-replacement or eligible legacy-recovery transaction, preserve the exact hash and verify its target, calldata, value, status, logs, and state change using more than one independently selected data source where practical.\n\nThe Lester Labs explorer is a convenience interface to RPC data. It does not provide a completeness, archival-retention, contract-safety, or identity guarantee.',
       },
     ],
     related: ['what-is-litvm', 'complete-guide-litvm-testnet', 'how-to-use-dex-swap'],

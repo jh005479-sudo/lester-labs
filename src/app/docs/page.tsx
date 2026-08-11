@@ -7,7 +7,7 @@ import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 export const metadata: Metadata = {
   title: 'Security, Recovery & Deployment Docs | Lester Labs',
   description: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-    ? 'Reviewed replacement-candidate status, legacy recovery boundaries, separated authorities, bounded data coverage, and the protected production-serving gate for Lester Labs on LitVM testnet.'
+    ? 'Immutable public-testnet replacement status, legacy recovery boundaries, bounded data coverage, and future production requirements for Lester Labs on LitVM.'
     : 'Current containment status, legacy recovery boundaries, replacement role separation, bounded data coverage, and source-pinned deployment requirements for Lester Labs on LitVM testnet.',
   keywords: [
     'Lester Labs docs',
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Security, Recovery & Deployment Docs | Lester Labs',
     description: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-      ? 'Reviewed candidate, recovery boundaries, replacement roles, and the separate protected deployment requirements.'
+      ? 'Immutable testnet replacement, recovery boundaries, frozen authority, and separate future production requirements.'
       : 'Containment, recovery boundaries, replacement roles, and source-pinned deployment requirements.',
     url: 'https://www.lester-labs.com/docs',
     siteName: 'Lester Labs',
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Security, Recovery & Deployment Docs | Lester Labs',
     description: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-      ? 'Reviewed replacement-candidate and protected deployment-gate documentation for independent review.'
+      ? 'Source-pinned public-testnet replacement and deployment-evidence documentation for independent review.'
       : 'Current containment and replacement-deployment documentation for independent review.',
   },
 }

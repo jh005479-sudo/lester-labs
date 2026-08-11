@@ -7,23 +7,27 @@ function read(relativePath) {
   return readFileSync(new URL(relativePath, import.meta.url), 'utf8')
 }
 
-describe('public containment posture', () => {
-  it('publishes two independent release gates and defers any reputation appeal', () => {
+describe('public compromise-remediation posture', () => {
+  it('preserves future production gates while publishing the bounded testnet exception and deferring the appeal', () => {
     const homepage = read('../app/page.tsx')
     const security = read('../app/security/page.tsx')
     const docs = read('../content/docs/index.md')
 
     assert.match(homepage, /PUBLIC_RELEASE_STATUS/)
     assert.match(security, /PUBLIC_RELEASE_STATUS/)
-    assert.match(docs, /authority(?: and |\/)control-plane|authority and control-plane/i)
-    assert.match(docs, /source.*runtime|runtime.*source/i)
-    assert.match(docs, /both (?:independent )?(?:release )?gates pass/i)
-    assert.match(PUBLIC_RELEASE_STATUS.security.gatesSummary, /appeal is submitted only after both gates pass/i)
+    assert.match(docs, /contract and authority remediation/i)
+    assert.match(docs, /malicious-warning and served-site remediation/i)
+    assert.match(docs, /future\s+production release still requires separate reviewed controller and treasury\s+safes/i)
+    assert.match(docs, /apex.*www.*parity/i)
+    assert.equal(PUBLIC_RELEASE_STATUS.mode, 'approved-public-testnet')
+    assert.match(PUBLIC_RELEASE_STATUS.security.gatesSummary, /does not weaken the future production profile/i)
+    assert.match(PUBLIC_RELEASE_STATUS.security.rows.find((row) => row.area === 'Site reputation')?.detail ?? '', /MetaMask warning.*appeal/i)
   })
 
-  it('does not market the contained homepage as an active fee or grant service', () => {
+  it('does not market the public testnet as a real-value fee or grant service', () => {
     const homepage = read('../app/page.tsx')
-    assert.match(PUBLIC_RELEASE_STATUS.homepage.noticeHeading, /Post-compromise containment is active/i)
+    assert.match(PUBLIC_RELEASE_STATUS.homepage.noticeHeading, /public-testnet replacements are active/i)
+    assert.match(PUBLIC_RELEASE_STATUS.homepage.ctaFinePrint, /test assets have no represented value/i)
     assert.doesNotMatch(homepage, /Fee capture layer|Docs, grants|audited unique-user/i)
   })
 })

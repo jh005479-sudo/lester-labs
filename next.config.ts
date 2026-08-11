@@ -36,7 +36,18 @@ function assertApprovedPublicReplacementIntegrity(): void {
   if (value.status !== "APPROVED" || !value.deploymentManifest) {
     throw new Error("Public replacement activation requires an APPROVED complete deployment manifest.");
   }
-  const approvedKeys = [
+  const isPublicTestnet = value.releaseProfile === "public-testnet-immutable";
+  const approvedKeys = isPublicTestnet ? [
+    "activityCutover",
+    "approvalPayloadSha256",
+    "deploymentManifest",
+    "deploymentManifestSha256",
+    "frontendRuntimeAttestations",
+    "releaseProfile",
+    "sourceEvidence",
+    "status",
+    "testnetAcceptance",
+  ] : [
     "activityCutover",
     "approvalPayloadSha256",
     "deploymentManifest",
@@ -64,7 +75,15 @@ function assertApprovedPublicReplacementIntegrity(): void {
   if (typeof expectedPayload !== "string" || !/^0x[0-9a-f]{64}$/.test(expectedPayload)) {
     throw new Error("The approved public replacement payload SHA-256 is invalid.");
   }
-  const payload = {
+  const payload = isPublicTestnet ? {
+    releaseProfile: value.releaseProfile,
+    deploymentManifestSha256: value.deploymentManifestSha256,
+    deploymentManifest: value.deploymentManifest,
+    frontendRuntimeAttestations: value.frontendRuntimeAttestations,
+    sourceEvidence: value.sourceEvidence,
+    activityCutover: value.activityCutover,
+    testnetAcceptance: value.testnetAcceptance,
+  } : {
     deploymentManifestSha256: value.deploymentManifestSha256,
     deploymentManifest: value.deploymentManifest,
     frontendRuntimeAttestations: value.frontendRuntimeAttestations,
@@ -80,23 +99,37 @@ function assertApprovedPublicReplacementIntegrity(): void {
 
   const sourceEvidence = value.sourceEvidence as Record<string, unknown> | undefined;
   const sourceEvidenceKeys = sourceEvidence ? Object.keys(sourceEvidence).sort() : [];
-  if (
-    !sourceEvidence ||
-    JSON.stringify(sourceEvidenceKeys) !== JSON.stringify([
-      "controlPlaneRecoveryRawSha256",
-      "independentReplacementVerification",
-      "productionAuthoritiesRawSha256",
-      "productionAuthorityVerification",
-    ])
-  ) throw new Error("The approved public replacement must bind the exact source evidence and independent verification report.");
-  const rawSha256 = (relativePath: string) => `0x${createHash("sha256")
-    .update(readFileSync(new URL(relativePath, import.meta.url)))
-    .digest("hex")}`;
-  if (sourceEvidence.productionAuthoritiesRawSha256 !== rawSha256("./contracts/deployment/production-authorities.json")) {
-    throw new Error("The approved public replacement binds a different production authority inventory.");
-  }
-  if (sourceEvidence.controlPlaneRecoveryRawSha256 !== rawSha256("./docs/security/evidence/production-control-plane-recovery.json")) {
-    throw new Error("The approved public replacement binds different control-plane recovery evidence.");
+  if (isPublicTestnet) {
+    if (
+      !sourceEvidence ||
+      JSON.stringify(sourceEvidenceKeys) !== JSON.stringify([
+        "buildAttestationRawSha256",
+        "deploymentManifestRawSha256",
+        "initialIndependentVerifierRawSha256",
+        "initialRuntimeSnapshotRawSha256",
+        "liveVerificationRawSha256",
+        "liveVerificationReportSha256",
+      ])
+    ) throw new Error("The public-testnet replacement must bind the exact deployed, build, initial, and two-RPC evidence digests.");
+  } else {
+    if (
+      !sourceEvidence ||
+      JSON.stringify(sourceEvidenceKeys) !== JSON.stringify([
+        "controlPlaneRecoveryRawSha256",
+        "independentReplacementVerification",
+        "productionAuthoritiesRawSha256",
+        "productionAuthorityVerification",
+      ])
+    ) throw new Error("The approved public replacement must bind the exact source evidence and independent verification report.");
+    const rawSha256 = (relativePath: string) => `0x${createHash("sha256")
+      .update(readFileSync(new URL(relativePath, import.meta.url)))
+      .digest("hex")}`;
+    if (sourceEvidence.productionAuthoritiesRawSha256 !== rawSha256("./contracts/deployment/production-authorities.json")) {
+      throw new Error("The approved public replacement binds a different production authority inventory.");
+    }
+    if (sourceEvidence.controlPlaneRecoveryRawSha256 !== rawSha256("./docs/security/evidence/production-control-plane-recovery.json")) {
+      throw new Error("The approved public replacement binds different control-plane recovery evidence.");
+    }
   }
   const activity = value.activityCutover as Record<string, unknown>;
   const replacementCounters = activity.replacementCountersAtCutover as Record<string, unknown> | undefined;
@@ -107,6 +140,7 @@ function assertApprovedPublicReplacementIntegrity(): void {
     metricNames.some((name) => replacementCounters[name] !== 0)
   ) throw new Error("Every replacement activity counter must be exactly zero at the approved cutover block.");
 
+  if (isPublicTestnet) return;
   const approvals = value.reviewerApprovals;
   if (!Array.isArray(approvals) || approvals.length < 2) {
     throw new Error("Approved activation requires at least two structured reviewer approval records.");
@@ -148,6 +182,9 @@ assertApprovedPublicReplacementIntegrity();
 // verifier, including exact raw-inventory/report and independent-RPC binding.
 assertProductionBuildControlPlane({
   publicReplacementStatus: approvedPublicReplacement.status,
+  releaseProfile: 'releaseProfile' in approvedPublicReplacement
+    ? approvedPublicReplacement.releaseProfile
+    : undefined,
   releaseBuildId,
 });
 

@@ -13,17 +13,18 @@ successfully from source commit
 verifier passed after all thirteen CREATE transactions. Exact read-only copies
 of that run's manifest and two-pass build attestation are preserved in
 [`docs/security/evidence/disposable-testnet-4441-2026-08-06/`](security/evidence/disposable-testnet-4441-2026-08-06/README.md).
-This execution is functional-test evidence only and does not satisfy production
-containment, frontend activation, or reputation-appeal gates. Both deployment
-paths remain fail-closed unless the operator supplies the profile's exact
-acknowledgements after reviewing a read-only preview.
+On 2026-08-11 the same immutable stack was accepted for the bounded valueless
+`public-testnet-immutable` frontend profile after two-RPC runtime/role checks and
+an exact analytics cutover. It does not satisfy real-value production authority
+requirements. Frontend deployment and served apex/`www` parity remain required
+before the reputation appeal.
 
 Two source-pinned deployment profiles deliberately serve different purposes:
 
 | Profile | Plan | Permitted use | Authority model |
 | --- | --- | --- | --- |
-| `production-separated-authority` | `contracts/deployment/post-compromise-plan.json` | Public cutover and reputation-remediation evidence | Fresh gas-only EOA, controller multisig, and treasury multisig; all three distinct |
-| `testnet-immutable-disposable` | `contracts/deployment/disposable-testnet-plan.json` | Isolated valueless functional testing only | Disclosed wallet is gas payer and fee recipient only; every administrative and governance capability is frozen at LitVM's `0x0000000000000000000000000000000000000001` ECRECOVER precompile |
+| `production-separated-authority` | `contracts/deployment/post-compromise-plan.json` | Future real-value production | Fresh gas-only EOA, controller multisig, and treasury multisig; all three distinct |
+| `testnet-immutable-disposable` | `contracts/deployment/disposable-testnet-plan.json` | Valueless chain-4441 public testnet only | Disclosed wallet is gas payer and fee recipient only; every administrative and governance capability is frozen at LitVM's `0x0000000000000000000000000000000000000001` ECRECOVER precompile |
 
 The production plan's controller and treasury remain zero-address
 placeholders, and `contracts/deployment/production-authorities.json` remains an
@@ -133,9 +134,10 @@ step.
 
 1. `WETH9` (`WrappedZkLTC`) — fresh, adminless wrapped native token.
 2. `UniswapV2Factory` — controller becomes `feeToSetter`; treasury becomes
-   `feeTo` in the constructor. Pairs retain the canonical Uniswap V2 `0.30%`
-   invariant and protocol-fee LP-minting formula; they never transfer a fixed
-   slice of each swap input directly to treasury.
+   `feeTo` in the constructor. The deployed Lester-specific Pair transfers
+   `0.20%` of measured swap input directly to `feeTo` and retains approximately
+   `0.10%` in-pool. This noncanonical extra recipient is explicitly disclosed;
+   the testnet controller is frozen so it cannot redirect the recipient.
 3. `UniswapV2Router02` — fresh, immutable factory and wrapped-native links.
 4. `UniSwapConnector` — fresh, immutable router, factory, treasury, controller,
    and wrapped-native links.

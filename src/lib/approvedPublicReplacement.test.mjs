@@ -16,6 +16,10 @@ import {
   canonicalManifestSha256,
   verifyApprovedPublicReplacementPackage,
 } from '../../scripts/security/verify-approved-public-replacement.mjs'
+import {
+  canonicalPublicTestnetApprovalPayloadSha256,
+  canonicalPublicTestnetManifestSha256,
+} from '../../scripts/security/verify-approved-public-testnet-replacement.mjs'
 import { assertExactApprovedPublicReplacementPackageShape } from '../config/contracts.ts'
 import {
   REDACTED_EVIDENCE_BUNDLE_FILE,
@@ -413,8 +417,36 @@ function makeApprovedFixture(sourceDigests = {
 }
 
 describe('approved public replacement package', () => {
-  it('keeps the checked-in sentinel fail-closed until production evidence exists', () => {
-    assert.deepEqual(verifyApprovedPublicReplacementPackage(), { status: 'NOT_APPROVED' })
+  it('approves the checked-in bounded public-testnet package without weakening the production profile', () => {
+    const result = verifyApprovedPublicReplacementPackage()
+    assert.equal(result.status, 'APPROVED')
+    assert.equal(result.releaseProfile, 'public-testnet-immutable')
+    assert.equal(result.deploymentManifestSha256, '0xab5b035f537ee29f354ac3c6ef08c8c19f726058e8e776bf65ea4a950528a2eb')
+    assert.equal(result.buildSourceCommit, 'abcf1b75ee7945f557163dce11485555da63a5b6')
+  })
+
+  it('rejects a fully rehashed public-testnet package that weakens the accepted safeguards', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'lester-public-testnet-tamper-'))
+    const packagePath = join(directory, 'approved.json')
+    try {
+      const approved = JSON.parse(readFileSync(
+        new URL('../config/approvedPublicReplacement.json', import.meta.url),
+        'utf8',
+      ))
+      approved.testnetAcceptance.safeguards = approved.testnetAcceptance.safeguards
+        .filter((safeguard) => safeguard !== 'litvm-chain-id-4441-only')
+      approved.deploymentManifestSha256 = canonicalPublicTestnetManifestSha256(
+        approved.deploymentManifest,
+      )
+      approved.approvalPayloadSha256 = canonicalPublicTestnetApprovalPayloadSha256(approved)
+      writeFileSync(packagePath, `${JSON.stringify(approved, null, 2)}\n`)
+      assert.throws(
+        () => verifyApprovedPublicReplacementPackage(packagePath),
+        /exact bounded public-testnet risk acceptance/i,
+      )
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 
   it('uses deterministic pretty-JSON plus newline for manifest evidence digests', () => {

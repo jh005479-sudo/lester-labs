@@ -8,6 +8,7 @@ import {
   LITVM_TESTNET_CONTRACTS,
   LITVM_CURRENT_RUNTIME_CODE_HASHES,
   LITVM_CURRENT_VESTING_CHILD_RUNTIME_CODE_HASHES,
+  LITVM_COMPROMISED_LEGACY_DEPLOYMENTS,
   LITVM_LEGACY_DEX_RECOVERY_DEPLOYMENTS,
   LITVM_LEGACY_LIQUIDITY_LOCKERS,
   LITVM_LEGACY_VESTING_FACTORIES,
@@ -78,45 +79,40 @@ describe('LitVM transaction target integrity', () => {
     assert.doesNotThrow(() => assertNoContractTargetEnvironmentOverrides({}))
   })
 
-  it('keeps replacement paid writes globally disabled in the pre-cutover registry', () => {
-    assert.equal(POST_COMPROMISE_REPLACEMENTS_ACTIVE, false)
+  it('activates only the bounded immutable public-testnet registry', () => {
+    assert.equal(POST_COMPROMISE_REPLACEMENTS_ACTIVE, true)
     const contractsSource = readFileSync(new URL('../config/contracts.ts', import.meta.url), 'utf8')
     assert.match(contractsSource, /DISPOSABLE_TESTNET_FROZEN_AUTHORITY/)
-    assert.match(
-      contractsSource,
-      /rejectedAuthorityAddresses\s*=\s*\[[\s\S]*DISPOSABLE_TESTNET_FROZEN_AUTHORITY/,
-    )
+    assert.match(contractsSource, /PUBLIC_TESTNET_REPLACEMENT_ACTIVE/)
+    assert.match(contractsSource, /sole-owner-testnet-exception-no-independent-reviewers/)
   })
 
   it('pins exact recovery runtime hashes for every retired direct-write surface', () => {
     assert.deepEqual(LITVM_CURRENT_RUNTIME_CODE_HASHES, {
-      tokenFactory: '0x5b3bb2e693021e2ab040b6bf248785eb627600bbec002e87c10e138521be1d9d',
-      vestingFactory: '0x96f1c281dcb7a5a69cb007f511067ac08cf39811fc1d5b92864fb3f455ed2e73',
-      liquidityLocker: '0xfa5c90c1aee9f3f2606cf1a04b3a4a742ac2950dbf09e0d2e67412d311786c8a',
-      disperse: '0x0a002cb14450c22d20885e40fec35bc924e0229f91b7b359c926850b10548891',
-      ledger: '0x5bfae473fddc1457d06edc1c5603f0217b0b3debdc34969abe1611b386fb4233',
-      uniswapV2Factory: '0xce41e64702f625a6e52ba7d0406293e089078d3e6bdaf68d7fa8587f951453ee',
-      uniswapV2Router: '0x0bd1cb8135296ff81274635a526cf4bacb32aee80ea0938899ea64294e2bba8a',
-      uniswapV2Pair: '0x418843f01f93a550a3e425e6e1028f0ff8c16448fa3416c39505b9238722fcd4',
-      wrappedZkLtc: '0x8c18c51fd322d08ccd34df2b97420cc87b004e738da9363d35a38cc2be761b05',
+      tokenFactory: '0x2977be8940cd3b78334176731286448b926c31c1bc3a7f18e5c6a77b225f35ee',
+      vestingFactory: '0xbc8ee0e53dfb236bec286a997d359756ce148eea3e993badf33276338b6ba05b',
+      liquidityLocker: '0xfdc7fd0b58f639d13cfcd85e2a9016a2868e34f7e0b838a7041da74655684f2e',
+      disperse: '0x3d19fdbea7e6b60dec9ecffea62c0687d91b60df6f056fcd68fba43e17b741d2',
+      ledger: '0xb38bbaf2013d8bd74a39e8c694447584bec8b769e3c413c4f3c2b6dc07caedea',
+      uniswapV2Factory: '0xfd6082c3bf3baacc54261979dafd992af2c563b00ba30664d78963d993cdfca5',
+      uniswapV2Router: '0x677564568253f19bc10017fe9a6bb766f7d5f7d394314c060bca8452510e6df1',
+      uniswapV2Pair: '0x25357cf6c3aa89ed3e871f444993f171f0c34eca08aae4c8a7b83b346d1ca8be',
+      wrappedZkLtc: '0xd5b37df834e4be8d1e512712a30d6a64e0f25b9426234193b230eca6f7874164',
     })
-    assert.deepEqual(LITVM_CURRENT_VESTING_CHILD_RUNTIME_CODE_HASHES, [
-      '0x1b19aa59a319db5cb492e8d8b2c7a02e639554a3aebfcc9ebefd2bd95ebcf1f9',
-      '0xc0fccea1e1285b801b4112c0c689f6c2ee42636faf92979afbe89f55b46198a9',
-    ])
+    assert.deepEqual(LITVM_CURRENT_VESTING_CHILD_RUNTIME_CODE_HASHES, [])
     assert.equal(LITVM_LEGACY_VESTING_FACTORIES[0].retiredAtBlock, 36_723_038n)
     assert.equal(LITVM_LEGACY_LIQUIDITY_LOCKERS[0].retiredAtBlock, 36_723_038n)
     assert.deepEqual(LITVM_LEGACY_DEX_RECOVERY_DEPLOYMENTS[0], {
       id: 'pre-containment-2026-08-04',
       label: 'Pre-containment Lester DEX',
-      factory: LITVM_TESTNET_CONTRACTS.uniswapV2Factory,
-      router: LITVM_TESTNET_CONTRACTS.uniswapV2Router,
-      wrappedNative: LITVM_TESTNET_CONTRACTS.wrappedZkLtc,
+      factory: LITVM_COMPROMISED_LEGACY_DEPLOYMENTS.uniswapV2Factory,
+      router: LITVM_COMPROMISED_LEGACY_DEPLOYMENTS.uniswapV2Router,
+      wrappedNative: LITVM_COMPROMISED_LEGACY_DEPLOYMENTS.wrappedZkLtc,
       retiredAtBlock: 36_723_038n,
-      factoryRuntimeCodeHash: LITVM_CURRENT_RUNTIME_CODE_HASHES.uniswapV2Factory,
-      routerRuntimeCodeHash: LITVM_CURRENT_RUNTIME_CODE_HASHES.uniswapV2Router,
-      wrappedNativeRuntimeCodeHash: LITVM_CURRENT_RUNTIME_CODE_HASHES.wrappedZkLtc,
-      pairRuntimeCodeHash: LITVM_CURRENT_RUNTIME_CODE_HASHES.uniswapV2Pair,
+      factoryRuntimeCodeHash: '0xce41e64702f625a6e52ba7d0406293e089078d3e6bdaf68d7fa8587f951453ee',
+      routerRuntimeCodeHash: '0x0bd1cb8135296ff81274635a526cf4bacb32aee80ea0938899ea64294e2bba8a',
+      wrappedNativeRuntimeCodeHash: '0x8c18c51fd322d08ccd34df2b97420cc87b004e738da9363d35a38cc2be761b05',
+      pairRuntimeCodeHash: '0x418843f01f93a550a3e425e6e1028f0ff8c16448fa3416c39505b9238722fcd4',
     })
   })
 

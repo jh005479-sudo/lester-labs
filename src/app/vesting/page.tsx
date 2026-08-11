@@ -36,7 +36,7 @@ export default function VestingPage() {
           { label: 'Model', value: 'VestingWallet' },
           { label: 'Recovery', value: 'Beneficiary release' },
           { label: 'Writes', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned' : 'New schedules disabled' },
-          { label: 'Status', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Replacement candidate' : 'Replacement pending' },
+          { label: 'Status', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Public-testnet replacement' : 'Replacement pending' },
         ]}
       />
       <div className="tool-page-content" style={{ maxWidth: '920px' }}>

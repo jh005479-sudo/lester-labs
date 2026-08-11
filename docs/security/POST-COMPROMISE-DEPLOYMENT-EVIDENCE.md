@@ -4,14 +4,28 @@ Use one copy of this document per incident and deployment. Record UTC timestamps
 
 Never record a private key, seed phrase, raw session cookie, registry token, deploy token, or unredacted environment value here.
 
-> **Current Lester Labs incident status (2026-08-06): containment is incomplete.** Independent live-chain review found authority still associated with the retired compromised controller `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13`. The rejected July target `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28` remains incident-associated and is not acceptable in the public-remediation stack. The separately disclosed valueless testnet key used for this investigation cryptographically derives to `0x439945924515218061b644901a31aC4A6c00957c`; it is likewise forbidden as a production controller, treasury, or deployer. Anyone holding that disclosed key material can race its nonce and substitute contracts at a predicted CREATE sequence even if the signer would otherwise be “gas-only.” It is permitted only in a separately attested, valueless `testnet-immutable-disposable` functional-test profile where it is gas payer and economic recipient, every authority and all governance voting power are frozen at the verified `0x…01` ECRECOVER precompile, and frontend activation rejects the manifest. That disposable deployment is not containment or appeal evidence. Do not submit a false-positive appeal, re-enable public paid writes, or describe any incident/disclosed-key address as production-safe. Generate three fresh, distinct production addresses from trusted systems—a controller, treasury, and new single-use gas EOA—record public addresses only, complete the live rotations/redeployments, independently verify the resulting state, and prove clean-build-to-live served-artifact parity first. The appeal remains blocked until all of those gates are complete.
+> **Current Lester Labs public-testnet status (2026-08-11): immutable
+> replacement approved; frontend deployment and served parity pending.** The
+> exact 2026-08-06 stack is now accepted only for the valueless
+> `public-testnet-immutable` chain-4441 profile. Every administrator and all
+> governance voting power are frozen at the verified `0x…01` ECRECOVER
+> precompile. The disclosed test treasury/gas EOA has no administrative role.
+> Two credential-free RPC origins verified the thirteen-contract creation
+> sequence, runtimes, roles, cutover block, and five zero replacement counters.
+> The repository-owner's testnet exception requires neither Safe authorities nor
+> two reviewer identities. Those controls remain mandatory and fail-closed for
+> the separate `production-separated-authority` profile. Do not claim this test
+> wallet or stack is safe for real value. Do not submit the MetaMask appeal until
+> the approved frontend is live and apex/`www` served-artifact parity passes.
 
-The authorised disposable profile executed on 2026-08-06 from source commit
+The authorised immutable profile executed on 2026-08-06 from source commit
 `abcf1b75ee7945f557163dce11485555da63a5b6`. Its exact manifest and build
 attestation are recorded separately under
 [`docs/security/evidence/disposable-testnet-4441-2026-08-06/`](evidence/disposable-testnet-4441-2026-08-06/README.md).
-They are explicitly excluded from the public origin, analytics continuation,
-production safety claims, and the appeal package.
+Its later public-testnet approval, two-RPC live verification, and analytics
+cutover are recorded under
+[`docs/security/evidence/public-testnet-4441-cutover-2026-08-11/`](evidence/public-testnet-4441-cutover-2026-08-11/README.md).
+The stack remains excluded from real-value production claims.
 
 Current attribution evidence is strong but deliberately narrow: MetaMask's dapp scanner classified the apex and `www` hostnames as `BLOCK` with a critical `DRAINER` risk factor while classifying the Vercel project alias as `NONE`; ten sampled routes were byte-for-byte identical across those hosts and referenced one deployment ID. The same domain did not appear in MetaMask's contemporaneous public stale or hot list data. Static inspection of the sampled JavaScript found no credential-collection flow, clipboard read, hidden recipient substitution, or arbitrary-code-evaluation primitive. These are strong negative findings about the current sampled client artifacts, not proof that historical deployments, hosting state, server-side behavior, RPC responses, or contract behavior were clean.
 
@@ -39,7 +53,18 @@ speculative eligibility article has been replaced with anti-scam guidance
 stating that no reward programme, allocation, snapshot, or eligibility rules
 are confirmed.
 
-A concrete contract-level scanner signal was found in the legacy Lester DEX. Its vendored `UniswapV2Pair.swap()` is not canonical Uniswap V2 behavior: after measuring each input, it transfers `0.20%` of token0 and/or token1 directly to the factory's mutable `feeTo` address, then applies the remaining in-pool fee. Canonical Uniswap V2 instead realizes its optional protocol fee through LP-token minting during liquidity events. The extra direct token recipient is disclosed by the old product fee model and is not, by itself, an arbitrary wallet drain; nevertheless, it is a plausible drainer/recipient heuristic for transaction scanners. The risk is real because the compromised `feeToSetter` can redirect `feeTo`. This is an evidence-backed possible trigger, not proof of MetaMask's undisclosed classification logic. The legacy DEX must remain recovery-only (exact LP approval and `removeLiquidity*`, or wrapped-token withdrawal); swaps, pool creation, liquidity additions, and new wrapping are blocked. A replacement must use canonical pair fee behavior and distinct reviewed controller/treasury roles.
+A concrete contract-level scanner signal was found in the Lester DEX. Its
+vendored `UniswapV2Pair.swap()` is not canonical Uniswap V2 behavior: after
+measuring each input, it transfers `0.20%` of token0 and/or token1 directly to
+factory `feeTo`, then applies the remaining in-pool fee. The extra recipient is
+published protocol economics, not an arbitrary wallet drain, but it is a
+plausible drainer heuristic. The legacy instance is unsafe for new activity
+because its compromised `feeToSetter` can redirect `feeTo`, so it remains
+recovery-only. The immutable testnet replacement retains this disclosed fee
+model but freezes `feeToSetter` at `0x…01` and fixes `feeTo` to the valueless
+test treasury. That removes redirection authority but does not remove the
+scanner-visible extra transfer. A future production design should reassess or
+replace the noncanonical fee mechanism.
 
 ## 1. Case and warning identity
 
@@ -76,7 +101,7 @@ State whether the warning appears before connection, on connection, on a particu
 - [ ] DNS records, registrar access, nameservers, DNSSEC, certificate issuance, and certificate-transparency entries were reviewed.
 - [ ] On-chain admin, owner, proxy, treasury, guardian, timelock, and upgrader authority was rotated or independently confirmed.
 - [ ] The retired `0xDD221FBbCb0f6092AfE51183d964AA89A968eE13` controller, rejected July target `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28`, and disclosed-key-derived `0x439945924515218061b644901a31aC4A6c00957c` address have no live production authority and were not used to sign the production replacement CREATE sequence.
-- [x] The 2026-08-06 disposable functional-test deployment is [recorded separately](evidence/disposable-testnet-4441-2026-08-06/README.md) and excluded from the public origin, frontend targets, analytics continuation, safety claims, and appeal package.
+- [x] The 2026-08-06 immutable deployment is [recorded separately](evidence/disposable-testnet-4441-2026-08-06/README.md) and incorporated only into the bounded [public-testnet approval and cutover](evidence/public-testnet-4441-cutover-2026-08-11/README.md). It remains excluded from real-value production claims.
 
 Evidence locations, event IDs, revocation times, and reviewers (never secret values):
 
@@ -375,7 +400,8 @@ Known findings that must be carried into the inventory and appeal decision:
 
 | Surface | Finding | Security interpretation | Required disposition |
 | --- | --- | --- | --- |
-| Legacy DEX pair | `swap()` transfers `0.20%` of each measured input token directly to mutable factory `feeTo` rather than using canonical V2 LP-mint protocol fees. | Not an arbitrary drain, but an extra recipient/transfer pattern that can resemble a drainer heuristic; compromised `feeToSetter` can redirect the recipient. | Recovery-only UI; no legacy swaps/add-liquidity/pool creation/new wrapping; canonical replacement pair behavior. |
+| Legacy DEX pair | `swap()` transfers `0.20%` of each measured input token directly to mutable factory `feeTo` rather than using canonical V2 LP-mint protocol fees. | Not an arbitrary drain, but an extra recipient/transfer pattern that can resemble a drainer heuristic; compromised `feeToSetter` can redirect the recipient. | Recovery-only UI; no legacy swaps/add-liquidity/pool creation/new wrapping. |
+| Immutable testnet DEX pair | Retains the disclosed direct `0.20%` fee transfer and approximately `0.10%` in-pool fee. | Still resembles the scanner heuristic, but the recipient is the valueless test treasury and `feeToSetter` is frozen at `0x…01`, so it cannot be redirected. | Publish exact behavior; source-pin factory/pair/router; enforce chain/runtime/calldata/value checks; reassess the fee model before real-value production. |
 | Legacy governance token | `owner()` is the retired compromised controller. | Token authority is compromised; voting power/ownership assumptions are not trustworthy. | Read-only historical reference; replace with a distinct source-pinned token. |
 | Legacy timelock | Retired controller has `DEFAULT_ADMIN_ROLE` and `CANCELLER_ROLE`. | A compromised key retains privileged governance control. | Read-only; deploy a separately controlled replacement timelock. |
 | Legacy Governor | Governor has proposer authority, but no account (including Governor) has executor authority. | Governance is non-executable even apart from the compromised roles. | Block votes/proposals/queue/execute until the complete replacement role graph is independently verified. |

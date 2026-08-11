@@ -2021,14 +2021,14 @@ function SwapPageInner() {
         compact
         stats={[
           { label: 'Network', value: 'LitVM · 4441' },
-          { label: 'Mode', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Replacement candidate' : 'Containment' },
+          { label: 'Mode', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Public-testnet replacement' : 'Containment' },
         ]}
       />
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
         <div className={`rounded-[24px] border p-5 text-sm leading-relaxed ${PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-50' : 'border-amber-300/20 bg-amber-300/10 text-amber-50'}`}>
           {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? (
-            <><strong>Reviewed replacement DEX candidate.</strong> Candidate actions target the source-pinned factory, router, and wrapped-native deployment; public serving remains separately gated. Reserve ratios are not oracle prices; verify every wallet prompt. Legacy selections remain recovery-only.</>
+            <><strong>Immutable public-testnet replacement DEX.</strong> Actions target the source-pinned factory, router, and wrapped-native deployment on chain 4441. Reserve ratios are not oracle prices; verify every wallet prompt. Legacy selections remain recovery-only.</>
           ) : (
             <><strong>Legacy DEX recovery only.</strong> Reserve quotes are untrusted read-only observations, not oracle prices or authorization to trade. Do not approve a token, swap, wrap, create a pool, or add liquidity. Only source-pinned LP removal and existing wrapped-native withdrawal may be available after exact runtime checks.</>
           )}

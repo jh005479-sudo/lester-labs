@@ -18,22 +18,21 @@ the current process linked from:
 ## Submission prerequisites
 
 - [ ] Registrar, DNS, hosting, GitHub, email, registry, RPC, and monitoring
-      recovery is `REVIEWED`, independently approved, and bound by raw digest
-      into the public activation package.
-- [ ] Fresh production controller and treasury Safes are distinct, their
-      shared owners cannot form either threshold, and their proxy,
-      implementation, owners, threshold, modules, guard, and fallback handler
-      pass the exact-block verifier.
-- [ ] A fresh nonce-zero gas-only EOA—not any incident or chat-disclosed
-      address—deployed only the reviewed production sequence and was retired.
-- [ ] The complete replacement manifest and runtime verification pass at the
-      pre-deployment and current checkpoints.
-- [ ] The exact-block analytics candidate, independent second-RPC repeat, and
-      zero replacement counters are independently approved.
+      recovery is rechecked by the account owner and recorded without secrets.
+- [x] The public release is explicitly bounded to valueless LitVM LiteForge
+      testnet chain `4441`; the production Safe/reviewer requirements do not
+      apply to this release profile.
+- [x] Every replacement administrator and all governance voting power are
+      frozen at `0x0000000000000000000000000000000000000001`; the disclosed
+      test treasury/gas EOA has no administrative authority.
+- [x] The complete immutable replacement manifest, creation sequence, roles,
+      runtimes, and child runtimes pass the source-pinned verifier.
+- [x] The exact-block analytics capture, distinct-origin second-RPC repeat,
+      and five zero replacement counters are digest-pinned.
 - [ ] Both immutable dependency graphs audit at zero, registry signatures pass,
       and lifecycle scripts remain denied on the release runner.
-- [ ] Two clean x64 Linux builds have identical artifact inventories and the
-      approved frontend manifest has two independent reviewers.
+- [ ] The exact approved frontend commit is built reproducibly with lifecycle
+      scripts denied and the resulting artifact manifest is digest-pinned.
 - [ ] Apex and `www` route and asset bytes match the approved manifest under
       multiple credential-free HTTP user-agent profiles from two clean network
       vantage points; separate real Chromium, Firefox, and genuine MetaMask
@@ -49,8 +48,9 @@ the current process linked from:
 - [ ] MetaMask checks are repeated with a disposable testnet wallet. No
       credential request, approval substitution, recipient substitution,
       unexplained value, or unexpected chain/contract target is observed.
-- [ ] An independent reviewer has checked this final text and every linked
-      public artifact.
+- [ ] The repository owner has checked this final text and every linked public
+      artifact; a later real-value production appeal package requires the
+      independent-review controls documented in the production profile.
 
 ## Proposed issue
 
@@ -69,18 +69,23 @@ https://www.lester-labs.com/ on the valueless LitVM/LiteForge testnet (chain
 these hostnames.
 
 We treated a prior build/deployer/treasury compromise as a real incident rather
-than assuming a labeling error. We quarantined legacy paid-action targets,
-rotated the off-chain control plane, deployed a source-pinned replacement with
-separate reviewed controller and treasury multisigs plus a single-use gas EOA,
-and independently verified the resulting runtime/authority graph.
+than assuming a labeling error. We quarantined legacy paid-action targets and
+deployed a source-pinned immutable replacement for this valueless testnet. Every
+administrator and all governance voting power are frozen at the ECRECOVER
+precompile address, while the disclosed test treasury/gas wallet has no admin
+role. We verified the creation sequence, runtimes, roles, and initial counters
+through two credential-free RPC origins.
 
 Our review did not find a credential-harvesting flow, clipboard read, hidden
 recipient substitution, arbitrary-code evaluation, or unrestricted wallet
 drain in the approved served frontend. We did identify a plausible heuristic in
 the retired DEX: its noncanonical pair sent a direct fraction of swap inputs to
-a mutable feeTo recipient. That legacy behavior and its compromised authority
-are quarantined; the replacement uses canonical Uniswap V2 protocol-fee
-LP-minting behavior and source-pinned separated roles.
+a mutable feeTo recipient. That legacy authority is quarantined. The immutable
+testnet replacement transparently retains the same Lester-specific economics:
+0.20% of measured input goes to the disclosed valueless test treasury and about
+0.10% remains in-pool. Crucially, its feeToSetter is permanently frozen, so the
+recipient cannot be redirected. We publish this noncanonical behavior because
+the extra transfer may resemble a transaction-scanner drainer heuristic.
 
 We also found unaffiliated social posts that linked to Lester Labs while urging
 users to manufacture testnet activity and claiming a confirmed future reward
@@ -119,6 +124,8 @@ critical `DRAINER` factor. The live origin observation on the same date still
 found the stale pre-containment Vercel deployment and no Content-Security-Policy
 header. Those facts make submission premature.
 
-The disposable testnet deployment made with the chat-disclosed signer is
-functional-test evidence only. It is excluded from the production origin,
-analytics continuation, safety claims, and this appeal.
+The immutable testnet deployment made with the disclosed valueless signer is
+now included only in the bounded `public-testnet-immutable` release and appeal
+evidence. It is explicitly excluded from any real-value production claim. The
+disclosed wallet can spend test gas but has no authority over the already
+deployed contracts.

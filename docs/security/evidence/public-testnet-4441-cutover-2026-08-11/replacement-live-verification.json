@@ -1,0 +1,49 @@
+{
+  "reportSha256": "0xe7e631a71a47926537f30d56be0aa66999ba2898a1cbab967eb7a383328e4ecd",
+  "kind": "lester-labs-public-testnet-live-verification",
+  "schemaVersion": 1,
+  "status": "VERIFIED_TWO_RPC",
+  "primaryRpcOrigin": "https://liteforge.rpc.caldera.xyz",
+  "rpcUrl": "https://rpc.lite-node.com/",
+  "chainId": "4441",
+  "blockNumber": 38999871,
+  "blockHash": "0x0f08a4e58106a4cd465555c5a3b0a2bf44e723277ff69f0a6c0b22de3c77c9da",
+  "deploymentManifestRawSha256": "0xab5b035f537ee29f354ac3c6ef08c8c19f726058e8e776bf65ea4a950528a2eb",
+  "verifiedChecks": [
+    "two-rpc-chain-and-cutover-block-identity",
+    "deployment-create-address-sequence",
+    "deployment-transactions-and-receipts",
+    "replacement-runtime-code-and-byte-lengths",
+    "immutable-controller-and-test-treasury-role-bindings",
+    "zero-replacement-counters-at-cutover"
+  ],
+  "authorityModel": {
+    "controller": "0x0000000000000000000000000000000000000001",
+    "controllerKind": "ecrecover-precompile-immutable-no-admin-key",
+    "treasury": "0x439945924515218061b644901a31aC4A6c00957c",
+    "gasOnlyDeployer": "0x439945924515218061b644901a31aC4A6c00957c",
+    "treasuryKind": "disclosed-valueless-test-gas-eoa"
+  },
+  "runtimeCodeHashes": {
+    "WrappedZkLTC": "0xd5b37df834e4be8d1e512712a30d6a64e0f25b9426234193b230eca6f7874164",
+    "UniswapV2Factory": "0xfd6082c3bf3baacc54261979dafd992af2c563b00ba30664d78963d993cdfca5",
+    "UniswapV2Router02": "0x677564568253f19bc10017fe9a6bb766f7d5f7d394314c060bca8452510e6df1",
+    "UniSwapConnector": "0xd331a3b1ed8c1fafc7afddd97b0a082213eda7d8edfad3a42bad9723c8318565",
+    "TokenFactory": "0x2977be8940cd3b78334176731286448b926c31c1bc3a7f18e5c6a77b225f35ee",
+    "VestingFactory": "0xbc8ee0e53dfb236bec286a997d359756ce148eea3e993badf33276338b6ba05b",
+    "LiquidityLocker": "0xfdc7fd0b58f639d13cfcd85e2a9016a2868e34f7e0b838a7041da74655684f2e",
+    "TheLedger": "0xb38bbaf2013d8bd74a39e8c694447584bec8b769e3c413c4f3c2b6dc07caedea",
+    "Disperse": "0x3d19fdbea7e6b60dec9ecffea62c0687d91b60df6f056fcd68fba43e17b741d2",
+    "ILOFactory": "0x430609f2e1e5a64005233b6f544c07efb59f0d4bcb2ad1e5247b199545ad0f36",
+    "LitGovToken": "0x1066a45c810ec97f18b3e0420ae41390f329e74664c92c36692b4f4e51fa3784",
+    "LitTimelock": "0xf7810a7272d5e497ccfef52a25c88ccfafd18ed75db24b0dcd0710292e68a2e0",
+    "LitGovernor": "0xa68c4a59d1fba143d1f224ff15604a6fd2eea92afe54b2edc757474001e68989"
+  },
+  "replacementCountersAtCutover": {
+    "tokensMinted": 0,
+    "walletsAirdropped": 0,
+    "presalesCreated": 0,
+    "swapsCompleted": 0,
+    "onChainMessages": 0
+  }
+}

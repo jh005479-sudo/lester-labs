@@ -9,12 +9,14 @@
 > `swap()` transfers `0.20%` of each measured input token directly to mutable
 > `feeTo`. This is not an arbitrary drain, but the extra recipient is a plausible
 > transaction-scanner drainer heuristic and compromised `feeToSetter` authority
-> can redirect it. Do not carry this behavior into the replacement.
+> can redirect it. The immutable public-testnet replacement retains the
+> disclosed fee economics but freezes the recipient controller; a future
+> real-value production design must reassess the mechanism.
 
-> **Historical status:** the described direct-fee deployment remains
-> recovery-only and its proposed EOA was rejected. There is currently no
-> approved replacement controller, treasury, or gas EOA. The replacement must
-> follow the thirteen-contract post-compromise runbook.
+> **Current status:** the mutable legacy deployment remains recovery-only. New
+> testnet actions use the source-pinned immutable replacement with frozen
+> `feeToSetter`, fixed valueless test treasury, exact runtime checks, and a
+> chain-4441 guard.
 
 ## Scope
 
@@ -95,6 +97,7 @@ independently verified manifest.
 
 - The router still uses a wrapped-native contract under the hood because standard Uniswap V2 periphery expects a wrapped asset
 - Runtime swaps do not depend on an external DEX
-- The legacy direct fee transfer is a deliberate but noncanonical divergence.
-  The post-compromise replacement must restore canonical Uniswap V2 pair fee
-  behavior and must not copy this direct-recipient path.
+- The direct fee transfer is a deliberate but noncanonical divergence. The
+  public-testnet replacement publishes the same economics and makes its
+  recipient non-redirectable. A real-value production redesign should prefer a
+  conventional, scanner-readable mechanism.
