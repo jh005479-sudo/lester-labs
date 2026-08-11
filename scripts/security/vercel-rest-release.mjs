@@ -50,6 +50,7 @@ const REVIEWED_STAGED_PROVIDER_ALIASES = Object.freeze({
   "prj_sUhxc4VDzA9cWn2rv7gr1cwJOo6K": Object.freeze({
     teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
     projectName: "lester-labs-release-canary",
+    allowExactReadyStagedAssignment: true,
     aliases: Object.freeze([
       "lester-labs-release-canary-jh005479-8603-lester-labs.vercel.app",
       "lester-labs-release-canary-lester-labs.vercel.app",
@@ -400,7 +401,7 @@ function validateProviderCanary(
   ], "Vercel provider-canary evidence");
   if (
     value.kind !== "lester-labs-vercel-provider-canary" ||
-    value.schemaVersion !== 2 ||
+    value.schemaVersion !== 3 ||
     value.status !== "PASSED" ||
     value.providerMode !== providerMode ||
     value.releaseProfile !== releaseProfile ||
@@ -436,7 +437,7 @@ function validateProviderCanary(
     value.workflow.sourceAttestationRunAttempt < 1
   ) throw new Error("Provider-canary workflow identity is invalid.");
   assertExactKeys(value.results, [
-    "deploymentReachedReadyStaged", "automaticAliasesAbsent", "providerModeAccepted",
+    "deploymentReachedReadyStaged", "customProductionAliasesAbsent", "providerModeAccepted",
     "providerResourcesMatched", "exactIdPromotionNoRebuildVerified", "exactIdRollbackVerified",
   ], "Vercel provider-canary results");
   if (Object.values(value.results).some((result) => result !== true)) {
@@ -894,27 +895,18 @@ function validateDeploymentIdentity(deployment, expected) {
 
 function reviewedStagedProviderAliases(target) {
   const reviewed = REVIEWED_STAGED_PROVIDER_ALIASES[target.projectId];
-  if (!reviewed) return [];
+  if (!reviewed) return undefined;
   if (reviewed.teamId !== target.teamId || reviewed.projectName !== target.projectName) {
     throw new Error("The Vercel target identity differs from its reviewed staged-alias binding.");
   }
-  return reviewed.aliases;
+  return reviewed;
 }
 
 function assertNoProductionAliases(deployment, target) {
-  if (deployment.aliasAssigned !== false) {
-    throw new Error(
-      `The staged deployment unexpectedly has aliases assigned: ${canonicalJson({
-        deploymentUrl: deploymentUrl(deployment),
-        readyState: deployment?.readyState,
-        readySubstate: deployment?.readySubstate,
-        aliases: normalizeAliases(deployment),
-      }).trim()}`,
-    );
-  }
   const aliases = normalizeAliases(deployment);
   const immutableDeploymentHost = new URL(deploymentUrl(deployment)).hostname;
-  const reviewedProviderAliases = reviewedStagedProviderAliases(target);
+  const reviewed = reviewedStagedProviderAliases(target);
+  const reviewedProviderAliases = reviewed?.aliases ?? [];
   const allowedProviderMetadata = new Set([immutableDeploymentHost, ...reviewedProviderAliases]);
   const unexpectedAliases = aliases.filter((alias) => !allowedProviderMetadata.has(alias));
   if (unexpectedAliases.length !== 0) {
@@ -922,6 +914,24 @@ function assertNoProductionAliases(deployment, target) {
       `The staged deployment was assigned an unexpected alias: ${canonicalJson({
         deploymentUrl: deploymentUrl(deployment),
         aliases: unexpectedAliases,
+      }).trim()}`,
+    );
+  }
+  const exactReviewedAssignment = (
+    reviewed?.allowExactReadyStagedAssignment === true &&
+    deployment.aliasAssigned === true &&
+    deployment.readyState === "READY" &&
+    deployment.readySubstate === "STAGED" &&
+    aliases.length === reviewedProviderAliases.length &&
+    aliases.every((alias, index) => alias === reviewedProviderAliases[index])
+  );
+  if (deployment.aliasAssigned !== false && !exactReviewedAssignment) {
+    throw new Error(
+      `The staged deployment unexpectedly has aliases assigned: ${canonicalJson({
+        deploymentUrl: deploymentUrl(deployment),
+        readyState: deployment?.readyState,
+        readySubstate: deployment?.readySubstate,
+        aliases: normalizeAliases(deployment),
       }).trim()}`,
     );
   }
@@ -1855,7 +1865,7 @@ export async function runProviderCanary({
   const checkedAt = assertCanonicalTimestamp(now(), "Provider-canary evidence timestamp");
   const payload = {
     kind: "lester-labs-vercel-provider-canary",
-    schemaVersion: 2,
+    schemaVersion: 3,
     status: "PASSED",
     providerMode: prepared.providerMode,
     releaseProfile: prepared.source.releaseProfile,
@@ -1872,7 +1882,7 @@ export async function runProviderCanary({
     workflow,
     results: {
       deploymentReachedReadyStaged: true,
-      automaticAliasesAbsent: true,
+      customProductionAliasesAbsent: true,
       providerModeAccepted: true,
       providerResourcesMatched: promotionHttpSha256 === stagedHttpSha256,
       exactIdPromotionNoRebuildVerified: true,
