@@ -18,6 +18,8 @@ export const REPLACEMENT_MANIFEST_KIND =
 export const REPLACEMENT_SCHEMA_VERSION = 2 as const;
 export const PRODUCTION_SEPARATED_PROFILE = "production-separated-authority" as const;
 export const TESTNET_IMMUTABLE_DISPOSABLE_PROFILE = "testnet-immutable-disposable" as const;
+export const PRODUCTION_AUTHORITY_INVENTORY_RELATIVE_PATH =
+  "deployment/production-authorities.json" as const;
 export const IMMUTABLE_TESTNET_AUTHORITY =
   "0x0000000000000000000000000000000000000001" as const;
 export const DISPOSABLE_TESTNET_SIGNER_TREASURY =
@@ -680,6 +682,9 @@ export function verifyReplacementBuildAttestation(
     ".npmrc",
     "hardhat.config.ts",
     parsed.planPath,
+    ...(parsed.deploymentProfile === PRODUCTION_SEPARATED_PROFILE
+      ? [PRODUCTION_AUTHORITY_INVENTORY_RELATIVE_PATH]
+      : []),
   ];
   if (!Array.isArray(parsed.inputs) || parsed.inputs.length !== expectedInputs.length) {
     throw new Error(`Build attestation must contain exactly ${expectedInputs.length} reviewed inputs`);
@@ -1392,19 +1397,22 @@ export async function verifyReplacementManifest(
     }
   }
 
-  const wrappedNative = await hardhatEthers.getContractAt("WETH9", addressOf(records, "WrappedZkLTC"));
-  const factory = await hardhatEthers.getContractAt("UniswapV2Factory", addressOf(records, "UniswapV2Factory"));
-  const router = await hardhatEthers.getContractAt("UniswapV2Router02", addressOf(records, "UniswapV2Router02"));
-  const connector = await hardhatEthers.getContractAt("UniSwapConnector", addressOf(records, "UniSwapConnector"));
-  const tokenFactory = await hardhatEthers.getContractAt("TokenFactory", addressOf(records, "TokenFactory"));
-  const vestingFactory = await hardhatEthers.getContractAt("VestingFactory", addressOf(records, "VestingFactory"));
-  const liquidityLocker = await hardhatEthers.getContractAt("LiquidityLocker", addressOf(records, "LiquidityLocker"));
-  const ledger = await hardhatEthers.getContractAt("TheLedger", addressOf(records, "TheLedger"));
-  const disperse = await hardhatEthers.getContractAt("Disperse", addressOf(records, "Disperse"));
-  const iloFactory = await hardhatEthers.getContractAt("ILOFactory", addressOf(records, "ILOFactory"));
-  const governanceToken = await hardhatEthers.getContractAt("LitGovToken", addressOf(records, "LitGovToken"));
-  const governanceTimelock = await hardhatEthers.getContractAt("LitTimelock", addressOf(records, "LitTimelock"));
-  const governanceGovernor = await hardhatEthers.getContractAt("LitGovernor", addressOf(records, "LitGovernor"));
+  const connectProvider = <T extends { connect(runner: Provider): unknown }>(contract: T): T => (
+    contract.connect(provider) as T
+  );
+  const wrappedNative = connectProvider(await hardhatEthers.getContractAt("WETH9", addressOf(records, "WrappedZkLTC")));
+  const factory = connectProvider(await hardhatEthers.getContractAt("UniswapV2Factory", addressOf(records, "UniswapV2Factory")));
+  const router = connectProvider(await hardhatEthers.getContractAt("UniswapV2Router02", addressOf(records, "UniswapV2Router02")));
+  const connector = connectProvider(await hardhatEthers.getContractAt("UniSwapConnector", addressOf(records, "UniSwapConnector")));
+  const tokenFactory = connectProvider(await hardhatEthers.getContractAt("TokenFactory", addressOf(records, "TokenFactory")));
+  const vestingFactory = connectProvider(await hardhatEthers.getContractAt("VestingFactory", addressOf(records, "VestingFactory")));
+  const liquidityLocker = connectProvider(await hardhatEthers.getContractAt("LiquidityLocker", addressOf(records, "LiquidityLocker")));
+  const ledger = connectProvider(await hardhatEthers.getContractAt("TheLedger", addressOf(records, "TheLedger")));
+  const disperse = connectProvider(await hardhatEthers.getContractAt("Disperse", addressOf(records, "Disperse")));
+  const iloFactory = connectProvider(await hardhatEthers.getContractAt("ILOFactory", addressOf(records, "ILOFactory")));
+  const governanceToken = connectProvider(await hardhatEthers.getContractAt("LitGovToken", addressOf(records, "LitGovToken")));
+  const governanceTimelock = connectProvider(await hardhatEthers.getContractAt("LitTimelock", addressOf(records, "LitTimelock")));
+  const governanceGovernor = connectProvider(await hardhatEthers.getContractAt("LitGovernor", addressOf(records, "LitGovernor")));
   const initialGovernanceHolder = governanceInitialHolder(manifest);
   const deploymentSignerMayReceiveFees = isImmutableDisposableTestnetProfile(manifest);
 

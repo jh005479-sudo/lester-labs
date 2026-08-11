@@ -1,0 +1,35 @@
+{
+  "kind": "lester-labs-public-origin-containment-check",
+  "schemaVersion": 1,
+  "observedAt": "2026-08-11T00:07:21Z",
+  "requestProfile": {
+    "credentials": "omitted",
+    "userAgent": "Lester-Labs-Incident-Observation/1.0",
+    "redirectMode": "manual",
+    "networkVantage": "local-London-egress"
+  },
+  "apex": {
+    "url": "https://lester-labs.com/",
+    "status": 307,
+    "location": "https://www.lester-labs.com/",
+    "bodyBytes": 15,
+    "bodySha256": "7c040f8633b8823d72ed63da9b3b2dfe9846e912c66a64c9433ec9c4815d76c2",
+    "server": "Vercel"
+  },
+  "www": {
+    "url": "https://www.lester-labs.com/",
+    "status": 200,
+    "htmlBytes": 93701,
+    "htmlSha256": "87c114fd4338883fbd0521457cd3449a38164fdc2af1531859a1769418148351",
+    "matchesPriorObservationBytes": true,
+    "cache": "HIT",
+    "cacheAgeSeconds": 1205446,
+    "contentSecurityPolicy": null,
+    "clearSiteData": null,
+    "connectWalletMarkerPresent": true,
+    "activeDefiSuiteMarkersPresent": true,
+    "server": "Vercel"
+  },
+  "conclusion": "The byte-identical stale pre-containment HTML remains live, still advertises wallet and DeFi interactions, and still lacks CSP and emergency Clear-Site-Data containment. A wallet-free maintenance deployment remains urgent.",
+  "limitations": "One credential-free HTTP vantage with a synthetic user agent. This is not a browser execution trace, registrar or Vercel account audit, DNS/TLS re-audit, or proof about every CDN edge."
+}

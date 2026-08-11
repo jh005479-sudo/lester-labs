@@ -64,11 +64,43 @@ its complete deterministic tree digest is checked before and after deployment.
 The historical partial, Arbitrum, connector-only, governance, sweep, and July
 rotation entrypoints are retired and fail closed. The production LitVM plan
 starts with zero-address controller/treasury placeholders and cannot execute
-until reviewed address-only multisig values are committed. A separate
+until reviewed address-only multisig values are committed. The matching
+[`deployment/production-authorities.json`](deployment/production-authorities.json)
+inventory is also an intentional `UNREVIEWED` sentinel. Production remains
+blocked until one reviewed commit replaces both sets of placeholders and the
+inventory pins each Safe proxy/implementation runtime to the reviewed SafeL2
+1.4.1 provenance in
+[`../docs/security/SAFE-RUNTIME-PROVENANCE.md`](../docs/security/SAFE-RUNTIME-PROVENANCE.md),
+exact owners and threshold, and an empty module/guard/fallback surface, with two
+distinct reviewer approvals backed by separate evidence digests. Both proxies
+must use the same pinned singleton implementation. The two Safes may share
+fewer owners than either threshold,
+but no shared coalition may satisfy a signing threshold and the owner sets
+cannot be identical. `npm run verify:production-authorities:litvm` is a
+credential-free, exact-block on-chain check; it rejects EOAs, unknown code,
+unexpected Safe extensions, the disclosed test address, shared-owner quorum,
+and any plan/inventory disagreement. The production build attestation includes the inventory digest,
+the deployer reruns the check before the first write, and the independent
+replacement verifier checks it both immediately before deployment and again at
+verification time. It also proves each proxy came from the pinned factory's
+exact `createChainSpecificProxyWithNonce` call with a zero delegatecall,
+fallback, and payment initializer; verifies CREATE2 derivation, code absence at
+the previous block, the sole setup/creation events, nonce zero, and a complete
+bounded-range Safe log scan; requires EOA owners; and rejects the gas-only
+deployer from every owner set. Every post-setup Safe event is prohibited except
+a valid `SafeReceived`, whose count is reported because unsolicited native dust
+cannot change authority state. Approvals must be made after both canonical
+creation timestamps, no later than the verification block, and renewed within
+30 days; advancing block height alone never invalidates an unused Safe. A separate
 `testnet-immutable-disposable` plan exists only for isolated valueless testing:
 it freezes every authority at the verified `0x…01` ECRECOVER precompile and
 allows the disclosed wallet only as gas payer and test-fee recipient. It is not
 a public-cutover or reputation-appeal deployment.
+
+EOA bytecode checks cannot detect offline signatures made before cutover. The
+two independent inventory reviews must also preserve external evidence of a
+fresh hardware-owner ceremony and separate custody; never place owner keys in
+the build, RPC, hosting, or deployer environment.
 
 That disposable profile was executed and independently verified on 2026-08-06
 from source commit `abcf1b75ee7945f557163dce11485555da63a5b6`.
@@ -104,22 +136,26 @@ checkout or overwrite the legacy address inventory.
 
 ## After Deploying
 
-Only after the independent verifier passes, copy replacement addresses from
-the verified external deployment manifest into the frontend:
+Never copy or hand-enter replacement addresses. After independent manifest
+verification, capture the immutable activity candidate and second-RPC proof,
+then run `npm run export:public-frontend:litvm` with the external manifest,
+candidate, proof, and a new private output path described in the runbook. The
+exporter requires distinct reviewed HTTPS RPC origins, re-runs the full manifest
+verification against both, and independently checks deployment receipts,
+runtimes, constructor/role facts, all five zero counters, and exact-block Safe
+authority state. It embeds that second-RPC report and binds its own digest, exact
+manifest digest, block/hash, RPC URL, Safe report, and counters into the payload,
+alongside the raw authority/control-plane evidence digests.
 
-```
-src/config/contracts.ts   ← update the address constants here
-```
-
-Example address-map shape:
-```typescript
-export const CONTRACT_ADDRESSES = {
-  TokenFactory:    "0x...",
-  LiquidityLocker: "0x...",
-  VestingFactory:  "0x...",
-  Disperse:        "0x...",
-} as const;
-```
+The first pass emits only `CANDIDATE`. At least two protected independent
+reviewers must bind distinct evidence records to its exact payload digest, then
+the exporter must be re-run with that external approval file to emit
+`APPROVED`. Those structured records are auditable assertions, not
+cryptographic signatures or reviewer authentication; the separate protected
+frontend promotion envelope, direct reviewer confirmation, and protected review
+remain mandatory. Even an `APPROVED` contract package produces only a frontend
+release candidate. Public serving waits for the separate x64 Linux frontend
+approval, exact deployment, and apex/www byte-parity gate.
 
 ---
 

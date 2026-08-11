@@ -1,0 +1,91 @@
+{
+  "kind": "lester-labs-vercel-control-plane-observation",
+  "schemaVersion": 1,
+  "observedAt": "2026-08-11T00:36:28Z",
+  "observer": "authenticated provider-dashboard inspection from the account owner's existing browser session",
+  "scope": "Lester Labs project configuration, visible team/account security controls, deployment history, and visible account activity. This is a redacted point-in-time observation, not provider-attested audit evidence or production recovery approval.",
+  "project": {
+    "productionDeploymentId": "dpl_ApzQPMWK4deZofUP35xjjKSTiZWg",
+    "productionSourceCommit": "62910f9238c1a4557bff485693e6da009d367479",
+    "productionDomains": [
+      "lester-labs.com",
+      "www.lester-labs.com",
+      "lester-labs-psi.vercel.app"
+    ],
+    "gitConnectionAfterContainment": "DISCONNECTED",
+    "deployHooksAfterContainment": [],
+    "projectWebhooksAfterContainment": [],
+    "projectEnvironmentVariableEntryCountAfterContainment": 0,
+    "automaticProductionDomainAssignmentVerifiedDisabled": false,
+    "liveDeploymentChangedByThisReview": false
+  },
+  "reviewedConfiguration": {
+    "projectDomains": true,
+    "deploymentHistoryFromFirstVisibleProjectEvent": true,
+    "gitIntegration": true,
+    "deployHooks": true,
+    "projectWebhooks": true,
+    "projectEnvironmentVariableNamesAndScopes": true,
+    "buildAndDeploymentSettings": true,
+    "deploymentChecksAndSourceRestrictions": true,
+    "teamMembers": true,
+    "teamIntegrationsAndProjectScopes": true,
+    "visibleAccountActivity": true,
+    "visibleBrowserSessions": true,
+    "visibleConnectedOAuthApplications": true
+  },
+  "containmentActions": [
+    {
+      "action": "DISCONNECTED_PROJECT_GIT_INTEGRATION",
+      "verification": "Project settings reported no connected Git repository after the action.",
+      "effect": "Future Git pushes cannot automatically deploy this project until an owner deliberately reconnects it."
+    },
+    {
+      "action": "REMOVED_PROJECT_ENVIRONMENT_VARIABLE_ENTRIES",
+      "count": 23,
+      "verification": "The project environment-variable inventory reported no remaining entries after the action.",
+      "effect": "Removed legacy public contract/RPC/WalletConnect configuration from future provider builds; the already-built production rollback remains unchanged."
+    },
+    {
+      "action": "REVOKED_NONCURRENT_BROWSER_SESSIONS",
+      "count": 2,
+      "verification": "Only the current browser session remained visible after the action.",
+      "effect": "Revoked the other visible macOS and Windows browser sessions."
+    },
+    {
+      "action": "DISCONNECTED_VERCEL_CLI_OAUTH_APPLICATION",
+      "verification": "The connected-applications inventory reported no connected application after the action.",
+      "effect": "Revoked the tokens associated with that OAuth application."
+    }
+  ],
+  "securityObservations": {
+    "accountTwoFactorAuthentication": "INACTIVE",
+    "accountPasskeyCount": 0,
+    "teamTwoFactorEnforcement": "DISABLED",
+    "requireVerifiedCommits": "DISABLED",
+    "sensitiveEnvironmentVariablePolicy": "DISABLED",
+    "deploymentChecksConfigured": false,
+    "deploymentSourceRestrictionsConfigured": false,
+    "teamIntegrationAffectingLesterLabsFound": false,
+    "unknownProjectDeploymentActorFoundInVisibleHistory": false,
+    "unknownVisibleAccountActivityFound": false
+  },
+  "notVerifiedByThisObservation": [
+    "Vercel account password or SSO recovery and recovery methods",
+    "provider-side completeness or authenticity of the visible activity and deployment histories",
+    "personal access tokens, application tokens, and API Gateway tokens not exposed by the reviewed dashboard views",
+    "historical sessions, tokens, integrations, hooks, variables, members, or events deleted before this inspection",
+    "registrar and authoritative DNS account ownership",
+    "recovery email account sessions, rules, OAuth grants, and recovery methods",
+    "automatic production-domain assignment being disabled for the provider-native staging path",
+    "independent review of the current browser session and every global team credential"
+  ],
+  "releaseBlockingFindings": [
+    "The account owner must enrol phishing-resistant MFA or TOTP and preserve new recovery material offline.",
+    "The current browser session remains active so the owner can finish recovery; it must be reviewed and rotated after MFA enrolment.",
+    "Team-wide credential revocation was not performed because it can affect unrelated projects and requires explicit account-owner coordination.",
+    "The staging adapter must fail closed until automatic production-domain assignment is disabled and the rollback deployment ID is independently recorded.",
+    "Registrar, DNS, recovery email, GitHub account credentials, and the remaining production control planes still require owner review and independent approval.",
+    "The stale wallet-enabled production deployment remains live until the signed emergency containment artifact is staged, verified, approved, and promoted."
+  ]
+}

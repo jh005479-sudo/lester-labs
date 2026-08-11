@@ -12,6 +12,7 @@ import { litvm } from '@/config/chains'
 import { useLedgerFeed } from '@/hooks/useLedgerFeed'
 import { formatLedgerFee } from '@/lib/contracts/ledger'
 import { type Hex } from 'viem'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 export default function LedgerPage() {
   const { address: connectedAddress } = useAccount()
@@ -76,7 +77,12 @@ export default function LedgerPage() {
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Ledger</h1>
-            <p className="text-white/50 text-sm mt-1">Read the bounded event-backed message history and verify the source-pinned contract.<br />New paid posts remain disabled during post-compromise containment.</p>
+            <p className="text-white/50 text-sm mt-1">
+              Read the bounded event-backed message history and verify the source-pinned contract.<br />
+              {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                ? 'Candidate paid posts target the reviewed replacement Ledger; public serving is separately gated.'
+                : 'New paid posts remain disabled during post-compromise containment.'}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[560px]">

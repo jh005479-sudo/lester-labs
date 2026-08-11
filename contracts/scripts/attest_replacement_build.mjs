@@ -37,6 +37,9 @@ const inputPaths = [
   ".npmrc",
   "hardhat.config.ts",
   planRelativePath,
+  ...(deploymentProfile === "production-separated-authority"
+    ? ["deployment/production-authorities.json"]
+    : []),
 ];
 
 const artifacts = [

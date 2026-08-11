@@ -1,11 +1,13 @@
 import Link from 'next/link'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 /**
- * Global recovery notice. It is deliberately static: the banner must not turn
- * third-party price or chain APIs into an implied availability, valuation, or
- * mainnet-readiness claim.
+ * Global source-pinned release notice. It never derives availability,
+ * valuation, or mainnet-readiness claims from a third-party API.
  */
 export function LTCBanner() {
+  const statusColor = PUBLIC_RELEASE_STATUS.tone === 'success' ? 'var(--success, #2dce89)' : 'var(--warning, #f5a623)'
+
   return (
     <div
       id="ltc-banner"
@@ -21,9 +23,9 @@ export function LTCBanner() {
       }}
     >
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--warning, #f5a623)' }} />
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: statusColor }} />
         <span className="truncate" style={{ color: 'rgba(255,255,255,0.82)' }}>
-          Post-compromise containment: ordinary contract writes are disabled; reviewed recovery actions only.
+          {PUBLIC_RELEASE_STATUS.banner}
         </span>
       </div>
       <div className="hidden shrink-0 items-center gap-3 sm:flex" style={{ color: 'rgba(255,255,255,0.48)' }}>

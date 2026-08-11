@@ -1,6 +1,6 @@
 # Liquidity Locker — Legacy Withdrawal and Replacement Readiness
 
-> **Current status:** the locker at
+> **Legacy deployment status:** the locker at
 > `0x80d88C7F529D256e5e6A2CB0e0C30D82bC8827A9` is a compromised legacy
 > deployment. New locks and token approvals to that locker are disabled. A
 > narrowly authenticated withdrawal may remain available for an existing,

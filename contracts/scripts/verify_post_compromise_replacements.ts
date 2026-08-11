@@ -15,6 +15,7 @@ import {
   verifyReplacementBuildAttestation,
   verifyReplacementManifest,
 } from "./lib/post_compromise_replacement.js";
+import { verifySourcePinnedProductionAuthorities } from "./lib/production_authority_verifier.js";
 
 const { ethers } = await network.create();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -95,6 +96,31 @@ async function main(): Promise<void> {
   if (ethers.getAddress(expectedGasOnlyDeployer) !== ethers.getAddress(manifest.gasOnlyDeployer)) {
     throw new Error(
       `Manifest gas-only deployer is ${manifest.gasOnlyDeployer}; expected ${expectedGasOnlyDeployer}`,
+    );
+  }
+
+  if (!isImmutableDisposableTestnetProfile(plan)) {
+    const earliestDeploymentBlock = Math.min(
+      ...manifest.deployments.map((deployment) => deployment.blockNumber),
+    );
+    if (!Number.isSafeInteger(earliestDeploymentBlock) || earliestDeploymentBlock <= 1) {
+      throw new Error("Production manifest has no valid pre-deployment authority checkpoint");
+    }
+    const beforeDeployment = await verifySourcePinnedProductionAuthorities(
+      plan,
+      ethers.provider,
+      {
+        blockNumber: earliestDeploymentBlock - 1,
+        gasOnlyDeployer: manifest.gasOnlyDeployer,
+      },
+    );
+    const current = await verifySourcePinnedProductionAuthorities(
+      plan,
+      ethers.provider,
+      { gasOnlyDeployer: manifest.gasOnlyDeployer },
+    );
+    console.log(
+      `Production Safe authorities matched the source inventory before deployment at block ${beforeDeployment.blockNumber} and at current block ${current.blockNumber}`,
     );
   }
 

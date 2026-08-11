@@ -23,6 +23,7 @@ import {
   verifyReplacementBuildAttestation,
   verifyReplacementManifest,
 } from "./lib/post_compromise_replacement.js";
+import { verifySourcePinnedProductionAuthorities } from "./lib/production_authority_verifier.js";
 
 const hardhatConnection = await network.create();
 const { ethers } = hardhatConnection;
@@ -158,6 +159,18 @@ async function main(): Promise<void> {
   console.log("Performing read-only legacy runtime preflight before any deployment transaction...");
   await verifyPinnedLegacyRuntime(ethers.provider);
 
+  if (!isImmutableDisposableTestnetProfile(plan)) {
+    console.log("Verifying source-pinned production Safe authorities before any deployment transaction...");
+    const authorityVerification = await verifySourcePinnedProductionAuthorities(
+      plan,
+      ethers.provider,
+      { gasOnlyDeployer },
+    );
+    console.log(
+      `Production Safe authorities verified at block ${authorityVerification.blockNumber} (${authorityVerification.blockHash}); inventory ${authorityVerification.inventorySha256}`,
+    );
+  }
+
   const latestNonce = await ethers.provider.getTransactionCount(gasOnlyDeployer, "latest");
   const pendingNonce = await ethers.provider.getTransactionCount(gasOnlyDeployer, "pending");
   if (latestNonce !== pendingNonce) {
@@ -168,18 +181,6 @@ async function main(): Promise<void> {
   const startingNonce = pendingNonce;
   if (!isImmutableDisposableTestnetProfile(plan) && startingNonce !== 0) {
     throw new Error("Production gas-only deployer must be a fresh nonce-zero EOA");
-  }
-  if (!isImmutableDisposableTestnetProfile(plan)) {
-    for (const [label, address] of [
-      ["Production controller", plan.controller],
-      ["Production treasury", plan.treasury],
-    ] as const) {
-      if ((await ethers.provider.getCode(address)) === "0x") {
-        throw new Error(
-          `${label} must already be a deployed contract authority; independently verify multisig owners and threshold before continuing`,
-        );
-      }
-    }
   }
   const confirmations = readConfirmations();
   const predictedRecords: ReplacementDeploymentRecord[] = DEPLOYMENT_ORDER.map((name, index) => ({

@@ -1,0 +1,82 @@
+{
+  "kind": "lester-labs-public-origin-observation",
+  "schemaVersion": 1,
+  "observedAt": "2026-08-10T22:13:57Z",
+  "scope": "Unauthenticated public DNS, TLS, and HTTP observation; not registrar or hosting-account recovery evidence.",
+  "origins": {
+    "apex": {
+      "url": "https://lester-labs.com/",
+      "status": 307,
+      "location": "https://www.lester-labs.com/",
+      "bodyBytes": 15,
+      "bodySha256": "7c040f8633b8823d72ed63da9b3b2dfe9846e912c66a64c9433ec9c4815d76c2",
+      "server": "Vercel",
+      "hsts": "max-age=63072000"
+    },
+    "www": {
+      "url": "https://www.lester-labs.com/",
+      "status": 200,
+      "htmlBytes": 93701,
+      "htmlSha256": "87c114fd4338883fbd0521457cd3449a38164fdc2af1531859a1769418148351",
+      "apexRedirectFollowHtmlSha256": "87c114fd4338883fbd0521457cd3449a38164fdc2af1531859a1769418148351",
+      "server": "Vercel",
+      "cache": "HIT",
+      "ageSeconds": 1198641,
+      "deploymentIdObservedInFirstPartyAssets": "dpl_ApzQPMWK4deZofUP35xjjKSTiZWg",
+      "firstPartyAssetReferences": {
+        "javascript": 19,
+        "css": 2,
+        "media": 5
+      },
+      "securityHeaders": {
+        "strictTransportSecurity": "max-age=63072000",
+        "xContentTypeOptions": "nosniff",
+        "xFrameOptions": "DENY",
+        "referrerPolicy": "strict-origin-when-cross-origin",
+        "permissionsPolicy": "camera=(), microphone=(), geolocation=()",
+        "crossOriginOpenerPolicy": "same-origin-allow-popups",
+        "contentSecurityPolicy": null
+      },
+      "servedCopySignals": {
+        "postCompromiseContainmentMarkerCount": 0,
+        "ordinaryWritesDisabledMarkerCount": 0,
+        "activeDeFiSuiteClaimsPresent": true,
+        "walletConnectionCallToActionPresent": true
+      }
+    }
+  },
+  "dns": {
+    "apexA": [
+      "216.198.79.1"
+    ],
+    "apexAAAA": [],
+    "wwwCname": "lester-labs.com.",
+    "nameservers": [
+      "ns75.domaincontrol.com.",
+      "ns76.domaincontrol.com."
+    ],
+    "ds": [],
+    "dnskey": [],
+    "caa": [],
+    "apexTxt": []
+  },
+  "tls": {
+    "apex": {
+      "commonName": "lester-labs.com",
+      "issuer": "Let's Encrypt YR2",
+      "serial": "061F5D4F57A659CF3853F8BAA40627B3EF6A",
+      "notBefore": "2026-06-14T19:05:52Z",
+      "notAfter": "2026-09-12T19:05:51Z",
+      "sha256Fingerprint": "3B:D3:D5:EC:93:A6:2F:A5:AE:39:DB:D9:A4:9E:84:5C:07:7E:DB:0E:B8:85:9D:AA:8D:A5:16:9A:BF:D7:34:45"
+    },
+    "www": {
+      "commonName": "www.lester-labs.com",
+      "issuer": "Let's Encrypt YR2",
+      "serial": "06C26F85FA41B93AA2C5C988FDCB1D820822",
+      "notBefore": "2026-06-14T04:02:43Z",
+      "notAfter": "2026-09-12T04:02:42Z",
+      "sha256Fingerprint": "1F:24:0C:4D:5F:53:5A:E0:8A:86:5D:8C:A7:9F:1D:54:79:98:56:6F:DA:BF:BA:00:CF:A8:BB:CB:A4:6E:DB:A6"
+    }
+  },
+  "conclusion": "The apex and www still serve the same stale pre-containment deployment, and the www response still lacks Content-Security-Policy. Do not claim the remediated source is live or submit the MetaMask appeal."
+}

@@ -1,0 +1,309 @@
+name: Vercel disposable provider canary
+
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_commit:
+        description: Exact lowercase commit on protected main
+        required: true
+        type: string
+      release_kind:
+        description: Exact signed artifact/provider path to exercise
+        required: true
+        type: choice
+        options:
+          - emergency-static
+          - next-standalone-container
+      attestation_run_id:
+        description: Exact successful source-attestation workflow run ID
+        required: true
+        type: string
+      maximum_upload_bytes:
+        description: Explicit provider upload cap, at most 536870912
+        required: true
+        default: "268435456"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-provider-canary-${{ inputs.release_kind }}-${{ inputs.reviewed_commit }}
+  cancel-in-progress: false
+
+jobs:
+  validate-inputs:
+    name: Validate protected source before provider credentials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      reviewed_commit: ${{ steps.validate.outputs.reviewed_commit }}
+      release_kind: ${{ steps.validate.outputs.release_kind }}
+      attestation_run_id: ${{ steps.validate.outputs.attestation_run_id }}
+      attestation_run_attempt: ${{ steps.validate.outputs.attestation_run_attempt }}
+      maximum_upload_bytes: ${{ steps.validate.outputs.maximum_upload_bytes }}
+      artifact_name: ${{ steps.validate.outputs.artifact_name }}
+      signer_workflow: ${{ steps.validate.outputs.signer_workflow }}
+    steps:
+      - name: Validate immutable dispatch and source workflow run
+        id: validate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          RELEASE_KIND: ${{ inputs.release_kind }}
+          ATTESTATION_RUN_ID: ${{ inputs.attestation_run_id }}
+          MAXIMUM_UPLOAD_BYTES: ${{ inputs.maximum_upload_bytes }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$REVIEWED_COMMIT" = "$GITHUB_SHA"
+          [[ "$ATTESTATION_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$MAXIMUM_UPLOAD_BYTES" =~ ^[1-9][0-9]{0,8}$ ]]
+          test "$MAXIMUM_UPLOAD_BYTES" -le 536870912
+          case "$RELEASE_KIND" in
+            emergency-static)
+              artifact_prefix="emergency-containment-$REVIEWED_COMMIT"
+              signer_workflow=".github/workflows/emergency-containment-attestation.yml"
+              ;;
+            next-standalone-container)
+              artifact_prefix="frontend-release-approved-evidence-$REVIEWED_COMMIT"
+              signer_workflow=".github/workflows/frontend-release-attestation.yml"
+              ;;
+            *) exit 1 ;;
+          esac
+          gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$ATTESTATION_RUN_ID" \
+            > "$RUNNER_TEMP/source-run.json"
+          source_run_attempt="$(node --input-type=module - "$RUNNER_TEMP/source-run.json" \
+            "$REVIEWED_COMMIT" "$signer_workflow" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const [path, commit, workflow] = process.argv.slice(2);
+          const run = JSON.parse(readFileSync(path, "utf8"));
+          const createdAt = Date.parse(run.created_at);
+          const updatedAt = Date.parse(run.updated_at);
+          const now = Date.now();
+          if (
+            run.head_sha !== commit ||
+            run.head_branch !== "main" ||
+            run.event !== "workflow_dispatch" ||
+            run.status !== "completed" ||
+            run.conclusion !== "success" ||
+            run.path !== workflow ||
+            !Number.isSafeInteger(run.run_attempt) ||
+            run.run_attempt < 1 ||
+            !Number.isFinite(createdAt) ||
+            !Number.isFinite(updatedAt) ||
+            createdAt > updatedAt ||
+            updatedAt > now ||
+            now - updatedAt > 24 * 60 * 60 * 1000
+          ) throw new Error("Source attestation run does not match the exact reviewed workflow, commit, and successful conclusion.");
+          process.stdout.write(String(run.run_attempt));
+          NODE
+          )"
+          [[ "$source_run_attempt" =~ ^[1-9][0-9]{0,5}$ ]]
+          artifact_name="$artifact_prefix-$ATTESTATION_RUN_ID-$source_run_attempt"
+          {
+            printf 'reviewed_commit=%s\n' "$REVIEWED_COMMIT"
+            printf 'release_kind=%s\n' "$RELEASE_KIND"
+            printf 'attestation_run_id=%s\n' "$ATTESTATION_RUN_ID"
+            printf 'attestation_run_attempt=%s\n' "$source_run_attempt"
+            printf 'maximum_upload_bytes=%s\n' "$MAXIMUM_UPLOAD_BYTES"
+            printf 'artifact_name=%s\n' "$artifact_name"
+            printf 'signer_workflow=%s\n' "$signer_workflow"
+          } >> "$GITHUB_OUTPUT"
+
+  canary:
+    name: Promote and roll back exact bytes in the disposable project
+    needs: validate-inputs
+    runs-on: ubuntu-24.04
+    environment: frontend-vercel-provider-canary
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact reviewed adapter
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Use the exact reviewed Node runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          package-manager-cache: false
+
+      - name: Re-enforce protected source and isolated disposable target
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          MAXIMUM_UPLOAD_BYTES: ${{ needs.validate-inputs.outputs.maximum_upload_bytes }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+          CANARY_TEAM_ID: ${{ vars.VERCEL_CANARY_TEAM_ID }}
+          CANARY_PROJECT_ID: ${{ vars.VERCEL_CANARY_PROJECT_ID }}
+          CANARY_PROJECT_NAME: ${{ vars.VERCEL_CANARY_PROJECT_NAME }}
+          PRODUCTION_PROJECT_ID: ${{ vars.VERCEL_PRODUCTION_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(uname -m)" = "x86_64"
+          test "$(node --version)" = "v24.18.0"
+          [[ "$MAXIMUM_UPLOAD_BYTES" =~ ^[1-9][0-9]{0,8}$ ]]
+          test "$MAXIMUM_UPLOAD_BYTES" -le 536870912
+          [[ "$CANARY_TEAM_ID" =~ ^team_[A-Za-z0-9]{8,80}$ ]]
+          [[ "$CANARY_PROJECT_ID" =~ ^prj_[A-Za-z0-9]{8,80}$ ]]
+          [[ "$PRODUCTION_PROJECT_ID" =~ ^prj_[A-Za-z0-9]{8,80}$ ]]
+          test "$CANARY_PROJECT_ID" != "$PRODUCTION_PROJECT_ID"
+          [[ "$CANARY_PROJECT_NAME" =~ ^[a-z0-9]([a-z0-9-]{0,98}[a-z0-9])?$ ]]
+          case "$RELEASE_KIND" in emergency-static|next-standalone-container) ;; *) exit 1 ;; esac
+
+      - name: Download the exact signed release artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: ${{ needs.validate-inputs.outputs.artifact_name }}
+          path: ${{ runner.temp }}/signed-release
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.attestation_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify every release subject against exact GitHub provenance
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+        run: |
+          set -euo pipefail
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          verify_subject() {
+            subject="$1"
+            bundle="$2"
+            signer="$3"
+            gh attestation verify "$subject" \
+              --repo jh005479-sudo/lester-labs --bundle "$bundle" \
+              --signer-workflow "github.com/jh005479-sudo/lester-labs/$signer" \
+              --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
+              --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
+              --format json >/dev/null
+          }
+          release="$RUNNER_TEMP/signed-release"
+          if test "$RELEASE_KIND" = "emergency-static"; then
+            verify_subject "$release/emergency-containment.inventory.json" \
+              "$release/emergency-containment.inventory.provenance.jsonl" \
+              .github/workflows/emergency-containment-attestation.yml
+            verify_subject "$release/emergency-containment.tar" \
+              "$release/emergency-containment.archive.provenance.jsonl" \
+              .github/workflows/emergency-containment-attestation.yml
+          else
+            bundle="$release/github-sigstore-provenance.jsonl"
+            for subject in frontend-release-candidate.json application.cdx.json reproducibility.json \
+              frontend-standalone.tar deployment-payload.inventory.json; do
+              verify_subject "$release/$subject" "$bundle" \
+                .github/workflows/frontend-release-attestation.yml
+            done
+            verify_subject "$release/source-security-approval.json" \
+              "$release/source-security-approval.provenance.jsonl" \
+              .github/workflows/frontend-release-attestation.yml
+            verify_subject "$release/release-operations-approval.json" \
+              "$release/release-operations-approval.provenance.jsonl" \
+              .github/workflows/frontend-release-attestation.yml
+            verify_subject "$release/approved-manifest.json" \
+              "$release/approved-manifest.provenance.jsonl" \
+              .github/workflows/frontend-release-attestation.yml
+          fi
+
+      - name: Request a short-lived GitHub identity for protected canary probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error \
+            --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL" > "$RUNNER_TEMP/github-oidc.json"
+          oidc_token="$(node --input-type=module - "$RUNNER_TEMP/github-oidc.json" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const value = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          if (typeof value.value !== "string" || value.value.length < 64) process.exit(1);
+          process.stdout.write(value.value);
+          NODE
+          )"
+          printf '::add-mask::%s\n' "$oidc_token"
+          printf 'VERCEL_TRUSTED_OIDC_TOKEN=%s\n' "$oidc_token" >> "$GITHUB_ENV"
+          rm -- "$RUNNER_TEMP/github-oidc.json"
+
+      - name: Exercise exact provider input, same-ID promotion, and exact rollback
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_CANARY_TOKEN }}
+          RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          MAXIMUM_UPLOAD_BYTES: ${{ needs.validate-inputs.outputs.maximum_upload_bytes }}
+          CANARY_TEAM_ID: ${{ vars.VERCEL_CANARY_TEAM_ID }}
+          CANARY_PROJECT_ID: ${{ vars.VERCEL_CANARY_PROJECT_ID }}
+          CANARY_PROJECT_NAME: ${{ vars.VERCEL_CANARY_PROJECT_NAME }}
+          PRODUCTION_PROJECT_ID: ${{ vars.VERCEL_PRODUCTION_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/provider-canary-evidence"
+          common=(
+            --release-dir "$RUNNER_TEMP/signed-release"
+            --team-id "$CANARY_TEAM_ID"
+            --project-id "$CANARY_PROJECT_ID"
+            --project-name "$CANARY_PROJECT_NAME"
+            --production-project-id "$PRODUCTION_PROJECT_ID"
+            --maximum-upload-bytes "$MAXIMUM_UPLOAD_BYTES"
+            --workflow-run-id "$GITHUB_RUN_ID"
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT"
+            --source-attestation-run-id "${{ needs.validate-inputs.outputs.attestation_run_id }}"
+            --source-attestation-run-attempt "${{ needs.validate-inputs.outputs.attestation_run_attempt }}"
+            --output "$GITHUB_WORKSPACE/provider-canary-evidence/provider-canary.json"
+          )
+          if test "$RELEASE_KIND" = "emergency-static"; then
+            node scripts/security/vercel-rest-release.mjs provider-canary-emergency \
+              "${common[@]}" --source-dir emergency-site --source-commit "$REVIEWED_COMMIT"
+          else
+            node scripts/security/vercel-rest-release.mjs provider-canary-next "${common[@]}"
+          fi
+
+      - name: Clear short-lived Trusted Sources identity
+        if: ${{ always() }}
+        shell: bash
+        run: printf 'VERCEL_TRUSTED_OIDC_TOKEN=\n' >> "$GITHUB_ENV"
+
+      - name: Sign the exact provider-canary evidence
+        id: canary-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: provider-canary-evidence/provider-canary.json
+
+      - name: Preserve provenance and upload the canary package
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.canary-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" provider-canary-evidence/provider-canary.provenance.jsonl
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vercel-provider-canary-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: provider-canary-evidence/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

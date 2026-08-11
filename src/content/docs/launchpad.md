@@ -1,6 +1,6 @@
 # LitVM Launchpad — Historical Recovery and Replacement Readiness
 
-> **Current status:** both known ILO factories and every child created by them
+> **Legacy deployment status:** both known ILO factories and every child created by them
 > are legacy deployments. New creation, sale-token funding, contributions,
 > whitelist changes, and finalization are disabled. State-dependent
 > cancellation, refund, token claim, LP claim, and excess-asset recovery remain

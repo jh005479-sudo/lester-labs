@@ -1,0 +1,435 @@
+name: Independent served frontend parity
+
+on:
+  workflow_call:
+    inputs:
+      reviewed_commit:
+        description: Exact approved frontend source commit on protected main
+        required: true
+        type: string
+      release_run_id:
+        description: Workflow run containing frontend-release-approved-evidence-COMMIT
+        required: true
+        type: string
+      promotion_run_id:
+        description: Exact Vercel production workflow run containing signed promotion evidence
+        required: true
+        type: string
+      promotion_run_attempt:
+        description: Exact Vercel production workflow run attempt
+        required: true
+        type: number
+  workflow_dispatch:
+    inputs:
+      reviewed_commit:
+        description: Exact approved frontend source commit on protected main
+        required: true
+        type: string
+      release_run_id:
+        description: Workflow run containing frontend-release-approved-evidence-COMMIT
+        required: true
+        type: string
+      promotion_run_id:
+        description: Exact Vercel production workflow run containing signed promotion evidence
+        required: true
+        type: string
+      promotion_run_attempt:
+        description: Exact Vercel production workflow run attempt
+        required: true
+        type: number
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-served-parity-${{ inputs.reviewed_commit }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_IMAGE: docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5
+
+jobs:
+  validate-inputs:
+    name: Validate dispatch before self-hosted work
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      reviewed_commit: ${{ steps.validate.outputs.reviewed_commit }}
+      release_run_id: ${{ steps.validate.outputs.release_run_id }}
+      release_run_attempt: ${{ steps.validate.outputs.release_run_attempt }}
+      promotion_run_id: ${{ steps.validate.outputs.promotion_run_id }}
+      promotion_run_attempt: ${{ steps.validate.outputs.promotion_run_attempt }}
+    steps:
+      - name: Validate protected source and bounded identifiers
+        id: validate
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          PROMOTION_RUN_ID: ${{ inputs.promotion_run_id }}
+          PROMOTION_RUN_ATTEMPT: ${{ inputs.promotion_run_attempt }}
+          OBSERVED_COMMIT: ${{ github.sha }}
+          OBSERVED_REF: ${{ github.ref }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RELEASE_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$PROMOTION_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$PROMOTION_RUN_ATTEMPT" =~ ^[1-9][0-9]{0,5}$ ]]
+          test "$PROMOTION_RUN_ID" != "$RELEASE_RUN_ID"
+          test "$OBSERVED_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$OBSERVED_COMMIT" = "$REVIEWED_COMMIT"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" > "$RUNNER_TEMP/release-run.json"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$PROMOTION_RUN_ID" > "$RUNNER_TEMP/promotion-run.json"
+          release_run_attempt="$(node --input-type=module - "$RUNNER_TEMP/release-run.json" "$REVIEWED_COMMIT" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const [path, commit] = process.argv.slice(2);
+          const run = JSON.parse(readFileSync(path, "utf8"));
+          const updated = Date.parse(run.updated_at);
+          if (
+            run.head_sha !== commit || run.head_branch !== "main" ||
+            run.event !== "workflow_dispatch" || run.status !== "completed" ||
+            run.conclusion !== "success" ||
+            run.path !== ".github/workflows/frontend-release-attestation.yml" ||
+            !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1 ||
+            !Number.isFinite(updated) || updated > Date.now() ||
+            Date.now() - updated > 24 * 60 * 60 * 1000
+          ) throw new Error("Frontend release run is not the exact recent successful reviewed workflow.");
+          process.stdout.write(String(run.run_attempt));
+          NODE
+          )"
+          node --input-type=module - "$RUNNER_TEMP/promotion-run.json" \
+            "$REVIEWED_COMMIT" "$PROMOTION_RUN_ATTEMPT" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const [path, commit, attempt] = process.argv.slice(2);
+          const run = JSON.parse(readFileSync(path, "utf8"));
+          if (
+            run.head_sha !== commit || run.head_branch !== "main" ||
+            run.event !== "workflow_dispatch" ||
+            !["queued", "in_progress", "completed"].includes(run.status) ||
+            run.path !== ".github/workflows/vercel-production-release.yml" ||
+            run.run_attempt !== Number(attempt)
+          ) throw new Error("Promotion run is not the exact reviewed production workflow attempt.");
+          NODE
+          printf 'reviewed_commit=%s\n' "$REVIEWED_COMMIT" >> "$GITHUB_OUTPUT"
+          printf 'release_run_id=%s\n' "$RELEASE_RUN_ID" >> "$GITHUB_OUTPUT"
+          printf 'release_run_attempt=%s\n' "$release_run_attempt" >> "$GITHUB_OUTPUT"
+          printf 'promotion_run_id=%s\n' "$PROMOTION_RUN_ID" >> "$GITHUB_OUTPUT"
+          printf 'promotion_run_attempt=%s\n' "$PROMOTION_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
+  vantage-eu:
+    name: Protected EU network vantage
+    needs: validate-inputs
+    runs-on: [self-hosted, linux, x64, lester-vantage-eu]
+    environment: frontend-vantage-eu
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact reviewed parity verifier
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Enforce protected source and isolated vantage prerequisites
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          RELEASE_RUN_ID: ${{ needs.validate-inputs.outputs.release_run_id }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RELEASE_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(uname -m)" = "x86_64"
+          test "$(node --version)" = "v24.18.0"
+          command -v gh >/dev/null
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          command -v docker >/dev/null
+          docker pull --platform linux/amd64 "$RELEASE_IMAGE"
+
+      - name: Download the approved immutable release evidence
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: frontend-release-approved-evidence-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ needs.validate-inputs.outputs.release_run_id }}-${{ needs.validate-inputs.outputs.release_run_attempt }}
+          path: ${{ runner.temp }}/approved-release
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.release_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download the exact signed production promotion
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: vercel-promotion-next-standalone-container-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ needs.validate-inputs.outputs.promotion_run_id }}-${{ needs.validate-inputs.outputs.promotion_run_attempt }}
+          path: ${{ runner.temp }}/promotion
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.promotion_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify every reviewed route, live API schema, and public artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/parity-evidence"
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          gh_path="$(command -v gh)"
+          gh attestation verify "$RUNNER_TEMP/promotion/promotion-evidence.json" \
+            --repo jh005479-sudo/lester-labs \
+            --bundle "$RUNNER_TEMP/promotion/promotion-evidence.provenance.jsonl" \
+            --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+            --source-ref refs/heads/main --source-digest "$GITHUB_SHA" \
+            --signer-digest "$GITHUB_SHA" --deny-self-hosted-runners --format json | \
+          env -u GH_TOKEN -u GITHUB_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
+          docker run --rm -i --platform linux/amd64 \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=256m --pids-limit 256 \
+            -v "$gh_path:/usr/local/bin/gh:ro" \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$RUNNER_TEMP/approved-release:/release:ro" \
+            -v "$RUNNER_TEMP/promotion:/promotion:ro" \
+            -v "$GITHUB_WORKSPACE/parity-evidence:/evidence:rw" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/verify-frontend-release-parity.mjs \
+              --manifest /release/approved-manifest.json \
+              --approval-evidence-dir /release \
+              --promotion-evidence /promotion/promotion-evidence.json \
+              --promotion-provenance /promotion/promotion-evidence.provenance.jsonl \
+              --promotion-verification - \
+              --policy /source/src/config/frontendReleasePolicy.json \
+              --expected-source-commit "$GITHUB_SHA" \
+              --vantage-id protected-eu-network \
+              --output /evidence/vantage-eu.json
+
+      - name: Sign EU vantage evidence
+        id: eu-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: parity-evidence/vantage-eu.json
+
+      - name: Preserve and upload EU vantage evidence
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.eu-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" parity-evidence/vantage-eu.provenance.jsonl
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-parity-eu-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: parity-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+  vantage-us:
+    name: Protected US network vantage
+    needs: validate-inputs
+    runs-on: [self-hosted, linux, x64, lester-vantage-us]
+    environment: frontend-vantage-us
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact reviewed parity verifier
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Enforce protected source and isolated vantage prerequisites
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          RELEASE_RUN_ID: ${{ needs.validate-inputs.outputs.release_run_id }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RELEASE_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(uname -m)" = "x86_64"
+          test "$(node --version)" = "v24.18.0"
+          command -v gh >/dev/null
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          command -v docker >/dev/null
+          docker pull --platform linux/amd64 "$RELEASE_IMAGE"
+
+      - name: Download the approved immutable release evidence
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: frontend-release-approved-evidence-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ needs.validate-inputs.outputs.release_run_id }}-${{ needs.validate-inputs.outputs.release_run_attempt }}
+          path: ${{ runner.temp }}/approved-release
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.release_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download the exact signed production promotion
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: vercel-promotion-next-standalone-container-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ needs.validate-inputs.outputs.promotion_run_id }}-${{ needs.validate-inputs.outputs.promotion_run_attempt }}
+          path: ${{ runner.temp }}/promotion
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.promotion_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify every reviewed route, live API schema, and public artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/parity-evidence"
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          gh_path="$(command -v gh)"
+          gh attestation verify "$RUNNER_TEMP/promotion/promotion-evidence.json" \
+            --repo jh005479-sudo/lester-labs \
+            --bundle "$RUNNER_TEMP/promotion/promotion-evidence.provenance.jsonl" \
+            --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+            --source-ref refs/heads/main --source-digest "$GITHUB_SHA" \
+            --signer-digest "$GITHUB_SHA" --deny-self-hosted-runners --format json | \
+          env -u GH_TOKEN -u GITHUB_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_TOKEN -u ACTIONS_ID_TOKEN_REQUEST_URL \
+          docker run --rm -i --platform linux/amd64 \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=256m --pids-limit 256 \
+            -v "$gh_path:/usr/local/bin/gh:ro" \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$RUNNER_TEMP/approved-release:/release:ro" \
+            -v "$RUNNER_TEMP/promotion:/promotion:ro" \
+            -v "$GITHUB_WORKSPACE/parity-evidence:/evidence:rw" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/verify-frontend-release-parity.mjs \
+              --manifest /release/approved-manifest.json \
+              --approval-evidence-dir /release \
+              --promotion-evidence /promotion/promotion-evidence.json \
+              --promotion-provenance /promotion/promotion-evidence.provenance.jsonl \
+              --promotion-verification - \
+              --policy /source/src/config/frontendReleasePolicy.json \
+              --expected-source-commit "$GITHUB_SHA" \
+              --vantage-id protected-us-network \
+              --output /evidence/vantage-us.json
+
+      - name: Sign US vantage evidence
+        id: us-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: parity-evidence/vantage-us.json
+
+      - name: Preserve and upload US vantage evidence
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.us-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" parity-evidence/vantage-us.provenance.jsonl
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-parity-us-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: parity-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+  compare-signed-vantages:
+    name: Verify signatures and compare independent vantages
+    needs: [validate-inputs, vantage-eu, vantage-us]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact reviewed comparator
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Download both signed vantage packages
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          pattern: frontend-parity-*-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/vantages
+          merge-multiple: true
+
+      - name: Cryptographically verify both fixed-vantage subjects
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+        run: |
+          set -euo pipefail
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
+          for vantage in eu us; do
+            gh attestation verify "$RUNNER_TEMP/vantages/vantage-$vantage.json" \
+              --repo jh005479-sudo/lester-labs \
+              --bundle "$RUNNER_TEMP/vantages/vantage-$vantage.provenance.jsonl" \
+              --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/frontend-served-parity.yml \
+              --source-ref refs/heads/main --source-digest "$GITHUB_SHA" \
+              --signer-digest "$GITHUB_SHA" --format json >/dev/null
+          done
+
+      - name: Compare the independently signed results
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/parity-comparison"
+          docker pull --platform linux/amd64 "$RELEASE_IMAGE"
+          docker run --rm --platform linux/amd64 --network none \
+            --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+            --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$RUNNER_TEMP/vantages:/vantages:ro" -w /source \
+            "$RELEASE_IMAGE" node scripts/security/verify-frontend-release-parity.mjs compare \
+              /vantages/vantage-eu.json /vantages/vantage-us.json \
+              > parity-comparison/independent-vantage-comparison.json
+
+      - name: Sign the comparison result
+        id: comparison-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: parity-comparison/independent-vantage-comparison.json
+
+      - name: Preserve and upload the comparison evidence
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.comparison-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" parity-comparison/independent-vantage-comparison.provenance.jsonl
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-parity-comparison-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: parity-comparison/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0

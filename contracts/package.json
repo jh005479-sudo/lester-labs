@@ -13,6 +13,7 @@
     "deploy:litvm": "REPLACEMENT_DEPLOYMENT_PROFILE=production-separated-authority hardhat run --no-compile scripts/deploy_post_compromise_replacements.ts --network litvm",
     "deploy:litvm:disposable-testnet": "REPLACEMENT_DEPLOYMENT_PROFILE=testnet-immutable-disposable hardhat run --no-compile scripts/deploy_post_compromise_replacements.ts --network litvm",
     "verify:replacements:litvm": "REPLACEMENT_DEPLOYMENT_PROFILE=production-separated-authority hardhat run --no-compile scripts/verify_post_compromise_replacements.ts --network litvm",
+    "verify:production-authorities:litvm": "hardhat run --no-compile scripts/verify_production_authorities.ts --network litvm",
     "export:public-frontend:litvm": "REPLACEMENT_DEPLOYMENT_PROFILE=production-separated-authority hardhat run --no-compile scripts/export_public_frontend_replacement.ts --network litvm",
     "verify:replacements:disposable-testnet": "REPLACEMENT_DEPLOYMENT_PROFILE=testnet-immutable-disposable hardhat run --no-compile scripts/verify_post_compromise_replacements.ts --network litvm",
     "deploy:uniswap:litvm": "hardhat run --no-compile scripts/deploy_uniswap_v2.ts --network litvm",

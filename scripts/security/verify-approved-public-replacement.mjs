@@ -3,9 +3,13 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getContractAddress } from 'viem'
+import { verifyControlPlaneRecoveryEvidence } from './verify-control-plane-recovery.mjs'
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const packagePath = resolve(repositoryRoot, 'src/config/approvedPublicReplacement.json')
+const productionAuthoritiesPath = resolve(repositoryRoot, 'contracts/deployment/production-authorities.json')
+const safeRuntimeProvenancePath = resolve(repositoryRoot, 'contracts/deployment/safe-v1.4.1-runtime-provenance.json')
+const controlPlaneRecoveryPath = resolve(repositoryRoot, 'docs/security/evidence/production-control-plane-recovery.json')
 const MANIFEST_KEYS = [
   'buildAttestationSha256', 'buildSourceCommit', 'chainId', 'confirmations', 'controller',
   'deploymentProfile', 'deployments', 'gasOnlyDeployer', 'kind', 'legacyRecovery',
@@ -114,6 +118,38 @@ const PINNED_LEGACY_RECOVERY = {
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/
 const HASH_PATTERN = /^0x[0-9a-f]{64}$/
 const ZERO_HASH = `0x${'00'.repeat(32)}`
+const ZERO_ADDRESS = `0x${'00'.repeat(20)}`
+const PINNED_SAFE_VERSION = '1.4.1'
+const PINNED_SAFE_SOURCE_REPOSITORY = 'https://github.com/safe-fndn/safe-smart-account'
+const PINNED_SAFE_SOURCE_RELEASE = 'v1.4.1'
+const PINNED_SAFE_SOURCE_COMMIT = 'bf943f80fec5ac647159d26161446ac5d716a294'
+const PINNED_SAFE_PROXY_RUNTIME_HASH = '0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c'
+const PINNED_SAFE_PROXY_CREATION_CODE_HASH = '0x1856e0ee08399d74e0ea0b03adca210aeade6f748969ac023cdcb4dd62dcaf5f'
+const PINNED_SAFE_FACTORY_RUNTIME_HASH = '0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317'
+const PINNED_SAFE_IMPLEMENTATION_RUNTIME_HASH = '0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff'
+const APPROVAL_KEYS = ['reviewer', 'reviewRole', 'approvalPayloadSha256', 'evidenceSha256', 'approvedAt']
+const ACTIVITY_TOTAL_KEYS = ['tokensMinted', 'walletsAirdropped', 'presalesCreated', 'swapsCompleted', 'onChainMessages']
+const AUTHORITY_VERIFICATION_KEYS = [
+  'address', 'factoryAddress', 'deploymentTransactionHash', 'deploymentBlockNumber',
+  'deploymentBlockHash', 'deploymentBlockTimestamp', 'saltNonce', 'proxyRuntimeCodeHash', 'implementationAddress',
+  'implementationRuntimeCodeHash', 'safeVersion', 'owners', 'threshold', 'nonce',
+  'enabledModules', 'guard', 'fallbackHandler', 'benignSafeReceivedLogCount',
+]
+const PRODUCTION_AUTHORITY_REVIEW_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+const PRODUCTION_AUTHORITY_VERIFICATION_KEYS = [
+  'inventorySha256', 'chainId', 'blockNumber', 'blockHash', 'blockTimestamp',
+  'authorityReviewMaxAgeSeconds', 'gasOnlyDeployer', 'controller', 'treasury',
+]
+const INDEPENDENT_REPLACEMENT_VERIFICATION_CHECKS = [
+  'source-and-build-attestation',
+  'legacy-runtime-anchors',
+  'deployment-transactions-and-receipts',
+  'replacement-runtime-code-and-byte-lengths',
+  'constructor-parameters-and-role-bindings',
+  'production-safe-creation-history-and-owner-eoas',
+  'production-safe-authorities',
+  'zero-replacement-counters-at-cutover',
+]
 
 function assertExactObjectKeys(value, expectedKeys, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -129,7 +165,7 @@ function assertExactObjectKeys(value, expectedKeys, label) {
 function assertExactApprovedShape(value) {
   assertExactObjectKeys(value, [
     'status', 'approvalPayloadSha256', 'deploymentManifestSha256', 'deploymentManifest',
-    'frontendRuntimeAttestations', 'activityCutover',
+    'frontendRuntimeAttestations', 'sourceEvidence', 'activityCutover', 'reviewerApprovals',
   ], 'The APPROVED public replacement package')
   const manifest = value.deploymentManifest
   assertExactObjectKeys(manifest, MANIFEST_KEYS, 'The replacement manifest')
@@ -180,11 +216,414 @@ function assertExactApprovedShape(value) {
   for (const reference of vesting.immutableReferences) {
     assertExactObjectKeys(reference, ['start', 'length'], 'A VestingWallet immutable reference')
   }
-  assertExactObjectKeys(value.activityCutover, ['throughBlock', 'blockHash', 'totals'], 'The activity cutover')
+  assertExactObjectKeys(
+    value.sourceEvidence,
+    [
+      'productionAuthoritiesRawSha256', 'controlPlaneRecoveryRawSha256',
+      'productionAuthorityVerification', 'independentReplacementVerification',
+    ],
+    'The source evidence inventory',
+  )
+  assertExactObjectKeys(
+    value.sourceEvidence.productionAuthorityVerification,
+    PRODUCTION_AUTHORITY_VERIFICATION_KEYS,
+    'The production authority verification',
+  )
+  assertExactObjectKeys(
+    value.sourceEvidence.productionAuthorityVerification.controller,
+    AUTHORITY_VERIFICATION_KEYS,
+    'The verified production controller',
+  )
+  assertExactObjectKeys(
+    value.sourceEvidence.productionAuthorityVerification.treasury,
+    AUTHORITY_VERIFICATION_KEYS,
+    'The verified production treasury',
+  )
+  const independentVerification = value.sourceEvidence.independentReplacementVerification
+  assertExactObjectKeys(
+    independentVerification,
+    [
+      'reportSha256', 'status', 'primaryRpcOrigin', 'rpcUrl', 'chainId', 'blockNumber',
+      'blockHash', 'deploymentManifestSha256', 'verifiedChecks',
+      'productionAuthorityVerification', 'replacementCountersAtCutover',
+    ],
+    'The independent replacement verification report',
+  )
+  assertExactObjectKeys(
+    independentVerification.productionAuthorityVerification,
+    PRODUCTION_AUTHORITY_VERIFICATION_KEYS,
+    'The independent production authority verification',
+  )
+  assertExactObjectKeys(
+    independentVerification.productionAuthorityVerification.controller,
+    AUTHORITY_VERIFICATION_KEYS,
+    'The independently verified production controller',
+  )
+  assertExactObjectKeys(
+    independentVerification.productionAuthorityVerification.treasury,
+    AUTHORITY_VERIFICATION_KEYS,
+    'The independently verified production treasury',
+  )
+  assertExactObjectKeys(
+    independentVerification.replacementCountersAtCutover,
+    ACTIVITY_TOTAL_KEYS,
+    'The independently verified replacement cutover counters',
+  )
+  assertExactObjectKeys(
+    value.activityCutover,
+    ['throughBlock', 'blockHash', 'totals', 'independentSecondRpc', 'replacementCountersAtCutover'],
+    'The activity cutover',
+  )
   assertExactObjectKeys(
     value.activityCutover.totals,
-    ['tokensMinted', 'walletsAirdropped', 'presalesCreated', 'swapsCompleted', 'onChainMessages'],
+    ACTIVITY_TOTAL_KEYS,
     'The activity cutover totals',
+  )
+  assertExactObjectKeys(
+    value.activityCutover.independentSecondRpc,
+    ['candidateRawSha256', 'candidatePayloadSha256', 'proofRawSha256', 'rpcUrl'],
+    'The independent second-RPC cutover evidence',
+  )
+  assertExactObjectKeys(
+    value.activityCutover.replacementCountersAtCutover,
+    ACTIVITY_TOTAL_KEYS,
+    'The replacement cutover counters',
+  )
+  if (!Array.isArray(value.reviewerApprovals) || value.reviewerApprovals.length < 2) {
+    throw new Error('The approved public replacement package requires at least two reviewer approval records.')
+  }
+  for (const approval of value.reviewerApprovals) {
+    assertExactObjectKeys(approval, APPROVAL_KEYS, 'A public replacement reviewer approval')
+  }
+}
+
+function assertHash(value, label) {
+  if (!HASH_PATTERN.test(value) || value === ZERO_HASH) {
+    throw new Error(`${label} must be a non-zero lower-case SHA-256 digest.`)
+  }
+}
+
+function assertReviewerApprovals(value) {
+  const reviewers = new Set()
+  const roles = new Set()
+  const evidenceDigests = new Set()
+  for (const approval of value.reviewerApprovals) {
+    if (
+      typeof approval.reviewer !== 'string' || approval.reviewer.length < 2 || approval.reviewer.length > 120 ||
+      typeof approval.reviewRole !== 'string' || approval.reviewRole.length < 2 || approval.reviewRole.length > 120 ||
+      /[\u0000-\u001f\u007f]/u.test(approval.reviewer) || /[\u0000-\u001f\u007f]/u.test(approval.reviewRole)
+    ) throw new Error('Public replacement reviewer identities and roles must be bounded reviewed text.')
+    if (approval.approvalPayloadSha256 !== value.approvalPayloadSha256) {
+      throw new Error('Every public replacement approval must bind the exact approval payload SHA-256.')
+    }
+    assertHash(approval.evidenceSha256, 'A public replacement reviewer evidence SHA-256')
+    if (
+      typeof approval.approvedAt !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(approval.approvedAt) ||
+      Number.isNaN(Date.parse(approval.approvedAt))
+    ) throw new Error('A public replacement reviewer approval must have a canonical UTC timestamp.')
+    reviewers.add(approval.reviewer.toLowerCase())
+    roles.add(approval.reviewRole.toLowerCase())
+    evidenceDigests.add(approval.evidenceSha256)
+  }
+  if (
+    reviewers.size !== value.reviewerApprovals.length ||
+    roles.size < 2 ||
+    evidenceDigests.size !== value.reviewerApprovals.length
+  ) {
+    throw new Error('Public replacement approvals require distinct reviewers, at least two review roles, and distinct evidence digests.')
+  }
+}
+
+function rawFileSha256(filePath) {
+  return `0x${createHash('sha256').update(readFileSync(filePath)).digest('hex')}`
+}
+
+function assertReviewedAuthorityInventoryAuthority(authority, label) {
+  assertExactObjectKeys(
+    authority,
+    [
+      'address', 'deployment', 'safeVersion', 'proxy', 'owners', 'threshold',
+      'enabledModules', 'guard', 'fallbackHandler',
+    ],
+    `The reviewed ${label} authority`,
+  )
+  assertExactObjectKeys(
+    authority.deployment,
+    ['factoryAddress', 'transactionHash', 'blockNumber', 'blockHash', 'saltNonce'],
+    `The reviewed ${label} Safe deployment`,
+  )
+  assertExactObjectKeys(
+    authority.proxy,
+    [
+      'kind', 'runtimeCodeHash', 'implementationStorageSlot', 'implementationAddress',
+      'implementationRuntimeCodeHash', 'sourceRepository', 'sourceRelease', 'sourceCommit',
+    ],
+    `The reviewed ${label} Safe proxy`,
+  )
+  assertExactObjectKeys(authority.guard, ['mode'], `The reviewed ${label} Safe guard`)
+  assertExactObjectKeys(authority.fallbackHandler, ['mode'], `The reviewed ${label} Safe fallback handler`)
+  if (
+    typeof authority.address !== 'string' || !ADDRESS_PATTERN.test(authority.address) ||
+    typeof authority.deployment.factoryAddress !== 'string' ||
+      !ADDRESS_PATTERN.test(authority.deployment.factoryAddress) ||
+    authority.address.toLowerCase() === authority.deployment.factoryAddress.toLowerCase() ||
+    typeof authority.deployment.transactionHash !== 'string' ||
+      !HASH_PATTERN.test(authority.deployment.transactionHash) ||
+    !Number.isSafeInteger(authority.deployment.blockNumber) || authority.deployment.blockNumber <= 0 ||
+    typeof authority.deployment.blockHash !== 'string' || !HASH_PATTERN.test(authority.deployment.blockHash) ||
+    typeof authority.deployment.saltNonce !== 'string' || !/^\d+$/.test(authority.deployment.saltNonce) ||
+    typeof authority.proxy.implementationAddress !== 'string' ||
+      !ADDRESS_PATTERN.test(authority.proxy.implementationAddress) ||
+    authority.address.toLowerCase() === authority.proxy.implementationAddress.toLowerCase() ||
+    authority.safeVersion !== PINNED_SAFE_VERSION ||
+    authority.proxy.kind !== 'safe-proxy-storage-slot-0' ||
+    authority.proxy.implementationStorageSlot !== ZERO_HASH ||
+    authority.proxy.runtimeCodeHash !== PINNED_SAFE_PROXY_RUNTIME_HASH ||
+    authority.proxy.implementationRuntimeCodeHash !== PINNED_SAFE_IMPLEMENTATION_RUNTIME_HASH ||
+    authority.proxy.sourceRepository !== PINNED_SAFE_SOURCE_REPOSITORY ||
+    authority.proxy.sourceRelease !== PINNED_SAFE_SOURCE_RELEASE ||
+    authority.proxy.sourceCommit !== PINNED_SAFE_SOURCE_COMMIT
+  ) throw new Error(`The reviewed ${label} authority does not use the pinned official Safe 1.4.1 runtime provenance.`)
+  if (
+    !Array.isArray(authority.owners) || authority.owners.length < 2 || authority.owners.length > 32 ||
+    authority.owners.some((owner) => typeof owner !== 'string' || !ADDRESS_PATTERN.test(owner)) ||
+    new Set(authority.owners.map((owner) => owner.toLowerCase())).size !== authority.owners.length ||
+    authority.owners.some((owner) => [
+      authority.address,
+      authority.deployment.factoryAddress,
+      authority.proxy.implementationAddress,
+    ].some((forbidden) => owner.toLowerCase() === forbidden.toLowerCase())) ||
+    !Number.isSafeInteger(authority.threshold) || authority.threshold < 2 ||
+      authority.threshold > authority.owners.length
+  ) throw new Error(`The reviewed ${label} Safe owners or threshold are invalid.`)
+  if (
+    !Array.isArray(authority.enabledModules) || authority.enabledModules.length !== 0 ||
+    authority.guard.mode !== 'none' || authority.fallbackHandler.mode !== 'none'
+  ) throw new Error(`The reviewed ${label} incident-recovery Safe must have no modules, guard, or fallback handler.`)
+  return authority
+}
+
+function assertAuthorityReportMatchesInventory(report, authority, label) {
+  if (
+    report.address.toLowerCase() !== authority.address.toLowerCase() ||
+    report.factoryAddress.toLowerCase() !== authority.deployment.factoryAddress.toLowerCase() ||
+    report.deploymentTransactionHash !== authority.deployment.transactionHash ||
+    report.deploymentBlockNumber !== authority.deployment.blockNumber ||
+    report.deploymentBlockHash !== authority.deployment.blockHash ||
+    report.saltNonce !== authority.deployment.saltNonce ||
+    report.proxyRuntimeCodeHash !== authority.proxy.runtimeCodeHash ||
+    report.implementationAddress.toLowerCase() !== authority.proxy.implementationAddress.toLowerCase() ||
+    report.implementationRuntimeCodeHash !== authority.proxy.implementationRuntimeCodeHash ||
+    report.safeVersion !== authority.safeVersion ||
+    JSON.stringify(report.owners.map((owner) => owner.toLowerCase())) !==
+      JSON.stringify(authority.owners.map((owner) => owner.toLowerCase())) ||
+    report.threshold !== authority.threshold ||
+    report.nonce !== 0 ||
+    !Array.isArray(report.enabledModules) || report.enabledModules.length !== 0 ||
+    report.guard.toLowerCase() !== ZERO_ADDRESS ||
+    report.fallbackHandler.toLowerCase() !== ZERO_ADDRESS
+  ) throw new Error(`The ${label} Safe facts contradict the exact reviewed authority inventory.`)
+}
+
+function parseReviewedAuthorityInventory(filePath, manifest) {
+  const runtimeProvenance = JSON.parse(readFileSync(safeRuntimeProvenancePath, 'utf8'))
+  if (
+    runtimeProvenance?.kind !== 'lester-labs-pinned-safe-runtime-provenance' ||
+    runtimeProvenance?.schemaVersion !== 1 ||
+    runtimeProvenance?.source?.repository !== PINNED_SAFE_SOURCE_REPOSITORY ||
+    runtimeProvenance?.source?.release !== PINNED_SAFE_SOURCE_RELEASE ||
+    runtimeProvenance?.source?.commit !== PINNED_SAFE_SOURCE_COMMIT ||
+    runtimeProvenance?.proxy?.creationCodeHash !== PINNED_SAFE_PROXY_CREATION_CODE_HASH ||
+    runtimeProvenance?.proxy?.runtimeCodeHash !== PINNED_SAFE_PROXY_RUNTIME_HASH ||
+    runtimeProvenance?.factory?.runtimeCodeHash !== PINNED_SAFE_FACTORY_RUNTIME_HASH ||
+    runtimeProvenance?.implementation?.runtimeCodeHash !== PINNED_SAFE_IMPLEMENTATION_RUNTIME_HASH
+  ) throw new Error('The source-pinned Safe 1.4.1 runtime provenance differs from reviewed constants.')
+  const authorityInventory = JSON.parse(readFileSync(filePath, 'utf8'))
+  assertExactObjectKeys(
+    authorityInventory,
+    ['kind', 'schemaVersion', 'status', 'chainId', 'review', 'controller', 'treasury'],
+    'The source-pinned production authority inventory',
+  )
+  assertExactObjectKeys(authorityInventory.review, ['approvals'], 'The production authority review')
+  if (
+    authorityInventory.kind !== 'lester-labs-production-authority-inventory' ||
+    authorityInventory.schemaVersion !== 1 ||
+    authorityInventory.status !== 'REVIEWED_FOR_PRODUCTION' ||
+    authorityInventory.chainId !== '4441' ||
+    !Array.isArray(authorityInventory.review.approvals) ||
+    authorityInventory.review.approvals.length < 2 || authorityInventory.review.approvals.length > 8
+  ) throw new Error('The source-pinned production authority inventory is not fully reviewed for LitVM.')
+  const reviewers = new Set()
+  const reviewEvidence = new Set()
+  for (const approval of authorityInventory.review.approvals) {
+    assertExactObjectKeys(approval, ['reviewer', 'approvedAt', 'evidenceSha256'], 'A production authority approval')
+    if (
+      typeof approval.reviewer !== 'string' || approval.reviewer.length < 3 ||
+      /(?:UNREVIEWED|TODO|TBD|PLACEHOLDER|UNKNOWN|NOT[_ -]?SET)/i.test(approval.reviewer) ||
+      typeof approval.approvedAt !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(approval.approvedAt) ||
+      Number.isNaN(Date.parse(approval.approvedAt)) ||
+      typeof approval.evidenceSha256 !== 'string' || !HASH_PATTERN.test(approval.evidenceSha256) ||
+      approval.evidenceSha256 === ZERO_HASH
+    ) throw new Error('A production authority approval is unreviewed or malformed.')
+    reviewers.add(approval.reviewer.toLowerCase())
+    reviewEvidence.add(approval.evidenceSha256)
+  }
+  if (
+    reviewers.size !== authorityInventory.review.approvals.length ||
+    reviewEvidence.size !== authorityInventory.review.approvals.length
+  ) throw new Error('Production authority approvals require distinct reviewers and evidence records.')
+
+  const controller = assertReviewedAuthorityInventoryAuthority(authorityInventory.controller, 'controller')
+  const treasury = assertReviewedAuthorityInventoryAuthority(authorityInventory.treasury, 'treasury')
+  const controllerOwners = controller.owners.map((owner) => owner.toLowerCase())
+  const treasuryOwners = treasury.owners.map((owner) => owner.toLowerCase())
+  const sharedOwnerCount = controllerOwners.filter((owner) => treasuryOwners.includes(owner)).length
+  const earliestReplacementBlock = Math.min(
+    ...manifest.deployments.map((deployment) => deployment.blockNumber),
+  )
+  if (
+    controller.address.toLowerCase() !== manifest.controller.toLowerCase() ||
+    treasury.address.toLowerCase() !== manifest.treasury.toLowerCase() ||
+    controller.address.toLowerCase() === treasury.address.toLowerCase() ||
+    controller.proxy.implementationAddress.toLowerCase() !==
+      treasury.proxy.implementationAddress.toLowerCase() ||
+    controller.deployment.factoryAddress.toLowerCase() !==
+      treasury.deployment.factoryAddress.toLowerCase() ||
+    controller.deployment.transactionHash === treasury.deployment.transactionHash ||
+    controller.deployment.blockNumber >= earliestReplacementBlock ||
+    treasury.deployment.blockNumber >= earliestReplacementBlock ||
+    controllerOwners.includes(manifest.gasOnlyDeployer.toLowerCase()) ||
+    treasuryOwners.includes(manifest.gasOnlyDeployer.toLowerCase()) ||
+    [
+      controller.deployment.factoryAddress,
+      controller.proxy.implementationAddress,
+      treasury.deployment.factoryAddress,
+      treasury.proxy.implementationAddress,
+    ].some((address) => address.toLowerCase() === manifest.gasOnlyDeployer.toLowerCase()) ||
+    JSON.stringify([...controllerOwners].sort()) === JSON.stringify([...treasuryOwners].sort()) ||
+    sharedOwnerCount >= Math.min(controller.threshold, treasury.threshold)
+  ) throw new Error('The reviewed production authority separation or manifest binding is invalid.')
+  return authorityInventory
+}
+
+function assertPinnedSourceEvidence(value, manifest, paths, now) {
+  const expectedAuthorities = rawFileSha256(paths.productionAuthorities)
+  const expectedControlPlane = rawFileSha256(paths.controlPlaneRecovery)
+  if (value.productionAuthoritiesRawSha256 !== expectedAuthorities) {
+    throw new Error(`Production authority inventory digest is ${expectedAuthorities}; expected ${value.productionAuthoritiesRawSha256}.`)
+  }
+  if (value.controlPlaneRecoveryRawSha256 !== expectedControlPlane) {
+    throw new Error(`Control-plane recovery digest is ${expectedControlPlane}; expected ${value.controlPlaneRecoveryRawSha256}.`)
+  }
+
+  const authorityInventory = parseReviewedAuthorityInventory(paths.productionAuthorities, manifest)
+  for (const [reportLabel, verification] of [
+    ['primary production authority verification', value.productionAuthorityVerification],
+    [
+      'independent production authority verification',
+      value.independentReplacementVerification.productionAuthorityVerification,
+    ],
+  ]) {
+    assertAuthorityReportMatchesInventory(verification.controller, authorityInventory.controller, `${reportLabel} controller`)
+    assertAuthorityReportMatchesInventory(verification.treasury, authorityInventory.treasury, `${reportLabel} treasury`)
+    const latestSafeCreationTimestamp = Math.max(
+      verification.controller.deploymentBlockTimestamp,
+      verification.treasury.deploymentBlockTimestamp,
+    )
+    for (const approval of authorityInventory.review.approvals) {
+      const approvalTimestamp = Date.parse(approval.approvedAt) / 1_000
+      if (
+        approvalTimestamp <= latestSafeCreationTimestamp ||
+        approvalTimestamp > verification.blockTimestamp ||
+        verification.blockTimestamp - approvalTimestamp > PRODUCTION_AUTHORITY_REVIEW_MAX_AGE_SECONDS
+      ) throw new Error(`The ${reportLabel} is not bound to fresh post-creation authority approvals.`)
+    }
+  }
+
+  const controlPlane = verifyControlPlaneRecoveryEvidence(paths.controlPlaneRecovery, {
+    requireReviewed: true,
+    now,
+  })
+  if (controlPlane.status !== 'REVIEWED') {
+    throw new Error('The source-pinned production control-plane recovery is not reviewed.')
+  }
+}
+
+function assertProductionAuthorityVerificationRecord(
+  verification,
+  expectedInventorySha256,
+  manifest,
+  cutover,
+  verificationLabel = 'production authority verification',
+) {
+  if (
+    verification.inventorySha256 !== expectedInventorySha256 ||
+    verification.chainId !== '4441' ||
+    typeof verification.gasOnlyDeployer !== 'string' ||
+    !ADDRESS_PATTERN.test(verification.gasOnlyDeployer) ||
+    verification.gasOnlyDeployer.toLowerCase() !== manifest.gasOnlyDeployer.toLowerCase() ||
+    verification.blockNumber !== cutover.throughBlock ||
+    verification.blockHash.toLowerCase() !== cutover.blockHash.toLowerCase() ||
+    !Number.isSafeInteger(verification.blockTimestamp) || verification.blockTimestamp <= 0 ||
+    verification.authorityReviewMaxAgeSeconds !== PRODUCTION_AUTHORITY_REVIEW_MAX_AGE_SECONDS
+  ) throw new Error(`The ${verificationLabel} is not bound to the exact inventory, chain, and cutover block.`)
+  assertHash(verification.inventorySha256, `The ${verificationLabel} inventory SHA-256`)
+  if (!HASH_PATTERN.test(verification.blockHash)) {
+    throw new Error(`The ${verificationLabel} block hash is invalid.`)
+  }
+
+  for (const [authorityLabel, authority, expectedAddress] of [
+    ['controller', verification.controller, manifest.controller],
+    ['treasury', verification.treasury, manifest.treasury],
+  ]) {
+    if (
+      !ADDRESS_PATTERN.test(authority.address) ||
+      authority.address.toLowerCase() !== expectedAddress.toLowerCase() ||
+      !ADDRESS_PATTERN.test(authority.factoryAddress) ||
+      !HASH_PATTERN.test(authority.deploymentTransactionHash) ||
+      !Number.isSafeInteger(authority.deploymentBlockNumber) || authority.deploymentBlockNumber <= 0 ||
+      authority.deploymentBlockNumber > verification.blockNumber ||
+      !HASH_PATTERN.test(authority.deploymentBlockHash) ||
+      !Number.isSafeInteger(authority.deploymentBlockTimestamp) ||
+      authority.deploymentBlockTimestamp <= 0 ||
+      authority.deploymentBlockTimestamp > verification.blockTimestamp ||
+      typeof authority.saltNonce !== 'string' || !/^\d+$/.test(authority.saltNonce) ||
+      !HASH_PATTERN.test(authority.proxyRuntimeCodeHash) ||
+      !ADDRESS_PATTERN.test(authority.implementationAddress) ||
+      !HASH_PATTERN.test(authority.implementationRuntimeCodeHash) ||
+      typeof authority.safeVersion !== 'string' || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(authority.safeVersion) ||
+      !Array.isArray(authority.owners) || authority.owners.length < 2 || authority.owners.length > 32 ||
+      authority.owners.some((owner) => !ADDRESS_PATTERN.test(owner)) ||
+      [authority.factoryAddress, authority.implementationAddress, ...authority.owners]
+        .some((address) => address.toLowerCase() === verification.gasOnlyDeployer.toLowerCase()) ||
+      new Set(authority.owners.map((owner) => owner.toLowerCase())).size !== authority.owners.length ||
+      !Number.isSafeInteger(authority.threshold) || authority.threshold < 2 || authority.threshold > authority.owners.length ||
+      authority.nonce !== 0 ||
+      !Array.isArray(authority.enabledModules) || authority.enabledModules.length > 32 ||
+      authority.enabledModules.some((address) => !ADDRESS_PATTERN.test(address)) ||
+      new Set(authority.enabledModules.map((address) => address.toLowerCase())).size !== authority.enabledModules.length ||
+      !ADDRESS_PATTERN.test(authority.guard) ||
+      !ADDRESS_PATTERN.test(authority.fallbackHandler) ||
+      !Number.isSafeInteger(authority.benignSafeReceivedLogCount) ||
+      authority.benignSafeReceivedLogCount < 0
+    ) throw new Error(`The ${verificationLabel} ${authorityLabel} Safe facts are invalid or do not match the manifest.`)
+  }
+  if (
+    verification.controller.factoryAddress.toLowerCase() !==
+      verification.treasury.factoryAddress.toLowerCase() ||
+    verification.controller.deploymentTransactionHash ===
+      verification.treasury.deploymentTransactionHash
+  ) throw new Error(`The ${verificationLabel} must bind one pinned factory and distinct Safe creation transactions.`)
+}
+
+function assertProductionAuthorityVerification(value, manifest, cutover) {
+  assertProductionAuthorityVerificationRecord(
+    value.productionAuthorityVerification,
+    value.productionAuthoritiesRawSha256,
+    manifest,
+    cutover,
   )
 }
 
@@ -257,6 +696,80 @@ function assertApprovedProductionSemantics(value) {
     !HASH_PATTERN.test(cutover.blockHash) ||
     Object.values(cutover.totals).some((total) => !Number.isSafeInteger(total) || total < 0)
   ) throw new Error('The production activity cutover is invalid.')
+  for (const [label, hash] of [
+    ['production authority inventory digest', value.sourceEvidence.productionAuthoritiesRawSha256],
+    ['control-plane recovery digest', value.sourceEvidence.controlPlaneRecoveryRawSha256],
+    ['cutover candidate raw digest', cutover.independentSecondRpc.candidateRawSha256],
+    ['cutover candidate payload digest', cutover.independentSecondRpc.candidatePayloadSha256],
+    ['second-RPC proof raw digest', cutover.independentSecondRpc.proofRawSha256],
+    [
+      'independent replacement verification report digest',
+      value.sourceEvidence.independentReplacementVerification.reportSha256,
+    ],
+    [
+      'independent replacement verification block hash',
+      value.sourceEvidence.independentReplacementVerification.blockHash,
+    ],
+    [
+      'independent replacement verification manifest digest',
+      value.sourceEvidence.independentReplacementVerification.deploymentManifestSha256,
+    ],
+  ]) assertHash(hash, label)
+  let rpcUrl
+  try {
+    rpcUrl = new URL(cutover.independentSecondRpc.rpcUrl)
+  } catch {
+    throw new Error('The independent second-RPC URL is invalid.')
+  }
+  if (
+    rpcUrl.protocol !== 'https:' || rpcUrl.username || rpcUrl.password || rpcUrl.search || rpcUrl.hash ||
+    rpcUrl.origin === 'https://liteforge.rpc.caldera.xyz'
+  ) throw new Error('The cutover proof must identify a distinct credential-free HTTPS RPC URL.')
+  if (Object.values(cutover.replacementCountersAtCutover).some((counter) => counter !== 0)) {
+    throw new Error('Every replacement activity counter must be exactly zero at the cutover block.')
+  }
+  assertProductionAuthorityVerification(value.sourceEvidence, manifest, cutover)
+  const independentVerification = value.sourceEvidence.independentReplacementVerification
+  assertProductionAuthorityVerificationRecord(
+    independentVerification.productionAuthorityVerification,
+    value.sourceEvidence.productionAuthoritiesRawSha256,
+    manifest,
+    cutover,
+    'independent production authority verification',
+  )
+  let primaryRpcOrigin
+  try {
+    primaryRpcOrigin = new URL(independentVerification.primaryRpcOrigin)
+  } catch {
+    throw new Error('The independent replacement verification primary RPC origin is invalid.')
+  }
+  if (
+    independentVerification.status !== 'VERIFIED_INDEPENDENT_RPC' ||
+    independentVerification.chainId !== '4441' ||
+    independentVerification.blockNumber !== cutover.throughBlock ||
+    independentVerification.blockHash.toLowerCase() !== cutover.blockHash.toLowerCase() ||
+    independentVerification.deploymentManifestSha256 !== value.deploymentManifestSha256 ||
+    independentVerification.rpcUrl !== cutover.independentSecondRpc.rpcUrl ||
+    primaryRpcOrigin.protocol !== 'https:' || primaryRpcOrigin.username || primaryRpcOrigin.password ||
+    primaryRpcOrigin.search || primaryRpcOrigin.hash || primaryRpcOrigin.pathname !== '/' ||
+    primaryRpcOrigin.origin !== independentVerification.primaryRpcOrigin ||
+    primaryRpcOrigin.origin === rpcUrl.origin ||
+    JSON.stringify(independentVerification.verifiedChecks) !==
+      JSON.stringify(INDEPENDENT_REPLACEMENT_VERIFICATION_CHECKS) ||
+    JSON.stringify(canonicalizeJson(independentVerification.productionAuthorityVerification)) !==
+      JSON.stringify(canonicalizeJson(value.sourceEvidence.productionAuthorityVerification)) ||
+    JSON.stringify(canonicalizeJson(independentVerification.replacementCountersAtCutover)) !==
+      JSON.stringify(canonicalizeJson(cutover.replacementCountersAtCutover))
+  ) throw new Error('The independent replacement verification report does not bind the exact distinct-RPC manifest, authorities, counters, and cutover block.')
+  if (Object.values(independentVerification.replacementCountersAtCutover).some((counter) => counter !== 0)) {
+    throw new Error('Every independently verified replacement counter must be exactly zero at the cutover block.')
+  }
+  const actualIndependentReportSha256 = canonicalIndependentReplacementVerificationSha256(independentVerification)
+  if (actualIndependentReportSha256 !== independentVerification.reportSha256) {
+    throw new Error(
+      `Independent replacement verification report digest is ${actualIndependentReportSha256}; expected ${independentVerification.reportSha256}.`,
+    )
+  }
   for (const hash of [
     value.frontendRuntimeAttestations.uniswapV2Pair,
     value.frontendRuntimeAttestations.iloChild,
@@ -295,11 +808,21 @@ function canonicalizeJson(value) {
   return value
 }
 
+export function canonicalIndependentReplacementVerificationSha256(report) {
+  const payload = Object.fromEntries(
+    Object.entries(report).filter(([key]) => key !== 'reportSha256'),
+  )
+  return `0x${createHash('sha256')
+    .update(`${JSON.stringify(canonicalizeJson(payload), null, 2)}\n`)
+    .digest('hex')}`
+}
+
 export function approvalPayloadFromPackage(value) {
   return {
     deploymentManifestSha256: value.deploymentManifestSha256,
     deploymentManifest: value.deploymentManifest,
     frontendRuntimeAttestations: value.frontendRuntimeAttestations,
+    sourceEvidence: value.sourceEvidence,
     activityCutover: value.activityCutover,
   }
 }
@@ -310,7 +833,11 @@ export function canonicalApprovalPayloadSha256(value) {
     .digest('hex')}`
 }
 
-export function verifyApprovedPublicReplacementPackage(filePath = packagePath) {
+export function verifyApprovedPublicReplacementPackage(filePath = packagePath, {
+  productionAuthorities = productionAuthoritiesPath,
+  controlPlaneRecovery = controlPlaneRecoveryPath,
+  now = new Date(),
+} = {}) {
   const value = JSON.parse(readFileSync(filePath, 'utf8'))
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('The approved public replacement package must be a JSON object.')
@@ -326,6 +853,10 @@ export function verifyApprovedPublicReplacementPackage(filePath = packagePath) {
   }
   assertExactApprovedShape(value)
   assertApprovedProductionSemantics(value)
+  assertPinnedSourceEvidence(value.sourceEvidence, value.deploymentManifest, {
+    productionAuthorities,
+    controlPlaneRecovery,
+  }, now)
   if (!/^0x[0-9a-f]{64}$/.test(value.deploymentManifestSha256)) {
     throw new Error('The approved deployment manifest SHA-256 is not a lower-case digest.')
   }
@@ -340,6 +871,7 @@ export function verifyApprovedPublicReplacementPackage(filePath = packagePath) {
   if (actualPayload !== value.approvalPayloadSha256) {
     throw new Error(`Approved public replacement payload digest is ${actualPayload}; expected ${value.approvalPayloadSha256}.`)
   }
+  assertReviewerApprovals(value)
   return {
     status: 'APPROVED',
     approvalPayloadSha256: actualPayload,

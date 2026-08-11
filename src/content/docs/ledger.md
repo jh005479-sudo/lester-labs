@@ -1,6 +1,6 @@
 # The Ledger — Historical Reads and Replacement Readiness
 
-> **Current status:** the Ledger at
+> **Legacy deployment status:** the Ledger at
 > `0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079` is a compromised legacy
 > deployment. Historical messages can be sampled and exact transactions can be
 > looked up, but paid posting is disabled. Do not call `post()` directly or send

@@ -1,0 +1,80 @@
+{
+  "kind": "lester-labs-production-authority-inventory",
+  "schemaVersion": 1,
+  "status": "UNREVIEWED",
+  "chainId": "4441",
+  "review": {
+    "approvals": [
+      {
+        "reviewer": "UNREVIEWED",
+        "approvedAt": "UNREVIEWED",
+        "evidenceSha256": "UNREVIEWED"
+      },
+      {
+        "reviewer": "UNREVIEWED",
+        "approvedAt": "UNREVIEWED",
+        "evidenceSha256": "UNREVIEWED"
+      }
+    ]
+  },
+  "controller": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "deployment": {
+      "factoryAddress": "0x0000000000000000000000000000000000000000",
+      "transactionHash": "UNREVIEWED",
+      "blockNumber": 0,
+      "blockHash": "UNREVIEWED",
+      "saltNonce": "UNREVIEWED"
+    },
+    "safeVersion": "UNREVIEWED",
+    "proxy": {
+      "kind": "safe-proxy-storage-slot-0",
+      "runtimeCodeHash": "UNREVIEWED",
+      "implementationStorageSlot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "implementationAddress": "0x0000000000000000000000000000000000000000",
+      "implementationRuntimeCodeHash": "UNREVIEWED",
+      "sourceRepository": "UNREVIEWED",
+      "sourceRelease": "UNREVIEWED",
+      "sourceCommit": "UNREVIEWED"
+    },
+    "owners": [],
+    "threshold": 0,
+    "enabledModules": [],
+    "guard": {
+      "mode": "UNREVIEWED"
+    },
+    "fallbackHandler": {
+      "mode": "UNREVIEWED"
+    }
+  },
+  "treasury": {
+    "address": "0x0000000000000000000000000000000000000000",
+    "deployment": {
+      "factoryAddress": "0x0000000000000000000000000000000000000000",
+      "transactionHash": "UNREVIEWED",
+      "blockNumber": 0,
+      "blockHash": "UNREVIEWED",
+      "saltNonce": "UNREVIEWED"
+    },
+    "safeVersion": "UNREVIEWED",
+    "proxy": {
+      "kind": "safe-proxy-storage-slot-0",
+      "runtimeCodeHash": "UNREVIEWED",
+      "implementationStorageSlot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "implementationAddress": "0x0000000000000000000000000000000000000000",
+      "implementationRuntimeCodeHash": "UNREVIEWED",
+      "sourceRepository": "UNREVIEWED",
+      "sourceRelease": "UNREVIEWED",
+      "sourceCommit": "UNREVIEWED"
+    },
+    "owners": [],
+    "threshold": 0,
+    "enabledModules": [],
+    "guard": {
+      "mode": "UNREVIEWED"
+    },
+    "fallbackHandler": {
+      "mode": "UNREVIEWED"
+    }
+  }
+}

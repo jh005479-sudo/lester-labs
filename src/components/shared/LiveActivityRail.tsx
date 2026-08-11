@@ -2,6 +2,9 @@
 
 import Link from 'next/link'
 import { Activity, ArrowUpRight, BarChart3, Clock3, MessageSquareText, Search, Wallet } from 'lucide-react'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
+
+const writesActive = PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
 
 type RailItem = {
   label: string
@@ -38,7 +41,12 @@ const rails: Record<'explorer' | 'analytics' | 'portfolio' | 'ledger', RailConfi
     items: [
       { label: 'Tokens', value: 'Newest sample', detail: 'Not a complete token or holder index.' },
       { label: 'Health', value: 'Latest RPC sample', detail: 'Not uptime or historical liveness.' },
-      { label: 'DEX', value: 'Recovery view', detail: 'New swaps and liquidity writes are disabled.', href: '/pool' },
+      {
+        label: 'DEX',
+        value: writesActive ? 'Replacement + recovery' : 'Recovery view',
+        detail: writesActive ? 'Source-pinned replacement actions and legacy recovery.' : 'New swaps and liquidity writes are disabled.',
+        href: '/pool',
+      },
     ],
   },
   portfolio: {
@@ -49,17 +57,26 @@ const rails: Record<'explorer' | 'analytics' | 'portfolio' | 'ledger', RailConfi
     items: [
       { label: 'Positions', value: 'Partial sample', detail: 'Not a complete wallet portfolio.' },
       { label: 'Recovery', value: 'Locks + vesting', detail: 'Use only authenticated eligible exits.' },
-      { label: 'Status', value: 'Writes disabled', detail: 'Review replacement readiness first.', href: '/security' },
+      {
+        label: 'Status',
+        value: writesActive ? 'Replacement candidate' : 'Writes disabled',
+        detail: writesActive ? 'Verify the candidate and separate deployment evidence first.' : 'Review replacement readiness first.',
+        href: '/security',
+      },
     ],
   },
   ledger: {
     eyebrow: 'Historical message sample',
-    title: 'Read legacy events; paid posting is disabled.',
+    title: writesActive ? 'Read bounded events or use source-pinned posting.' : 'Read legacy events; paid posting is disabled.',
     icon: MessageSquareText,
     accent: '#F5A623',
     items: [
       { label: 'Messages', value: 'Paginated RPC view', detail: 'Not a complete or perpetual archive.' },
-      { label: 'Posting', value: 'Disabled', detail: 'Legacy fee and treasury routes are retired.' },
+      {
+        label: 'Posting',
+        value: writesActive ? 'Replacement candidate' : 'Disabled',
+        detail: writesActive ? 'The candidate fee and treasury route is source-pinned.' : 'Legacy fee and treasury routes are retired.',
+      },
       { label: 'Attribution', value: 'Wallet address only', detail: 'Content is not endorsed or verified.' },
     ],
   },

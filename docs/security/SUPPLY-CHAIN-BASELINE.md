@@ -31,13 +31,22 @@ The npm package has development and release scripts in its published manifest, i
 | `actions/setup-node` | `48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e` | `v6.4.0` | 2026-04-20 | Required to provision exact Node.js; accepted with automatic package-manager caching disabled. |
 | `github/codeql-action` | `7211b7c8077ea37d8641b6271f6a365a22a5fbfa` | `v4.36.0` | 2026-05-22 | Required for GitHub CodeQL static analysis; accepted with only `contents: read` and `security-events: write`. The immutable annotated release tag resolves to this commit. |
 | `actions/dependency-review-action` | `a1d282b36b6f3519aa1f3fc636f609c47dddb294` | `v5.0.0` | 2026-05-08 | Required to reject pull requests introducing high/critical dependency vulnerabilities; accepted with read-only repository permission and no PR comment permission. |
+| `actions/attest-build-provenance` | `0f67c3f4856b2e3261c31976d6725780e5e4c373` | `v4.1.1` | 2026-06-26 | Required to sign exact release and recovery evidence subjects; accepted only in the specific jobs granted `id-token: write` and `attestations: write`, with repository contents otherwise read-only. |
+| `actions/download-artifact` | `018cc2cf5baa6db3ef3c5f8a56943fffe632ef53` | `v6.0.0` | 2025-10-24 | Required to retrieve exact run-ID/run-attempt-qualified evidence packages; accepted only in jobs with `actions: read` and `contents: read`, with cross-run downloads bound to the recovered repository and validated originating run. |
+| `actions/upload-artifact` | `ea165f8d65b6e75b540449e92b4886f43607fa02` | `v4.6.2` | 2025-03-19 | Required to retain explicit evidence directories; accepted with missing-file failure, bounded retention, no wildcard workspace upload, and no additional repository write permission. |
 
-The releases and upstream Git references were checked on 2026-08-04. GitHub displayed verified signatures for the reviewed releases. Action code executes on the CI runner and may access the network; pinning limits mutation risk but does not eliminate trust in GitHub, the runner image, action code, or downloaded analysis/runtime artifacts.
+The original four releases and upstream Git references were checked on
+2026-08-04; the three release-evidence actions were checked on 2026-08-11.
+GitHub displayed verified signatures for the reviewed releases, and every
+selected release was older than seven days at its review date. Action code
+executes on the CI runner and may access the network; pinning limits mutation
+risk but does not eliminate trust in GitHub, the runner image, action code, or
+downloaded analysis/runtime artifacts.
 
 ## Dependency metadata result
 
 - Application: 22 direct dependency/dev-dependency entries are pinned to exact versions (14 runtime and 8 development); `use-sync-external-store` remains exactly overridden to `1.6.0`.
-- Contracts: the final Hardhat 3 graph has 2 runtime and 14 development entries, all exact, plus four exact overrides. The lock contains 166 package entries.
+- Contracts: the final Hardhat 3 graph has 2 runtime and 13 development entries, all exact, plus four exact overrides. The lock contains 165 package entries.
 - The application lock was intentionally rewritten for the dedicated remediation recorded in `APPLICATION-DEPENDENCY-REMEDIATION.md`; it contains 634 package nodes. The contract lock was intentionally regenerated for the reviewed Hardhat 3 migration. Their resulting package nodes, versions, registry URLs and integrity values are part of the final-lock evidence rather than the earlier baselines.
 - Publication age was rechecked across all 623 unique registry package/version selections in the final application lock and for the selected contract graph. No seven-day release-age exception was approved or used.
 - Both lockfiles use lockfile version 3. Every locked tarball with a `resolved` field uses the official HTTPS npm registry and has an integrity digest.
@@ -58,7 +67,6 @@ Exact final contract direct graph:
 | Development | `@types/mocha` | `10.0.10` |
 | Development | `@types/node` | `25.5.0` |
 | Development | `chai` | `6.2.2` |
-| Development | `dotenv` | `17.3.1` |
 | Development | `ethers` | `6.17.0` |
 | Development | `hardhat` | `3.11.1` |
 | Development | `mocha` | `11.3.0` |
@@ -104,10 +112,10 @@ The earlier Hardhat 2 contract-tooling graph reported 48 findings: 1 critical,
 24 high, 10 moderate and 13 low. That graph is no longer the contract lock in
 the current worktree. The final exact Hardhat 3 contract graph, including the
 `glob@13.0.6` override, returned `npm audit` exit 0 with zero vulnerabilities at
-every severity. npm reported dependency metadata of 5 production, 162
-development, 34 optional and 166 total packages; those categories are npm's
+every severity. npm reported dependency metadata of 5 production, 161
+development, 34 optional and 165 total packages; those categories are npm's
 own metadata and are not intended to be arithmetically additive. A matching
-`npm audit signatures` run returned exit 0 with 141 registry-signature-verified
+`npm audit signatures` run returned exit 0 with 140 registry-signature-verified
 packages and 52 verified attestations.
 
 The application dependency graph is no longer advisory-blocked. This is
@@ -140,8 +148,8 @@ scripts disabled and no production credentials. Against the final application
 lock, the current local signature check verified 549 packages and 105 registry
 attestations with exit 0; the matching audit reported zero vulnerabilities.
 TypeScript, lint, 164/164 application unit tests, the public-manifest gate, and
-the Next 16.3.0 production build passed. The contract graph's earlier recorded
-141-signature/52-attestation result was repeated after the separate `js-yaml`
+the Next 16.3.0 production build passed. The contract graph's recorded
+140-signature/52-attestation result was repeated after the separate `js-yaml`
 remediation, and its audit returned zero. These are local review results, not
 deployment evidence. Repeat audit, signatures, builds, tests and attestation on
 the authorised release runner and attach the outputs by immutable digest before
@@ -149,8 +157,9 @@ deployment.
 
 The repository policy and history-aware secret scanner were executed with a
 bundled Node.js runtime and passed. Official-registry `npm audit` queries
-reconfirmed the 37 application findings and the final contract graph's zero
-findings described above. CodeQL, GitHub dependency review, protected-branch
+reconfirmed zero findings in both the final application and contract graphs
+described above. The earlier 37-finding application graph is retained only as
+pre-remediation comparison evidence. CodeQL, GitHub dependency review, protected-branch
 enforcement and provider-side secret scanning still require an authenticated
 GitHub account and CI run.
 

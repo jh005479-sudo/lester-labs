@@ -44,6 +44,7 @@ import {
   type PresaleQualityFilter,
   type PresaleStatus,
 } from '@/lib/launchpadDisplay'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 // ABI for fetching token decimals (RP-001)
 const ERC20_DECIMALS_ABI = [
@@ -1324,10 +1325,12 @@ export default function LaunchpadPage() {
       style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >
       <ToolHero
-        category="Historical Presale Recovery"
+        category={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Launchpad & Historical Recovery' : 'Historical Presale Recovery'}
         title="Lester"
         titleHighlight="Launch"
-        subtitle="Browse source-pinned historical ILOs and use only state-dependent recovery. Creation, funding, contribution, whitelist, and finalization writes are disabled."
+        subtitle={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+          ? 'Create through the source-pinned replacement factory or browse historical ILOs with state-dependent recovery. Legacy funding and settlement remain quarantined.'
+          : 'Browse source-pinned historical ILOs and use only state-dependent recovery. Creation, funding, contribution, whitelist, and finalization writes are disabled.'}
         subtitleMaxWidth="560px"
         color="#5E6AD2"
         image="/images/carousel/launchpad.png"
@@ -1336,9 +1339,9 @@ export default function LaunchpadPage() {
         compact
         flowKey="launchpad"
         stats={[
-          { label: 'Mode', value: 'Recovery only' },
-          { label: 'Factories', value: 'Legacy' },
-          { label: 'New writes', value: 'Disabled' },
+          { label: 'Mode', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Candidate + recovery' : 'Recovery only' },
+          { label: 'Factories', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Candidate + legacy' : 'Legacy' },
+          { label: 'New writes', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned' : 'Disabled' },
         ]}
       />
       <div className="tool-page-content" style={{ maxWidth: '1120px', paddingTop: 40 }}>
@@ -1624,7 +1627,9 @@ export default function LaunchpadPage() {
                   No historical presales in this bounded view
                 </div>
                 <div style={{ fontSize: '14px' }}>
-                  New presale creation remains disabled during containment.
+                  {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                    ? 'The source-pinned replacement creation form remains available above.'
+                    : 'New presale creation remains disabled during containment.'}
                 </div>
               </div>
             ) : visiblePresales.length === 0 ? (

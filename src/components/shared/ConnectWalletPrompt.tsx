@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowUpRight, CheckCircle2, FileSearch, Wallet } from 'lucide-react'
 import { walletConnectConfigured } from '@/config/wagmi'
 import { InjectedWalletButton } from '@/components/shared/InjectedWalletButton'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 type PreviewItem = {
   label: string
@@ -61,7 +62,10 @@ export function ConnectWalletPrompt({
         {!walletConnectConfigured && (
           <p className="mt-4 text-[12px] leading-5" style={{ color: 'var(--foreground-muted)' }}>
             WalletConnect is intentionally disabled for malicious-flag remediation. This connection control is
-            separate from contract-authority recovery; paid writes remain disabled until replacement activation.
+            separate from contract-authority recovery;{' '}
+            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+              ? 'reviewed writes still require the injected-wallet chain, target, runtime, and calldata gates.'
+              : 'paid writes remain disabled until replacement activation.'}{' '}
             Use a locally installed wallet extension and inspect every transaction before signing.
           </p>
         )}

@@ -51,6 +51,9 @@ jobs:
       - name: Scan worktree and Git history for committed secrets
         run: node scripts/security/scan-secrets.mjs
 
+      - name: Verify the wallet-free emergency containment artifact
+        run: npm run security:emergency-containment
+
       - name: Install application dependencies immutably
         run: npm ci --ignore-scripts
 
@@ -82,7 +85,15 @@ jobs:
         run: npm run test:unit
 
       - name: Build the production application
-        run: npm run build
+        env:
+          LESTER_RELEASE_BUILD_ID: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$LESTER_RELEASE_BUILD_ID" = "$GITHUB_SHA"
+          test "$(git rev-parse --verify HEAD)" = "$LESTER_RELEASE_BUILD_ID"
+          [[ "$LESTER_RELEASE_BUILD_ID" =~ ^[0-9a-f]{40}$ ]]
+          npm run build
 
       - name: Run contract tests
         working-directory: contracts

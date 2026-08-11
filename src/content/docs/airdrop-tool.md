@@ -1,9 +1,9 @@
 # LitVM Airdrop Tool — Local Review and Replacement Readiness
 
-> **Current status:** local CSV parsing, address validation, batching previews,
-> and reports remain available. ERC-20 approvals and both token/native
-> distribution writes are disabled until the source-pinned replacement
-> Disperse runtime and clean served build are activated.
+> **Release-aware status:** local CSV parsing, address validation, batching
+> previews, and reports remain available. Distribution writes exist only in a
+> source-pinned replacement candidate, and that candidate may be served publicly
+> only after the separate frontend approval and parity gate passes.
 
 The word “airdrop” describes a sender-directed batch-transfer utility. Using or
 viewing this tool does not enrol a wallet in a reward programme, prove token
