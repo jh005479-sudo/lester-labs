@@ -82,8 +82,10 @@ Evidence locations, event IDs, revocation times, and reviewers (never secret val
 
 ```text
 Checked-in fail-closed inventory: docs/security/evidence/production-control-plane-recovery.json
-GitHub repository observation: docs/security/evidence/github-control-plane-observation-2026-08-10.json
-GitHub observation SHA-256: 97be8998a89ca5d17654ec438cb9abfcb9c7ef2287874ae2230e670754a232f5
+Initial GitHub repository observation: docs/security/evidence/github-control-plane-observation-2026-08-10.json
+Initial GitHub observation SHA-256: 97be8998a89ca5d17654ec438cb9abfcb9c7ef2287874ae2230e670754a232f5
+Current GitHub repository observation: docs/security/evidence/github-control-plane-observation-2026-08-11.json
+Current GitHub observation SHA-256: af35db4855a3ce9b11f05b3dfff96c40b2a2a7db29bc32a3a6a5c610a6729e55
 External redacted evidence bundle and SHA-256: TODO
 ```
 

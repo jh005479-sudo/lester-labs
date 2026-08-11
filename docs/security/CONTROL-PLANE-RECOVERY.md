@@ -172,7 +172,17 @@ collaborator, unprotected Preview/Production environments, unrestricted Action
 selection without platform-enforced SHA pinning, Dependabot disabled, no
 CodeQL analysis, and one stale external pull request requiring review.
 
-That snapshot is narrow and not approval. It cannot establish login sessions,
+The follow-up snapshot in
+`evidence/github-control-plane-observation-2026-08-11.json` (SHA-256
+`af35db4855a3ce9b11f05b3dfff96c40b2a2a7db29bc32a3a6a5c610a6729e55`)
+records the protected `main` policy, passing integration checks, enabled
+Dependabot alerts and CodeQL analysis, the twelve protected-branch-only release
+environments, and the non-secret production Vercel identifiers. It also records
+the remaining fail-closed gaps: no independent collaborator or environment
+reviewer, no canary project, no release credentials, and no independent vantage
+runners.
+
+Neither snapshot is approval. They cannot establish login sessions,
 deleted or historical settings, PATs, OAuth grants, installed apps, recovery
 methods, signing/authentication keys, or provider-side hosting ownership. Those
 remain explicit account-owner checks.
