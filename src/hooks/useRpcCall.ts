@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useReadContract, useReadContracts } from 'wagmi'
 import type { UseReadContractParameters, UseReadContractsParameters } from 'wagmi'
+import { litvm } from '@/config/chains'
 
 export type RpcCallError = 'rate_limited' | 'network' | 'generic'
 
@@ -39,6 +40,7 @@ export function useRpcCallReadContract(
     account: parameters.account,
     blockNumber: parameters.blockNumber,
     blockTag: parameters.blockTag,
+    chainId: litvm.id,
     // @ts-ignore – wagmi v2 passes `query` straight to react-query's useQuery,
     // so onError/onSuccess are available at runtime even if the complex types don't surface them.
     query: {
@@ -70,7 +72,10 @@ export function useRpcCallReadContracts(
   })
 
   const result = useReadContracts({
-    contracts: parameters.contracts,
+    contracts: parameters.contracts?.map((contract) => ({
+      ...contract,
+      chainId: litvm.id,
+    })) as typeof parameters.contracts,
     account: parameters.account,
     // @ts-ignore – same reason as above
     query: {

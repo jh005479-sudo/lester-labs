@@ -1,99 +1,116 @@
-# Lester Labs Documentation — LitVM DeFi Utilities
+# Lester Labs Documentation — Security and Release Status
 
-Lester Labs is the first fully native DeFi suite for LitVM (Litecoin Virtual Machine). Built on LitVM testnet (chain ID `4441`), it provides a complete token launch and DeFi infrastructure stack without any external DEX dependencies. The platform covers token deployment, LitVM swaps, community launches, airdrop distribution, liquidity locking, vesting schedules, governance, and on-chain analytics.
+> **An immutable replacement stack is approved for the valueless LitVM
+> LiteForge public testnet.** The legacy deployment remains permanently
+> contained for new activity. The replacement can be served only from the exact
+> source-pinned frontend after its build and apex/`www` artifacts pass parity.
 
-## LitVM DeFi Utilities Overview
+Lester Labs is independent testnet software for LitVM LiteForge (chain ID
+`4441`). It is not operated by LitVM or Litecoin, does not run a reward or
+eligibility programme, and does not ask for seed phrases, private keys, wallet
+passwords, or opaque signatures. Testnet zkLTC and app assets have no represented
+monetary value on this site.
 
-| Utility | Purpose | Fee |
-|---|---|---|
-| [Token Factory](./token-factory.md) | Deploy ERC-20 tokens on LitVM | 0.05 zkLTC |
-| [DEX Swap & Pool](./dex-swap.md) | Trade any LitVM token with 0.30% per swap | 0.30% per trade |
-| [Liquidity Locker](./liquidity-locker.md) | Lock LP tokens with on-chain proof | 0.03 zkLTC |
-| [Token Vesting](./token-vesting.md) | Linear and cliff vesting for teams and investors | 0.03 zkLTC |
-| [Airdrop Tool](./airdrop-tool.md) | Local validation and resumable token-distribution batches | Network gas |
-| [Governance](./governance.md) | Local proposal drafting and governance planning | No publishing integration |
-| [Launchpad](./launchpad.md) | Historical ILO discovery and recovery; new creation disabled | No new paid writes |
-| [The Ledger](./ledger.md) | Post permanent messages in blockchain calldata | Posting fee |
+## Public-testnet authority model
 
-## The LitVM DEX — Native Swap Infrastructure
+This bounded testnet release deliberately does not use production Safes or an
+independent-reviewer gate:
 
-Lester Labs ships its own Uniswap V2 deployment as the native LitVM decentralized exchange. The local factory and router power both the `/swap` trading interface and Launchpad finalization — every LitVM presale seeds liquidity directly into Lester Labs-owned infrastructure, with no reliance on third-party DEX venues.
+- every contract administrator and all governance voting power are frozen at
+  `0x0000000000000000000000000000000000000001`, the ECRECOVER precompile, for
+  which no private key exists;
+- the disclosed valueless test wallet is the deployment gas payer and fee
+  treasury, but has no contract-administration role;
+- the contracts are immutable and the frontend accepts writes only on chain
+  `4441` to source-pinned addresses with attested runtime bytecode; and
+- governance writes remain disabled because the frozen authority model makes
+  the deployed governance path intentionally non-operational.
 
-The fee split is enforced on-chain in the pair contract:
+The disclosed wallet is not approved for real value or production. A future
+production release still requires separate reviewed controller and treasury
+Safes, a distinct one-use gas EOA, recovered accounts, and independent review.
 
-- Total fee per swap: `0.30%`
-- Treasury share: `0.20%`
-- LP share retained in-pool: `0.10%`
+## Current surface posture
 
-A future reviewed Launchpad will use `UniSwapConnector` to re-check both
-factory `feeTo` and `feeToSetter` before liquidity is seeded. The current
-legacy factory/connector is browse-and-recovery-only; creation, contribution,
-and finalization are disabled.
-
-## Analytics
-
-The analytics dashboard is the visibility layer for the broader Lester Labs stack:
-
-- **Trending** tracks short-term token momentum and transfer activity
-- **Tokens** indexes deployed LitVM tokens and classifies pair contracts
-- **Health** surfaces chain throughput, block timing, and active-address trends
-- **DEX** summarizes pair-level volume, TVL, and recent swap activity
-- **Bridge** tracks capital moving into and out of LitVM
-- **Smart Money** highlights large wallets, LP activity, and notable moves
-
-Live at [lester-labs.com/analytics](https://lester-labs.com/analytics).
-
-## Network Configuration
-
-| Parameter | LitVM Testnet (Liteforge) |
+| Surface | Public-testnet posture |
 |---|---|
-| Chain ID | `4441` |
-| RPC URL | `https://liteforge.rpc.caldera.xyz/infra-partner-http` |
-| Explorer | `https://liteforge.caldera.xyz` |
-| Native Token | `zkLTC` |
-| Wrapped Native | `Wrapped zkLTC` (deployed alongside the Lester Labs V2 router) |
+| Explorer, analytics, charts | Read-only, explicitly bounded RPC samples; not complete indexes |
+| Token Factory, Vesting, Locker, Airdrop, Ledger | Approved immutable replacement targets; paid calls show exact target/value and enforce chain `4441` |
+| DEX Swap & Pool | Approved immutable replacement for new testnet activity; legacy tuple remains recovery-only |
+| Launchpad | Approved immutable replacement for new activity; legacy discovery and source-pinned recovery remain separate |
+| Governance | Replacement governance is intentionally disabled; legacy governance remains retired and read-only |
 
-## Quick Start
+The interface must not be used to bypass a disabled action. A direct call to a
+legacy contract is not safer merely because the function remains callable
+on-chain.
 
-1. Connect your wallet to LitVM using the network configuration above.
-2. Deploy a token at `/launch`, or open `/swap` if you already hold tradable assets.
-3. Use `/launchpad` only to inspect or recover from a historical ILO; do not
-   fund or contribute to a legacy sale.
-4. Review LP balances and exposure on `/pool`.
-5. Use the docs and tutorials pages for walkthroughs and contract references.
+## Two related remediation tracks
 
-## Contract Addresses
+### Testnet contract and authority remediation
 
-| Contract | Address |
+The replacement deployment is bound to source commit
+`abcf1b75ee7945f557163dce11485555da63a5b6`, exact creation transactions,
+runtime hashes, constructor inputs, roles, and child-runtime attestations.
+Two credential-free RPC origins independently confirmed the deployment state,
+frozen controller, test treasury, and zero replacement counters at the cutover
+block. The checked-in approval package is recomputed during every release build.
+
+### Malicious-warning and served-site remediation
+
+The source review removed misleading claims, mutable contract/RPC targets,
+hidden wallet connection paths, and unsafe legacy write routes. Every enabled
+write checks chain `4441`, exact target, function, native value, token spender,
+and attested runtime before constructing a transaction. The public origin must
+still be built from the approved commit and proven byte-for-byte equivalent at
+the apex and `www` hostnames before a MetaMask classification appeal is filed.
+
+A clean contract deployment does not prove the served site is clean, and source
+availability or an audit with no known advisory is not proof of safety by itself.
+
+## Historical activity continuity
+
+The homepage freezes the legacy/display counters through LitVM block
+`38,999,871` (block hash
+`0x0f08a4e58106a4cd465555c5a3b0a2bf44e723277ff69f0a6c0b22de3c77c9da`):
+
+- 517,422 token deployments;
+- 16,433 airdrop recipient entries;
+- 8,511 presales;
+- 12,975 displayed swap actions; and
+- 66,832 Ledger messages.
+
+These are first-party continuity records under published counting rules, not
+independently verified counts of unique wallets or people. Repeated, automated,
+spam, and duplicate-recipient activity may be included. Only authenticated
+replacement counters beginning at block `38,999,872` are added to these floors;
+later legacy activity is intentionally excluded to avoid overlap.
+
+## Network configuration
+
+| Parameter | LitVM LiteForge |
 |---|---|
-| Token Factory | `0x93acc61fcdc2e3407A0c03450Adfd8aE78964948` |
-| Liquidity Locker | `0x80d88C7F529D256e5e6A2CB0e0C30D82bC8827A9` |
-| ILO Factory | `0xA533bBe87bdCD91e4367de517e99bf8BA75Fd0aB` |
-| LitGovToken | `0xa5111cedc04554676DbCCA39F2268070008C7A8A` |
-| LitGovernor | `0x5b0092996BA897617B46D42B3F108B253be9Ad3d` |
-| LitTimelock | `0xd38ed693730Db3eB22bA6d6F0050FC45Ac9240ba` |
-| Uniswap V2 Factory | `0x017A126A44Aaae9273F7963D4E295F0Ee2793AD8` |
-| Uniswap V2 Router | `0xD56a623890b083d876D47c3b1c5343b7f983FA62` |
-| Wrapped zkLTC | `0xd141A5DDE1a3A373B7e9bb603362A58793AB9D97` |
-| Legacy UniSwapConnector (retired; do not reuse) | `0x720A547a29F1C86E0Ef0BE5864FAF14a69E894fD` |
+| Chain ID | `4441` (`0x1159`) |
+| RPC URL | `https://liteforge.rpc.caldera.xyz/http` |
+| Explorer | `https://liteforge.explorer.caldera.xyz` |
+| Native test gas | `zkLTC` |
 
-## Security Notes
+Cross-check these values against LitVM's independently located official
+documentation. The app asks the wallet to switch to chain `4441` and blocks a
+write if the connected chain cannot be verified.
 
-Several Lester Labs contracts compose upstream OpenZeppelin, Disperse-style, and Uniswap V2 code with custom testnet behavior. Upstream provenance is not an audit of Lester Labs or its deployed bytecode. Notable custom behavior includes:
+## Legacy address policy
 
-- the V2 pair contract routes `0.20%` of each trade input directly to the Lester Labs treasury
-- the factory constructor pins both `feeTo` and `feeToSetter` to the Lester Labs treasury
-- the Launchpad connector refuses to seed liquidity if treasury routing drifts from the configured treasury
+Legacy addresses are retained in reviewed source only for historical reads or
+narrow recovery. They are not current targets for new activity. Exact addresses,
+retirement blocks, runtime hashes, and recovery boundaries are maintained in the
+source-pinned registry. Never substitute an address from a chat message, social
+post, search result, or mutable environment variable.
 
-The listed connector permanently embeds the retired treasury. It is retained
-only as a historical deployment reference and must not be configured on a new
-ILO factory. Existing legacy ILOs also embed that retired treasury, so the
-frontend keeps their contribution and finalization writes disabled while
-leaving cancellation/refund/claim recovery reachable.
-
-Always verify the chain, contract address, and token pair before transacting.
+Always verify chain ID `4441`, the exact target, function, native value, token
+spender, allowance, recipient, and decoded parameters before signing.
 
 ## Support
 
+- Security status: [lester-labs.com/security](https://www.lester-labs.com/security)
 - X: [@lesterlabshq](https://x.com/lesterlabshq)
-- Website: [lester-labs.com](https://lester-labs.com)
+- Website: [www.lester-labs.com](https://www.lester-labs.com)

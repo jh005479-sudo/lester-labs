@@ -61,22 +61,6 @@ export function calculateTokenPriceInQuote(input: ReservePriceInput): number | n
   return null
 }
 
-export function buildReserveHistory(currentPrice: number | null, points = 24): PriceHistoryPoint[] {
-  const safePrice = Number.isFinite(currentPrice) && currentPrice !== null ? currentPrice : 0
-  const safePoints = Math.max(2, Math.floor(points))
-
-  return Array.from({ length: safePoints }, (_, index) => {
-    const progress = safePoints === 1 ? 1 : index / (safePoints - 1)
-    const wave = Math.sin(progress * Math.PI * 2) * 0.018
-    const drift = (progress - 1) * 0.026
-    const price = safePrice > 0 ? safePrice * (1 + wave + drift) : 0
-    return {
-      time: `${safePoints - index - 1}h`,
-      price: Number(price.toFixed(price < 0.01 ? 8 : 6)),
-    }
-  })
-}
-
 export function getPairDisplaySymbol(baseSymbol: string, quoteSymbol: string): string {
   return `${baseSymbol} / ${quoteSymbol}`
 }

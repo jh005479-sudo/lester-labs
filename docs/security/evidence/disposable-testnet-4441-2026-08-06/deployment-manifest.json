@@ -1,0 +1,212 @@
+{
+  "kind": "lester-labs-post-compromise-replacement",
+  "schemaVersion": 2,
+  "chainId": "4441",
+  "deploymentProfile": "testnet-immutable-disposable",
+  "controller": "0x0000000000000000000000000000000000000001",
+  "treasury": "0x439945924515218061b644901a31aC4A6c00957c",
+  "parameters": {
+    "tokenCreationFee": "50000000000000000",
+    "vestingFee": "30000000000000000",
+    "lockFee": "30000000000000000",
+    "iloPlatformFeeBps": "200",
+    "iloCreationFee": "30000000000000000",
+    "ledgerMinFee": "10000000000000000",
+    "ledgerTreasuryCutBps": "5000",
+    "governanceInitialSupply": "10000000000000000000000000",
+    "governanceTimelockDelay": "172800",
+    "governanceVotingDelay": "1",
+    "governanceVotingPeriod": "45600",
+    "governanceProposalThreshold": "100000000000000000000000",
+    "governanceQuorumBps": "400"
+  },
+  "planHash": "0xbad53eae43e3b02a8a84352ffb3415acecc5ad1b01cd9a05f9525f9bd0f57ded",
+  "buildAttestationSha256": "0x22dadde5cb86d7e601aaba5c45beb20646a365031208c72b77bb5443f56141be",
+  "buildSourceCommit": "abcf1b75ee7945f557163dce11485555da63a5b6",
+  "gasOnlyDeployer": "0x439945924515218061b644901a31aC4A6c00957c",
+  "startingNonce": 0,
+  "confirmations": 1,
+  "legacyRecovery": {
+    "addresses": {
+      "iloFactory": "0xa533bbe87bdcd91e4367de517e99bf8ba75fd0ab",
+      "productionBuildIloFactory": "0xc9b1961def0cc5bc1ffe3cfe37a4988d7987a43f",
+      "tokenFactory": "0x93acc61fcdc2e3407a0c03450adfd8ae78964948",
+      "vestingFactory": "0x6ee07118d39e9330ef0658ffa797eedd2cb823cf",
+      "liquidityLocker": "0x80d88c7f529d256e5e6a2cb0e0c30d82bc8827a9",
+      "ledger": "0xa37ff4bab59a5f861b48527a946c433dc1ee8079",
+      "uniswapV2Factory": "0x017a126a44aaae9273f7963d4e295f0ee2793ad8",
+      "uniswapV2Router": "0xd56a623890b083d876d47c3b1c5343b7f983fa62",
+      "wrappedZkLtc": "0xd141a5dde1a3a373b7e9bb603362a58793ab9d97",
+      "disperse": "0x3cc66cb4713dca78564df512922adb331ac5ee04",
+      "legacyConnector": "0x720a547a29f1c86e0ef0be5864faf14a69e894fd",
+      "litGovToken": "0xa5111cedc04554676dbcca39f2268070008c7a8a",
+      "litGovernor": "0x5b0092996ba897617b46d42b3f108b253be9ad3d",
+      "litTimelock": "0xd38ed693730db3eb22ba6d6f0050fc45ac9240ba"
+    },
+    "runtimeCodeHashes": {
+      "iloFactory": "0x9c52ccc3cf932eeff5f19c65d7055f9c8eaa50b68e64a1e1e6bafebaf0e81b9a",
+      "productionBuildIloFactory": "0xed56b878c6c936b7a54c0fc501a87cd96dc185e8d0967759df88817a03bc2dd5",
+      "tokenFactory": "0x5b3bb2e693021e2ab040b6bf248785eb627600bbec002e87c10e138521be1d9d",
+      "vestingFactory": "0x96f1c281dcb7a5a69cb007f511067ac08cf39811fc1d5b92864fb3f455ed2e73",
+      "liquidityLocker": "0xfa5c90c1aee9f3f2606cf1a04b3a4a742ac2950dbf09e0d2e67412d311786c8a",
+      "ledger": "0x5bfae473fddc1457d06edc1c5603f0217b0b3debdc34969abe1611b386fb4233",
+      "uniswapV2Factory": "0xce41e64702f625a6e52ba7d0406293e089078d3e6bdaf68d7fa8587f951453ee",
+      "uniswapV2Router": "0x0bd1cb8135296ff81274635a526cf4bacb32aee80ea0938899ea64294e2bba8a",
+      "wrappedZkLtc": "0x8c18c51fd322d08ccd34df2b97420cc87b004e738da9363d35a38cc2be761b05",
+      "disperse": "0x0a002cb14450c22d20885e40fec35bc924e0229f91b7b359c926850b10548891",
+      "legacyConnector": "0xddb0ce4525768177261872afa458a433d0fb2a312d23325c46fabc29d398ed4e",
+      "litGovToken": "0xf2f5e1ca1b5b7f82dc5a7dd2544e8b8d6d06deda8259e8f7ec908e99e460d94c",
+      "litGovernor": "0x07257ea685127e008299cc168253f764bc24456fe8ca11a5d162a66a57706d8b",
+      "litTimelock": "0xfb6edd3916b02720e51e48ca654186b058d296236f7d3a6de76aae46964dfdba"
+    },
+    "iloFactoryProvenance": [
+      {
+        "label": "production-build-hidden-factory",
+        "address": "0xc9b1961def0cc5bc1ffe3cfe37a4988d7987a43f",
+        "runtimeCodeHash": "0xed56b878c6c936b7a54c0fc501a87cd96dc185e8d0967759df88817a03bc2dd5",
+        "observedChildCount": "8330",
+        "observedOn": "2026-08-04"
+      },
+      {
+        "label": "canonical-legacy-factory",
+        "address": "0xa533bbe87bdcd91e4367de517e99bf8ba75fd0ab",
+        "runtimeCodeHash": "0x9c52ccc3cf932eeff5f19c65d7055f9c8eaa50b68e64a1e1e6bafebaf0e81b9a",
+        "observedChildCount": "121",
+        "observedOn": "2026-08-04"
+      }
+    ]
+  },
+  "deployments": [
+    {
+      "name": "WrappedZkLTC",
+      "artifact": "WETH9",
+      "address": "0xA13C8Ea8E4084AeEbcdb1B951dEDF2d641567ed0",
+      "nonce": 0,
+      "transactionHash": "0xb1bfd0d18b8baed580ebbf405c240db36a49ef94d2bb591e7203a88525f32ebf",
+      "blockNumber": 37470238,
+      "runtimeCodeHash": "0xd5b37df834e4be8d1e512712a30d6a64e0f25b9426234193b230eca6f7874164",
+      "runtimeCodeBytes": 2002
+    },
+    {
+      "name": "UniswapV2Factory",
+      "artifact": "UniswapV2Factory",
+      "address": "0x301D649fE86d5CAE665944B3C7942bF9f29B81Ca",
+      "nonce": 1,
+      "transactionHash": "0xec8ba7d0eaafa4d29938ba3d47d1e48823346e73e70f14d1922f76f96024168a",
+      "blockNumber": 37470249,
+      "runtimeCodeHash": "0xfd6082c3bf3baacc54261979dafd992af2c563b00ba30664d78963d993cdfca5",
+      "runtimeCodeBytes": 11475
+    },
+    {
+      "name": "UniswapV2Router02",
+      "artifact": "UniswapV2Router02",
+      "address": "0xf2CA3a3A42136Fd103346914A37b30f3991315EA",
+      "nonce": 2,
+      "transactionHash": "0x0d477aeec10fcca6f8e2ca311c3e56f139e777d1b5825df6a66b0e63c94cd476",
+      "blockNumber": 37470261,
+      "runtimeCodeHash": "0x677564568253f19bc10017fe9a6bb766f7d5f7d394314c060bca8452510e6df1",
+      "runtimeCodeBytes": 18034
+    },
+    {
+      "name": "UniSwapConnector",
+      "artifact": "UniSwapConnector",
+      "address": "0xbB4e527216ac0e0709Bf57ff718ca417ba85AaDF",
+      "nonce": 3,
+      "transactionHash": "0x2186048654f71272a2ccf5850ec4b4de71c0ad32988e8a9db3e3b2b990cafc97",
+      "blockNumber": 37470273,
+      "runtimeCodeHash": "0xd331a3b1ed8c1fafc7afddd97b0a082213eda7d8edfad3a42bad9723c8318565",
+      "runtimeCodeBytes": 3484
+    },
+    {
+      "name": "TokenFactory",
+      "artifact": "TokenFactory",
+      "address": "0x1A098a86d4C73b44d38e40711e0dd869591B4F60",
+      "nonce": 4,
+      "transactionHash": "0x6e2f0c720ea2140c37379b5a4672eb7bf82600dab7d28b73478141b4c43ad9d8",
+      "blockNumber": 37470284,
+      "runtimeCodeHash": "0x2977be8940cd3b78334176731286448b926c31c1bc3a7f18e5c6a77b225f35ee",
+      "runtimeCodeBytes": 7033
+    },
+    {
+      "name": "VestingFactory",
+      "artifact": "VestingFactory",
+      "address": "0x1808852Ce3EBbD2242174Eea672498a384108E2d",
+      "nonce": 5,
+      "transactionHash": "0x2e2395f0c644115be7448ed89e9bff6d398c41d25d84cfcc378828de5d783573",
+      "blockNumber": 37470298,
+      "runtimeCodeHash": "0xbc8ee0e53dfb236bec286a997d359756ce148eea3e993badf33276338b6ba05b",
+      "runtimeCodeBytes": 5063
+    },
+    {
+      "name": "LiquidityLocker",
+      "artifact": "LiquidityLocker",
+      "address": "0xEfE43FB51a3219B35Ffc30e508e14003752fc18f",
+      "nonce": 6,
+      "transactionHash": "0xea24c03b45d12e593c2810924182f886bb18f68b3875f53b0a740a2ad2162c65",
+      "blockNumber": 37470310,
+      "runtimeCodeHash": "0xfdc7fd0b58f639d13cfcd85e2a9016a2868e34f7e0b838a7041da74655684f2e",
+      "runtimeCodeBytes": 3056
+    },
+    {
+      "name": "TheLedger",
+      "artifact": "TheLedger",
+      "address": "0xEdf195A557EaAE7829f867d6f84316908A65D9B1",
+      "nonce": 7,
+      "transactionHash": "0xd1c73664837c4a6ce815eb881702613cdf1da2198e86e0ce4f2b791e5ebcbed2",
+      "blockNumber": 37470321,
+      "runtimeCodeHash": "0xb38bbaf2013d8bd74a39e8c694447584bec8b769e3c413c4f3c2b6dc07caedea",
+      "runtimeCodeBytes": 2443
+    },
+    {
+      "name": "Disperse",
+      "artifact": "Disperse",
+      "address": "0x80Cc00444Ac78959520052A3333184C5E81B0EA5",
+      "nonce": 8,
+      "transactionHash": "0x411fafb1b5e316bd208bfa6ece28c140a38be9bd99f58c88a5e9b4023b86cb49",
+      "blockNumber": 37470332,
+      "runtimeCodeHash": "0x3d19fdbea7e6b60dec9ecffea62c0687d91b60df6f056fcd68fba43e17b741d2",
+      "runtimeCodeBytes": 1815
+    },
+    {
+      "name": "ILOFactory",
+      "artifact": "ILOFactory",
+      "address": "0x412e29e77500752A7B62489c0FaAE6560E8c4380",
+      "nonce": 9,
+      "transactionHash": "0xcf450912ad04dac840e9d873a63a0390a64383ad369077775ba9eda7d0fb5510",
+      "blockNumber": 37470343,
+      "runtimeCodeHash": "0x430609f2e1e5a64005233b6f544c07efb59f0d4bcb2ad1e5247b199545ad0f36",
+      "runtimeCodeBytes": 13849
+    },
+    {
+      "name": "LitGovToken",
+      "artifact": "LitGovToken",
+      "address": "0x7c1A67Ec89c22b8a738DD881289576102306219C",
+      "nonce": 10,
+      "transactionHash": "0x2ba30ba8358c09497ed5dd1aaa5bd8faa1c002fc94e9438dd287d3b858580f3f",
+      "blockNumber": 37470355,
+      "runtimeCodeHash": "0x1066a45c810ec97f18b3e0420ae41390f329e74664c92c36692b4f4e51fa3784",
+      "runtimeCodeBytes": 8853
+    },
+    {
+      "name": "LitTimelock",
+      "artifact": "LitTimelock",
+      "address": "0x17Ddf4d2e7C0789f600d4f7182785e9E193b44aA",
+      "nonce": 11,
+      "transactionHash": "0xf6a4cd52202c4eb90daf9ee65835b7a9cfd3b158a9a840008ebfefc583cf1162",
+      "blockNumber": 37470367,
+      "runtimeCodeHash": "0xf7810a7272d5e497ccfef52a25c88ccfafd18ed75db24b0dcd0710292e68a2e0",
+      "runtimeCodeBytes": 5515
+    },
+    {
+      "name": "LitGovernor",
+      "artifact": "LitGovernor",
+      "address": "0x05e29e239C6e40EcF9639781bba5D558b9f98305",
+      "nonce": 12,
+      "transactionHash": "0xc140e5455600f9d9d49544f0bf3c3beb80d22a88aedc35f322c9bc1f83df7117",
+      "blockNumber": 37470378,
+      "runtimeCodeHash": "0xa68c4a59d1fba143d1f224ff15604a6fd2eea92afe54b2edc757474001e68989",
+      "runtimeCodeBytes": 9691
+    }
+  ],
+  "verifiedAtBlock": 37470382
+}

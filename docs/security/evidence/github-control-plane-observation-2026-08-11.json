@@ -1,0 +1,109 @@
+{
+  "kind": "lester-labs-github-control-plane-observation",
+  "schemaVersion": 1,
+  "observedAt": "2026-08-11T06:29:15Z",
+  "repository": "jh005479-sudo/lester-labs",
+  "observer": "authenticated repository inspection and release-control configuration with gh as jh005479-sudo",
+  "scope": "Repository-visible configuration only; this is not account recovery approval or proof that historical access was benign.",
+  "repositoryConfiguration": {
+    "visibility": "public",
+    "defaultBranch": "main",
+    "branchProtection": {
+      "strictStatusChecks": [
+        "Immutable install, audit, and tests",
+        "JavaScript and TypeScript",
+        "Reject vulnerable dependency changes",
+        "CodeQL"
+      ],
+      "requiredApprovalCount": 1,
+      "dismissStaleReviews": true,
+      "lastPusherCannotApprove": true,
+      "administratorsEnforced": true,
+      "conversationResolutionRequired": true,
+      "forcePushesAllowed": false,
+      "deletionsAllowed": false
+    },
+    "mergeCommitEnabled": true,
+    "squashMergeEnabled": false,
+    "rebaseMergeEnabled": false,
+    "defaultWorkflowPermissions": "read",
+    "workflowsCanApprovePullRequests": false,
+    "actionsEnabled": true,
+    "allowedActions": "all",
+    "actionShaPinningRequiredByGitHub": false
+  },
+  "repositoryAccess": {
+    "collaborators": [
+      {
+        "login": "jh005479-sudo",
+        "role": "admin"
+      }
+    ],
+    "pendingInvitations": [],
+    "deployKeys": [],
+    "webhooks": [],
+    "repositoryActionSecrets": [],
+    "repositoryActionVariables": []
+  },
+  "releaseEnvironments": {
+    "created": [
+      "frontend-emergency-containment",
+      "frontend-production-promotion",
+      "frontend-release-operations",
+      "frontend-release-source-security",
+      "frontend-vantage-eu",
+      "frontend-vantage-us",
+      "frontend-vercel-automatic-rollback",
+      "frontend-vercel-promotion-executor",
+      "frontend-vercel-provider-canary",
+      "frontend-vercel-rollback",
+      "frontend-vercel-staged-parity",
+      "frontend-vercel-staging"
+    ],
+    "allCreatedEnvironmentsRestrictedToProtectedBranches": true,
+    "requiredReviewersConfigured": false,
+    "longLivedSecretsConfigured": false,
+    "productionVariableNamesConfigured": [
+      "frontend-vercel-provider-canary:VERCEL_CANARY_PROJECT_ID",
+      "frontend-vercel-provider-canary:VERCEL_CANARY_PROJECT_NAME",
+      "frontend-vercel-provider-canary:VERCEL_CANARY_TEAM_ID",
+      "frontend-vercel-provider-canary:VERCEL_PRODUCTION_PROJECT_ID",
+      "frontend-vercel-staging:VERCEL_PRODUCTION_PROJECT_ID",
+      "frontend-vercel-staging:VERCEL_PRODUCTION_PROJECT_NAME",
+      "frontend-vercel-staging:VERCEL_PRODUCTION_TEAM_ID"
+    ],
+    "canaryProjectVariablesConfigured": true
+  },
+  "securityFeatures": {
+    "secretScanning": "enabled",
+    "secretScanningPushProtection": "enabled",
+    "secretScanningNonProviderPatterns": "disabled",
+    "secretScanningValidityChecks": "disabled",
+    "openSecretScanningAlerts": 0,
+    "dependabotAlerts": "enabled",
+    "dependabotSecurityUpdates": "disabled",
+    "openCodeScanningAlerts": 0
+  },
+  "integrationCandidate": {
+    "pullRequest": 39,
+    "head": "3bd052d1cb4ec6a4b827e41a7590aeb867020112",
+    "statusChecks": "PASSING",
+    "reviewDecision": "REVIEW_REQUIRED",
+    "mergeState": "BLOCKED"
+  },
+  "notVerifiedByThisObservation": [
+    "GitHub login sessions and security log",
+    "personal access tokens and fine-grained token grants",
+    "OAuth applications and GitHub App installations",
+    "account recovery methods and recovery codes",
+    "SSH authentication keys, SSH signing keys, and GPG keys",
+    "historical collaborators, hooks, deploy keys, secrets, variables, environment changes, and deleted workflow runs"
+  ],
+  "releaseBlockingFindings": [
+    "No independent collaborator exists to approve pull request 39 or protected release environments.",
+    "Required environment reviewers and no-self-review rules cannot be configured until an eligible collaborator is added.",
+    "Distinct short-lived Vercel environment credentials are not configured.",
+    "The EU and US vantage environments do not yet have independently administered runners and egress.",
+    "Account sessions, credentials, installed applications, and historical audit events still require account-owner review from a trusted session."
+  ]
+}

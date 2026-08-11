@@ -1,34 +1,58 @@
 {
   "name": "contracts",
   "version": "1.0.0",
+  "packageManager": "npm@11.16.0",
   "description": "Solidity smart contracts for the Lester-Labs DeFi toolkit, built with Hardhat + OpenZeppelin.",
   "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
+    "attest:replacements": "REPLACEMENT_DEPLOYMENT_PROFILE=production-separated-authority node scripts/attest_replacement_build.mjs",
+    "attest:replacements:disposable-testnet": "REPLACEMENT_DEPLOYMENT_PROFILE=testnet-immutable-disposable node scripts/attest_replacement_build.mjs",
     "test": "hardhat test",
-    "deploy:arbitrum-sepolia": "hardhat run scripts/deploy.ts --network arbitrumSepolia",
-    "deploy:litvm": "hardhat run scripts/deploy.ts --network litvm",
-    "deploy:uniswap:litvm": "hardhat run scripts/deploy_uniswap_v2.ts --network litvm",
-    "deploy:connector:litvm": "hardhat run scripts/deploy_connector.ts --network litvm",
-    "audit:child-authority:litvm": "hardhat run scripts/audit_live_child_authority.ts --network litvm",
-    "rotate:treasury:litvm": "hardhat run scripts/rotate_live_treasury.ts --network litvm",
-    "verify:treasury:litvm": "hardhat run scripts/verify_live_treasury.ts --network litvm"
+    "deploy:arbitrum-sepolia": "hardhat run --no-compile scripts/deploy.ts --network arbitrumSepolia",
+    "deploy:litvm": "REPLACEMENT_DEPLOYMENT_PROFILE=production-separated-authority hardhat run --no-compile scripts/deploy_post_compromise_replacements.ts --network litvm",
+    "deploy:litvm:disposable-testnet": "REPLACEMENT_DEPLOYMENT_PROFILE=testnet-immutable-disposable hardhat run --no-compile scripts/deploy_post_compromise_replacements.ts --network litvm",
+    "verify:replacements:litvm": "REPLACEMENT_DEPLOYMENT_PROFILE=production-separated-authority hardhat run --no-compile scripts/verify_post_compromise_replacements.ts --network litvm",
+    "verify:production-authorities:litvm": "hardhat run --no-compile scripts/verify_production_authorities.ts --network litvm",
+    "export:public-frontend:litvm": "REPLACEMENT_DEPLOYMENT_PROFILE=production-separated-authority hardhat run --no-compile scripts/export_public_frontend_replacement.ts --network litvm",
+    "verify:replacements:disposable-testnet": "REPLACEMENT_DEPLOYMENT_PROFILE=testnet-immutable-disposable hardhat run --no-compile scripts/verify_post_compromise_replacements.ts --network litvm",
+    "deploy:uniswap:litvm": "hardhat run --no-compile scripts/deploy_uniswap_v2.ts --network litvm",
+    "deploy:connector:litvm": "hardhat run --no-compile scripts/deploy_connector.ts --network litvm",
+    "deploy:governance:litvm": "hardhat run --no-compile scripts/deploy_governance.ts --network litvm",
+    "test:governance-fork": "hardhat run scripts/test_governance_fork.ts --network localhost",
+    "pools:create:litvm": "hardhat run scripts/create_pools.ts --network litvm",
+    "sweep:litvm": "hardhat run --no-compile scripts/sweepFees.ts --network litvm",
+    "audit:child-authority:litvm": "hardhat run --no-compile scripts/audit_live_child_authority.ts --network litvm",
+    "rotate:treasury:litvm": "hardhat run --no-compile scripts/rotate_live_treasury.ts --network litvm",
+    "verify:treasury:litvm": "hardhat run --no-compile scripts/verify_live_treasury.ts --network litvm"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
+    "@nomicfoundation/hardhat-ethers": "4.0.15",
+    "@nomicfoundation/hardhat-ethers-chai-matchers": "3.0.11",
+    "@nomicfoundation/hardhat-mocha": "3.0.21",
+    "@nomicfoundation/hardhat-network-helpers": "3.0.11",
     "@openzeppelin/contracts": "5.1.0",
-    "@types/node": "^25.5.0",
-    "dotenv": "^17.3.1",
-    "hardhat": "^2.28.6",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "@types/chai": "5.2.3",
+    "@types/mocha": "10.0.10",
+    "@types/node": "25.5.0",
+    "chai": "6.2.2",
+    "ethers": "6.17.0",
+    "hardhat": "3.11.1",
+    "mocha": "11.3.0",
+    "typescript": "5.9.3"
   },
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
-    "@uniswap/v2-core": "^1.0.1",
-    "@uniswap/v2-periphery": "^1.1.0-beta.0"
+    "@uniswap/v2-core": "1.0.1",
+    "@uniswap/v2-periphery": "1.1.0-beta.0"
+  },
+  "overrides": {
+    "adm-zip": "0.6.0",
+    "brace-expansion": "2.1.4",
+    "glob": "13.0.6",
+    "serialize-javascript": "7.0.5"
   }
 }

@@ -1,0 +1,19 @@
+{
+  "kind": "metamask-eth-phishing-detect-public-list-observation",
+  "schemaVersion": 1,
+  "observedAt": "2026-08-10T22:18:13Z",
+  "method": "Interactive checks in MetaMask's official eth-phishing-detect utility",
+  "utilityUrl": "https://metamask.github.io/eth-phishing-detect/",
+  "queries": [
+    {
+      "input": "https://lester-labs.com/",
+      "result": "This domain is not blocked! No problem here."
+    },
+    {
+      "input": "https://www.lester-labs.com/",
+      "result": "This domain is not blocked! No problem here."
+    }
+  ],
+  "interpretation": "Neither hostname was present in the public eth-phishing-detect block list at observation time. This does not clear or contradict the separately observed MetaMask dapp-scanner BLOCK/critical DRAINER classification, which uses a different classification surface.",
+  "limitations": "This is an unauthenticated point-in-time public-list observation. It is not an appeal decision, transaction simulation, historical result, or proof that any served artifact, contract, registrar account, or hosting account is safe."
+}

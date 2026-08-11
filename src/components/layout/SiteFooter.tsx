@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 const toolLinks = [
   { href: '/swap', label: 'Swap' },
@@ -28,11 +29,11 @@ export function SiteFooter() {
       <div className="footer-inner">
         <div className="footer-brand">
           <p className="logo">Lester<span>Labs</span></p>
-          <p className="desc">The DeFi utility suite for LitVM.</p>
+          <p className="desc">{PUBLIC_RELEASE_STATUS.footer}</p>
         </div>
         <div className="footer-cols">
           <div className="footer-col">
-            <h4>Tools</h4>
+            <h4>Status &amp; recovery</h4>
             {toolLinks.map(({ href, label }) => (
               <Link key={href} href={href} prefetch={false}>{label}</Link>
             ))}
@@ -47,8 +48,9 @@ export function SiteFooter() {
             <h4>Developers</h4>
             <Link href="/docs" prefetch={false}>Docs</Link>
             <Link href="/tutorials" prefetch={false}>Tutorials</Link>
+            <Link href="/security" prefetch={false}>Security status</Link>
             <Link href="/governance" prefetch={false}>Governance</Link>
-            <a href="https://www.litvm.com/" target="_blank" rel="noopener noreferrer">Built for LitVM</a>
+            <a href="https://www.litvm.com/" target="_blank" rel="noopener noreferrer">LitVM website</a>
           </div>
           <div className="footer-col">
             <h4>Community</h4>
@@ -57,8 +59,8 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="footer-bottom">
-        <span>© 2026 Lester Labs. Built on LitVM.</span>
-        <span>Unaudited testnet. Not financial advice.</span>
+        <span>© 2026 Lester Labs. Independent testnet software.</span>
+        <span>Not affiliated with or endorsed by Litecoin, LitVM, Caldera, or MetaMask. No rewards promised.</span>
       </div>
     </footer>
   )

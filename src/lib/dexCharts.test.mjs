@@ -3,7 +3,6 @@ import { describe, it } from 'node:test'
 
 import {
   UNISWAP_V2_SYNC_TOPIC,
-  buildReserveHistory,
   calculateTokenPriceInQuote,
   formatCompactUsd,
   getNextPairScanCount,
@@ -46,16 +45,6 @@ describe('calculateTokenPriceInQuote', () => {
     })
 
     assert.equal(price, 4)
-  })
-})
-
-describe('buildReserveHistory', () => {
-  it('creates a stable fallback line when only current reserves are available', () => {
-    const rows = buildReserveHistory(2.5, 6)
-
-    assert.equal(rows.length, 6)
-    assert.equal(rows.at(-1)?.price, 2.5)
-    assert.equal(rows.every((row) => typeof row.time === 'string'), true)
   })
 })
 

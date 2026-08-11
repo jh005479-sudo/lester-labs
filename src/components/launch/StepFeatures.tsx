@@ -65,7 +65,7 @@ export function StepFeatures({ values, onChange }: StepFeaturesProps) {
         <FeatureToggle
           id="burnable"
           label="Burnable"
-          description="Token holders can permanently destroy their tokens"
+          description="Token holders can irreversibly reduce their balance and total supply"
           checked={values.burnable}
           onCheckedChange={(v) => set('burnable', v)}
         />
@@ -82,7 +82,7 @@ export function StepFeatures({ values, onChange }: StepFeaturesProps) {
         <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
           <TriangleAlert size={16} className="mt-0.5 text-amber-300" />
           <p className="text-sm text-amber-300">
-            Mintable tokens may be viewed as higher risk by investors
+            Mintable supply requires clear owner disclosure and independent review
           </p>
         </div>
       )}

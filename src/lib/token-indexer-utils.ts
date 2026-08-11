@@ -37,3 +37,17 @@ export function inferFactoryProvenance(item: {
     ? 'verified'
     : 'unknown'
 }
+
+export function getGovernanceTokenPresentation(deploymentStatus: string) {
+  return deploymentStatus === 'reviewed-post-compromise-active'
+    ? {
+        namePrefix: '',
+        description: 'Source-pinned post-compromise Lester Labs governance token',
+        isEcosystem: true,
+      }
+    : {
+        namePrefix: 'Retired legacy ',
+        description: 'Retired compromised legacy governance token — read-only historical reference, not canonical',
+        isEcosystem: false,
+      }
+}

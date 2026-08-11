@@ -17,7 +17,7 @@ import {
 import {
   hasApprovedLesterControl,
   isCanonicalLitvmContract,
-  LESTER_TREASURY_ADDRESS,
+  LESTER_TREASURY_STATUS,
   LITVM_TESTNET_CONTRACTS,
 } from '@/config/contracts'
 import { litvm } from '@/config/chains'
@@ -423,7 +423,7 @@ export function VestingForm() {
     if (!factoryControlApproved) {
       setModalOpen(true)
       setTxStatus('error')
-      setTxMessage(`${action} is disabled until the live Vesting Factory owner is verified as ${LESTER_TREASURY_ADDRESS}.`)
+      setTxMessage(`${action} is disabled because ${LESTER_TREASURY_STATUS}.`)
       return false
     }
 
@@ -589,8 +589,8 @@ export function VestingForm() {
       {isCanonicalVestingFactory && !factoryControlApproved && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
           {isOwnerLoading
-            ? 'Verifying the live Vesting Factory owner before enabling paid schedules…'
-            : `Paid vesting actions are disabled until the Vesting Factory owner is verified as ${LESTER_TREASURY_ADDRESS}.`}
+            ? 'Checking the configured Vesting Factory owner; new paid schedules remain unavailable…'
+            : `Paid vesting actions are disabled because ${LESTER_TREASURY_STATUS}.`}
         </div>
       )}
 
@@ -779,13 +779,13 @@ export function VestingForm() {
                 disabled={!canReview}
                 className="rounded-lg bg-[var(--accent)] px-7 py-2.5 text-sm font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Review & Deploy →
+                Review Readiness →
               </button>
             )}
           </div>
         </>
       ) : (
-        /* ── Section 3: Review & Deploy ── */
+        /* ── Section 3: Review readiness ── */
         <div className="space-y-5">
           {/* Summary card */}
           <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
@@ -854,16 +854,17 @@ export function VestingForm() {
 
           {/* Fee (RP-003: live fee from contract) */}
           <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-4 flex items-center justify-between">
-            <span className="text-sm text-white/60">Platform fee</span>
+            <span className="text-sm text-white/60">Configured factory fee</span>
             <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.03} feeLabel="Fee" />
           </div>
 
-          {/* Two-step deploy */}
+          {/* Two-step write flow */}
           <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6 space-y-4">
-            <h2 className="text-base font-semibold text-white">Deploy</h2>
+            <h2 className="text-base font-semibold text-white">Write Status</h2>
             <p className="text-sm text-white/50">
-              Two transactions required: first approve the token transfer, then create the vesting
-              schedule.
+              {paidActionReady
+                ? 'The activated replacement uses two transactions: token approval, then schedule creation.'
+                : 'Do not approve a token transfer or schedule transaction while post-compromise containment is active.'}
             </p>
 
             {isWrongNetwork && (
@@ -872,7 +873,14 @@ export function VestingForm() {
               </div>
             )}
 
-            {isWrongNetwork ? (
+            {!paidActionReady ? (
+              <button
+                disabled
+                className="w-full rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                New Vesting Schedules Disabled
+              </button>
+            ) : isWrongNetwork ? (
               <button
                 onClick={handleSwitchNetwork}
                 disabled={isSwitchingChain}

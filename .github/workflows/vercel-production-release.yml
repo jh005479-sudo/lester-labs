@@ -1,0 +1,1016 @@
+name: Exact Vercel staged production release
+
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_commit:
+        description: Exact lowercase commit on protected main
+        required: true
+        type: string
+      release_kind:
+        description: Exact signed artifact to stage and promote
+        required: true
+        type: choice
+        options:
+          - emergency-static
+          - next-standalone-container
+      attestation_run_id:
+        description: Exact successful source-attestation workflow run ID
+        required: true
+        type: string
+      provider_canary_run_id:
+        description: Exact successful canary run for these provider input bytes
+        required: true
+        type: string
+      safe_rollback_commit:
+        description: Exact prior SAFE_CONTAINMENT emergency commit, or none for initial emergency containment
+        required: true
+        default: none
+        type: string
+      safe_rollback_run_id:
+        description: Exact successful prior emergency production run, or none for initial emergency containment
+        required: true
+        default: none
+        type: string
+      maximum_upload_bytes:
+        description: Explicit provider upload cap, at most 536870912
+        required: true
+        default: "268435456"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-production-release
+  cancel-in-progress: false
+
+jobs:
+  validate-inputs:
+    name: Validate protected source and exact evidence runs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      reviewed_commit: ${{ steps.validate.outputs.reviewed_commit }}
+      release_kind: ${{ steps.validate.outputs.release_kind }}
+      attestation_run_id: ${{ steps.validate.outputs.attestation_run_id }}
+      attestation_run_attempt: ${{ steps.validate.outputs.attestation_run_attempt }}
+      provider_canary_run_id: ${{ steps.validate.outputs.provider_canary_run_id }}
+      provider_canary_run_attempt: ${{ steps.validate.outputs.provider_canary_run_attempt }}
+      maximum_upload_bytes: ${{ steps.validate.outputs.maximum_upload_bytes }}
+      release_artifact_name: ${{ steps.validate.outputs.release_artifact_name }}
+      source_signer_workflow: ${{ steps.validate.outputs.source_signer_workflow }}
+      canary_artifact_name: ${{ steps.validate.outputs.canary_artifact_name }}
+      safe_rollback_commit: ${{ steps.validate.outputs.safe_rollback_commit }}
+      safe_rollback_run_id: ${{ steps.validate.outputs.safe_rollback_run_id }}
+      safe_rollback_run_attempt: ${{ steps.validate.outputs.safe_rollback_run_attempt }}
+      safe_rollback_promotion_artifact_name: ${{ steps.validate.outputs.safe_rollback_promotion_artifact_name }}
+      safe_rollback_parity_artifact_name: ${{ steps.validate.outputs.safe_rollback_parity_artifact_name }}
+    steps:
+      - name: Fail closed before any Vercel credential can be selected
+        id: validate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          RELEASE_KIND: ${{ inputs.release_kind }}
+          ATTESTATION_RUN_ID: ${{ inputs.attestation_run_id }}
+          PROVIDER_CANARY_RUN_ID: ${{ inputs.provider_canary_run_id }}
+          SAFE_ROLLBACK_COMMIT: ${{ inputs.safe_rollback_commit }}
+          SAFE_ROLLBACK_RUN_ID: ${{ inputs.safe_rollback_run_id }}
+          MAXIMUM_UPLOAD_BYTES: ${{ inputs.maximum_upload_bytes }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$REVIEWED_COMMIT" = "$GITHUB_SHA"
+          [[ "$ATTESTATION_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$PROVIDER_CANARY_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          test "$ATTESTATION_RUN_ID" != "$PROVIDER_CANARY_RUN_ID"
+          [[ "$MAXIMUM_UPLOAD_BYTES" =~ ^[1-9][0-9]{0,8}$ ]]
+          test "$MAXIMUM_UPLOAD_BYTES" -le 536870912
+          case "$RELEASE_KIND" in
+            emergency-static)
+              release_artifact_prefix="emergency-containment-$REVIEWED_COMMIT"
+              source_signer_workflow=".github/workflows/emergency-containment-attestation.yml"
+              test "$SAFE_ROLLBACK_COMMIT" = "none"
+              test "$SAFE_ROLLBACK_RUN_ID" = "none"
+              ;;
+            next-standalone-container)
+              release_artifact_prefix="frontend-release-approved-evidence-$REVIEWED_COMMIT"
+              source_signer_workflow=".github/workflows/frontend-release-attestation.yml"
+              [[ "$SAFE_ROLLBACK_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+              [[ "$SAFE_ROLLBACK_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+              test "$SAFE_ROLLBACK_RUN_ID" != "$ATTESTATION_RUN_ID"
+              test "$SAFE_ROLLBACK_RUN_ID" != "$PROVIDER_CANARY_RUN_ID"
+              ;;
+            *) exit 1 ;;
+          esac
+          gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$ATTESTATION_RUN_ID" \
+            > "$RUNNER_TEMP/source-run.json"
+          gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$PROVIDER_CANARY_RUN_ID" \
+            > "$RUNNER_TEMP/canary-run.json"
+          if test "$RELEASE_KIND" = "next-standalone-container"; then
+            gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$SAFE_ROLLBACK_RUN_ID" \
+              > "$RUNNER_TEMP/safe-rollback-run.json"
+          fi
+          run_attempts="$(node --input-type=module - "$RUNNER_TEMP/source-run.json" \
+            "$RUNNER_TEMP/canary-run.json" "$REVIEWED_COMMIT" "$source_signer_workflow" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const [sourcePath, canaryPath, commit, sourceWorkflow] = process.argv.slice(2);
+          const source = JSON.parse(readFileSync(sourcePath, "utf8"));
+          const canary = JSON.parse(readFileSync(canaryPath, "utf8"));
+          const now = Date.now();
+          const matches = (run, workflow) => (
+            run.head_sha === commit &&
+            run.head_branch === "main" &&
+            run.event === "workflow_dispatch" &&
+            run.status === "completed" &&
+            run.conclusion === "success" &&
+            run.path === workflow &&
+            Number.isSafeInteger(run.run_attempt) &&
+            run.run_attempt >= 1 &&
+            Number.isFinite(Date.parse(run.created_at)) &&
+            Number.isFinite(Date.parse(run.updated_at)) &&
+            Date.parse(run.created_at) <= Date.parse(run.updated_at) &&
+            Date.parse(run.updated_at) <= now
+          );
+          if (!matches(source, sourceWorkflow)) throw new Error("Source-attestation run is not the exact successful reviewed run.");
+          if (!matches(canary, ".github/workflows/vercel-provider-canary.yml")) {
+            throw new Error("Provider-canary run is not the exact successful reviewed run.");
+          }
+          if (now - Date.parse(source.updated_at) > 24 * 60 * 60 * 1000) {
+            throw new Error("Source-attestation run is older than 24 hours.");
+          }
+          if (now - Date.parse(canary.updated_at) > 6 * 60 * 60 * 1000) {
+            throw new Error("Provider-canary run is older than six hours.");
+          }
+          process.stdout.write(`${source.run_attempt}\t${canary.run_attempt}`);
+          NODE
+          )"
+          IFS=$'\t' read -r source_run_attempt canary_run_attempt <<< "$run_attempts"
+          [[ "$source_run_attempt" =~ ^[1-9][0-9]{0,5}$ ]]
+          [[ "$canary_run_attempt" =~ ^[1-9][0-9]{0,5}$ ]]
+          release_artifact_name="$release_artifact_prefix-$ATTESTATION_RUN_ID-$source_run_attempt"
+          canary_artifact_name="vercel-provider-canary-$RELEASE_KIND-$REVIEWED_COMMIT-$PROVIDER_CANARY_RUN_ID-$canary_run_attempt"
+          safe_rollback_run_attempt="none"
+          safe_rollback_promotion_artifact_name="none"
+          safe_rollback_parity_artifact_name="none"
+          if test "$RELEASE_KIND" = "next-standalone-container"; then
+            safe_rollback_run_attempt="$(node --input-type=module - \
+              "$RUNNER_TEMP/safe-rollback-run.json" "$SAFE_ROLLBACK_COMMIT" <<'NODE'
+            import { readFileSync } from "node:fs";
+            const [path, commit] = process.argv.slice(2);
+            const run = JSON.parse(readFileSync(path, "utf8"));
+            if (
+              run.head_sha !== commit || run.head_branch !== "main" ||
+              run.event !== "workflow_dispatch" || run.status !== "completed" ||
+              run.conclusion !== "success" ||
+              run.path !== ".github/workflows/vercel-production-release.yml" ||
+              !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1
+            ) throw new Error("Safe rollback run is not the exact successful emergency production workflow.");
+            process.stdout.write(String(run.run_attempt));
+            NODE
+            )"
+            [[ "$safe_rollback_run_attempt" =~ ^[1-9][0-9]{0,5}$ ]]
+            safe_rollback_promotion_artifact_name="vercel-promotion-emergency-static-$SAFE_ROLLBACK_COMMIT-$SAFE_ROLLBACK_RUN_ID-$safe_rollback_run_attempt"
+            safe_rollback_parity_artifact_name="emergency-parity-comparison-$SAFE_ROLLBACK_COMMIT-$SAFE_ROLLBACK_RUN_ID-$safe_rollback_run_attempt"
+          fi
+          {
+            printf 'reviewed_commit=%s\n' "$REVIEWED_COMMIT"
+            printf 'release_kind=%s\n' "$RELEASE_KIND"
+            printf 'attestation_run_id=%s\n' "$ATTESTATION_RUN_ID"
+            printf 'attestation_run_attempt=%s\n' "$source_run_attempt"
+            printf 'provider_canary_run_id=%s\n' "$PROVIDER_CANARY_RUN_ID"
+            printf 'provider_canary_run_attempt=%s\n' "$canary_run_attempt"
+            printf 'maximum_upload_bytes=%s\n' "$MAXIMUM_UPLOAD_BYTES"
+            printf 'release_artifact_name=%s\n' "$release_artifact_name"
+            printf 'source_signer_workflow=%s\n' "$source_signer_workflow"
+            printf 'canary_artifact_name=%s\n' "$canary_artifact_name"
+            printf 'safe_rollback_commit=%s\n' "$SAFE_ROLLBACK_COMMIT"
+            printf 'safe_rollback_run_id=%s\n' "$SAFE_ROLLBACK_RUN_ID"
+            printf 'safe_rollback_run_attempt=%s\n' "$safe_rollback_run_attempt"
+            printf 'safe_rollback_promotion_artifact_name=%s\n' "$safe_rollback_promotion_artifact_name"
+            printf 'safe_rollback_parity_artifact_name=%s\n' "$safe_rollback_parity_artifact_name"
+          } >> "$GITHUB_OUTPUT"
+
+  stage:
+    name: Stage exact signed bytes without production aliases
+    needs: validate-inputs
+    runs-on: ubuntu-24.04
+    environment: frontend-vercel-staging
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      deployment_id: ${{ steps.stage-identity.outputs.deployment_id }}
+      deployment_url: ${{ steps.stage-identity.outputs.deployment_url }}
+      prior_deployment_id: ${{ steps.stage-identity.outputs.prior_deployment_id }}
+    steps:
+      - name: Check out the exact reviewed adapter
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Use the exact reviewed Node runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          package-manager-cache: false
+
+      - name: Re-enforce protected main and reviewed target identifiers
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          MAXIMUM_UPLOAD_BYTES: ${{ needs.validate-inputs.outputs.maximum_upload_bytes }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+          TEAM_ID: ${{ vars.VERCEL_PRODUCTION_TEAM_ID }}
+          PROJECT_ID: ${{ vars.VERCEL_PRODUCTION_PROJECT_ID }}
+          PROJECT_NAME: ${{ vars.VERCEL_PRODUCTION_PROJECT_NAME }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(uname -m)" = "x86_64"
+          test "$(node --version)" = "v24.18.0"
+          [[ "$MAXIMUM_UPLOAD_BYTES" =~ ^[1-9][0-9]{0,8}$ ]]
+          test "$MAXIMUM_UPLOAD_BYTES" -le 536870912
+          [[ "$TEAM_ID" =~ ^team_[A-Za-z0-9]{8,80}$ ]]
+          [[ "$PROJECT_ID" =~ ^prj_[A-Za-z0-9]{8,80}$ ]]
+          [[ "$PROJECT_NAME" =~ ^[a-z0-9]([a-z0-9-]{0,98}[a-z0-9])?$ ]]
+          case "$RELEASE_KIND" in emergency-static|next-standalone-container) ;; *) exit 1 ;; esac
+
+      - name: Download the exact source-attested package
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: ${{ needs.validate-inputs.outputs.release_artifact_name }}
+          path: ${{ runner.temp }}/signed-release
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.attestation_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download the exact provider-canary package
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: ${{ needs.validate-inputs.outputs.canary_artifact_name }}
+          path: ${{ runner.temp }}/provider-canary
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.provider_canary_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download the exact prior safe-containment promotion
+        if: ${{ needs.validate-inputs.outputs.release_kind == 'next-standalone-container' }}
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: ${{ needs.validate-inputs.outputs.safe_rollback_promotion_artifact_name }}
+          path: ${{ runner.temp }}/safe-rollback
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.safe_rollback_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download the exact prior safe-containment served parity
+        if: ${{ needs.validate-inputs.outputs.release_kind == 'next-standalone-container' }}
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: ${{ needs.validate-inputs.outputs.safe_rollback_parity_artifact_name }}
+          path: ${{ runner.temp }}/safe-rollback
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.safe_rollback_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify the canary and every source subject before token use
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+        run: |
+          set -euo pipefail
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          verify_subject() {
+            subject="$1"
+            bundle="$2"
+            signer="$3"
+            gh attestation verify "$subject" \
+              --repo jh005479-sudo/lester-labs --bundle "$bundle" \
+              --signer-workflow "github.com/jh005479-sudo/lester-labs/$signer" \
+              --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
+              --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
+              --format json >/dev/null
+          }
+          release="$RUNNER_TEMP/signed-release"
+          canary="$RUNNER_TEMP/provider-canary"
+          verify_subject "$canary/provider-canary.json" "$canary/provider-canary.provenance.jsonl" \
+            .github/workflows/vercel-provider-canary.yml
+          if test "$RELEASE_KIND" = "emergency-static"; then
+            verify_subject "$release/emergency-containment.inventory.json" \
+              "$release/emergency-containment.inventory.provenance.jsonl" \
+              .github/workflows/emergency-containment-attestation.yml
+            verify_subject "$release/emergency-containment.tar" \
+              "$release/emergency-containment.archive.provenance.jsonl" \
+              .github/workflows/emergency-containment-attestation.yml
+          else
+            bundle="$release/github-sigstore-provenance.jsonl"
+            for subject in frontend-release-candidate.json application.cdx.json reproducibility.json \
+              frontend-standalone.tar deployment-payload.inventory.json; do
+              verify_subject "$release/$subject" "$bundle" \
+                .github/workflows/frontend-release-attestation.yml
+            done
+            verify_subject "$release/source-security-approval.json" \
+              "$release/source-security-approval.provenance.jsonl" \
+              .github/workflows/frontend-release-attestation.yml
+            verify_subject "$release/release-operations-approval.json" \
+              "$release/release-operations-approval.provenance.jsonl" \
+              .github/workflows/frontend-release-attestation.yml
+            verify_subject "$release/approved-manifest.json" \
+              "$release/approved-manifest.provenance.jsonl" \
+              .github/workflows/frontend-release-attestation.yml
+            safe_commit="${{ needs.validate-inputs.outputs.safe_rollback_commit }}"
+            gh attestation verify "$RUNNER_TEMP/safe-rollback/promotion-evidence.json" \
+              --repo jh005479-sudo/lester-labs \
+              --bundle "$RUNNER_TEMP/safe-rollback/promotion-evidence.provenance.jsonl" \
+              --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+              --source-ref refs/heads/main --source-digest "$safe_commit" \
+              --signer-digest "$safe_commit" --deny-self-hosted-runners --format json >/dev/null
+            gh attestation verify "$RUNNER_TEMP/safe-rollback/independent-vantage-comparison.json" \
+              --repo jh005479-sudo/lester-labs \
+              --bundle "$RUNNER_TEMP/safe-rollback/independent-vantage-comparison.provenance.jsonl" \
+              --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/emergency-served-parity.yml \
+              --source-ref refs/heads/main --source-digest "$safe_commit" \
+              --signer-digest "$safe_commit" --deny-self-hosted-runners --format json >/dev/null
+          fi
+
+      - name: Stage through the reviewed dependency-free REST adapter
+        id: stage-operation
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_STAGING_TOKEN }}
+          RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          MAXIMUM_UPLOAD_BYTES: ${{ needs.validate-inputs.outputs.maximum_upload_bytes }}
+          TEAM_ID: ${{ vars.VERCEL_PRODUCTION_TEAM_ID }}
+          PROJECT_ID: ${{ vars.VERCEL_PRODUCTION_PROJECT_ID }}
+          PROJECT_NAME: ${{ vars.VERCEL_PRODUCTION_PROJECT_NAME }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/vercel-stage-evidence"
+          common=(
+            --release-dir "$RUNNER_TEMP/signed-release"
+            --team-id "$TEAM_ID"
+            --project-id "$PROJECT_ID"
+            --project-name "$PROJECT_NAME"
+            --maximum-upload-bytes "$MAXIMUM_UPLOAD_BYTES"
+            --provider-canary-evidence "$RUNNER_TEMP/provider-canary/provider-canary.json"
+            --provider-canary-provenance "$RUNNER_TEMP/provider-canary/provider-canary.provenance.jsonl"
+            --workflow-run-id "$GITHUB_RUN_ID"
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT"
+            --source-attestation-run-id "${{ needs.validate-inputs.outputs.attestation_run_id }}"
+            --source-attestation-run-attempt "${{ needs.validate-inputs.outputs.attestation_run_attempt }}"
+            --provider-canary-run-id "${{ needs.validate-inputs.outputs.provider_canary_run_id }}"
+            --provider-canary-run-attempt "${{ needs.validate-inputs.outputs.provider_canary_run_attempt }}"
+            --output "$GITHUB_WORKSPACE/vercel-stage-evidence/stage-evidence.json"
+          )
+          if test "$RELEASE_KIND" = "emergency-static"; then
+            node scripts/security/vercel-rest-release.mjs stage-emergency \
+              "${common[@]}" --source-dir emergency-site --source-commit "$REVIEWED_COMMIT"
+          else
+            node scripts/security/vercel-rest-release.mjs stage-next "${common[@]}" \
+              --safe-rollback-promotion-evidence "$RUNNER_TEMP/safe-rollback/promotion-evidence.json" \
+              --safe-rollback-promotion-provenance "$RUNNER_TEMP/safe-rollback/promotion-evidence.provenance.jsonl" \
+              --safe-rollback-parity-evidence "$RUNNER_TEMP/safe-rollback/independent-vantage-comparison.json" \
+              --safe-rollback-parity-provenance "$RUNNER_TEMP/safe-rollback/independent-vantage-comparison.provenance.jsonl"
+          fi
+
+      - name: Expose only validated non-secret IDs for the approval prompt
+        id: stage-identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - vercel-stage-evidence/stage-evidence.json "$GITHUB_OUTPUT" <<'NODE'
+          import { appendFileSync, readFileSync } from "node:fs";
+          const [path, output] = process.argv.slice(2);
+          const value = JSON.parse(readFileSync(path, "utf8"));
+          if (
+            !/^dpl_[A-Za-z0-9]{8,96}$/.test(value.deployment?.id ?? "") ||
+            !/^dpl_[A-Za-z0-9]{8,96}$/.test(value.priorDeploymentId ?? "") ||
+            !/^https:\/\/[A-Za-z0-9.-]+\.vercel\.app$/.test(value.deployment?.url ?? "")
+          ) throw new Error("Staged evidence omitted its validated non-secret deployment identities.");
+          appendFileSync(output, `deployment_id=${value.deployment.id}\n`);
+          appendFileSync(output, `deployment_url=${value.deployment.url}\n`);
+          appendFileSync(output, `prior_deployment_id=${value.priorDeploymentId}\n`);
+          NODE
+
+      - name: Sign immutable deployment ID, URL, and rollback disposition
+        id: stage-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: vercel-stage-evidence/stage-evidence.json
+
+      - name: Preserve stage provenance
+        id: preserve-stage-provenance
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.stage-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" vercel-stage-evidence/stage-evidence.provenance.jsonl
+
+      - id: upload-stage-evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vercel-stage-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: vercel-stage-evidence/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Delete the exact staged ID if its evidence pipeline fails
+        id: compensate-stage-failure
+        if: >-
+          ${{ always() && steps.stage-operation.outcome == 'success' &&
+              (steps.stage-identity.outcome != 'success' ||
+               steps.stage-provenance.outcome != 'success' ||
+               steps.preserve-stage-provenance.outcome != 'success' ||
+               steps.upload-stage-evidence.outcome != 'success') }}
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_STAGE_CLEANUP_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/vercel-stage-cleanup"
+          args=(
+            --stage-evidence "$GITHUB_WORKSPACE/vercel-stage-evidence/stage-evidence.json"
+            --output "$GITHUB_WORKSPACE/vercel-stage-cleanup/stage-cleanup-evidence.json"
+          )
+          if test -f "$GITHUB_WORKSPACE/vercel-stage-evidence/stage-evidence.provenance.jsonl"; then
+            args+=(--stage-provenance "$GITHUB_WORKSPACE/vercel-stage-evidence/stage-evidence.provenance.jsonl")
+          fi
+          node scripts/security/vercel-rest-release.mjs cleanup-stage "${args[@]}"
+
+      - name: Sign staged-cleanup evidence
+        id: stage-cleanup-provenance
+        if: ${{ always() && steps.compensate-stage-failure.outcome == 'success' }}
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: vercel-stage-cleanup/stage-cleanup-evidence.json
+
+      - name: Preserve staged-cleanup provenance
+        if: ${{ always() && steps.stage-cleanup-provenance.outcome == 'success' }}
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.stage-cleanup-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          cp -- "$PROVENANCE_BUNDLE" vercel-stage-cleanup/stage-cleanup-evidence.provenance.jsonl
+
+      - name: Preserve staged-cleanup result
+        if: ${{ always() && steps.compensate-stage-failure.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vercel-stage-cleanup-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: vercel-stage-cleanup/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+  staged-parity:
+    name: Prove staged HTTP behavior before final approval
+    needs: [validate-inputs, stage]
+    runs-on: ubuntu-24.04
+    environment:
+      name: frontend-vercel-staged-parity
+      url: ${{ needs.stage.outputs.deployment_url }}
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact reviewed parity verifier
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Use the exact reviewed Node runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          package-manager-cache: false
+
+      - name: Re-enforce protected main before network probes
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(node --version)" = "v24.18.0"
+
+      - name: Download exact source release
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: ${{ needs.validate-inputs.outputs.release_artifact_name }}
+          path: ${{ runner.temp }}/signed-release
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.attestation_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download this run's signed stage identity
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: vercel-stage-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/stage
+
+      - name: Verify exact signed stage identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+        run: |
+          set -euo pipefail
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          gh attestation verify "$RUNNER_TEMP/stage/stage-evidence.json" \
+            --repo jh005479-sudo/lester-labs \
+            --bundle "$RUNNER_TEMP/stage/stage-evidence.provenance.jsonl" \
+            --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+            --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
+            --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
+            --format json >/dev/null
+
+      - name: Request short-lived GitHub identity for Vercel Trusted Sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error \
+            --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL" > "$RUNNER_TEMP/github-oidc.json"
+          oidc_token="$(node --input-type=module - "$RUNNER_TEMP/github-oidc.json" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const value = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          if (typeof value.value !== "string" || value.value.length < 64) process.exit(1);
+          process.stdout.write(value.value);
+          NODE
+          )"
+          printf '::add-mask::%s\n' "$oidc_token"
+          printf 'VERCEL_TRUSTED_OIDC_TOKEN=%s\n' "$oidc_token" >> "$GITHUB_ENV"
+          rm -- "$RUNNER_TEMP/github-oidc.json"
+
+      - name: Verify staged bytes, headers, origins, routes, and inactive interactions
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/vercel-staged-parity"
+          node scripts/security/verify-vercel-staged-parity.mjs \
+            --stage-evidence "$RUNNER_TEMP/stage/stage-evidence.json" \
+            --release-dir "$RUNNER_TEMP/signed-release" \
+            --source-dir emergency-site \
+            --policy src/config/frontendReleasePolicy.json \
+            --expected-source-commit "$REVIEWED_COMMIT" \
+            --output "$GITHUB_WORKSPACE/vercel-staged-parity/staged-parity.json"
+
+      - name: Clear short-lived Trusted Sources identity
+        if: ${{ always() }}
+        shell: bash
+        run: printf 'VERCEL_TRUSTED_OIDC_TOKEN=\n' >> "$GITHUB_ENV"
+
+      - name: Sign staged parity evidence
+        id: parity-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: vercel-staged-parity/staged-parity.json
+
+      - name: Preserve staged parity provenance
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.parity-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" vercel-staged-parity/staged-parity.provenance.jsonl
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vercel-staged-parity-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: vercel-staged-parity/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+  promotion-approval:
+    name: Human approval for ${{ needs.stage.outputs.deployment_id }}
+    needs: [validate-inputs, stage, staged-parity]
+    runs-on: ubuntu-24.04
+    environment:
+      name: frontend-production-promotion
+      url: ${{ needs.stage.outputs.deployment_url }}
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact reviewed approval generator
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Use the exact reviewed Node runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          package-manager-cache: false
+
+      - name: Download signed stage and parity evidence
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          pattern: vercel-stage*-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/reviewed-stage
+          merge-multiple: true
+
+      - name: Verify exact stage and parity signatures after protected approval
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+          STAGE_DEPLOYMENT_ID: ${{ needs.stage.outputs.deployment_id }}
+          STAGE_DEPLOYMENT_URL: ${{ needs.stage.outputs.deployment_url }}
+          PRIOR_DEPLOYMENT_ID: ${{ needs.stage.outputs.prior_deployment_id }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          verify_subject() {
+            gh attestation verify "$1" --repo jh005479-sudo/lester-labs --bundle "$2" \
+              --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+              --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
+              --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
+              --format json >/dev/null
+          }
+          verify_subject "$RUNNER_TEMP/reviewed-stage/stage-evidence.json" \
+            "$RUNNER_TEMP/reviewed-stage/stage-evidence.provenance.jsonl"
+          verify_subject "$RUNNER_TEMP/reviewed-stage/staged-parity.json" \
+            "$RUNNER_TEMP/reviewed-stage/staged-parity.provenance.jsonl"
+          node --input-type=module - "$RUNNER_TEMP/reviewed-stage/stage-evidence.json" \
+            "$STAGE_DEPLOYMENT_ID" "$STAGE_DEPLOYMENT_URL" "$PRIOR_DEPLOYMENT_ID" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const [path, deploymentId, deploymentUrl, rollbackId] = process.argv.slice(2);
+          const value = JSON.parse(readFileSync(path, "utf8"));
+          if (
+            value.deployment?.id !== deploymentId ||
+            value.deployment?.url !== deploymentUrl ||
+            value.priorDeploymentId !== rollbackId
+          ) throw new Error("Protected approval prompt identities differ from signed stage evidence.");
+          NODE
+
+      - name: Create short-lived role-bound promotion approval
+        shell: bash
+        env:
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/vercel-promotion-approval"
+          approved_at="$(node -p 'new Date().toISOString()')"
+          expires_at="$(node -p 'new Date(Date.now() + 30 * 60 * 1000).toISOString()')"
+          node scripts/security/vercel-rest-release.mjs create-promotion-approval \
+            --stage-evidence "$RUNNER_TEMP/reviewed-stage/stage-evidence.json" \
+            --stage-provenance "$RUNNER_TEMP/reviewed-stage/stage-evidence.provenance.jsonl" \
+            --parity-evidence "$RUNNER_TEMP/reviewed-stage/staged-parity.json" \
+            --parity-provenance "$RUNNER_TEMP/reviewed-stage/staged-parity.provenance.jsonl" \
+            --workflow-run-id "$GITHUB_RUN_ID" --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --requested-by "$GITHUB_ACTOR" --approved-at "$approved_at" --expires-at "$expires_at" \
+            --output "$GITHUB_WORKSPACE/vercel-promotion-approval/promotion-approval.json"
+
+      - name: Sign the exact protected promotion approval
+        id: approval-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: vercel-promotion-approval/promotion-approval.json
+
+      - name: Preserve approval provenance
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.approval-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" vercel-promotion-approval/promotion-approval.provenance.jsonl
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vercel-promotion-approval-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: vercel-promotion-approval/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+  promote:
+    name: Route production aliases to the approved deployment without rebuild
+    needs: [validate-inputs, stage, staged-parity, promotion-approval]
+    runs-on: ubuntu-24.04
+    environment: frontend-vercel-promotion-executor
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact reviewed promotion adapter
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Use the exact reviewed Node runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          package-manager-cache: false
+
+      - name: Download exact signed stage, parity, and approval packages
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          pattern: vercel-*-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/promotion-input
+          merge-multiple: true
+
+      - name: Verify every promotion input before token use
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          verify_subject() {
+            gh attestation verify "$1" --repo jh005479-sudo/lester-labs --bundle "$2" \
+              --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+              --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
+              --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
+              --format json >/dev/null
+          }
+          verify_subject "$RUNNER_TEMP/promotion-input/stage-evidence.json" \
+            "$RUNNER_TEMP/promotion-input/stage-evidence.provenance.jsonl"
+          verify_subject "$RUNNER_TEMP/promotion-input/staged-parity.json" \
+            "$RUNNER_TEMP/promotion-input/staged-parity.provenance.jsonl"
+          verify_subject "$RUNNER_TEMP/promotion-input/promotion-approval.json" \
+            "$RUNNER_TEMP/promotion-input/promotion-approval.provenance.jsonl"
+
+      - name: Promote the exact approved deployment ID without rebuilding
+        id: promote-operation
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_PROMOTION_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/vercel-promotion-evidence"
+          node scripts/security/vercel-rest-release.mjs promote \
+            --stage-evidence "$RUNNER_TEMP/promotion-input/stage-evidence.json" \
+            --stage-provenance "$RUNNER_TEMP/promotion-input/stage-evidence.provenance.jsonl" \
+            --approval "$RUNNER_TEMP/promotion-input/promotion-approval.json" \
+            --approval-provenance "$RUNNER_TEMP/promotion-input/promotion-approval.provenance.jsonl" \
+            --parity-evidence "$RUNNER_TEMP/promotion-input/staged-parity.json" \
+            --parity-provenance "$RUNNER_TEMP/promotion-input/staged-parity.provenance.jsonl" \
+            --output "$GITHUB_WORKSPACE/vercel-promotion-evidence/promotion-evidence.json"
+
+      - name: Sign the immutable promotion result
+        id: promotion-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: vercel-promotion-evidence/promotion-evidence.json
+
+      - name: Preserve promotion provenance
+        id: preserve-promotion-provenance
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.promotion-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" vercel-promotion-evidence/promotion-evidence.provenance.jsonl
+
+      - id: upload-promotion-evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vercel-promotion-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: vercel-promotion-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Reconcile the exact allowed state if promotion or its evidence pipeline fails
+        id: compensate-promotion-failure
+        if: >-
+          ${{ always() &&
+              (steps.promote-operation.outcome != 'success' ||
+               steps.promotion-provenance.outcome != 'success' ||
+               steps.preserve-promotion-provenance.outcome != 'success' ||
+               steps.upload-promotion-evidence.outcome != 'success') }}
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_PROMOTION_COMPENSATION_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/promotion-input/stage-evidence.json"
+          test -f "$RUNNER_TEMP/promotion-input/stage-evidence.provenance.jsonl"
+          mkdir -p "$GITHUB_WORKSPACE/vercel-promotion-compensation"
+          node scripts/security/vercel-rest-release.mjs recover-promotion \
+            --stage-evidence "$RUNNER_TEMP/promotion-input/stage-evidence.json" \
+            --stage-provenance "$RUNNER_TEMP/promotion-input/stage-evidence.provenance.jsonl" \
+            --output "$GITHUB_WORKSPACE/vercel-promotion-compensation/recovery-evidence.json"
+
+      - name: Sign promotion-pipeline compensation evidence
+        id: compensation-provenance
+        if: ${{ always() && steps.compensate-promotion-failure.outcome == 'success' }}
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: vercel-promotion-compensation/recovery-evidence.json
+
+      - name: Preserve promotion-pipeline compensation provenance
+        if: ${{ always() && steps.compensation-provenance.outcome == 'success' }}
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.compensation-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" vercel-promotion-compensation/recovery-evidence.provenance.jsonl
+
+      - name: Preserve promotion-pipeline compensation result
+        if: ${{ always() && steps.compensate-promotion-failure.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vercel-promotion-compensation-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: vercel-promotion-compensation/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+  frontend-production-parity:
+    name: Independent full-frontend production parity
+    if: ${{ needs.validate-inputs.outputs.release_kind == 'next-standalone-container' }}
+    needs: [validate-inputs, promote]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/frontend-served-parity.yml
+    with:
+      reviewed_commit: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+      release_run_id: ${{ needs.validate-inputs.outputs.attestation_run_id }}
+      promotion_run_id: ${{ github.run_id }}
+      promotion_run_attempt: ${{ github.run_attempt }}
+
+  emergency-production-parity:
+    name: Independent emergency production parity
+    if: ${{ needs.validate-inputs.outputs.release_kind == 'emergency-static' }}
+    needs: [validate-inputs, promote]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/emergency-served-parity.yml
+    with:
+      reviewed_commit: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+      promotion_run_id: ${{ github.run_id }}
+      promotion_run_attempt: ${{ github.run_attempt }}
+
+  rollback-on-parity-failure:
+    name: Reconcile the signed failure disposition if independent parity fails
+    if: >-
+      ${{ always() && needs.promote.result == 'success' &&
+          ((needs.validate-inputs.outputs.release_kind == 'next-standalone-container' &&
+            needs.frontend-production-parity.result != 'success') ||
+           (needs.validate-inputs.outputs.release_kind == 'emergency-static' &&
+            needs.emergency-production-parity.result != 'success')) }}
+    needs:
+      - validate-inputs
+      - promote
+      - frontend-production-parity
+      - emergency-production-parity
+    runs-on: ubuntu-24.04
+    environment: frontend-vercel-automatic-rollback
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out exact reviewed rollback adapter
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Use exact reviewed Node runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          package-manager-cache: false
+
+      - name: Download exact signed stage evidence
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: vercel-stage-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/failed-stage
+
+      - name: Verify stage identity before reconciliation token use
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          gh attestation verify "$RUNNER_TEMP/failed-stage/stage-evidence.json" \
+            --repo jh005479-sudo/lester-labs \
+            --bundle "$RUNNER_TEMP/failed-stage/stage-evidence.provenance.jsonl" \
+            --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+            --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
+            --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
+            --format json >/dev/null
+
+      - name: Apply the signed hold-or-safe-rollback disposition
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_AUTOMATIC_ROLLBACK_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/vercel-reconciliation-evidence"
+          node scripts/security/vercel-rest-release.mjs recover-promotion \
+            --stage-evidence "$RUNNER_TEMP/failed-stage/stage-evidence.json" \
+            --stage-provenance "$RUNNER_TEMP/failed-stage/stage-evidence.provenance.jsonl" \
+            --output "$GITHUB_WORKSPACE/vercel-reconciliation-evidence/recovery-evidence.json"
+
+      - name: Sign automatic reconciliation evidence
+        id: rollback-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: vercel-reconciliation-evidence/recovery-evidence.json
+
+      - name: Preserve rollback provenance
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.rollback-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" vercel-reconciliation-evidence/recovery-evidence.provenance.jsonl
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vercel-automatic-reconciliation-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: vercel-reconciliation-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0

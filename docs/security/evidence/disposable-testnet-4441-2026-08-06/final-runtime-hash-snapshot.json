@@ -1,0 +1,10 @@
+{
+  "chainId": "4441",
+  "blockNumber": 37472534,
+  "balanceWei": "49951182703493586000",
+  "balanceZkLTC": "49.951182703493586",
+  "latestNonce": 13,
+  "pendingNonce": 13,
+  "liveContracts": 13,
+  "runtimeHashMismatches": []
+}

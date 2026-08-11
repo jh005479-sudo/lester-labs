@@ -9,25 +9,33 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 contract TheLedger is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    uint256 public MIN_FEE = 0.01 ether;    // 0.01 zkLTC
-    uint256 public treasuryCutBps = 5000;    // 5000/10000 = 50%
+    address public immutable deploymentSigner;
+    bool public immutable deploymentSignerMayReceiveFees;
+
+    uint256 public MIN_FEE = 0.01 ether; // 0.01 zkLTC
+    uint256 public treasuryCutBps = 5000; // 5000/10000 = 50%
     uint256 public messageCount;
 
     address public treasury;
 
-    event MessagePosted(
-        address indexed sender,
-        uint256 indexed index,
-        uint256 timestamp,
-        bytes data
-    );
+    event MessagePosted(address indexed sender, uint256 indexed index, uint256 timestamp, bytes data);
+    event ProtocolFeeForwarded(address indexed treasury, uint256 amount);
+    event NativeFeesWithdrawn(address indexed treasury, uint256 amount);
+    event ERC20Rescued(address indexed token, address indexed treasury, uint256 amount);
 
     error InsufficientFee();
     error EmptyMessage();
     error MessageTooLong();
 
-    constructor(address _treasury) Ownable(msg.sender) {
+    constructor(address _treasury, address _initialOwner, bool _allowDeploymentSignerAsFeeRecipient)
+        Ownable(_initialOwner)
+    {
         require(_treasury != address(0), "Zero treasury");
+        require(_initialOwner != msg.sender, "Deployer cannot control");
+        require(_allowDeploymentSignerAsFeeRecipient || _treasury != msg.sender, "Deployer fee recipient disabled");
+        require(_initialOwner != _treasury, "Owner and treasury must differ");
+        deploymentSigner = msg.sender;
+        deploymentSignerMayReceiveFees = _allowDeploymentSignerAsFeeRecipient;
         treasury = _treasury;
     }
 
@@ -43,13 +51,16 @@ contract TheLedger is Ownable, ReentrancyGuard {
 
         uint256 treasuryAmount = (msg.value * treasuryCutBps) / 10000;
         if (treasuryAmount > 0) {
-            (bool sent, ) = treasury.call{value: treasuryAmount}("");
+            (bool sent,) = treasury.call{value: treasuryAmount}("");
             require(sent, "Transfer failed");
+            emit ProtocolFeeForwarded(treasury, treasuryAmount);
         }
     }
 
     function setTreasury(address _treasury) external onlyOwner {
         require(_treasury != address(0), "Zero address");
+        require(_treasury != deploymentSigner, "Deployer cannot control");
+        require(_treasury != owner(), "Owner and treasury must differ");
         treasury = _treasury;
     }
 
@@ -60,7 +71,24 @@ contract TheLedger is Ownable, ReentrancyGuard {
     }
 
     function rescueERC20(address token, uint256 amount) external onlyOwner {
-        IERC20(token).safeTransfer(owner(), amount);
+        IERC20(token).safeTransfer(treasury, amount);
+        emit ERC20Rescued(token, treasury, amount);
+    }
+
+    /// @notice Permissionless liveness sweep for the retained half of posting
+    /// fees. The caller cannot choose or change the treasury recipient.
+    function flushRetainedFeesToTreasury() external nonReentrant {
+        uint256 amount = address(this).balance;
+        require(amount > 0, "No retained fees");
+        (bool sent,) = treasury.call{value: amount}("");
+        require(sent, "Transfer failed");
+        emit NativeFeesWithdrawn(treasury, amount);
+    }
+
+    function transferOwnership(address newOwner) public override onlyOwner {
+        require(newOwner != deploymentSigner, "Deployer cannot control");
+        require(newOwner != treasury, "Owner and treasury must differ");
+        super.transferOwnership(newOwner);
     }
 
     receive() external payable {}

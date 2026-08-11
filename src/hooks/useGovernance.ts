@@ -1,10 +1,30 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useAccount, useReadContract, useReadContracts, useWaitForTransactionReceipt } from 'wagmi'
-import { formatEther } from 'viem'
+import { getBytecode } from 'wagmi/actions'
+import {
+  useAccount,
+  useReadContract as useWagmiReadContract,
+  useReadContracts as useWagmiReadContracts,
+  useWaitForTransactionReceipt,
+} from 'wagmi'
+import { formatEther, keccak256 } from 'viem'
 import { GOVERNANCE_CONFIG, GOVERNOR_ABI, PROPOSAL_STATES, SUPPORT_LABELS, type ProposalState } from '@/config/governance'
+import {
+  APPROVED_GOVERNANCE_TIMELOCK_RUNTIME_CODE_HASH,
+  APPROVED_GOVERNANCE_TOKEN_RUNTIME_CODE_HASH,
+  APPROVED_GOVERNOR_RUNTIME_CODE_HASH,
+  hasApprovedGovernanceWritePath,
+} from '@/config/contracts'
+import { litvm } from '@/config/chains'
+import { wagmiConfig } from '@/config/wagmi'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
+
+const useReadContract: typeof useWagmiReadContract = ((parameters: Parameters<typeof useWagmiReadContract>[0]) =>
+  useWagmiReadContract({ ...parameters, chainId: litvm.id } as never)) as typeof useWagmiReadContract
+
+const useReadContracts: typeof useWagmiReadContracts = ((parameters: Parameters<typeof useWagmiReadContracts>[0]) =>
+  useWagmiReadContracts({ ...parameters, chainId: litvm.id } as never)) as typeof useWagmiReadContracts
 
 export interface Proposal {
   id: number
@@ -187,21 +207,67 @@ export function useGovernanceWrite() {
   } = useSafeWriteContract()
   const { ...proposeWrite } = useSafeWriteContract()
   const [switchError, setSwitchError] = useState<string | null>(null)
+  const governanceWritesApproved = hasApprovedGovernanceWritePath({
+    token: GOVERNANCE_CONFIG.token.address,
+    governor: GOVERNANCE_CONFIG.governor.address,
+    timelock: GOVERNANCE_CONFIG.timelock.address,
+  })
 
-  const voteTx = useWaitForTransactionReceipt({ hash: voteWrite.data })
-  const proposeTx = useWaitForTransactionReceipt({ hash: proposeWrite.data })
+  const voteTx = useWaitForTransactionReceipt({ hash: voteWrite.data, chainId: litvm.id })
+  const proposeTx = useWaitForTransactionReceipt({ hash: proposeWrite.data, chainId: litvm.id })
+
+  const ensureGovernanceWrite = useCallback(async (action: string) => {
+    if (!governanceWritesApproved) {
+      setSwitchError(
+        'On-chain governance writes are disabled. The legacy token/Governor/timelock role graph is compromised and non-executable; a distinct reviewed replacement deployment has not been activated.',
+      )
+      return false
+    }
+
+    try {
+      const expectedRuntimeHashes = [
+        APPROVED_GOVERNANCE_TOKEN_RUNTIME_CODE_HASH,
+        APPROVED_GOVERNOR_RUNTIME_CODE_HASH,
+        APPROVED_GOVERNANCE_TIMELOCK_RUNTIME_CODE_HASH,
+      ] as const
+      if (expectedRuntimeHashes.some((codeHash) => !codeHash)) {
+        throw new Error('The replacement governance runtime hashes are incomplete.')
+      }
+
+      const addresses = [
+        GOVERNANCE_CONFIG.token.address,
+        GOVERNANCE_CONFIG.governor.address,
+        GOVERNANCE_CONFIG.timelock.address,
+      ] as const
+      const runtimeCode = await Promise.all(addresses.map((address) => (
+        getBytecode(wagmiConfig, { address, chainId: litvm.id })
+      )))
+      for (let index = 0; index < runtimeCode.length; index += 1) {
+        const code = runtimeCode[index]
+        const expectedHash = expectedRuntimeHashes[index]
+        if (!code || code === '0x' || !expectedHash || keccak256(code).toLowerCase() !== expectedHash.toLowerCase()) {
+          throw new Error('Replacement governance runtime bytecode does not match the source-pinned deployment.')
+        }
+      }
+    } catch (error) {
+      setSwitchError(error instanceof Error ? error.message : 'Unable to attest replacement governance bytecode.')
+      return false
+    }
+
+    return ensureLitvmWrite({
+      action,
+      onError: (message) => setSwitchError(message),
+    })
+  }, [ensureLitvmWrite, governanceWritesApproved])
 
   const castVote = useCallback(
     async (proposalId: number, support: 0 | 1 | 2) => {
       setSwitchError(null)
-      if (!(await ensureLitvmWrite({
-        action: 'casting a governance vote',
-        onError: (message) => setSwitchError(message),
-      }))) {
+      if (!(await ensureGovernanceWrite('casting a governance vote'))) {
         return false
       }
 
-      voteWrite.writeContract({
+      await voteWrite.writeContractAsync({
         address: governorConfig.address,
         abi: GOVERNOR_ABI,
         functionName: 'castVote',
@@ -209,20 +275,17 @@ export function useGovernanceWrite() {
       })
       return true
     },
-    [ensureLitvmWrite, governorConfig.address, voteWrite],
+    [ensureGovernanceWrite, governorConfig.address, voteWrite],
   )
 
   const castVoteWithReason = useCallback(
     async (proposalId: number, support: 0 | 1 | 2, reason: string) => {
       setSwitchError(null)
-      if (!(await ensureLitvmWrite({
-        action: 'casting a governance vote',
-        onError: (message) => setSwitchError(message),
-      }))) {
+      if (!(await ensureGovernanceWrite('casting a governance vote'))) {
         return false
       }
 
-      voteWrite.writeContract({
+      await voteWrite.writeContractAsync({
         address: governorConfig.address,
         abi: GOVERNOR_ABI,
         functionName: 'castVoteWithReason',
@@ -230,20 +293,17 @@ export function useGovernanceWrite() {
       })
       return true
     },
-    [ensureLitvmWrite, governorConfig.address, voteWrite],
+    [ensureGovernanceWrite, governorConfig.address, voteWrite],
   )
 
   const createProposal = useCallback(
     async (targets: `0x${string}`[], values: bigint[], calldatas: `0x${string}`[], description: string) => {
       setSwitchError(null)
-      if (!(await ensureLitvmWrite({
-        action: 'creating a governance proposal',
-        onError: (message) => setSwitchError(message),
-      }))) {
+      if (!(await ensureGovernanceWrite('creating a governance proposal'))) {
         return false
       }
 
-      proposeWrite.writeContract({
+      await proposeWrite.writeContractAsync({
         address: governorConfig.address,
         abi: GOVERNOR_ABI,
         functionName: 'propose',
@@ -251,7 +311,7 @@ export function useGovernanceWrite() {
       })
       return true
     },
-    [ensureLitvmWrite, governorConfig.address, proposeWrite],
+    [ensureGovernanceWrite, governorConfig.address, proposeWrite],
   )
 
   return {
@@ -261,6 +321,7 @@ export function useGovernanceWrite() {
     voteWrite,
     voteTx,
     switchError,
+    governanceWritesApproved,
     isWrongNetwork,
     isSwitchingNetwork: isSwitchingChain,
     switchToLitvm,

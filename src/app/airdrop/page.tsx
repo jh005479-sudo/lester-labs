@@ -2,23 +2,26 @@
 
 import { AirdropForm } from '@/components/airdrop/AirdropForm'
 import { ToolHero } from '@/components/shared/ToolHero'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 export default function AirdropPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
       <ToolHero
-        category="Mass Distribution"
+        category={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Reviewed / Batch Distribution' : 'Containment / Batch Distribution'}
         title="Lester"
         titleHighlight="Dropper"
-        subtitle="Validate recipient lists locally and send ERC-20 or native zkLTC in resumable wallet-confirmed batches."
+        subtitle={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+          ? 'Validate recipient files locally, then submit bounded batches through the source-pinned replacement Disperse contract.'
+          : 'Validate recipient files locally and inspect the batch workflow. New distributions remain disabled until the post-compromise deployment set is source-pinned.'}
         color="#36D1DC"
         image="/images/carousel/airdrop.png"
         compact
         stats={[
-          { label: 'Wallets', value: 'Hundreds' },
+          { label: 'Validation', value: 'Local' },
           { label: 'Import', value: 'CSV' },
           { label: 'Batch', value: 'Up to 200' },
-          { label: 'Progress', value: 'Resumable' },
+          { label: 'Writes', value: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned' : 'Disabled' },
         ]}
       />
       <div className="tool-page-content" style={{ maxWidth: '920px' }}>

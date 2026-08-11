@@ -4,14 +4,14 @@ import { describe, it } from 'node:test'
 import { isActivePath, launchFlow } from './product-flow.ts'
 
 describe('launchFlow', () => {
-  it('links the presale step directly to create mode', () => {
-    assert.equal(launchFlow.find((step) => step.key === 'launchpad')?.href, '/launchpad?tab=create')
+  it('links the presale step to the recovery-only launchpad', () => {
+    assert.equal(launchFlow.find((step) => step.key === 'launchpad')?.href, '/launchpad')
   })
 })
 
 describe('isActivePath', () => {
-  it('matches active paths when flow links include query parameters', () => {
-    assert.equal(isActivePath('/launchpad', '/launchpad?tab=create'), true)
-    assert.equal(isActivePath('/launchpad/0xabc', '/launchpad?tab=create'), true)
+  it('matches the recovery page and authenticated child routes', () => {
+    assert.equal(isActivePath('/launchpad', '/launchpad'), true)
+    assert.equal(isActivePath('/launchpad/0xabc', '/launchpad'), true)
   })
 })

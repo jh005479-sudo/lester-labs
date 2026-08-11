@@ -1,29 +1,11 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Poppins } from 'next/font/google'
-import { Geist_Mono } from 'next/font/google'
 import { Providers } from './providers'
 import { Navbar } from '@/components/layout/Navbar'
 import { LTCBanner } from '@/components/LTCBanner'
 import { SiteFooter } from '@/components/layout/SiteFooter'
 import { PremiumBackdrop } from '@/components/layout/PremiumBackdrop'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 import './globals.css'
-
-const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-  weight: ['300', '400', '500'],
-})
-
-const poppins = Poppins({
-  variable: '--font-poppins',
-  subsets: ['latin'],
-  weight: ['600', '700', '800'],
-})
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -34,16 +16,16 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.lester-labs.com'),
   title: {
-    default: 'Lester Labs — DeFi Utilities for LitVM',
+    default: 'Lester Labs — LitVM Testnet Security & Recovery',
     // Route metadata already includes the brand. Keep it from being appended twice.
     template: '%s',
   },
-  description: 'Lester Labs is a native DeFi suite for LitVM featuring a DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, governance, charts, analytics, and a block explorer. Deploy, swap, and launch on LitVM testnet.',
+  description: PUBLIC_RELEASE_STATUS.metadataDescription,
   keywords: [
     'Lester Labs',
     'LitVM DEX',
     'LitVM swap',
-    'LitVM airdrop',
+    'LitVM batch token distribution',
     'LitVM launchpad',
     'LitVM DeFi',
     'LitVM token factory',
@@ -60,8 +42,8 @@ export const metadata: Metadata = {
   },
   manifest: '/site.webmanifest',
   openGraph: {
-    title: 'Lester Labs — DeFi Utilities for LitVM',
-    description: 'A native DeFi suite for LitVM. DEX swap, token launchpad, airdrop tool, liquidity locker, vesting, governance, charts, analytics, and a block explorer.',
+    title: 'Lester Labs — LitVM Testnet Security & Recovery',
+    description: PUBLIC_RELEASE_STATUS.openGraphDescription,
     url: 'https://www.lester-labs.com',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -69,8 +51,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Lester Labs — DeFi Utilities for LitVM',
-    description: 'A native DeFi suite for LitVM with swap, launchpad, airdrop, liquidity, charts, analytics, and explorer tools.',
+    title: 'Lester Labs — LitVM Testnet Security & Recovery',
+    description: PUBLIC_RELEASE_STATUS.twitterDescription,
   },
 }
 
@@ -82,7 +64,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${inter.variable} ${poppins.variable} ${geistMono.variable} antialiased`}
+        className="antialiased"
         style={{
           fontFamily: 'var(--font-body)',
         }}
@@ -96,7 +78,7 @@ export default function RootLayout({
               name: 'Lester Labs',
               url: 'https://www.lester-labs.com',
               logo: 'https://www.lester-labs.com/favicon.ico',
-              description: 'A native DeFi suite for LitVM featuring swap, launchpad, airdrop, liquidity, vesting, governance, charts, analytics, and explorer tools.',
+              description: PUBLIC_RELEASE_STATUS.structuredDataDescription,
               sameAs: [
                 'https://x.com/lesterlabshq',
               ],

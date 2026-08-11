@@ -3,11 +3,30 @@ import { describe, it } from 'node:test'
 import {
   applyCounterFloor,
   describeSwapCoverage,
-  getAuditedCounterBaseline,
+  getAuthenticatedCounterBaseline,
   getBoundedStatsLogRange,
+  getPostCutoverCounterDelta,
   selectNewestPairIndices,
   sumCompleteCounts,
 } from './platformStatsBounds.ts'
+import { PLATFORM_ACTIVITY_BASELINE } from '../config/platformActivitySnapshot.ts'
+import {
+  getPlatformStatsDisclosure,
+  getPlatformStatsSessionCacheKey,
+  isKnownPlatformActivitySnapshotKind,
+  matchesCompiledPlatformActivityBaseline,
+} from './platformStatsDisclosure.ts'
+import { requirePlatformActivityApiCoverage } from '../../scripts/security/platform-activity-coverage.mjs'
+
+function coveragePayload(status) {
+  return Object.fromEntries([
+    'tokensMinted',
+    'walletsAirdropped',
+    'presalesCreated',
+    'swapsCompleted',
+    'onChainMessages',
+  ].map((name) => [name, { status, note: `${name} coverage` }]))
+}
 
 describe('selectNewestPairIndices', () => {
   it('bounds enumeration to the newest canonical factory pairs', () => {
@@ -27,12 +46,23 @@ describe('getBoundedStatsLogRange', () => {
   })
 })
 
-describe('getAuditedCounterBaseline', () => {
+describe('getAuthenticatedCounterBaseline', () => {
   it('keeps unauthenticated event lookalikes out of cumulative counters', () => {
-    const baseline = getAuditedCounterBaseline(16_433, 3_412_247n)
+    const baseline = getAuthenticatedCounterBaseline(16_433, 3_412_247n)
 
     assert.equal(baseline.value, 16_433)
     assert.match(baseline.note, /unauthenticated event lookalikes are excluded/i)
+    assert.match(baseline.note, /not an independent audit/i)
+  })
+})
+
+describe('getPostCutoverCounterDelta', () => {
+  it('adds only activity after the pinned counter snapshot', () => {
+    assert.deepEqual(getPostCutoverCounterDelta(112, 77), { delta: 35, resetDetected: false })
+  })
+
+  it('does not turn a reset or mismatched deployment into a negative total', () => {
+    assert.deepEqual(getPostCutoverCounterDelta(2, 77), { delta: 0, resetDetected: true })
   })
 })
 
@@ -79,5 +109,99 @@ describe('describeSwapCoverage', () => {
     assert.match(note, /event cap/i)
     assert.match(note, /partial/i)
     assert.doesNotMatch(note, /fully covered/i)
+  })
+})
+
+describe('approved historical platform cutover', () => {
+  it('preserves the exact independently rechecked public-testnet cutover without claiming unique users', () => {
+    assert.equal(PLATFORM_ACTIVITY_BASELINE.snapshotKind, 'post-replacement-cutover')
+    assert.equal(PLATFORM_ACTIVITY_BASELINE.throughBlock, 38_999_871)
+    assert.equal(
+      PLATFORM_ACTIVITY_BASELINE.blockHash,
+      '0x0f08a4e58106a4cd465555c5a3b0a2bf44e723277ff69f0a6c0b22de3c77c9da',
+    )
+    assert.deepEqual(PLATFORM_ACTIVITY_BASELINE.totals, {
+      tokensMinted: 517_422,
+      walletsAirdropped: 16_433,
+      presalesCreated: 8_511,
+      swapsCompleted: 12_975,
+      onChainMessages: 66_832,
+    })
+    assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.countingRule, /add only verified replacement counters/i)
+    assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.disclaimer, /not unique users|not unique/i)
+    assert.match(PLATFORM_ACTIVITY_BASELINE.provenance.disclaimer, /bot|spam/i)
+  })
+})
+
+describe('platform activity cutover compatibility', () => {
+  it('accepts the remediated containment API status and the legacy rollout spelling', () => {
+    assert.equal(
+      requirePlatformActivityApiCoverage(coveragePayload('historical-baseline')).tokensMinted.status,
+      'historical-baseline',
+    )
+    assert.equal(
+      requirePlatformActivityApiCoverage(coveragePayload('audited-baseline')).tokensMinted.status,
+      'audited-baseline',
+    )
+  })
+
+  it('continues to reject unknown coverage states', () => {
+    assert.throws(
+      () => requirePlatformActivityApiCoverage(coveragePayload('unreviewed')),
+      /coverage is invalid/i,
+    )
+  })
+})
+
+describe('platform activity disclosure', () => {
+  it('uses provisional language for containment, missing, or unknown snapshot kinds', () => {
+    const provisional = getPlatformStatsDisclosure('provisional-pre-replacement-floor')
+    assert.match(provisional.headline, /provisional/i)
+    assert.match(provisional.detail, /must be replaced/i)
+    assert.deepEqual(getPlatformStatsDisclosure(undefined), provisional)
+    assert.deepEqual(getPlatformStatsDisclosure('unreviewed'), provisional)
+    assert.equal(isKnownPlatformActivitySnapshotKind('unreviewed'), false)
+  })
+
+  it('uses approved language only for the exact post-replacement cutover kind', () => {
+    const approved = getPlatformStatsDisclosure('post-replacement-cutover')
+    assert.doesNotMatch(approved.headline, /provisional/i)
+    assert.doesNotMatch(approved.detail, /must be replaced|remain zero/i)
+    assert.match(approved.detail, /following block/i)
+    assert.equal(isKnownPlatformActivitySnapshotKind('post-replacement-cutover'), true)
+  })
+
+  it('rejects a future approved cache after rollback to the compiled provisional baseline', () => {
+    const futureApproved = {
+      ...PLATFORM_ACTIVITY_BASELINE,
+      snapshotKind: 'post-replacement-cutover',
+      throughBlock: PLATFORM_ACTIVITY_BASELINE.throughBlock + 1,
+      blockHash: `0x${'ab'.repeat(32)}`,
+      totals: {
+        ...PLATFORM_ACTIVITY_BASELINE.totals,
+        tokensMinted: PLATFORM_ACTIVITY_BASELINE.totals.tokensMinted + 1,
+      },
+    }
+
+    assert.equal(
+      matchesCompiledPlatformActivityBaseline(PLATFORM_ACTIVITY_BASELINE, PLATFORM_ACTIVITY_BASELINE),
+      true,
+    )
+    assert.equal(matchesCompiledPlatformActivityBaseline(futureApproved, PLATFORM_ACTIVITY_BASELINE), false)
+    assert.notEqual(
+      getPlatformStatsSessionCacheKey(futureApproved),
+      getPlatformStatsSessionCacheKey(PLATFORM_ACTIVITY_BASELINE),
+    )
+  })
+
+  it('rejects cached totals that do not match the compiled baseline identity', () => {
+    const tampered = {
+      ...PLATFORM_ACTIVITY_BASELINE,
+      totals: {
+        ...PLATFORM_ACTIVITY_BASELINE.totals,
+        swapsCompleted: PLATFORM_ACTIVITY_BASELINE.totals.swapsCompleted + 1,
+      },
+    }
+    assert.equal(matchesCompiledPlatformActivityBaseline(tampered, PLATFORM_ACTIVITY_BASELINE), false)
   })
 })

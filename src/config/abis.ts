@@ -66,6 +66,7 @@ export const ILO_FACTORY_ABI = [
 
 export const ILO_ABI = [
   { inputs: [], name: 'owner', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'factory', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'treasury', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'token', outputs: [{ name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'softCap', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
@@ -148,6 +149,7 @@ export const LEDGER_ABI = [
 export const UNISWAP_V2_ROUTER_ABI = [
   { name: 'factory', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
   { name: 'WETH', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
+  { name: 'totalSwapCount', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
   {
     name: 'getAmountsOut',
     type: 'function',

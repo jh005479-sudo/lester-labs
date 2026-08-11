@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract LesterToken is ERC20, ERC20Burnable, ERC20Pausable, Ownable {
     bool public mintable;
@@ -64,19 +65,40 @@ contract LesterToken is ERC20, ERC20Burnable, ERC20Pausable, Ownable {
         _unpause();
     }
 
-    function _update(address from, address to, uint256 value)
-        internal override(ERC20, ERC20Pausable) {
+    function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Pausable) {
         super._update(from, to, value);
     }
 }
 
-contract TokenFactory is Ownable {
+contract TokenFactory is Ownable, ReentrancyGuard {
+    uint256 public constant MAX_CREATION_FEE = 0.1 ether;
+    address public immutable deploymentSigner;
+    bool public immutable deploymentSignerMayReceiveFees;
     uint256 public creationFee;
+    address public treasury;
 
     event TokenCreated(address indexed tokenAddress, address indexed creator, string name, string symbol);
+    event TreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
+    event ProtocolFeeForwarded(address indexed treasury, uint256 amount);
 
-    constructor(uint256 _creationFee) Ownable(msg.sender) {
+    constructor(
+        uint256 _creationFee,
+        address _initialOwner,
+        address _treasury,
+        bool _allowDeploymentSignerAsFeeRecipient
+    ) Ownable(_initialOwner) {
+        require(_treasury != address(0), "Invalid treasury");
+        // Treasury is an economic recipient, not an administrative role. The
+        // deployment signer may receive valueless testnet fees, but can never
+        // own or reconfigure the factory.
+        require(_initialOwner != msg.sender, "Deployer cannot control");
+        require(_allowDeploymentSignerAsFeeRecipient || _treasury != msg.sender, "Deployer fee recipient disabled");
+        require(_initialOwner != _treasury, "Owner and treasury must differ");
+        require(_creationFee <= MAX_CREATION_FEE, "Fee too high");
+        deploymentSigner = msg.sender;
+        deploymentSignerMayReceiveFees = _allowDeploymentSignerAsFeeRecipient;
         creationFee = _creationFee;
+        treasury = _treasury;
     }
 
     function createToken(
@@ -87,24 +109,41 @@ contract TokenFactory is Ownable {
         bool mintable,
         bool burnable,
         bool pausable
-    ) external payable returns (address tokenAddress) {
+    ) external payable nonReentrant returns (address tokenAddress) {
         require(msg.value == creationFee, "Incorrect fee amount"); // RP-004: exact fee policy
 
-        LesterToken token = new LesterToken(
-            name, symbol, totalSupply, decimals,
-            mintable, burnable, pausable, msg.sender
-        );
+        LesterToken token =
+            new LesterToken(name, symbol, totalSupply, decimals, mintable, burnable, pausable, msg.sender);
 
         tokenAddress = address(token);
+        _forwardProtocolFee(msg.value);
         emit TokenCreated(tokenAddress, msg.sender, name, symbol);
     }
 
     function setFee(uint256 _fee) external onlyOwner {
+        require(_fee <= MAX_CREATION_FEE, "Fee too high");
         creationFee = _fee;
     }
 
-    function withdraw() external onlyOwner {
-        (bool success, ) = payable(owner()).call{value: address(this).balance}("");
-        require(success, "Withdrawal failed");
+    function setTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "Invalid treasury");
+        require(_treasury != deploymentSigner, "Deployer cannot control");
+        require(_treasury != owner(), "Owner and treasury must differ");
+        address previousTreasury = treasury;
+        treasury = _treasury;
+        emit TreasuryUpdated(previousTreasury, _treasury);
+    }
+
+    function transferOwnership(address newOwner) public override onlyOwner {
+        require(newOwner != deploymentSigner, "Deployer cannot control");
+        require(newOwner != treasury, "Owner and treasury must differ");
+        super.transferOwnership(newOwner);
+    }
+
+    function _forwardProtocolFee(uint256 amount) internal {
+        if (amount == 0) return;
+        (bool success,) = payable(treasury).call{value: amount}("");
+        require(success, "Fee forwarding failed");
+        emit ProtocolFeeForwarded(treasury, amount);
     }
 }

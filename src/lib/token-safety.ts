@@ -1,5 +1,6 @@
-const LITVM_RPC_URL = process.env.NEXT_PUBLIC_LITVM_RPC_URL
-  ?? 'https://liteforge.rpc.caldera.xyz/infra-partner-http'
+// Deliberately source-pinned rather than hosting-environment configurable. Keep
+// this exact reviewed endpoint aligned with src/config/chains.ts.
+export const TOKEN_SAFETY_LITVM_RPC_URL = 'https://liteforge.rpc.caldera.xyz/http' as const
 
 export interface SafetyCheck {
   name: string
@@ -23,7 +24,7 @@ export async function rpcCall(method: string, params: unknown[], timeoutMs = TOK
   )
 
   try {
-    const res = await fetch(LITVM_RPC_URL, {
+    const res = await fetch(TOKEN_SAFETY_LITVM_RPC_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),

@@ -1,9 +1,12 @@
 import { Metadata } from 'next'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 export const metadata: Metadata = {
-  title: 'Tutorials & Guides — LitVM DeFi | Lester Labs',
-  description: 'Step-by-step guides for LitVM DeFi: how to use the LitVM DEX swap, run a token launchpad presale, airdrop tokens, lock LP, and deploy ERC-20 tokens on LitVM testnet.',
-  keywords: ['LitVM tutorial', 'LitVM DEX tutorial', 'LitVM launchpad guide', 'LitVM airdrop', 'Lester Labs tutorial', 'LitVM swap guide'],
+  title: 'Safety, Recovery & Readiness Guides for LitVM | Lester Labs',
+  description: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+    ? 'Guides to LitVM LiteForge, the immutable Lester Labs public-testnet replacement, legacy-position recovery, bounded explorer views, and future production requirements.'
+    : 'Guides to LitVM LiteForge, Lester Labs post-compromise containment, legacy-position recovery, bounded explorer views, and replacement-deployment verification.',
+  keywords: ['LitVM safety guide', 'LitVM testnet recovery', 'Lester Labs security status', 'LitVM explorer limits', 'legacy DEX recovery'],
 }
 
 export default function TutorialsLayout({

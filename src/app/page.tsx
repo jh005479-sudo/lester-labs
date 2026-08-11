@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import ScrollHero from '@/components/home/ScrollHero'
 import { ResumeDashboard } from '@/components/shared/ResumeDashboard'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 type ProductLink = {
   name: string
@@ -47,6 +48,11 @@ type DirectoryTool = ProductLink & {
   icon: LucideIcon
 }
 
+const ordinaryWritesEnabled = PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+const releaseVariant = (containment: string, approved: string) => (
+  ordinaryWritesEnabled ? approved : containment
+)
+
 const ecosystemStages: EcosystemStage[] = [
   {
     key: 'discover',
@@ -66,60 +72,69 @@ const ecosystemStages: EcosystemStage[] = [
   {
     key: 'create',
     title: 'Create',
-    eyebrow: 'Builder launch flow',
-    description: 'Move from token deployment into launch, distribution, and public proof without leaving the suite.',
+    eyebrow: releaseVariant('Replacement readiness', 'Reviewed creation'),
+    description: releaseVariant(
+      'Review historical deployments and the controls required before replacement creation flows can be activated.',
+      'Create with the source-pinned replacement contracts or inspect authenticated legacy deployments.',
+    ),
     href: '/launch',
-    cta: 'Build a token',
+    cta: 'Review factory status',
     color: '#6B4FFF',
     icon: Rocket,
     products: [
-      { name: 'Minter', href: '/launch', note: 'ERC-20 deployment' },
-      { name: 'Launchpad', href: '/launchpad', note: 'presales and LP seed' },
-      { name: 'Airdrop', href: '/airdrop', note: 'CSV and address book' },
+      { name: 'Minter', href: '/launch', note: releaseVariant('creation disabled', 'reviewed replacement') },
+      { name: 'Launchpad', href: '/launchpad', note: releaseVariant('historical recovery', 'launch and recover') },
+      { name: 'Airdrop', href: '/airdrop', note: 'local list review' },
     ],
   },
   {
     key: 'trade',
     title: 'Trade',
-    eyebrow: 'Fee capture layer',
-    description: 'Route liquidity and repeat usage into native LitVM swap, pool, and chart surfaces.',
+    eyebrow: releaseVariant('DEX containment', 'Reviewed DEX'),
+    description: releaseVariant(
+      'Inspect legacy pairs and recover existing positions while new swaps and liquidity writes remain disabled.',
+      'Use the source-pinned replacement DEX or inspect and recover eligible legacy positions.',
+    ),
     href: '/swap',
-    cta: 'Open swap',
+    cta: 'Review DEX status',
     color: '#E44FB5',
     icon: Droplets,
     products: [
-      { name: 'Swap', href: '/swap', note: 'route trades' },
-      { name: 'Pools', href: '/pool', note: 'LP depth and health' },
-      { name: 'Charts', href: '/charts', note: 'price and reserves' },
+      { name: 'Swap', href: '/swap', note: releaseVariant('new swaps disabled', 'source-pinned swaps') },
+      { name: 'Pools', href: '/pool', note: 'inspect and recover LP' },
+      { name: 'Charts', href: '/charts', note: 'bounded reserve views' },
     ],
   },
   {
     key: 'protect',
     title: 'Protect',
-    eyebrow: 'Trust commitments',
-    description: 'Turn liquidity locks and vesting schedules into visible confidence signals for communities.',
+    eyebrow: 'Position recovery',
+    description: 'Inspect historical locks and vesting wallets; only authenticated matured withdrawals and releases remain available.',
     href: '/locker',
-    cta: 'Lock liquidity',
+    cta: 'Review recovery paths',
     color: '#2DCE89',
     icon: ShieldCheck,
     products: [
-      { name: 'Locker', href: '/locker', note: 'LP lock proof' },
-      { name: 'Vesting', href: '/vesting', note: 'linear and cliff schedules' },
+      { name: 'Locker', href: '/locker', note: 'withdraw matured locks' },
+      { name: 'Vesting', href: '/vesting', note: 'release vested tokens' },
       { name: 'Portfolio', href: '/portfolio', note: 'wallet objects' },
     ],
   },
   {
     key: 'publish',
     title: 'Publish',
-    eyebrow: 'Public activity',
-    description: 'Give launches a readable heartbeat with ledger updates, governance, and documentation routes.',
+    eyebrow: 'Historical records',
+    description: releaseVariant(
+      'Read sampled on-chain messages and review governance and deployment documentation without submitting paid writes.',
+      'Read sampled on-chain messages, use reviewed replacement posting and governance, and inspect deployment evidence.',
+    ),
     href: '/ledger',
-    cta: 'Post an update',
+    cta: 'Read historical records',
     color: '#F5A623',
     icon: MessageSquareText,
     products: [
-      { name: 'Ledger', href: '/ledger', note: 'on-chain updates' },
-      { name: 'Governance', href: '/governance', note: 'community vote planning' },
+      { name: 'Ledger', href: '/ledger', note: releaseVariant('posting disabled', 'source-pinned posting') },
+      { name: 'Governance', href: '/governance', note: 'readiness guidance' },
       { name: 'Docs', href: '/docs', note: 'builder guidance' },
     ],
   },
@@ -127,33 +142,33 @@ const ecosystemStages: EcosystemStage[] = [
     key: 'return',
     title: 'Return',
     eyebrow: 'Repeat use',
-    description: 'Resume the last session, watch markets, and act from wallet-specific next steps.',
+    description: 'Resume local watchlists and inspect wallet-specific testnet objects without treating the view as a complete index.',
     href: '/portfolio',
     cta: 'Open dashboard',
     color: '#8B74FF',
     icon: Wallet,
     products: [
       { name: 'Portfolio', href: '/portfolio', note: 'wallet home' },
-      { name: 'Token Tracker', href: '/explorer/tokens', note: 'new assets' },
-      { name: 'Watchlists', href: '/charts', note: 'saved markets' },
+      { name: 'Token Tracker', href: '/explorer/tokens', note: 'bounded newest-factory sample' },
+      { name: 'Watchlists', href: '/charts', note: 'local saved markets' },
     ],
   },
 ]
 
 const ecosystemDirectory: DirectoryTool[] = [
-  { name: 'Explorer', href: '/explorer', note: 'Search blocks, txs, addresses, and tokens.', group: 'Discover', icon: Search },
-  { name: 'Analytics', href: '/analytics', note: 'Network, market, and activity panels.', group: 'Discover', icon: Activity },
-  { name: 'Charts', href: '/charts', note: 'Token price, reserves, and active markets.', group: 'Discover', icon: LineChart },
-  { name: 'Minter', href: '/launch', note: 'Deploy ERC-20 tokens on LitVM.', group: 'Create', icon: Coins },
-  { name: 'Launchpad', href: '/launchpad', note: 'Create and browse presales with LP flow.', group: 'Create', icon: Rocket },
-  { name: 'Airdrop', href: '/airdrop', note: 'Batch distribute tokens with CSV tools.', group: 'Create', icon: Gift },
-  { name: 'Swap', href: '/swap', note: 'Trade native LitVM markets.', group: 'Trade', icon: Sparkles },
-  { name: 'Pool', href: '/pool', note: 'Inspect, create, and add liquidity.', group: 'Trade', icon: Droplets },
-  { name: 'Locker', href: '/locker', note: 'Lock LP and share proof.', group: 'Protect', icon: Lock },
-  { name: 'Vesting', href: '/vesting', note: 'Create linear and cliff schedules.', group: 'Protect', icon: Landmark },
-  { name: 'Ledger', href: '/ledger', note: 'Post public launch updates.', group: 'Publish', icon: MessageSquareText },
-  { name: 'Governance', href: '/governance', note: 'Draft community votes.', group: 'Publish', icon: BarChart3 },
-  { name: 'Portfolio', href: '/portfolio', note: 'Your tokens, LP, presales, and actions.', group: 'Return', icon: Wallet },
+  { name: 'Explorer', href: '/explorer', note: 'Search exact blocks and transactions; feeds are bounded samples.', group: 'Discover', icon: Search },
+  { name: 'Analytics', href: '/analytics', note: 'Explicitly bounded network and activity samples.', group: 'Discover', icon: Activity },
+  { name: 'Charts', href: '/charts', note: 'Newest-pair reserve ratios, not prices or TVL.', group: 'Discover', icon: LineChart },
+  { name: 'Minter', href: '/launch', note: releaseVariant('Review the disabled legacy factory and replacement status.', 'Create through the reviewed source-pinned replacement factory.'), group: 'Create', icon: Coins },
+  { name: 'Launchpad', href: '/launchpad', note: releaseVariant('Browse and recover historical presales; creation is disabled.', 'Create reviewed presales or recover eligible historical positions.'), group: 'Create', icon: Rocket },
+  { name: 'Airdrop', href: '/airdrop', note: releaseVariant('Review recipient lists locally; distribution writes are disabled.', 'Review recipient lists and submit bounded replacement batches.'), group: 'Create', icon: Gift },
+  { name: 'Swap', href: '/swap', note: releaseVariant('Inspect quotes and recovery status; new swaps are disabled.', 'Review source-pinned replacement quotes and legacy recovery.'), group: 'Trade', icon: Sparkles },
+  { name: 'Pool', href: '/pool', note: 'Inspect positions and authenticated legacy LP recovery.', group: 'Trade', icon: Droplets },
+  { name: 'Locker', href: '/locker', note: 'Inspect locks and withdraw matured legacy positions.', group: 'Protect', icon: Lock },
+  { name: 'Vesting', href: '/vesting', note: 'Inspect schedules and release vested legacy positions.', group: 'Protect', icon: Landmark },
+  { name: 'Ledger', href: '/ledger', note: releaseVariant('Read historical messages; paid posting is disabled.', 'Read history or post through the source-pinned replacement.'), group: 'Publish', icon: MessageSquareText },
+  { name: 'Governance', href: '/governance', note: 'Review process guidance; legacy governance is retired.', group: 'Publish', icon: BarChart3 },
+  { name: 'Portfolio', href: '/portfolio', note: 'Bounded wallet views and recovery links.', group: 'Return', icon: Wallet },
   { name: 'Docs', href: '/docs', note: 'Guides and contract references.', group: 'Learn', icon: BookOpen },
 ]
 
@@ -172,7 +187,7 @@ function EcosystemSuite() {
           <span className="word highlight">DeFi suite</span>
         </h2>
         <p className="suite-sub sub-reveal">
-          Discover, create, trade, protect, publish, and return through one connected Lester Labs product stack.
+          {PUBLIC_RELEASE_STATUS.homepage.suiteSummary}
         </p>
       </div>
 
@@ -183,7 +198,10 @@ function EcosystemSuite() {
           </div>
           <div>
             <p>Native LitVM loop</p>
-            <strong>Each tool routes users toward the next useful action.</strong>
+            <strong>{releaseVariant(
+              'Every surface must disclose whether it is read-only, recovery-only, or pending replacement.',
+              'Every surface must disclose whether it uses an active replacement, a bounded read, or legacy recovery.',
+            )}</strong>
           </div>
         </div>
 
@@ -393,6 +411,14 @@ export default function HomePage() {
         >
 
         <section className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
+          <div className={`mb-4 rounded-2xl border p-4 text-sm leading-relaxed ${PUBLIC_RELEASE_STATUS.tone === 'success' ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-50' : 'border-amber-300/25 bg-amber-300/10 text-amber-50'}`}>
+            <strong>{PUBLIC_RELEASE_STATUS.homepage.noticeHeading}</strong>{' '}
+            {PUBLIC_RELEASE_STATUS.homepage.noticeDetail}{' '}
+            Historical counters are first-party continuity records, not independently verified counts of unique wallets or people.{' '}
+            <Link href="/security" prefetch={false} className="font-semibold underline underline-offset-4">
+              Read the security status.
+            </Link>
+          </div>
           <ResumeDashboard />
         </section>
 
@@ -408,15 +434,15 @@ export default function HomePage() {
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <div className='section-label'>Getting Started</div>
             <h2 className="getting-started-title">Explore the LitVM ecosystem</h2>
-            <p style={{ fontSize: '16px', color: 'rgba(240,238,245,0.45)', maxWidth: 500, margin: '0 auto' }}>Everything you need to get started on LitVM — from testnet setup to your first swap, airdrop, and token launch.</p>
+            <p style={{ fontSize: '16px', color: 'rgba(240,238,245,0.45)', maxWidth: 560, margin: '0 auto' }}>{PUBLIC_RELEASE_STATUS.homepage.gettingStarted}</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
             {[
               { href: '/litvm-testnet', label: 'LitVM Testnet', desc: 'Add the network, claim test tokens, and start exploring.' },
-              { href: '/litvm-dex', label: 'LitVM DEX', desc: 'Trade any token at 0.30% with a single signature.' },
-              { href: '/litvm-swap', label: 'LitVM Swap', desc: 'On-chain token trading at 0.30% per swap.' },
-              { href: '/litvm-airdrop', label: 'LitVM Airdrop', desc: 'Batch distribution with validated recipient lists.' },
-              { href: '/litvm-launchpad', label: 'LitVM Launchpad', desc: 'Permissionless token presales with automatic LP creation.' },
+              { href: '/litvm-dex', label: 'LitVM DEX', desc: releaseVariant('Why the legacy DEX is recovery-only and what a replacement must prove.', 'Active replacement DEX evidence and legacy recovery boundaries.') },
+              { href: '/litvm-swap', label: 'LitVM Swap', desc: releaseVariant('Swap containment status and transaction-verification guidance.', 'Source-pinned swap status and transaction-verification guidance.') },
+              { href: '/litvm-airdrop', label: 'LitVM Airdrop', desc: releaseVariant('Local recipient-list review; distribution writes remain disabled.', 'Recipient-list review and bounded replacement distribution.') },
+              { href: '/litvm-launchpad', label: 'LitVM Launchpad', desc: releaseVariant('Historical presale recovery and replacement readiness.', 'Reviewed replacement launches and historical recovery.') },
             ].map((item) => (
               <Link key={item.href} href={item.href} prefetch={false} style={{ display: 'block', padding: '20px 22px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, textDecoration: 'none', transition: 'border-color 0.2s, background 0.2s' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(107,79,255,0.3)' }}
@@ -443,7 +469,7 @@ export default function HomePage() {
               <span className="word">Built for LitVM.</span>&nbsp;
               <span className="word highlight">Built to be useful.</span>
             </h2>
-            <p className="trust-sub sub-reveal">Clear tooling, transparent testnet state, and verifiable on-chain activity.</p>
+            <p className="trust-sub sub-reveal">Clear tooling, transparent testnet state, and inspectable on-chain activity.</p>
           </div>
 
           <div className="trust-cards">
@@ -470,14 +496,17 @@ export default function HomePage() {
             <div className="trust-card reveal reveal-delay-2 tilt-card" style={{ '--tc-color-10': 'rgba(107,79,255,.1)', '--tc-color-15': 'rgba(107,79,255,.15)', '--tc-color-20': 'rgba(107,79,255,.2)', '--tc-color-30': 'rgba(107,79,255,.3)', '--tc-color-40': 'rgba(107,79,255,.4)', '--tc-glow': 'rgba(107,79,255,.06)' } as React.CSSProperties}>
               <div className="tc-status">
                 <div className="tc-dot" style={{ background: '#6B4FFF' }} />
-                <span className="tc-status-text">Live on Testnet</span>
+                <span className="tc-status-text">{releaseVariant('Containment on Testnet', 'Immutable Replacement on Testnet')}</span>
               </div>
               <div className="tc-icon-wrap" style={{ background: 'rgba(107,79,255,.08)', border: '1px solid rgba(107,79,255,.12)' }}>
                 <div className="tc-ring" />
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B4FFF" strokeWidth="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
               </div>
               <div className="tc-value">LitVM Native</div>
-              <div className="tc-label">A connected DeFi utility suite available now on LitVM testnet, without bridge-dependent product flows.</div>
+              <div className="tc-label">{releaseVariant(
+                'Read-only testnet views and narrowly authenticated legacy recovery while replacement deployments remain pending.',
+                'Bounded testnet views, source-pinned replacement actions, and narrowly authenticated legacy recovery.',
+              )}</div>
               <div className="tc-data">
                 <div className="tc-data-item"><span>Network</span><span>LitVM</span></div>
                 <div className="tc-data-item"><span>Status</span><span>Testnet</span></div>
@@ -496,7 +525,7 @@ export default function HomePage() {
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E44FB5" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </div>
               <div className="tc-value">Community</div>
-              <div className="tc-label">Built by a team that cares deeply about the success of the LitVM and Litecoin ecosystem. Community-driven from the start.</div>
+              <div className="tc-label">{PUBLIC_RELEASE_STATUS.homepage.trustLabel}</div>
               <div className="tc-data">
                 <div className="tc-data-item"><span>Focus</span><span>LitVM-first</span></div>
                 <div className="tc-data-item"><span>DEX</span><span>Testnet</span></div>
@@ -521,7 +550,7 @@ export default function HomePage() {
               <span className="word">For</span>&nbsp;
               <span className="word highlight">Builders</span>
             </h2>
-            <p className="builders-sub sub-reveal">Docs, grants, open-source contracts, and community — everything you need to ship on LitVM.</p>
+            <p className="builders-sub sub-reveal">Source, security notes, reproducible-build requirements, and deployment evidence for independent review.</p>
           </div>
 
           <div className="builders-bento">
@@ -710,13 +739,13 @@ export default function HomePage() {
 
             {/* Right: text + buttons */}
             <div className="cta-text reveal reveal-delay-2">
-              <h2 className="cta-title"><span className="grad">Start building</span><br />today.</h2>
-              <p>Connect a wallet to deploy and review transactions on LitVM testnet. No account signup is required.</p>
+              <h2 className="cta-title"><span className="grad">Verify first.</span><br />Sign later.</h2>
+              <p>{PUBLIC_RELEASE_STATUS.homepage.ctaDetail}</p>
               <div className="cta-buttons">
-                <Link prefetch={false} href="/launch" className="btn-primary magnetic">Launch a Token →</Link>
+                <Link prefetch={false} href="/security" className="btn-primary magnetic">Security Status →</Link>
                 <Link href="/docs" prefetch={false} className="btn-ghost magnetic">Read the Docs ↗</Link>
               </div>
-              <p className="cta-fine">Contracts are source-available and use established standards. Testnet is live; review each transaction and contract before use.</p>
+              <p className="cta-fine">{PUBLIC_RELEASE_STATUS.homepage.ctaFinePrint}</p>
             </div>
           </div>
         </section>

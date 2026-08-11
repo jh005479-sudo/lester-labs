@@ -1,0 +1,210 @@
+name: Exact Vercel production rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      adapter_commit:
+        description: Exact current protected-main commit containing the reviewed rollback adapter
+        required: true
+        type: string
+      promotion_source_commit:
+        description: Exact historical source commit recorded by the signed promotion
+        required: true
+        type: string
+      production_release_run_id:
+        description: Exact Vercel production workflow run containing promotion evidence
+        required: true
+        type: string
+      release_kind:
+        description: Artifact kind recorded by the signed promotion
+        required: true
+        type: choice
+        options:
+          - emergency-static
+          - next-standalone-container
+      expected_promoted_deployment_id:
+        description: Exact dpl_ ID currently routed to production
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-production-release
+  cancel-in-progress: false
+
+jobs:
+  validate-inputs:
+    name: Validate exact rollback identity before credentials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      adapter_commit: ${{ steps.validate.outputs.adapter_commit }}
+      promotion_source_commit: ${{ steps.validate.outputs.promotion_source_commit }}
+      release_run_id: ${{ steps.validate.outputs.release_run_id }}
+      release_run_attempt: ${{ steps.validate.outputs.release_run_attempt }}
+      release_kind: ${{ steps.validate.outputs.release_kind }}
+      promoted_deployment_id: ${{ steps.validate.outputs.promoted_deployment_id }}
+    steps:
+      - name: Validate protected source and originating workflow
+        id: validate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ADAPTER_COMMIT: ${{ inputs.adapter_commit }}
+          PROMOTION_SOURCE_COMMIT: ${{ inputs.promotion_source_commit }}
+          RELEASE_RUN_ID: ${{ inputs.production_release_run_id }}
+          RELEASE_KIND: ${{ inputs.release_kind }}
+          PROMOTED_DEPLOYMENT_ID: ${{ inputs.expected_promoted_deployment_id }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$ADAPTER_COMMIT"
+          [[ "$ADAPTER_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PROMOTION_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RELEASE_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$PROMOTED_DEPLOYMENT_ID" =~ ^dpl_[A-Za-z0-9]{8,96}$ ]]
+          case "$RELEASE_KIND" in emergency-static|next-standalone-container) ;; *) exit 1 ;; esac
+          gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+            > "$RUNNER_TEMP/production-run.json"
+          release_run_attempt="$(node --input-type=module - "$RUNNER_TEMP/production-run.json" "$PROMOTION_SOURCE_COMMIT" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const [path, commit] = process.argv.slice(2);
+          const run = JSON.parse(readFileSync(path, "utf8"));
+          if (
+            run.head_sha !== commit ||
+            run.head_branch !== "main" ||
+            run.event !== "workflow_dispatch" ||
+            !["queued", "in_progress", "completed"].includes(run.status) ||
+            run.path !== ".github/workflows/vercel-production-release.yml" ||
+            !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1
+          ) throw new Error("Rollback source is not an exact reviewed Vercel production workflow run.");
+          process.stdout.write(String(run.run_attempt));
+          NODE
+          )"
+          [[ "$release_run_attempt" =~ ^[1-9][0-9]{0,5}$ ]]
+          {
+            printf 'adapter_commit=%s\n' "$ADAPTER_COMMIT"
+            printf 'promotion_source_commit=%s\n' "$PROMOTION_SOURCE_COMMIT"
+            printf 'release_run_id=%s\n' "$RELEASE_RUN_ID"
+            printf 'release_run_attempt=%s\n' "$release_run_attempt"
+            printf 'release_kind=%s\n' "$RELEASE_KIND"
+            printf 'promoted_deployment_id=%s\n' "$PROMOTED_DEPLOYMENT_ID"
+          } >> "$GITHUB_OUTPUT"
+
+  rollback:
+    name: Protected exact-ID rollback
+    needs: validate-inputs
+    runs-on: ubuntu-24.04
+    environment: frontend-vercel-rollback
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out exact reviewed rollback adapter
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.adapter_commit }}
+          persist-credentials: false
+
+      - name: Use exact reviewed Node runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          package-manager-cache: false
+
+      - name: Download the exact signed promotion result
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: vercel-promotion-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.promotion_source_commit }}-${{ needs.validate-inputs.outputs.release_run_id }}-${{ needs.validate-inputs.outputs.release_run_attempt }}
+          path: ${{ runner.temp }}/promotion
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-inputs.outputs.release_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify signed promotion and explicit deployment ID before token use
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ADAPTER_COMMIT: ${{ needs.validate-inputs.outputs.adapter_commit }}
+          PROMOTION_SOURCE_COMMIT: ${{ needs.validate-inputs.outputs.promotion_source_commit }}
+          RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          PROMOTED_DEPLOYMENT_ID: ${{ needs.validate-inputs.outputs.promoted_deployment_id }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$ADAPTER_COMMIT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          gh attestation verify "$RUNNER_TEMP/promotion/promotion-evidence.json" \
+            --repo jh005479-sudo/lester-labs \
+            --bundle "$RUNNER_TEMP/promotion/promotion-evidence.provenance.jsonl" \
+            --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+            --source-ref refs/heads/main --source-digest "$PROMOTION_SOURCE_COMMIT" \
+            --signer-digest "$PROMOTION_SOURCE_COMMIT" --deny-self-hosted-runners \
+            --format json >/dev/null
+          node --input-type=module - "$RUNNER_TEMP/promotion/promotion-evidence.json" \
+            "$PROMOTION_SOURCE_COMMIT" "$RELEASE_KIND" "$PROMOTED_DEPLOYMENT_ID" <<'NODE'
+          import { readFileSync } from "node:fs";
+          const [path, commit, kind, deploymentId] = process.argv.slice(2);
+          const value = JSON.parse(readFileSync(path, "utf8"));
+          if (
+            value.kind !== "lester-labs-vercel-promotion-evidence" ||
+            value.status !== "CURRENT" ||
+            value.sourceCommit !== commit ||
+            value.artifactKind !== kind ||
+            value.deployment?.id !== deploymentId ||
+            value.schemaVersion !== 2 ||
+            value.priorDeploymentId === deploymentId ||
+            value.rollbackDisposition?.mode !== "ROLLBACK_TO_SAFE_CONTAINMENT" ||
+            value.rollbackDisposition?.priorClassification !== "SAFE_CONTAINMENT" ||
+            value.rollbackDisposition?.targetDeploymentId !== value.priorDeploymentId
+          ) throw new Error("Explicit rollback inputs differ from signed promotion evidence.");
+          NODE
+
+      - name: Roll back only the exact signed promotion to its exact prior ID
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_ROLLBACK_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/vercel-manual-rollback-evidence"
+          node scripts/security/vercel-rest-release.mjs rollback \
+            --promotion-evidence "$RUNNER_TEMP/promotion/promotion-evidence.json" \
+            --output "$GITHUB_WORKSPACE/vercel-manual-rollback-evidence/rollback-evidence.json"
+
+      - name: Sign manual rollback evidence
+        id: rollback-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: vercel-manual-rollback-evidence/rollback-evidence.json
+
+      - name: Preserve rollback provenance
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.rollback-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" vercel-manual-rollback-evidence/rollback-evidence.provenance.jsonl
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vercel-manual-rollback-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.promotion_source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: vercel-manual-rollback-evidence/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0

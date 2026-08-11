@@ -1,12 +1,19 @@
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
+
+const writesActive = PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
 
 export const metadata: Metadata = {
-  title: 'Launchpad — Browse & Create Token Presales on LitVM | Lester Labs',
-  description: 'Browse active and past token presales on LitVM. Create your own ILO with automatic LP seeding, configurable caps, and zero team veto.',
+  title: writesActive ? 'Launchpad & Historical Recovery on LitVM | Lester Labs' : 'Launchpad — Historical Presale Recovery on LitVM | Lester Labs',
+  description: writesActive
+    ? 'Create presales through the source-pinned replacement launchpad and inspect state-dependent recovery on quarantined legacy deployments.'
+    : 'Inspect historical Lester Labs ILOs and use state-dependent recovery actions. Creation, funding, contribution, whitelist changes, and finalization remain disabled on legacy deployments.',
   alternates: { canonical: 'https://www.lester-labs.com/launchpad' },
   openGraph: {
-    title: 'Launchpad — Browse & Create Token Presales on LitVM | Lester Labs',
-    description: 'Browse token presales on LitVM. Create your own ILO with automatic LP seeding, zero team veto.',
+    title: writesActive ? 'Launchpad & Historical Recovery on LitVM | Lester Labs' : 'Launchpad — Historical Presale Recovery on LitVM | Lester Labs',
+    description: writesActive
+      ? 'Source-pinned replacement presale activity plus narrowly authenticated historical ILO recovery.'
+      : 'Historical ILO discovery and narrowly authenticated recovery; new presale activity is disabled.',
     url: 'https://www.lester-labs.com/launchpad',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -14,8 +21,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Launchpad — Browse & Create Token Presales on LitVM | Lester Labs',
-    description: 'Run a permissionless token presale on LitVM. Automatic LP seeding, no team veto.',
+    title: writesActive ? 'Launchpad on LitVM | Lester Labs' : 'Launchpad Recovery Status | Lester Labs',
+    description: writesActive
+      ? 'Reviewed replacement presale creation with quarantined legacy recovery.'
+      : 'Legacy presale creation, funding, contribution, and finalization are disabled.',
   },
 }
 

@@ -1,0 +1,92 @@
+{
+  "kind": "lester-labs-github-control-plane-observation",
+  "schemaVersion": 1,
+  "observedAt": "2026-08-10T22:11:41Z",
+  "repository": "jh005479-sudo/lester-labs",
+  "observer": "authenticated read-only inspection with gh as jh005479-sudo",
+  "scope": "Repository-visible configuration only; this is not account recovery approval or proof that historical access was benign.",
+  "repositoryConfiguration": {
+    "visibility": "public",
+    "defaultBranch": "main",
+    "branchProtection": false,
+    "rulesetCount": 0,
+    "webCommitSignoffRequired": false,
+    "deleteBranchOnMerge": false,
+    "actionsEnabled": true,
+    "allowedActions": "all",
+    "actionShaPinningRequiredByGitHub": false,
+    "defaultWorkflowPermissions": "read",
+    "workflowsCanApprovePullRequests": false
+  },
+  "repositoryAccess": {
+    "collaborators": [
+      {
+        "login": "jh005479-sudo",
+        "role": "admin"
+      }
+    ],
+    "pendingInvitations": [],
+    "deployKeys": [],
+    "webhooks": [],
+    "repositoryActionSecrets": [],
+    "repositoryActionVariables": []
+  },
+  "environments": [
+    {
+      "name": "Preview",
+      "protectionRules": [],
+      "deploymentBranchPolicy": null,
+      "secrets": [],
+      "variables": []
+    },
+    {
+      "name": "Production",
+      "protectionRules": [],
+      "deploymentBranchPolicy": null,
+      "secrets": [],
+      "variables": []
+    }
+  ],
+  "securityFeatures": {
+    "secretScanning": "enabled",
+    "secretScanningPushProtection": "enabled",
+    "secretScanningNonProviderPatterns": "disabled",
+    "secretScanningValidityChecks": "disabled",
+    "openSecretScanningAlerts": 0,
+    "dependabotSecurityUpdates": "disabled",
+    "dependabotAlerts": "disabled",
+    "codeScanning": "no analysis found"
+  },
+  "serverState": {
+    "workflowCount": 0,
+    "recentWorkflowRuns": [],
+    "githubPagesConfigured": false,
+    "openPullRequests": [
+      {
+        "number": 10,
+        "author": "louie-stack",
+        "head": "hotfix/restore-purple-dex",
+        "createdAt": "2026-04-19T18:40:52Z",
+        "securityDisposition": "REQUIRES_ACCOUNT_OWNER_REVIEW"
+      }
+    ]
+  },
+  "notVerifiedByThisObservation": [
+    "GitHub login sessions and security log",
+    "personal access tokens and fine-grained token grants",
+    "OAuth applications and GitHub App installations",
+    "account recovery methods and recovery codes",
+    "SSH authentication keys, SSH signing keys, and GPG keys because the current token lacks the required read scopes",
+    "historical collaborators, hooks, deploy keys, secrets, variables, environment changes, and deleted workflow runs",
+    "provider-side ownership of the linked hosting deployment"
+  ],
+  "releaseBlockingFindings": [
+    "main has no branch protection or repository ruleset",
+    "there is no independent repository collaborator or CODEOWNER available for required review",
+    "the Production environment has no required reviewer or branch policy",
+    "GitHub Actions permits all actions and does not enforce full-SHA pins at the platform setting",
+    "Dependabot alerts/security updates are disabled and CodeQL has no uploaded analysis",
+    "the remediated local workflows and commits are not yet published to GitHub",
+    "account sessions, credentials, installed applications, and historical audit events still require account-owner review from a trusted session"
+  ]
+}

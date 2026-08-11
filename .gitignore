@@ -38,3 +38,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 .vercel
+
+# Ephemeral frontend release evidence (publish through protected CI artifacts)
+/release-evidence/

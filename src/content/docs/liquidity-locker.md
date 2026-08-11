@@ -1,66 +1,60 @@
-# Liquidity Locker
+# Liquidity Locker — Immutable Replacement and Legacy Withdrawal
 
-## Overview
+> **Legacy deployment status:** the locker at
+> `0x80d88C7F529D256e5e6A2CB0e0C30D82bC8827A9` is a compromised legacy
+> deployment. New locks and token approvals to that locker are disabled. A
+> narrowly authenticated withdrawal may remain available for an existing,
+> matured lock when the connected wallet is the recorded withdrawer.
 
-The Liquidity Locker allows project teams to lock LP tokens for a defined period, providing a verifiable on-chain commitment that liquidity will not be removed. It is the standard trust mechanism used by projects to demonstrate long-term intent to their communities.
+New testnet locks use only the approved immutable replacement at
+`0xEfE43FB51a3219B35Ffc30e508e14003752fc18f` after chain-`4441`, target,
+spender, native-value, and runtime checks pass.
 
-## How it works
+## Historical lock behavior
 
-You deposit LP tokens into the locker contract with an unlock timestamp and an
-explicit withdrawer address. The contract holds the tokens until the unlock
-date, when only that withdrawer can claim them. The deployed contract has no
-function to change the withdrawer or edit/extend the timestamp after creation.
-Each lock is publicly readable by ID.
+A lock record contains an LP-token address, amount, unlock timestamp,
+withdrawer, and withdrawal state. The reviewed legacy implementation has no
+setter to change the recorded withdrawer or shorten/edit the timestamp after
+creation. Only the recorded withdrawer can withdraw after the timestamp.
 
-## Step-by-step guide
+That limited property does not make the factory safe for new deposits. Its
+owner and fee path were compromised, and an LP token itself may represent an
+unsafe or retired DEX pair.
 
-1. Connect your wallet and switch to LitVM network
-2. Navigate to Liquidity Locker
-3. Paste the LP token contract address (from the Lester Labs DEX, the Launchpad finalize flow, or another compatible V2 pair)
-4. Enter the amount of LP tokens to lock
-5. Select the unlock date
-6. Review the fee (0.03 zkLTC) and confirm
-7. Approve the LP token spend when prompted
-8. Sign the lock transaction
-9. Your lock is live — share the lock record URL with your community
+## Existing-lock recovery
 
-## Parameters
+1. Open the source-pinned locker view; never paste a locker address supplied by
+   a message or mutable environment value.
+2. Verify the exact locker runtime hash and the lock record's token,
+   withdrawer, amount, unlock time, and unwithdrawn state.
+3. Verify the connected wallet exactly matches the recorded withdrawer.
+4. If the lock is mature, review a `withdraw(lockId)` transaction with no native
+   value and the expected locker as its target.
+5. After confirmation, verify the token transfer and updated withdrawal state
+   on an independently selected explorer or RPC.
 
-| Field | Description | Constraints |
-|---|---|---|
-| LP Token Address | Contract address of the LP token | Must be a valid ERC-20 |
-| Amount | Quantity of LP tokens to lock | Must be > 0 and ≤ your balance |
-| Unlock Date | Date/time when tokens become withdrawable | Must be at least 1 day in the future |
+Do not grant a new LP-token allowance or create a new lock on the legacy
+deployment. If a position is not present in the source-pinned recovery
+registry, the application must not construct a recovery transaction for it.
 
-## Fee structure
+## Historical fee
 
-| Fee | Amount | When charged |
-|---|---|---|
-| Lock fee | 0.03 zkLTC | At lock confirmation |
+The legacy lock fee was `0.03 zkLTC`. It is not a current service offer. The
+legacy contract accrued fees for its compromised owner.
 
-The fee is non-refundable and accrues in the locker until its owner withdraws
-it. The frontend reads the live locker owner when the form loads and again
-immediately before the paid lock write; creation is disabled unless that owner
-is the approved treasury controller.
+## Approved replacement
 
-## Smart contract
+The approved replacement:
 
-- **Forked from:** Unicrypt UNCX Liquidity Locker
-- **Contract address:** `0x80d88C7F529D256e5e6A2CB0e0C30D82bC8827A9`
+- freezes its controller at the no-key `0x…01` precompile;
+- sends the `0.03 zkLTC` test fee directly to the disclosed valueless test
+  treasury, which has no administrative role; and
+- has no upgrade path and cannot rewrite any existing lock record.
 
-**Key functions:**
-- `lockLiquidity(token, amount, unlockTime, withdrawer)` — creates a new lock
-- `withdraw(lockId)` — sends locked LP tokens to the recorded withdrawer after unlock
-- `getLock(lockId)` — returns token, amount, unlock time, withdrawer, and withdrawal state
+The frontend verifies constructor-bound roles, runtime bytecode, chain, target,
+function, allowance spender, fee, and lock parameters before requesting a
+wallet transaction. Replacement activation does not migrate old lock records;
+historical recovery remains tied to the exact legacy contract holding the LP
+tokens.
 
-## Sources
-
-- [Unicrypt UNCX Locker](https://github.com/UNCLE-NC/UNCLE-NC-LOCKER/blob/main/contracts/UNCXLocker.sol)
-
-## Security
-
-The lock record's timestamp and withdrawer have no setters, and the factory
-owner cannot withdraw user lock principal. Only the recorded withdrawer can
-withdraw after the timestamp. Choose that address carefully: it need not equal
-the depositor and cannot be corrected later. Upstream inspiration is not an
-audit of this deployment.
+Upstream Unicrypt-style inspiration is not an audit of either deployment.

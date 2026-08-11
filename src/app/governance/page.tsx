@@ -36,6 +36,24 @@ export default function GovernancePage() {
         ]}
       />
       <div className="tool-page-content" style={{ maxWidth: '1040px' }}>
+        <div
+          role="alert"
+          style={{
+            marginBottom: 18,
+            border: '1px solid rgba(248,113,113,0.28)',
+            borderRadius: 12,
+            background: 'rgba(248,113,113,0.08)',
+            padding: '14px 16px',
+            color: 'rgba(254,226,226,0.92)',
+            fontSize: 13,
+            lineHeight: 1.6,
+          }}
+        >
+          <strong>Legacy on-chain governance is read-only.</strong> Its token ownership and timelock admin/canceller
+          roles remain tied to the compromised controller, and the deployed Governor has no executable path. Voting,
+          proposals, queueing, execution, and governance-token delegation stay blocked until a distinct,
+          independently reviewed token/Governor/timelock set and exact runtime hashes are source-pinned.
+        </div>
         <div className="tool-tab-bar">
           {TABS.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tool-tab"

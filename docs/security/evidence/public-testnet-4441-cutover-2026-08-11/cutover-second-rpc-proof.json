@@ -1,0 +1,23 @@
+{
+  "status": "VERIFIED_SECOND_RPC",
+  "chainId": 4441,
+  "throughBlock": 38999871,
+  "blockHash": "0x0f08a4e58106a4cd465555c5a3b0a2bf44e723277ff69f0a6c0b22de3c77c9da",
+  "candidatePayloadSha256": "0xc723165e6825ff2429ec1afe1af039905eaa43cdd082161bdf652cefe8fdcbfa",
+  "verifiedCounters": {
+    "tokensMinted": 517422,
+    "walletsAirdropped": 16433,
+    "presalesCreated": 8511,
+    "swapsCompleted": 12975,
+    "onChainMessages": 66832
+  },
+  "verifiedRuntimeCodeHashes": {
+    "tokenFactory": "0x5b3bb2e693021e2ab040b6bf248785eb627600bbec002e87c10e138521be1d9d",
+    "iloFactories": [
+      "0xed56b878c6c936b7a54c0fc501a87cd96dc185e8d0967759df88817a03bc2dd5",
+      "0x9c52ccc3cf932eeff5f19c65d7055f9c8eaa50b68e64a1e1e6bafebaf0e81b9a"
+    ],
+    "ledger": "0x5bfae473fddc1457d06edc1c5603f0217b0b3debdc34969abe1611b386fb4233"
+  },
+  "rpcUrl": "https://rpc.lite-node.com/"
+}

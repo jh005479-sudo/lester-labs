@@ -3,7 +3,12 @@
 **Project:** LitInvaders — A Space Invaders-style arcade game with on-chain score posting to The Ledger
 **For:** Jack Hartley, Lester Digital Assets / Lester Labs
 **Date:** 2026-04-20
-**Status:** BRIEF — NOT YET STARTED
+**Status:** SUPERSEDED AFTER SECURITY INCIDENT — DO NOT IMPLEMENT OR DEPLOY
+
+> Historical design record only. Its legacy Ledger address, paid-score flow,
+> wallet assumptions, and deployment pipeline are not approved implementation
+> inputs. Any future game requires a new threat model, the central LitVM chain
+> guard, the source-pinned replacement manifest, and the current release gates.
 
 ---
 
@@ -20,15 +25,15 @@ A browser-based, pixel-art Space Invaders clone skinned for the LitVM / crypto e
 - Low barrier to entry — Space Invaders mechanics are universally understood
 
 ### Context
-This is a greenfield Next.js page within the existing Lester Labs monorepo. The game is a single self-contained page at `/arcade` (or `/game`). It uses the existing Lester Labs design system, RainbowKit wallet connection, and The Ledger smart contract already deployed on LitVM.
+This was a proposed greenfield page. It must not use the retired Ledger or an independent wallet path. Any redesign must use Lester’s central injected-wallet connector and safe-write chain guard only after the replacement stack is activated.
 
 ---
 
 ## 2. Technical Context
 
 ### Chain & Network
-- **Chain:** LitVM Testnet (Chain ID: `4441`)
-- **RPC:** `https://liteforge.rpc.caldera.xyz/infra-partner-http`
+- **Chain:** LitVM LiteForge testnet (Chain ID: `4441`)
+- **RPC:** `https://liteforge.rpc.caldera.xyz/http`
 - **WebSocket:** `wss://liteforge.rpc.caldera.xyz/ws`
 - **Explorer:** `https://lester-labs.com/explorer`
 - **Native Currency:** zkLTC (testnet, no real value)
@@ -56,7 +61,7 @@ event MessagePosted(address indexed sender, uint256 indexed index, uint256 times
 
 ### Tech Stack
 - **Framework:** Next.js (App Router) — existing monorepo
-- **Wallet:** RainbowKit + wagmi v2 + viem — already in use across Lester Labs
+- **Wallet:** Future work must use Lester’s central injected connector and `useSafeWriteContract`; remote connector SDKs remain disabled
 - **Styling:** Tailwind CSS + CSS modules — matching existing Lester Labs design system
 - **Game Engine:** HTML5 Canvas (vanilla JS, no game engine dependency)
 - **State:** React hooks (useState/useEffect/useRef)
@@ -174,7 +179,7 @@ This JSON is serialised to bytes and posted via `ledger.post()`. The sender addr
 **Flow:**
 1. Game over screen appears
 2. Player clicks "POST SCORE TO LEDGER"
-3. RainbowKit wallet popup appears (if not connected)
+3. Central chain-guarded injected-wallet connection is required (if a future replacement Ledger write is approved)
 4. Transaction submitted to LitVM via `writeContractAsync`
 5. On confirmation: "Score posted!" confirmation with transaction hash
 6. Score immediately appears on the on-chain leaderboard
@@ -304,7 +309,7 @@ This JSON is serialised to bytes and posted via `ledger.post()`. The sender addr
 **Goal:** Fully functional Ledger post flow after game over
 
 **Deliverables:**
-- RainbowKit Connect Wallet button (shown on game over screen if wallet not connected)
+- Central injected-wallet connection control (only if the new security review permits score posting)
 - "POST SCORE TO LEDGER" button after game over
 - Payload construction: `{ game: "litinvaders", score, wallet, wave, timestamp, version: 1 }`
 - Serialise to JSON → bytes via `TextEncoder`
@@ -361,7 +366,7 @@ const LEDGER_ABI = [
 
 **RPC for event reading:**
 ```
-https://liteforge.rpc.caldera.xyz/infra-partner-http
+https://liteforge.rpc.caldera.xyz/http
 ```
 
 **Contract address:** `0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079`
@@ -527,11 +532,11 @@ contracts/                — Solidity contracts (existing)
 // src/config/chains.ts
 export const litvm = defineChain({
   id: 4441,
-  name: 'LitVM Testnet',
+  name: 'LitVM LiteForge',
   nativeCurrency: { name: 'zkLTC', symbol: 'zkLTC', decimals: 18 },
   rpcUrls: {
     default: {
-      http: ['https://liteforge.rpc.caldera.xyz/infra-partner-http'],
+      http: ['https://liteforge.rpc.caldera.xyz/http'],
       webSocket: ['wss://liteforge.rpc.caldera.xyz/ws'],
     },
   },

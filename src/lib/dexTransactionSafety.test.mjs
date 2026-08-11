@@ -15,6 +15,7 @@ const canonical = {
   wrappedNative: '0x3333333333333333333333333333333333333333',
 }
 const approvedTreasury = '0x9999999999999999999999999999999999999999'
+const approvedController = '0x7777777777777777777777777777777777777777'
 
 describe('DEX transaction target authentication', () => {
   it('accepts only the canonical configured deployment and router wiring', () => {
@@ -26,8 +27,9 @@ describe('DEX transaction target authentication', () => {
         canonical.factory,
         canonical.wrappedNative,
         approvedTreasury,
+        approvedController,
         approvedTreasury,
-        approvedTreasury,
+        approvedController,
       ),
     )
   })
@@ -40,8 +42,9 @@ describe('DEX transaction target authentication', () => {
         canonical.factory,
         canonical.wrappedNative,
         approvedTreasury,
+        approvedController,
         approvedTreasury,
-        approvedTreasury,
+        approvedController,
       ),
       /not the canonical LitVM deployment/,
     )
@@ -52,14 +55,15 @@ describe('DEX transaction target authentication', () => {
         '0x5555555555555555555555555555555555555555',
         canonical.wrappedNative,
         approvedTreasury,
+        approvedController,
         approvedTreasury,
-        approvedTreasury,
+        approvedController,
       ),
       /could not be authenticated/,
     )
   })
 
-  it('fails closed unless feeTo and feeToSetter both match the approved treasury', () => {
+  it('fails closed unless feeTo is treasury and feeToSetter is the distinct controller', () => {
     const retiredTreasury = '0x8888888888888888888888888888888888888888'
     assert.throws(
       () => assertCanonicalRouterRuntime(
@@ -68,10 +72,11 @@ describe('DEX transaction target authentication', () => {
         canonical.factory,
         canonical.wrappedNative,
         retiredTreasury,
+        approvedController,
         approvedTreasury,
-        approvedTreasury,
+        approvedController,
       ),
-      /fee controls are not assigned/,
+      /treasury\/controller roles/,
     )
     assert.throws(
       () => assertCanonicalRouterRuntime(
@@ -82,8 +87,9 @@ describe('DEX transaction target authentication', () => {
         approvedTreasury,
         retiredTreasury,
         approvedTreasury,
+        approvedController,
       ),
-      /fee controls are not assigned/,
+      /treasury\/controller roles/,
     )
     assert.throws(
       () => assertCanonicalRouterRuntime(
@@ -92,10 +98,11 @@ describe('DEX transaction target authentication', () => {
         canonical.factory,
         canonical.wrappedNative,
         approvedTreasury,
-        undefined,
+        approvedController,
         approvedTreasury,
+        undefined,
       ),
-      /fee controls are not assigned/,
+      /approved release profile.*treasury and controller/i,
     )
   })
 

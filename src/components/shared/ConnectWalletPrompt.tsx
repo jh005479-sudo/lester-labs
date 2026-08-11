@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { ArrowUpRight, CheckCircle2, FileSearch, Wallet } from 'lucide-react'
 import { walletConnectConfigured } from '@/config/wagmi'
+import { InjectedWalletButton } from '@/components/shared/InjectedWalletButton'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 type PreviewItem = {
   label: string
@@ -56,16 +57,21 @@ export function ConnectWalletPrompt({
           {body}
         </p>
         <div className="flex justify-center lg:justify-start">
-          <ConnectButton />
+          <InjectedWalletButton />
         </div>
         {!walletConnectConfigured && (
           <p className="mt-4 text-[12px] leading-5" style={{ color: 'var(--foreground-muted)' }}>
-            Local wallet connectivity is running without a configured WalletConnect project ID.
-            Add `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` to enable the full connector set.
+            WalletConnect is intentionally disabled for malicious-flag remediation. This connection control is
+            separate from contract-authority recovery;{' '}
+            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+              ? 'reviewed writes still require the injected-wallet chain, target, runtime, and calldata gates.'
+              : 'paid writes remain disabled until replacement activation.'}{' '}
+            Use a locally installed wallet extension and inspect every transaction before signing.
           </p>
         )}
         <p className="mt-6 text-[12px]" style={{ color: 'var(--foreground-muted)' }}>
-          Need testnet zkLTC? Use the current LitVM faucet or bridge details shared by the Lester Labs team.
+          Need testnet zkLTC? Locate the current faucet from LitVM&apos;s official site. Lester Labs will never
+          ask you to send LTC, reveal a private key, or enter a recovery phrase.
         </p>
       </div>
 

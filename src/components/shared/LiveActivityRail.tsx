@@ -2,6 +2,9 @@
 
 import Link from 'next/link'
 import { Activity, ArrowUpRight, BarChart3, Clock3, MessageSquareText, Search, Wallet } from 'lucide-react'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
+
+const writesActive = PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
 
 type RailItem = {
   label: string
@@ -20,47 +23,61 @@ type RailConfig = {
 
 const rails: Record<'explorer' | 'analytics' | 'portfolio' | 'ledger', RailConfig> = {
   explorer: {
-    eyebrow: 'Live trust layer',
-    title: 'Every action should resolve to proof.',
+    eyebrow: 'Bounded RPC evidence',
+    title: 'Exact lookups plus documented recent samples.',
     icon: Search,
     accent: '#8B74FF',
     items: [
       { label: 'Search', value: 'Address / tx / block', detail: 'Jump directly into verification.', href: '/explorer' },
-      { label: 'Recent blocks', value: 'Auto-refresh', detail: 'Fresh chain context every session.' },
-      { label: 'Share', value: 'Network stats', detail: 'Turn data into social proof.' },
+      { label: 'Recent blocks', value: 'Bounded feed', detail: 'Newest blocks only; not a chain index.' },
+      { label: 'Limits', value: 'Disclosed', detail: 'Absence from a sample is not proof of absence.' },
     ],
   },
   analytics: {
-    eyebrow: 'Daily market surface',
-    title: 'Make LitVM feel alive between launches.',
+    eyebrow: 'Bounded observations',
+    title: 'Inspect current RPC data without invented metrics.',
     icon: BarChart3,
     accent: '#2DCE89',
     items: [
-      { label: 'Trending', value: 'Token watch', detail: 'Spot repeat builder activity.' },
-      { label: 'Health', value: 'Network panels', detail: 'See whether the market is ready.' },
-      { label: 'DEX', value: 'Liquidity context', detail: 'Connect trade activity to launches.', href: '/pool' },
+      { label: 'Tokens', value: 'Newest sample', detail: 'Not a complete token or holder index.' },
+      { label: 'Health', value: 'Latest RPC sample', detail: 'Not uptime or historical liveness.' },
+      {
+        label: 'DEX',
+        value: writesActive ? 'Replacement + recovery' : 'Recovery view',
+        detail: writesActive ? 'Source-pinned replacement actions and legacy recovery.' : 'New swaps and liquidity writes are disabled.',
+        href: '/pool',
+      },
     ],
   },
   portfolio: {
-    eyebrow: 'Wallet command center',
-    title: 'Close the loop after every transaction.',
+    eyebrow: 'Bounded wallet view',
+    title: 'Inspect local and sampled wallet objects.',
     icon: Wallet,
     accent: '#8B74FF',
     items: [
-      { label: 'Positions', value: 'Tokens + presales', detail: 'Bring all Lester objects together.' },
-      { label: 'Protection', value: 'Locks + vesting', detail: 'Show the trust posture of a wallet.' },
-      { label: 'Next step', value: 'Act from context', detail: 'Route builders back into the suite.', href: '/launch' },
+      { label: 'Positions', value: 'Partial sample', detail: 'Not a complete wallet portfolio.' },
+      { label: 'Recovery', value: 'Locks + vesting', detail: 'Use only authenticated eligible exits.' },
+      {
+        label: 'Status',
+        value: writesActive ? 'Public-testnet replacement' : 'Writes disabled',
+        detail: writesActive ? 'Verify chain 4441, the source-pinned target, and deployment evidence.' : 'Review replacement readiness first.',
+        href: '/security',
+      },
     ],
   },
   ledger: {
-    eyebrow: 'Social activity layer',
-    title: 'Give every launch a public heartbeat.',
+    eyebrow: 'Historical message sample',
+    title: writesActive ? 'Read bounded events or use source-pinned posting.' : 'Read legacy events; paid posting is disabled.',
     icon: MessageSquareText,
     accent: '#F5A623',
     items: [
-      { label: 'Messages', value: 'Immutable feed', detail: 'Updates remain discoverable on-chain.' },
-      { label: 'Fee gate', value: 'Spam resistant', detail: 'Make posts meaningful by default.' },
-      { label: 'Community', value: 'Post-launch habit', detail: 'Announcements, proofs, milestones.' },
+      { label: 'Messages', value: 'Paginated RPC view', detail: 'Not a complete or perpetual archive.' },
+      {
+        label: 'Posting',
+        value: writesActive ? 'Public-testnet replacement' : 'Disabled',
+        detail: writesActive ? 'The immutable fee and test-treasury route is source-pinned.' : 'Legacy fee and treasury routes are retired.',
+      },
+      { label: 'Attribution', value: 'Wallet address only', detail: 'Content is not endorsed or verified.' },
     ],
   },
 }

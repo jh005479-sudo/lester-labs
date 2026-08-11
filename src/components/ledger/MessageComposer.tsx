@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
 import { ExternalLink, Loader2, PenLine, Wallet } from 'lucide-react'
 import { toHex, type Hex } from 'viem'
@@ -17,10 +16,11 @@ import { getWalletErrorMessage } from '@/lib/walletErrors'
 import {
   hasApprovedLesterControl,
   isCanonicalLitvmContract,
-  LESTER_TREASURY_ADDRESS,
+  LESTER_TREASURY_STATUS,
   LITVM_TESTNET_CONTRACTS,
 } from '@/config/contracts'
 import { litvm } from '@/config/chains'
+import { InjectedWalletButton } from '@/components/shared/InjectedWalletButton'
 
 interface MessageComposerProps {
   address: `0x${string}`
@@ -158,7 +158,7 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
     }
     if (!ledgerControlApproved) {
       setPhase('error')
-      setStatusMessage(`Posting is disabled until the live Ledger owner and treasury are verified as ${LESTER_TREASURY_ADDRESS}.`)
+      setStatusMessage(`Posting is disabled because ${LESTER_TREASURY_STATUS}.`)
       return
     }
     try {
@@ -222,10 +222,12 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
     }
 
     setPhase('idle')
-    setStatusMessage('Switched to LitVM Testnet. You can post now.')
+    setStatusMessage('Switched to LitVM Testnet. Posting still requires an activated, source-pinned replacement.')
   }
 
-  const buttonDisabled = isWrongNetwork
+  const buttonDisabled = !paidActionReady
+    ? true
+    : isWrongNetwork
     ? phase === 'pending' || isSwitchingChain
     : !isConnected || !isCanonicalLedger || !paidActionReady || isEmpty || isTooLong || phase === 'signing' || phase === 'pending'
 
@@ -249,11 +251,13 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
             }}
           >
             <PenLine size={12} />
-            Write to chain
+            Write Status
           </span>
           <h2 className="text-2xl font-semibold tracking-tight">Message composer</h2>
           <p className="mt-2 max-w-xl text-sm leading-6" style={{ color: 'rgba(240,238,245,0.52)' }}>
-            Every post is encoded into transaction calldata and surfaced back out of events. No off-chain storage, no edits, no deletes.
+            {paidActionReady
+              ? 'Historical messages are decoded from bounded reads. New testnet posts use only the source-pinned immutable Ledger after chain, runtime, target, message, and value checks.'
+              : 'Historical messages are decoded from bounded reads. New paid posts remain disabled until the replacement roles and runtime are verified.'}
           </p>
         </div>
 
@@ -262,13 +266,24 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
           style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}
         >
           <div className="text-[11px] uppercase tracking-[0.14em]" style={{ color: 'rgba(240,238,245,0.38)' }}>
-            Current fee
+            Configured fee
           </div>
           <div className="mt-1 font-mono text-sm text-white">{feeDisplay} zkLTC</div>
         </div>
       </div>
 
-      {!isConnected ? (
+      {!paidActionReady ? (
+        <div
+          className="rounded-[24px] border p-8 text-center"
+          style={{ borderColor: 'rgba(248,113,113,0.24)', background: 'rgba(248,113,113,0.06)' }}
+          role="alert"
+        >
+          <h3 className="text-lg font-semibold">New Ledger posts are disabled</h3>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6" style={{ color: 'rgba(254,226,226,0.72)' }}>
+            Do not connect or approve a fee-bearing post. Historical reading remains available while the distinct controller, treasury, and source-pinned runtime are verified.
+          </p>
+        </div>
+      ) : !isConnected ? (
         <div
           className="rounded-[24px] border p-8 text-center"
           style={{
@@ -282,12 +297,12 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
           >
             <Wallet size={24} />
           </div>
-          <h3 className="text-lg font-semibold">Connect to post</h3>
+          <h3 className="text-lg font-semibold">Connect to the activated replacement</h3>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-6" style={{ color: 'rgba(240,238,245,0.5)' }}>
-            Wallet connection unlocks the fee-gated composer. Your message stays readable on-chain once it lands.
+            First verify the source-pinned address, runtime, controller, treasury, chain, function, and fee shown by your wallet.
           </p>
           <div className="mt-6 flex justify-center">
-            <ConnectButton />
+            <InjectedWalletButton />
           </div>
         </div>
       ) : (
@@ -304,7 +319,7 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
                 setStatusMessage(null)
               }
             }}
-            placeholder="Leave your mark on the blockchain..."
+            placeholder="Draft a message for the activated replacement..."
             className="min-h-[260px] w-full rounded-[24px] border px-5 py-4 text-sm leading-7 outline-none transition-colors sm:text-[15px]"
             style={{
               background: '#080613',
@@ -329,7 +344,7 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
               </p>
             </div>
 
-            {isWrongNetwork && (
+            {paidActionReady && isWrongNetwork && (
               <div
                 className="rounded-2xl border px-4 py-3 text-sm"
                 style={{
@@ -347,25 +362,26 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
               disabled={buttonDisabled}
               className="cin-btn min-w-[260px] self-start disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
             >
-              {isWrongNetwork && (
+              {!paidActionReady && <>New Ledger Posts Disabled</>}
+              {paidActionReady && isWrongNetwork && (
                 <>
                   {isSwitchingChain ? <Loader2 size={16} className="animate-spin" /> : null}
                   {isSwitchingChain ? 'Switching network…' : 'Switch to LitVM Testnet'}
                 </>
               )}
-              {!isWrongNetwork && phase === 'signing' && (
+              {paidActionReady && !isWrongNetwork && phase === 'signing' && (
                 <>
                   <Loader2 size={16} className="animate-spin" />
                   Confirm in wallet
                 </>
               )}
-              {!isWrongNetwork && phase === 'pending' && (
+              {paidActionReady && !isWrongNetwork && phase === 'pending' && (
                 <>
                   <Loader2 size={16} className="animate-spin" />
                   Posting to The Ledger...
                 </>
               )}
-              {!isWrongNetwork && (phase === 'idle' || phase === 'confirmed' || phase === 'error') && (
+              {paidActionReady && !isWrongNetwork && (phase === 'idle' || phase === 'confirmed' || phase === 'error') && (
                 <>Post to The Ledger — {feeDisplay} zkLTC</>
               )}
             </button>
@@ -380,7 +396,7 @@ export function MessageComposer({ address, onConfirmed }: MessageComposerProps) 
             <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
               {isOwnerLoading || isTreasuryLoading
                 ? 'Verifying the live Ledger owner and treasury before enabling paid posts…'
-                : `Paid Ledger posts are disabled until both owner and treasury are verified as ${LESTER_TREASURY_ADDRESS}. Reading the Ledger remains available.`}
+                : `Paid Ledger posts are disabled because ${LESTER_TREASURY_STATUS}. Reading the Ledger remains available.`}
             </div>
           )}
         </>

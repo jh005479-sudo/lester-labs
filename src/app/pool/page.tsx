@@ -1,6 +1,6 @@
 'use client'
 
-import { readContract } from '@wagmi/core'
+import { readContract } from 'wagmi/actions'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -11,23 +11,40 @@ import { formatUnits, parseUnits } from 'viem'
 import { ToolHero } from '@/components/shared/ToolHero'
 import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI, UNISWAP_V2_ROUTER_ABI } from '@/config/abis'
-import { UNISWAP_V2_FACTORY_ADDRESS, UNISWAP_V2_ROUTER_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
+import {
+  LITVM_LEGACY_DEX_RECOVERY_DEPLOYMENTS,
+  isValidContractAddress,
+} from '@/config/contracts'
 import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { filterPools, getRecentPoolIndices } from '@/lib/poolDisplay'
-import { getPoolHealth } from '@/lib/poolHealth'
 import { litvm } from '@/config/chains'
 import {
-  attestFreshDexRuntime,
+  attestFreshDexRecoveryRuntime,
+  getSourcePinnedDexRecoverySource,
   isCanonicalDexDeployment,
   readFreshCanonicalPair,
+  type DexRecoverySource,
 } from '@/lib/dexTransactionReads'
 import { computeRemoveLiquidityMinimums, sameAddress, validateSlippageBps } from '@/lib/dexTransactionSafety'
 import { wagmiConfig } from '@/config/wagmi'
+import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 const ACCENT = '#E44FB5'
 const PAGE_SIZE = 10
 const MAX_DISPLAY = 250
+
+const CURRENT_DEX_RECOVERY_SOURCE = getSourcePinnedDexRecoverySource('current')
+const DEX_RECOVERY_SOURCES: readonly DexRecoverySource[] = Object.freeze([
+  CURRENT_DEX_RECOVERY_SOURCE,
+  ...LITVM_LEGACY_DEX_RECOVERY_DEPLOYMENTS
+    .filter((deployment) => !(
+      sameAddress(deployment.factory, CURRENT_DEX_RECOVERY_SOURCE.factory) &&
+      sameAddress(deployment.router, CURRENT_DEX_RECOVERY_SOURCE.router) &&
+      sameAddress(deployment.wrappedNative, CURRENT_DEX_RECOVERY_SOURCE.wrappedNative)
+    ))
+    .map((deployment) => getSourcePinnedDexRecoverySource(deployment.id)),
+])
 
 function ZERO_ADDRESS(): string {
   return '0x0000000000000000000000000000000000000000'
@@ -93,18 +110,6 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
   watched?: boolean
   onToggleWatch?: () => void
 }) {
-  const health = getPoolHealth({
-    reserve0: r0,
-    reserve1: r1,
-    token0Decimals: token0Meta.decimals,
-    token1Decimals: token1Meta.decimals,
-    token0Name: token0Meta.name,
-    token1Name: token1Meta.name,
-    token0Symbol: token0Meta.symbol,
-    token1Symbol: token1Meta.symbol,
-    hasRecentSync: totalSupply > 0n,
-  })
-
   return (
     <div className="analytics-card rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
       <div className="flex items-start justify-between gap-4">
@@ -132,11 +137,11 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
             </button>
           )}
           <Link
-            href={`/swap?addLiquidity=${pairAddress}&token0=${token0Address}&token1=${token1Address}`}
+            href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/security'}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
           >
             <Plus size={12} />
-            Add Liquidity
+            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Add liquidity' : 'New liquidity disabled'}
           </Link>
           <Link
             href={`/charts?pair=${pairAddress}`}
@@ -177,21 +182,17 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
           </p>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-        <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 font-semibold text-emerald-100">
-          Health {health.score}/100
-        </span>
-        <span className="rounded-full border border-white/8 bg-white/[0.025] px-2.5 py-1 text-white/45">
-          {health.label}
-        </span>
-        <span className="text-white/30">{health.reasons.slice(0, 2).join(' · ')}</span>
+      <div className="mt-3 text-xs leading-relaxed text-white/35">
+        Current reserve snapshot; the pair reports {totalSupply > 0n ? 'nonzero' : 'zero'} LP-token supply. Token
+        quantities are not comparable across assets and do not establish price, TVL, safety, locked liquidity, or
+        recent trading activity.
       </div>
     </div>
   )
 }
 
 // ── LP position card for connected wallet view ──────────────────────────────
-function PositionCard({ position, onAddLiquidity, onRemoveLiquidity }: {
+function PositionCard({ position, onRemoveLiquidity }: {
   position: {
     pairAddress: `0x${string}`
     token0Meta: TokenMeta
@@ -203,7 +204,6 @@ function PositionCard({ position, onAddLiquidity, onRemoveLiquidity }: {
     pooled1: bigint
     share: number
   }
-  onAddLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`) => void
   onRemoveLiquidity: (pairAddress: `0x${string}`, token0: `0x${string}`, token1: `0x${string}`, lpBalance: bigint, token0Decimals: number, token1Decimals: number) => void
 }) {
   return (
@@ -221,11 +221,12 @@ function PositionCard({ position, onAddLiquidity, onRemoveLiquidity }: {
 
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => onAddLiquidity(position.pairAddress, position.token0Address, position.token1Address)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
+            type="button"
+            disabled
+            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/35"
           >
             <Plus size={12} />
-            Add Liquidity
+            Add disabled
           </button>
           <button
             onClick={() => onRemoveLiquidity(position.pairAddress, position.token0Address, position.token1Address, position.lpBalance, position.token0Meta.decimals, position.token1Meta.decimals)}
@@ -323,8 +324,13 @@ const UNISWAP_V2_ROUTER_EXTENDED_ABI = [
 
 const DEFAULT_DEADLINE_SECONDS = 20 * 60
 
+function getTransactionDeadline(): bigint {
+  return BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
+}
+
 // ── Remove Liquidity Panel ──────────────────────────────────────────────────
 function RemoveLiquidityPanel({
+  deployment,
   pairAddress,
   token0,
   token1,
@@ -334,6 +340,7 @@ function RemoveLiquidityPanel({
   onClose,
   onSuccess,
 }: {
+  deployment: DexRecoverySource
   pairAddress: `0x${string}`
   token0: `0x${string}`
   token1: `0x${string}`
@@ -344,7 +351,7 @@ function RemoveLiquidityPanel({
   onSuccess: () => void
 }) {
   const { address, isConnected } = useAccount()
-  const { ensureLitvmWrite, writeContractAsync } = useSafeWriteContract()
+  const { ensureLitvmWrite, writeRecoveryContractAsync } = useSafeWriteContract()
   const queryClient = useQueryClient()
 
   const [removeAmount, setRemoveAmount] = useState('')
@@ -357,8 +364,8 @@ function RemoveLiquidityPanel({
   const [txAction, setTxAction] = useState<'approve' | 'remove'>('remove')
   const [slippageBps, setSlippageBps] = useState(50n)
 
-  const isToken0Native = token0.toLowerCase() === WRAPPED_ZKLTC_ADDRESS.toLowerCase()
-  const isToken1Native = token1.toLowerCase() === WRAPPED_ZKLTC_ADDRESS.toLowerCase()
+  const isToken0Native = token0.toLowerCase() === deployment.wrappedNative.toLowerCase()
+  const isToken1Native = token1.toLowerCase() === deployment.wrappedNative.toLowerCase()
   const isETHPair = isToken0Native || isToken1Native
 
   let parsedRemoveAmount = 0n
@@ -371,15 +378,14 @@ function RemoveLiquidityPanel({
   const lpAmount = parsedRemoveAmount > 0n && !removeAmountExceedsBalance ? parsedRemoveAmount : 0n
 
   const pairFromFactoryRead = useReadContract({
-    address: UNISWAP_V2_FACTORY_ADDRESS,
+    address: deployment.factory,
     abi: UNISWAP_V2_FACTORY_ABI,
     functionName: 'getPair',
     args: [token0, token1],
     chainId: litvm.id,
-    query: { enabled: isCanonicalDexDeployment },
+    query: { enabled: true },
   })
   const pairIsAuthenticated = Boolean(
-    isCanonicalDexDeployment &&
     pairFromFactoryRead.isSuccess &&
     sameAddress(pairAddress, pairFromFactoryRead.data as string | undefined),
   )
@@ -426,7 +432,7 @@ function RemoveLiquidityPanel({
     address: pairAddress,
     abi: ERC20_ABI,
     functionName: 'allowance',
-    args: address ? [address, UNISWAP_V2_ROUTER_ADDRESS] : undefined,
+    args: address ? [address, deployment.router] : undefined,
     chainId: litvm.id,
     query: { enabled: pairIsAuthenticated && isConnected && Boolean(address) },
   })
@@ -487,8 +493,8 @@ function RemoveLiquidityPanel({
     setApprovalPending(true)
     setTxAction('approve')
     try {
-      await attestFreshDexRuntime()
-      await readFreshCanonicalPair(token0, token1, pairAddress)
+      await attestFreshDexRecoveryRuntime(deployment.id)
+      await readFreshCanonicalPair(token0, token1, pairAddress, deployment.id)
       const freshLpBalance = await readContract(wagmiConfig, {
         address: pairAddress,
         abi: ERC20_ABI,
@@ -499,12 +505,19 @@ function RemoveLiquidityPanel({
       if (freshLpBalance < lpAmount) {
         throw new Error('Your LitVM LP balance changed. Review the removal amount and try again.')
       }
-      const hash = await writeContractAsync({
+      const hash = await writeRecoveryContractAsync({
         address: pairAddress,
         abi: ERC20_ABI,
         functionName: 'approve',
-        args: [UNISWAP_V2_ROUTER_ADDRESS, lpAmount],
+        args: [deployment.router, lpAmount],
         gas: 500000n,
+      }, {
+        kind: 'dex-liquidity',
+        deploymentId: deployment.id,
+        pair: pairAddress,
+        router: deployment.router,
+        tokenA: token0,
+        tokenB: token1,
       })
       setTxHash(hash)
       setTxOpen(true)
@@ -540,11 +553,10 @@ function RemoveLiquidityPanel({
       setTxStatus('pending')
       setTxMessage(undefined)
 
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + DEFAULT_DEADLINE_SECONDS)
       validateSlippageBps(slippageBps)
-      await attestFreshDexRuntime()
-      const freshPair = await readFreshCanonicalPair(token0, token1, pairAddress)
-      if (!freshPair) throw new Error('The selected pair is no longer available on the canonical LitVM factory.')
+      await attestFreshDexRecoveryRuntime(deployment.id)
+      const freshPair = await readFreshCanonicalPair(token0, token1, pairAddress, deployment.id)
+      if (!freshPair) throw new Error('The selected pair is no longer available on the selected source-pinned LitVM factory.')
       const [freshLpBalance, freshAllowance] = await Promise.all([
         readContract(wagmiConfig, {
           address: pairAddress,
@@ -557,7 +569,7 @@ function RemoveLiquidityPanel({
           address: pairAddress,
           abi: ERC20_ABI,
           functionName: 'allowance',
-          args: [address, UNISWAP_V2_ROUTER_ADDRESS],
+          args: [address, deployment.router],
           chainId: litvm.id,
         }) as Promise<bigint>,
       ])
@@ -578,6 +590,7 @@ function RemoveLiquidityPanel({
       const token0IsPair0 = sameAddress(token0, freshPair.token0)
       const amount0Min = token0IsPair0 ? freshQuote.amount0Min : freshQuote.amount1Min
       const amount1Min = token0IsPair0 ? freshQuote.amount1Min : freshQuote.amount0Min
+      const deadline = getTransactionDeadline()
 
       let hash: `0x${string}`
 
@@ -586,12 +599,19 @@ function RemoveLiquidityPanel({
         const tokenAddr = isToken0Native ? token1 : token0
         const amountTokenMin = isToken0Native ? amount1Min : amount0Min
         const amountETHMin = isToken0Native ? amount0Min : amount1Min
-        hash = await writeContractAsync({
-          address: UNISWAP_V2_ROUTER_ADDRESS,
+        hash = await writeRecoveryContractAsync({
+          address: deployment.router,
           abi: UNISWAP_V2_ROUTER_EXTENDED_ABI,
           functionName: 'removeLiquidityETH',
           args: [tokenAddr, lpAmount, amountTokenMin, amountETHMin, address, deadline],
           gas: 500000n,
+        }, {
+          kind: 'dex-liquidity',
+          deploymentId: deployment.id,
+          pair: pairAddress,
+          router: deployment.router,
+          tokenA: token0,
+          tokenB: token1,
         })
       } else {
         // Both ERC20 — ensure tokenA < tokenB
@@ -600,12 +620,19 @@ function RemoveLiquidityPanel({
         const [amountAMin, amountBMin] = isSorted
           ? [amount0Min, amount1Min] as const
           : [amount1Min, amount0Min] as const
-        hash = await writeContractAsync({
-          address: UNISWAP_V2_ROUTER_ADDRESS,
+        hash = await writeRecoveryContractAsync({
+          address: deployment.router,
           abi: UNISWAP_V2_ROUTER_EXTENDED_ABI,
           functionName: 'removeLiquidity',
           args: [tokenA, tokenB, lpAmount, amountAMin, amountBMin, address, deadline],
           gas: 500000n,
+        }, {
+          kind: 'dex-liquidity',
+          deploymentId: deployment.id,
+          pair: pairAddress,
+          router: deployment.router,
+          tokenA: token0,
+          tokenB: token1,
         })
       }
 
@@ -782,7 +809,7 @@ function RemoveLiquidityPanel({
               className="flex w-full items-center justify-center gap-2 rounded-[18px] border border-white/10 bg-white/5 px-5 py-4 text-base font-semibold text-white/70 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {approvalPending ? <Loader2 size={16} className="animate-spin" /> : null}
-              <span>{approvalPending ? 'Approving…' : 'Approve LP Token'}</span>
+              <span>{approvalPending ? 'Approving exact recovery amount…' : 'Approve exact LP amount for recovery'}</span>
             </button>
           )}
 
@@ -799,7 +826,7 @@ function RemoveLiquidityPanel({
             }}
           >
             {removing || isConfirming ? <Loader2 size={16} className="animate-spin" /> : <Minus size={16} />}
-            <span>{removing ? 'Removing…' : isConfirming ? 'Confirming…' : 'Remove Liquidity'}</span>
+            <span>{removing ? 'Removing…' : isConfirming ? 'Confirming…' : 'Recover Underlying Liquidity'}</span>
           </button>
         </>
       )}
@@ -826,15 +853,20 @@ export default function PoolPage() {
   const { isWatched, saveSearch, scopedSearches, toggleWatchlist } = useLocalEngagement()
   const savedPoolSearches = scopedSearches('pool')
 
+  const [selectedDeploymentId, setSelectedDeploymentId] = useState(CURRENT_DEX_RECOVERY_SOURCE.id)
+  const selectedDexDeployment = DEX_RECOVERY_SOURCES.find((deployment) => (
+    deployment.id === selectedDeploymentId
+  )) ?? CURRENT_DEX_RECOVERY_SOURCE
+
   const isDexConfigured =
-    isCanonicalDexDeployment &&
-    isValidContractAddress(UNISWAP_V2_FACTORY_ADDRESS) &&
-    isValidContractAddress(UNISWAP_V2_ROUTER_ADDRESS) &&
-    isValidContractAddress(WRAPPED_ZKLTC_ADDRESS)
+    (selectedDexDeployment.id !== 'current' || isCanonicalDexDeployment) &&
+    isValidContractAddress(selectedDexDeployment.factory) &&
+    isValidContractAddress(selectedDexDeployment.router) &&
+    isValidContractAddress(selectedDexDeployment.wrappedNative)
 
   // ── Total pair count ─────────────────────────────────────────────────────
   const allPairsLengthRead = useReadContract({
-    address: UNISWAP_V2_FACTORY_ADDRESS,
+    address: selectedDexDeployment.factory,
     abi: UNISWAP_V2_FACTORY_ABI,
     functionName: 'allPairsLength',
     chainId: litvm.id,
@@ -865,6 +897,12 @@ export default function PoolPage() {
     token1Decimals: number
   } | null>(null)
 
+  useEffect(() => {
+    setLoadedBatches(2)
+    setShowRemoveLiq(false)
+    setRemoveLiqData(null)
+  }, [selectedDeploymentId])
+
   const displayedCount = Math.min(loadedBatches * PAGE_SIZE, maxDisplay)
   const displayedIndices = getRecentPoolIndices(totalPairs, displayedCount)
 
@@ -872,7 +910,7 @@ export default function PoolPage() {
   const pairAddressReads = useReadContracts({
     contracts: isDexConfigured
       ? displayedIndices.map((index) => ({
-          address: UNISWAP_V2_FACTORY_ADDRESS,
+          address: selectedDexDeployment.factory,
           abi: UNISWAP_V2_FACTORY_ABI,
           functionName: 'allPairs' as const,
           args: [index],
@@ -927,7 +965,7 @@ export default function PoolPage() {
     contracts: Array.from(tokenAddresses)
       .filter(
         (tokenAddress) =>
-          tokenAddress !== WRAPPED_ZKLTC_ADDRESS.toLowerCase() &&
+          tokenAddress !== selectedDexDeployment.wrappedNative.toLowerCase() &&
           tokenAddress !== ZERO_ADDRESS().toLowerCase()
       )
       .flatMap((tokenAddress) => [
@@ -939,7 +977,7 @@ export default function PoolPage() {
   })
 
   const tokenMetaMap = new Map<string, TokenMeta>()
-  tokenMetaMap.set(WRAPPED_ZKLTC_ADDRESS.toLowerCase(), {
+  tokenMetaMap.set(selectedDexDeployment.wrappedNative.toLowerCase(), {
     name: 'Wrapped zkLTC',
     symbol: 'zkLTC',
     decimals: 18,
@@ -953,7 +991,7 @@ export default function PoolPage() {
   Array.from(tokenAddresses)
     .filter(
       (tokenAddress) =>
-        tokenAddress !== WRAPPED_ZKLTC_ADDRESS.toLowerCase() &&
+        tokenAddress !== selectedDexDeployment.wrappedNative.toLowerCase() &&
         tokenAddress !== ZERO_ADDRESS().toLowerCase()
     )
     .forEach((tokenAddress, index) => {
@@ -1058,14 +1096,6 @@ export default function PoolPage() {
   const searchLower = poolSearch.trim().toLowerCase()
   const visiblePools = filterPools(pools, searchLower, true)
 
-  function handleAddLiquidity(
-    pairAddress: `0x${string}`,
-    token0: `0x${string}`,
-    token1: `0x${string}`
-  ) {
-    window.location.href = `/swap?addLiquidity=${pairAddress}&token0=${token0}&token1=${token1}`
-  }
-
   function handleRemoveLiquidity(
     pairAddress: `0x${string}`,
     token0: `0x${string}`,
@@ -1096,7 +1126,9 @@ export default function PoolPage() {
         category="Dex"
         title="Liquidity"
         titleHighlight="Pool"
-        subtitle="Browse all factory pools, view reserves, and manage your LP positions."
+        subtitle={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+          ? 'Inspect bounded source-pinned replacement pairs, create liquidity, or recover eligible legacy LP positions.'
+          : 'Inspect the bounded newest factory-pair window and eligible wallet positions. New pools and liquidity additions are disabled; authenticated legacy removal is recovery-only.'}
         color={ACCENT}
         image="/images/carousel/pool.png"
         imagePosition="center 65px"
@@ -1111,17 +1143,82 @@ export default function PoolPage() {
       />
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
+        <section className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Source-pinned public-testnet DEX' : 'Source-pinned recovery deployment'}
+              </p>
+              <h2 className="mt-2 text-lg font-semibold text-white">{selectedDexDeployment.label}</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-white/50">
+                Positions, allowances, quotes, and removal calls below are scoped to this exact factory/router/wrapped-native tuple. Changing the selection clears any open removal flow.
+              </p>
+            </div>
+            <label className="min-w-0 text-sm text-white/60 md:w-80">
+              Deployment
+              <select
+                aria-label="DEX recovery deployment"
+                value={selectedDexDeployment.id}
+                onChange={(event) => setSelectedDeploymentId(event.target.value)}
+                className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-[#120f1d] px-3 text-sm text-white outline-none focus:border-white/25"
+              >
+                {DEX_RECOVERY_SOURCES.map((deployment) => (
+                  <option key={deployment.id} value={deployment.id}>
+                    {deployment.label}{deployment.id === 'current' ? '' : ' — retired / withdrawal only'}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 grid gap-2 text-xs text-white/45 md:grid-cols-2">
+            <p className="break-all font-mono">Factory: {selectedDexDeployment.factory}</p>
+            <p className="break-all font-mono">Router: {selectedDexDeployment.router}</p>
+          </div>
+        </section>
+
         {!isDexConfigured && (
           <div className="rounded-[24px] border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-100">
             Configure factory and WZKLTC addresses before using the pool page.
           </div>
         )}
 
+        <details className="rounded-[20px] border border-amber-300/15 bg-amber-300/[0.045] text-sm text-amber-50/80">
+          <summary className="cursor-pointer px-5 py-4 font-semibold text-amber-100">
+            Legacy LP recovery is remove-only
+          </summary>
+          <div className="space-y-3 border-t border-amber-300/10 px-5 py-4 text-xs leading-6 text-amber-50/65">
+            <p>
+              If this DEX is replaced, old LP tokens remain claims on their original pair contracts. Recover them only through the exact source-pinned legacy router that created the position. Never swap, add liquidity, create a pool, or grant a reusable allowance to a retired router.
+            </p>
+            <p>
+              Before direct recovery, verify that the legacy factory returns the pair for both tokens, the legacy router reports that factory and wrapped-native address, and the recipient is your connected wallet. Approve only the exact LP amount, then call <code>removeLiquidity</code> or <code>removeLiquidityETH</code> with explicit minimum outputs and a short deadline.
+            </p>
+            {LITVM_LEGACY_DEX_RECOVERY_DEPLOYMENTS.length > 0 ? (
+              <div className="space-y-2">
+                {LITVM_LEGACY_DEX_RECOVERY_DEPLOYMENTS.map((deployment) => (
+                  <div key={deployment.id} className="rounded-lg border border-amber-300/10 bg-black/15 p-3">
+                    <p className="font-semibold text-amber-100">{deployment.label} — withdrawal only</p>
+                    <p className="break-all font-mono">Factory: {deployment.factory}</p>
+                    <p className="break-all font-mono">Router: {deployment.router}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>
+                No retired DEX deployment is currently source-pinned. Do not use an address supplied through chat, an environment variable, or an unverified explorer label.
+              </p>
+            )}
+            <Link href="/docs" className="inline-flex min-h-11 items-center text-amber-200 underline underline-offset-4">
+              Read the full recovery checklist
+            </Link>
+          </div>
+        </details>
+
         {/* ── Header + Create Pool CTA ────────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-white">
-              {isConnected ? 'Your LP Positions' : 'All Factory Pools'}
+              {isConnected ? 'Your LP Positions in the Loaded Window' : 'Newest Factory-Pair Window'}
             </h2>
             <p className="mt-1 text-sm text-white/45">
               {isConnected
@@ -1153,7 +1250,7 @@ export default function PoolPage() {
               </div>
             )}
             <Link
-              href="/swap?createPool=1"
+              href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/security'}
               className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition sm:flex-none"
               style={{
                 background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
@@ -1161,7 +1258,7 @@ export default function PoolPage() {
               }}
             >
               <Plus size={14} />
-              Create Pool
+              {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Create Pool' : 'New Pools Disabled'}
             </Link>
           </div>
         </div>
@@ -1187,19 +1284,21 @@ export default function PoolPage() {
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5">
                 <Layers3 size={22} className="text-white/65" />
               </div>
-              <h2 className="mt-5 text-2xl font-semibold text-white">No pools yet</h2>
+              <h2 className="mt-5 text-2xl font-semibold text-white">No pools in the loaded window</h2>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/45">
-                Be the first to create a pool on the LitVM DEX.
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                  ? 'This bounded newest-pair view returned no pools. Open the source-pinned replacement pool creation flow to create one.'
+                  : 'This bounded newest-pair view returned no pools. New pool creation remains disabled.'}
               </p>
               <Link
-                href="/swap?createPool=1"
+                href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/security'}
                 className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition"
                 style={{
                   background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
                 }}
               >
                 <Plus size={14} />
-                Create First Pool
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Create Pool' : 'Review Security Status'}
               </Link>
             </div>
           ) : (
@@ -1297,7 +1396,7 @@ export default function PoolPage() {
                   className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 transition hover:border-white/20 hover:text-white"
                 >
                   <Droplets size={14} />
-                  Open Swap
+                  Review DEX Status
                 </Link>
               </div>
             </div>
@@ -1310,7 +1409,9 @@ export default function PoolPage() {
                 </div>
                 <h2 className="mt-5 text-2xl font-semibold text-white">No LP positions</h2>
                 <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/45">
-                  You don&apos;t hold any Lester Labs V2 LP tokens yet. Add liquidity to a pair to earn from trades.
+                  {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
+                    ? 'No LP balance was found in the loaded newest-pair window. This is not a complete wallet history; use the source-pinned replacement DEX to review new liquidity.'
+                    : 'No LP balance was found in the loaded newest-pair window. This is not a complete wallet history, and new liquidity additions remain disabled.'}
                 </p>
                 <Link
                   href="/swap"
@@ -1318,7 +1419,7 @@ export default function PoolPage() {
                   style={{ background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)` }}
                 >
                   <Droplets size={14} />
-                  Go to Swap
+                  {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Open DEX' : 'Review DEX Status'}
                 </Link>
               </div>
             ) : (
@@ -1327,7 +1428,6 @@ export default function PoolPage() {
                   <PositionCard
                     key={position.pairAddress}
                     position={position}
-                    onAddLiquidity={handleAddLiquidity}
                     onRemoveLiquidity={handleRemoveLiquidity}
                   />
                 ))}
@@ -1347,6 +1447,7 @@ export default function PoolPage() {
                     style={{ background: 'var(--background)', border: '1px solid var(--surface-border)', borderRadius: '24px' }}
                   >
                     <RemoveLiquidityPanel
+                      deployment={selectedDexDeployment}
                       pairAddress={removeLiqData.pairAddress}
                       token0={removeLiqData.token0}
                       token1={removeLiqData.token1}
