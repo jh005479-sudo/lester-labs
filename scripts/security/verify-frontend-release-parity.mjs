@@ -22,6 +22,13 @@ import {
   validateFrontendApprovalEnvelope,
   validateFrontendReleaseAttestation,
 } from "./frontend-release-attestation.mjs";
+import {
+  assertReleaseProfile,
+  assertVerificationProfile,
+  assertVantageId,
+  releaseProfileForVerification,
+  vantageIdsForVerification,
+} from "./release-profiles.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const defaultPolicyPath = join(repositoryRoot, "src/config/frontendReleasePolicy.json");
@@ -40,10 +47,6 @@ const MAXIMUM_PROMOTION_EVIDENCE_BYTES = 1024 * 1024;
 const MAXIMUM_PROMOTION_PROVENANCE_BYTES = 16 * 1024 * 1024;
 const MAXIMUM_PROMOTION_VERIFICATION_BYTES = 32 * 1024 * 1024;
 const MAXIMUM_PRODUCTION_PARITY_DELAY_MS = 30 * 60 * 1000;
-const PRODUCTION_VANTAGE_IDS = Object.freeze([
-  "protected-eu-network",
-  "protected-us-network",
-]);
 const PRODUCTION_DOMAINS = Object.freeze([
   "lester-labs.com",
   "www.lester-labs.com",
@@ -247,7 +250,7 @@ function validateFrontendPromotionEvidence(value, {
   artifactSha256,
 }) {
   assertExactKeys(value, [
-    "kind", "schemaVersion", "status", "promotedAt", "sourceCommit", "artifactKind",
+    "kind", "schemaVersion", "status", "promotedAt", "sourceCommit", "releaseProfile", "artifactKind",
     "manifestSha256", "artifactSha256", "stageEvidenceSha256", "stageProvenanceSha256",
     "promotionApprovalSha256", "promotionApprovalProvenanceSha256", "parityEvidenceSha256",
     "parityProvenanceSha256", "confirmation", "project", "deployment", "priorDeploymentId",
@@ -255,7 +258,7 @@ function validateFrontendPromotionEvidence(value, {
   ], "Frontend promotion evidence");
   if (
     value.kind !== "lester-labs-vercel-promotion-evidence" ||
-    value.schemaVersion !== 2 ||
+    value.schemaVersion !== 3 ||
     value.status !== "CURRENT" ||
     !["DIRECT", "RECOVERED_AFTER_AMBIGUOUS_RESPONSE"].includes(value.confirmation) ||
     value.artifactKind !== "next-standalone-container" ||
@@ -264,6 +267,7 @@ function validateFrontendPromotionEvidence(value, {
     value.artifactSha256 !== artifactSha256
   ) throw new Error("Frontend production parity is bound to a different promotion or approved artifact.");
   canonicalTimestamp(value.promotedAt, "Frontend promotion timestamp");
+  assertReleaseProfile(value.releaseProfile, "Frontend promotion release profile");
   const { evidenceSha256, ...payload } = value;
   assertHash(evidenceSha256, "Frontend promotion evidence digest");
   if (evidenceSha256 !== sha256Canonical(payload)) {
@@ -795,6 +799,7 @@ export async function verifyFrontendReleaseParity({
   enforceProductionOrigins = true,
   checkedAt = new Date().toISOString(),
   vantageId,
+  verificationProfile,
   approvalEvidenceDirectory,
   verifyProvenance = verifyGitHubFrontendProvenance,
   expectedSourceCommit,
@@ -805,9 +810,8 @@ export async function verifyFrontendReleaseParity({
 } = {}) {
   canonicalTimestamp(checkedAt, "Served frontend parity timestamp");
   if (enforceProductionOrigins) {
-    if (!PRODUCTION_VANTAGE_IDS.includes(vantageId)) {
-      throw new Error("Production served frontend parity requires a reviewed EU or US vantage ID.");
-    }
+    assertVerificationProfile(verificationProfile, "Served frontend verification profile");
+    assertVantageId(verificationProfile, vantageId);
   } else if (
     typeof vantageId !== "string" ||
     !/^[A-Za-z0-9][A-Za-z0-9._:-]{2,79}$/u.test(vantageId)
@@ -849,6 +853,11 @@ export async function verifyFrontendReleaseParity({
     approvalEvidenceDirectory,
     verifyProvenance,
   });
+  const releaseProfile = manifest.releaseProfile;
+  if (
+    enforceProductionOrigins &&
+    releaseProfile !== releaseProfileForVerification(verificationProfile)
+  ) throw new Error("The served frontend verification profile differs from the signed release profile.");
   const manifestBytes = readFileSync(manifestPath);
   if (manifestBytes.toString("utf8") !== canonicalJson(manifest)) {
     throw new Error("The approved frontend manifest must use exact canonical JSON bytes.");
@@ -889,6 +898,9 @@ export async function verifyFrontendReleaseParity({
       manifestSha256,
       artifactSha256: manifest.deploymentArtifact.archiveSha256,
     });
+    if (promotion.releaseProfile !== releaseProfile) {
+      throw new Error("The frontend promotion differs from the signed release profile.");
+    }
     promotionVerification = validatePromotionVerification({
       promotionEvidenceBytes,
       promotionProvenanceBytes,
@@ -972,6 +984,8 @@ export async function verifyFrontendReleaseParity({
     kind: "lester-labs-served-frontend-parity",
     checkedAt,
     vantageId,
+    verificationProfile: enforceProductionOrigins ? verificationProfile : "local-development",
+    releaseProfile,
     sourceCommit: manifest.sourceCommit,
     reviewPayloadSha256: manifest.reviewPayloadSha256,
     policySha256: manifest.policySha256,
@@ -983,6 +997,7 @@ export async function verifyFrontendReleaseParity({
   };
   if (!enforceProductionOrigins) {
     const servedReleaseSha256 = sha256Canonical({
+      releaseProfile,
       sourceCommit: manifest.sourceCommit,
       reviewPayloadSha256: manifest.reviewPayloadSha256,
       policySha256: manifest.policySha256,
@@ -996,6 +1011,8 @@ export async function verifyFrontendReleaseParity({
     return { ...result, evidenceSha256: sha256Canonical(result) };
   }
   const servedReleaseSha256 = sha256Canonical({
+    verificationProfile,
+    releaseProfile,
     sourceCommit: manifest.sourceCommit,
     manifestSha256,
     deploymentId: promotion.deployment.id,
@@ -1009,7 +1026,7 @@ export async function verifyFrontendReleaseParity({
   });
   const result = {
     ...sharedResult,
-    schemaVersion: 2,
+    schemaVersion: 3,
     manifestSha256,
     promotedAt: promotion.promotedAt,
     deploymentId: promotion.deployment.id,
@@ -1267,7 +1284,8 @@ function normalizedFrontendObservation(origins) {
 
 function validateFrontendVantageEvidence(value, label) {
   assertExactKeys(value, [
-    "kind", "schemaVersion", "checkedAt", "vantageId", "sourceCommit", "reviewPayloadSha256",
+    "kind", "schemaVersion", "checkedAt", "vantageId", "verificationProfile", "releaseProfile",
+    "sourceCommit", "reviewPayloadSha256",
     "policySha256", "publicArtifactsSha256", "manifestSha256", "promotedAt", "deploymentId",
     "promotionEvidenceSha256", "promotionProvenanceSha256", "promotionVerification",
     "observationSha256", "servedReleaseSha256", "apexAndWwwByteEquivalent",
@@ -1275,8 +1293,7 @@ function validateFrontendVantageEvidence(value, label) {
   ], `${label} frontend vantage evidence`);
   if (
     value.kind !== "lester-labs-served-frontend-parity" ||
-    value.schemaVersion !== 2 ||
-    !PRODUCTION_VANTAGE_IDS.includes(value.vantageId) ||
+    value.schemaVersion !== 3 ||
     typeof value.sourceCommit !== "string" ||
     !/^[0-9a-f]{40}$/u.test(value.sourceCommit) ||
     typeof value.deploymentId !== "string" ||
@@ -1284,6 +1301,11 @@ function validateFrontendVantageEvidence(value, label) {
     value.apexAndWwwByteEquivalent !== true ||
     value.liveJsonSchemaEquivalent !== true
   ) throw new Error(`The ${label} frontend vantage kind, identity, or required results are invalid.`);
+  assertVerificationProfile(value.verificationProfile, `${label} frontend verification profile`);
+  assertVantageId(value.verificationProfile, value.vantageId);
+  if (value.releaseProfile !== releaseProfileForVerification(value.verificationProfile)) {
+    throw new Error(`The ${label} frontend release and verification profiles differ.`);
+  }
   canonicalTimestamp(value.checkedAt, `${label} frontend vantage timestamp`);
   canonicalTimestamp(value.promotedAt, `${label} frontend promotion timestamp`);
   const delay = Date.parse(value.checkedAt) - Date.parse(value.promotedAt);
@@ -1355,6 +1377,8 @@ function validateFrontendVantageEvidence(value, label) {
     throw new Error(`The ${label} frontend observation digest is invalid.`);
   }
   const servedReleaseSha256 = sha256Canonical({
+    verificationProfile: value.verificationProfile,
+    releaseProfile: value.releaseProfile,
     sourceCommit: value.sourceCommit,
     manifestSha256: value.manifestSha256,
     deploymentId: value.deploymentId,
@@ -1379,15 +1403,19 @@ function validateFrontendVantageEvidence(value, label) {
 export function compareFrontendVantageEvidence(left, right) {
   validateFrontendVantageEvidence(left, "left");
   validateFrontendVantageEvidence(right, "right");
+  if (left.verificationProfile !== right.verificationProfile) {
+    throw new Error("Independent frontend vantages use different verification profiles.");
+  }
+  const expectedVantageIds = vantageIdsForVerification(left.verificationProfile);
   if (
-    new Set([left.vantageId, right.vantageId]).size !== PRODUCTION_VANTAGE_IDS.length ||
-    PRODUCTION_VANTAGE_IDS.some((vantageId) => ![left.vantageId, right.vantageId].includes(vantageId))
-  ) throw new Error("Independent served parity requires the exact EU and US vantage IDs.");
+    new Set([left.vantageId, right.vantageId]).size !== expectedVantageIds.length ||
+    expectedVantageIds.some((vantageId) => ![left.vantageId, right.vantageId].includes(vantageId))
+  ) throw new Error("Independent served parity requires the exact verification-profile vantage IDs.");
   if (Math.abs(Date.parse(left.checkedAt) - Date.parse(right.checkedAt)) > MAXIMUM_PRODUCTION_PARITY_DELAY_MS) {
     throw new Error("Independent frontend vantages exceed the reviewed 30-minute timestamp skew.");
   }
   for (const field of [
-    "sourceCommit", "reviewPayloadSha256", "policySha256", "publicArtifactsSha256",
+    "verificationProfile", "releaseProfile", "sourceCommit", "reviewPayloadSha256", "policySha256", "publicArtifactsSha256",
     "manifestSha256", "promotedAt", "deploymentId", "promotionEvidenceSha256",
     "promotionProvenanceSha256", "observationSha256", "servedReleaseSha256",
   ]) {
@@ -1398,7 +1426,9 @@ export function compareFrontendVantageEvidence(left, right) {
   }
   const payload = {
     kind: "lester-labs-independent-vantage-comparison",
-    schemaVersion: 2,
+    schemaVersion: 3,
+    verificationProfile: left.verificationProfile,
+    releaseProfile: left.releaseProfile,
     sourceCommit: left.sourceCommit,
     manifestSha256: left.manifestSha256,
     leftVantageId: left.vantageId,
@@ -1423,7 +1453,7 @@ function parseOptions(argumentsList) {
     if (![
       "--manifest", "--policy", "--output", "--vantage-id", "--approval-evidence-dir",
       "--expected-source-commit", "--promotion-evidence", "--promotion-provenance",
-      "--promotion-verification",
+      "--promotion-verification", "--verification-profile",
     ].includes(name)) {
       throw new Error(`Unknown option ${name}.`);
     }
@@ -1458,6 +1488,7 @@ async function main() {
     manifestPath: resolve(options.get("--manifest") ?? defaultManifestPath),
     policyPath: resolve(options.get("--policy") ?? defaultPolicyPath),
     vantageId: options.get("--vantage-id"),
+    verificationProfile: options.get("--verification-profile"),
     approvalEvidenceDirectory: options.has("--approval-evidence-dir")
       ? resolve(options.get("--approval-evidence-dir"))
       : undefined,

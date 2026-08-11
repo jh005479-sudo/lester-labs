@@ -7,12 +7,19 @@ on:
         description: Exact lowercase commit on the protected main branch
         required: true
         type: string
+      release_profile:
+        description: Exact reviewed authority and control-plane profile
+        required: true
+        type: choice
+        options:
+          - production-separated-authority
+          - public-testnet-immutable
 
 permissions:
   contents: read
 
 concurrency:
-  group: frontend-release-attestation-${{ github.sha }}
+  group: frontend-release-attestation-${{ inputs.release_profile }}-${{ github.sha }}
   cancel-in-progress: false
 
 env:
@@ -67,6 +74,8 @@ jobs:
 
       - name: Verify reviewed source and fail-closed release prerequisites
         shell: bash
+        env:
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
         run: |
           set -euo pipefail
           docker run --rm --platform linux/amd64 --network none \
@@ -85,7 +94,16 @@ jobs:
             --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
             --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
             -v "$GITHUB_WORKSPACE:/source:ro" -w /source \
-            "$RELEASE_IMAGE" node scripts/security/verify-control-plane-recovery.mjs --require-reviewed
+            "$RELEASE_IMAGE" node scripts/security/verify-release-profile.mjs "$RELEASE_PROFILE"
+          if test "$RELEASE_PROFILE" = "production-separated-authority"; then
+            docker run --rm --platform linux/amd64 --network none \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
+              -v "$GITHUB_WORKSPACE:/source:ro" -w /source \
+              "$RELEASE_IMAGE" node scripts/security/verify-control-plane-recovery.mjs --require-reviewed
+          else
+            test "$RELEASE_PROFILE" = "public-testnet-immutable"
+          fi
           docker run --rm --platform linux/amd64 --network none \
             --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
             --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
@@ -448,6 +466,7 @@ jobs:
               --sbom /evidence/application.cdx.json \
               --deployment-artifact /evidence/frontend-standalone.tar \
               --deployment-inventory /evidence/deployment-payload.inventory.json \
+              --release-profile "${{ inputs.release_profile }}" \
               --route-capture /package/raw-route-capture.json \
               --output /evidence/frontend-release-candidate.json
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"

@@ -14,6 +14,13 @@ on:
         options:
           - emergency-static
           - next-standalone-container
+      release_profile:
+        description: Explicit authority and parity profile
+        required: true
+        type: choice
+        options:
+          - production-separated-authority
+          - public-testnet-immutable
       attestation_run_id:
         description: Exact successful source-attestation workflow run ID
         required: true
@@ -28,7 +35,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: vercel-provider-canary-${{ inputs.release_kind }}-${{ inputs.reviewed_commit }}
+  group: vercel-provider-canary-${{ inputs.release_profile }}-${{ inputs.release_kind }}-${{ inputs.reviewed_commit }}
   cancel-in-progress: false
 
 jobs:
@@ -42,6 +49,7 @@ jobs:
     outputs:
       reviewed_commit: ${{ steps.validate.outputs.reviewed_commit }}
       release_kind: ${{ steps.validate.outputs.release_kind }}
+      release_profile: ${{ steps.validate.outputs.release_profile }}
       attestation_run_id: ${{ steps.validate.outputs.attestation_run_id }}
       attestation_run_attempt: ${{ steps.validate.outputs.attestation_run_attempt }}
       maximum_upload_bytes: ${{ steps.validate.outputs.maximum_upload_bytes }}
@@ -55,6 +63,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
           RELEASE_KIND: ${{ inputs.release_kind }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
           ATTESTATION_RUN_ID: ${{ inputs.attestation_run_id }}
           MAXIMUM_UPLOAD_BYTES: ${{ inputs.maximum_upload_bytes }}
           PROTECTED_REF: ${{ github.ref_protected }}
@@ -67,6 +76,10 @@ jobs:
           [[ "$ATTESTATION_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
           [[ "$MAXIMUM_UPLOAD_BYTES" =~ ^[1-9][0-9]{0,8}$ ]]
           test "$MAXIMUM_UPLOAD_BYTES" -le 536870912
+          case "$RELEASE_PROFILE" in
+            production-separated-authority|public-testnet-immutable) ;;
+            *) exit 1 ;;
+          esac
           case "$RELEASE_KIND" in
             emergency-static)
               artifact_prefix="emergency-containment-$REVIEWED_COMMIT"
@@ -111,6 +124,7 @@ jobs:
           {
             printf 'reviewed_commit=%s\n' "$REVIEWED_COMMIT"
             printf 'release_kind=%s\n' "$RELEASE_KIND"
+            printf 'release_profile=%s\n' "$RELEASE_PROFILE"
             printf 'attestation_run_id=%s\n' "$ATTESTATION_RUN_ID"
             printf 'attestation_run_attempt=%s\n' "$source_run_attempt"
             printf 'maximum_upload_bytes=%s\n' "$MAXIMUM_UPLOAD_BYTES"
@@ -148,6 +162,7 @@ jobs:
         env:
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
           RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          RELEASE_PROFILE: ${{ needs.validate-inputs.outputs.release_profile }}
           MAXIMUM_UPLOAD_BYTES: ${{ needs.validate-inputs.outputs.maximum_upload_bytes }}
           PROTECTED_REF: ${{ github.ref_protected }}
           CANARY_TEAM_ID: ${{ vars.VERCEL_CANARY_TEAM_ID }}
@@ -171,6 +186,7 @@ jobs:
           test "$CANARY_PROJECT_ID" != "$PRODUCTION_PROJECT_ID"
           [[ "$CANARY_PROJECT_NAME" =~ ^[a-z0-9]([a-z0-9-]{0,98}[a-z0-9])?$ ]]
           case "$RELEASE_KIND" in emergency-static|next-standalone-container) ;; *) exit 1 ;; esac
+          node scripts/security/verify-release-profile.mjs "$RELEASE_PROFILE"
 
       - name: Download the exact signed release artifact
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
@@ -249,8 +265,9 @@ jobs:
       - name: Exercise exact provider input, same-ID promotion, and exact rollback
         shell: bash
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_CANARY_TOKEN }}
+          VERCEL_TOKEN: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && secrets.VERCEL_TOKEN || secrets.VERCEL_CANARY_TOKEN }}
           RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          RELEASE_PROFILE: ${{ needs.validate-inputs.outputs.release_profile }}
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
           MAXIMUM_UPLOAD_BYTES: ${{ needs.validate-inputs.outputs.maximum_upload_bytes }}
           CANARY_TEAM_ID: ${{ vars.VERCEL_CANARY_TEAM_ID }}
@@ -271,6 +288,7 @@ jobs:
             --workflow-run-attempt "$GITHUB_RUN_ATTEMPT"
             --source-attestation-run-id "${{ needs.validate-inputs.outputs.attestation_run_id }}"
             --source-attestation-run-attempt "${{ needs.validate-inputs.outputs.attestation_run_attempt }}"
+            --release-profile "$RELEASE_PROFILE"
             --output "$GITHUB_WORKSPACE/provider-canary-evidence/provider-canary.json"
           )
           if test "$RELEASE_KIND" = "emergency-static"; then

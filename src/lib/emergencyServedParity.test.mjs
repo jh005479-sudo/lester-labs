@@ -143,10 +143,11 @@ function verifiedPromotionFiles(promotionEvidence, {
 function promotionEvidenceFixture(sourceCommit = 'a'.repeat(40)) {
   const payload = {
     kind: 'lester-labs-vercel-promotion-evidence',
-    schemaVersion: 2,
+    schemaVersion: 3,
     status: 'CURRENT',
     promotedAt: '2026-08-11T01:00:00.000Z',
     sourceCommit,
+    releaseProfile: 'production-separated-authority',
     artifactKind: 'emergency-static',
     manifestSha256: '1'.repeat(64),
     artifactSha256: '2'.repeat(64),
@@ -283,6 +284,7 @@ describe('wallet-free emergency served parity', () => {
     const verifiedPromotion = verifiedPromotionFiles(promotionEvidence)
     const first = await verifyEmergencyProductionParity({
       ...verifiedPromotion,
+      verificationProfile: 'production-independent-network',
       expectedSourceCommit: sourceCommit,
       vantageId: 'protected-eu-network',
       sourceDirectory,
@@ -291,6 +293,7 @@ describe('wallet-free emergency served parity', () => {
     })
     const second = await verifyEmergencyProductionParity({
       ...verifiedPromotion,
+      verificationProfile: 'production-independent-network',
       expectedSourceCommit: sourceCommit,
       vantageId: 'protected-us-network',
       sourceDirectory,
@@ -299,7 +302,8 @@ describe('wallet-free emergency served parity', () => {
     })
     const comparisonPayload = {
       kind: 'lester-labs-independent-emergency-vantage-comparison',
-      schemaVersion: 2,
+      schemaVersion: 3,
+      verificationProfile: 'production-independent-network',
       leftVantageId: 'protected-eu-network',
       rightVantageId: 'protected-us-network',
       sourceCommit,
@@ -317,7 +321,7 @@ describe('wallet-free emergency served parity', () => {
     })
     assert.throws(
       () => compareEmergencyVantageEvidence(first, first),
-      /exact EU and US vantage IDs/i,
+      /exact verification-profile vantage IDs/i,
     )
     const digestConsistentTamper = (mutate) => {
       const value = structuredClone(first)
@@ -363,6 +367,7 @@ describe('wallet-free emergency served parity', () => {
     const promotionEvidence = promotionEvidenceFixture(sourceCommit)
     const verifiedPromotion = verifiedPromotionFiles(promotionEvidence)
     const common = {
+      verificationProfile: 'production-independent-network',
       expectedSourceCommit: sourceCommit,
       vantageId: 'protected-eu-network',
       sourceDirectory,
@@ -449,13 +454,14 @@ describe('wallet-free emergency served parity', () => {
     }]
     const stagePayload = {
       kind: 'lester-labs-vercel-stage-evidence',
-      schemaVersion: 2,
+      schemaVersion: 3,
       status: 'STAGED',
       artifactKind: 'emergency-static',
       stagedAt: '2026-08-11T01:00:00.000Z',
       source: {
         commit: 'a'.repeat(40),
         manifestSha256: '7'.repeat(64),
+        releaseProfile: 'production-separated-authority',
         sourceReviewSha256: sha256Canonical(review),
       },
       review,
