@@ -174,13 +174,12 @@ CodeQL analysis, and one stale external pull request requiring review.
 
 The follow-up snapshot in
 `evidence/github-control-plane-observation-2026-08-11.json` (SHA-256
-`af35db4855a3ce9b11f05b3dfff96c40b2a2a7db29bc32a3a6a5c610a6729e55`)
+`efea2609e630175f806f0d4d8ceadbaf520ba4f10bcdb9042b304e224f1fd906`)
 records the protected `main` policy, passing integration checks, enabled
 Dependabot alerts and CodeQL analysis, the twelve protected-branch-only release
 environments, and the non-secret production Vercel identifiers. It also records
 the remaining fail-closed gaps: no independent collaborator or environment
-reviewer, no canary project, no release credentials, and no independent vantage
-runners.
+reviewer, no release credentials, and no independent vantage runners.
 
 Neither snapshot is approval. They cannot establish login sessions,
 deleted or historical settings, PATs, OAuth grants, installed apps, recovery
@@ -199,6 +198,10 @@ visible, and the existing production deployment and domain aliases were not
 changed by those containment actions. Automatic production-domain assignment
 was subsequently disabled and re-read as disabled after saving, so future
 production builds require an explicit promotion before taking the custom domains.
+An empty, Git-disconnected `lester-labs-release-canary` project was then created
+as the distinct provider-canary target. It had no deployment, custom domain, or
+project environment-variable entry, and automatic production-domain assignment
+was saved and re-read as disabled.
 
 The observation is deliberately not marked as provider recovery approval. The
 account still had no active account-level two-factor authentication or passkey,

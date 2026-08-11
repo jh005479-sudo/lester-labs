@@ -85,7 +85,7 @@ Checked-in fail-closed inventory: docs/security/evidence/production-control-plan
 Initial GitHub repository observation: docs/security/evidence/github-control-plane-observation-2026-08-10.json
 Initial GitHub observation SHA-256: 97be8998a89ca5d17654ec438cb9abfcb9c7ef2287874ae2230e670754a232f5
 Current GitHub repository observation: docs/security/evidence/github-control-plane-observation-2026-08-11.json
-Current GitHub observation SHA-256: af35db4855a3ce9b11f05b3dfff96c40b2a2a7db29bc32a3a6a5c610a6729e55
+Current GitHub observation SHA-256: efea2609e630175f806f0d4d8ceadbaf520ba4f10bcdb9042b304e224f1fd906
 External redacted evidence bundle and SHA-256: TODO
 ```
 
@@ -237,13 +237,15 @@ account recovery; it does not relax any full-replacement or appeal gate.
 An authenticated, redacted Vercel dashboard observation at
 `2026-08-11T00:36:28Z` is recorded in
 `evidence/vercel-control-plane-observation-2026-08-11.json` (SHA-256
-`25f76042dd0cce8a30cf4dd3ffced1283077dfb59f96d3b3da60034852300c7a`).
+`db9c641d8d99a3a320d0ec8432a4c5aa49b4d018f172b19b27a490a910279c6a`).
 During that containment session, the project Git integration was disconnected,
 23 legacy project environment-variable entries were removed, two non-current
 browser sessions were revoked, and the Vercel CLI OAuth application was
 disconnected. At `2026-08-11T06:18:52Z`, automatic production-domain assignment
 was also disabled and re-read as disabled after saving, so a staged build must
-be promoted explicitly. No deploy hook or project webhook remained visible. The live
+be promoted explicitly. A distinct empty `lester-labs-release-canary` project
+was created without Git, custom domains, deployments, or project variables, and
+its automatic production-domain assignment was also disabled. No deploy hook or project webhook remained visible. The live
 deployment was deliberately left unchanged pending signed-artifact staging and
 parity checks. Account-level 2FA/passkey enrolment, global credential review,
 registrar/DNS recovery, and independent approval remain release blockers; this

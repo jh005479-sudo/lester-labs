@@ -1,7 +1,7 @@
 {
   "kind": "lester-labs-github-control-plane-observation",
   "schemaVersion": 1,
-  "observedAt": "2026-08-11T06:25:40Z",
+  "observedAt": "2026-08-11T06:29:15Z",
   "repository": "jh005479-sudo/lester-labs",
   "observer": "authenticated repository inspection and release-control configuration with gh as jh005479-sudo",
   "scope": "Repository-visible configuration only; this is not account recovery approval or proof that historical access was benign.",
@@ -64,12 +64,15 @@
     "requiredReviewersConfigured": false,
     "longLivedSecretsConfigured": false,
     "productionVariableNamesConfigured": [
+      "frontend-vercel-provider-canary:VERCEL_CANARY_PROJECT_ID",
+      "frontend-vercel-provider-canary:VERCEL_CANARY_PROJECT_NAME",
+      "frontend-vercel-provider-canary:VERCEL_CANARY_TEAM_ID",
       "frontend-vercel-provider-canary:VERCEL_PRODUCTION_PROJECT_ID",
       "frontend-vercel-staging:VERCEL_PRODUCTION_PROJECT_ID",
       "frontend-vercel-staging:VERCEL_PRODUCTION_PROJECT_NAME",
       "frontend-vercel-staging:VERCEL_PRODUCTION_TEAM_ID"
     ],
-    "canaryProjectVariablesConfigured": false
+    "canaryProjectVariablesConfigured": true
   },
   "securityFeatures": {
     "secretScanning": "enabled",
@@ -99,7 +102,6 @@
   "releaseBlockingFindings": [
     "No independent collaborator exists to approve pull request 39 or protected release environments.",
     "Required environment reviewers and no-self-review rules cannot be configured until an eligible collaborator is added.",
-    "The disposable Vercel canary project and its three canary identifiers are not configured.",
     "Distinct short-lived Vercel environment credentials are not configured.",
     "The EU and US vantage environments do not yet have independently administered runners and egress.",
     "Account sessions, credentials, installed applications, and historical audit events still require account-owner review from a trusted session."
