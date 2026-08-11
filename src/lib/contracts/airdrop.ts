@@ -1,5 +1,12 @@
 export const DISPERSE_ABI = [
   {
+    name: 'totalRecipientEntries',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
     // Send ETH/native token to multiple addresses
     name: 'disperseEther',
     type: 'function',

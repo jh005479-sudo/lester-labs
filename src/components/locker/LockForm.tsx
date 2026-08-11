@@ -15,7 +15,7 @@ import {
 import {
   hasApprovedLesterControl,
   isCanonicalLitvmContract,
-  LESTER_TREASURY_ADDRESS,
+  LESTER_TREASURY_STATUS,
   LITVM_TESTNET_CONTRACTS,
 } from '@/config/contracts'
 import { litvm } from '@/config/chains'
@@ -75,7 +75,7 @@ function tomorrowString(): string {
 
 function ApproveStepIndicator({ approveStep }: { approveStep: 'approve' | 'lock' | 'done' }) {
   const steps = [
-    { id: 'approve', label: 'Approve LP Token' },
+    { id: 'approve', label: 'Approve Exact LP Amount' },
     { id: 'lock', label: 'Lock Tokens' },
   ]
 
@@ -323,7 +323,7 @@ export function LockForm() {
     if (!lockerControlApproved) {
       setModalOpen(true)
       setTxStatus('error')
-      setTxMessage(`${action} is disabled until the live Liquidity Locker owner is verified as ${LESTER_TREASURY_ADDRESS}.`)
+      setTxMessage(`${action} is disabled because ${LESTER_TREASURY_STATUS}.`)
       return false
     }
 
@@ -580,7 +580,7 @@ export function LockForm() {
 
         {/* Fee display (RP-003: live fee from contract) */}
         <div className="rounded-lg border border-white/5 bg-white/5 px-4 py-3">
-          <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.03} feeLabel="Lock fee" />
+          <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.03} feeLabel="Configured locker fee" />
         </div>
 
         {!isCanonicalLocker && (
@@ -591,19 +591,26 @@ export function LockForm() {
         {isCanonicalLocker && !lockerControlApproved && (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
             {isOwnerLoading
-              ? 'Verifying the live Liquidity Locker owner before enabling paid locks…'
-              : `Paid liquidity locks are disabled until the Liquidity Locker owner is verified as ${LESTER_TREASURY_ADDRESS}. Existing lock withdrawals remain available.`}
+              ? 'Checking the configured Liquidity Locker owner; new paid locks remain unavailable…'
+              : `Paid liquidity locks are disabled because ${LESTER_TREASURY_STATUS}. Existing lock withdrawals remain available.`}
           </div>
         )}
 
-        {isWrongNetwork && (
+        {paidActionReady && isWrongNetwork && (
           <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
             Wallet is connected to the wrong network. Switch to LitVM Testnet before approving or locking liquidity.
           </div>
         )}
 
         {/* CTA */}
-        {isWrongNetwork ? (
+        {!paidActionReady ? (
+          <button
+            disabled
+            className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          >
+            New LP Locks Disabled
+          </button>
+        ) : isWrongNetwork ? (
           <button
             onClick={handleSwitchNetwork}
             disabled={isSwitchingChain}

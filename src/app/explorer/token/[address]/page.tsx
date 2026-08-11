@@ -430,8 +430,8 @@ export default function TokenDetailPage() {
         <div className="p-5 rounded-xl bg-[var(--surface-1)] border border-white/10 mb-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
-              <h2 className="text-sm font-medium text-white/50">Market Actions</h2>
-              <p className="mt-1 text-xs text-white/35">Chart, trade, liquidity, presale, contract, and creator links in one place.</p>
+              <h2 className="text-sm font-medium text-white/50">Inspection & Recovery Links</h2>
+              <p className="mt-1 text-xs text-white/35">Ordinary writes are disabled; these routes provide bounded data or containment/recovery status.</p>
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -439,13 +439,13 @@ export default function TokenDetailPage() {
               <BarChart3 className="w-4 h-4 text-cyan-200" /> Chart
             </Link>
             <Link href={`/swap?token1=${address}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
-              <Droplets className="w-4 h-4 text-pink-200" /> Swap
+              <Droplets className="w-4 h-4 text-pink-200" /> DEX status
             </Link>
             <Link href={`/pool?q=${address}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
-              <Droplets className="w-4 h-4 text-emerald-200" /> Add LP
+              <Droplets className="w-4 h-4 text-emerald-200" /> LP recovery
             </Link>
             <Link href={`/launchpad?q=${address}`} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
-              <ExternalLink className="w-4 h-4 text-violet-200" /> Presales
+              <ExternalLink className="w-4 h-4 text-violet-200" /> Historical ILOs
             </Link>
             <a href={`${LITVM_EXPLORER_URL}/token/${address}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
               <Users className="w-4 h-4 text-blue-200" /> External token view
@@ -463,7 +463,7 @@ export default function TokenDetailPage() {
               </span>
             )}
             <Link href="/ledger" className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 no-underline hover:text-white">
-              <ExternalLink className="w-4 h-4 text-fuchsia-200" /> Ledger update
+              <ExternalLink className="w-4 h-4 text-fuchsia-200" /> Historical Ledger
             </Link>
           </div>
         </div>
@@ -502,18 +502,10 @@ export default function TokenDetailPage() {
           )}
         </div>
 
-        {/* DEX / Price */}
+        {/* Bounded reserve-ratio status */}
         <div className="p-5 rounded-xl bg-[var(--surface-1)] border border-white/10 mb-6">
-          <h2 className="text-sm font-medium text-white/50 mb-3">Indexed Market Data</h2>
-          {details.priceUsd !== undefined ? (
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <Stat label="Indexed Price" value={`$${details.priceUsd?.toFixed(6)}`} />
-              <Stat label="24h Volume" value={`$${details.volume24h?.toLocaleString()}`} />
-              <Stat label="24h Change" value={`${details.priceChange24h !== undefined ? (details.priceChange24h >= 0 ? '+' : '') + details.priceChange24h.toFixed(2) + '%' : '—'}`} />
-            </div>
-          ) : (
-            <p className="text-white/30 text-sm">No indexed market data. Open Market Charts to inspect current on-chain reserve ratios.</p>
-          )}
+          <h2 className="text-sm font-medium text-white/50 mb-3">Market Data Coverage</h2>
+          <p className="text-white/30 text-sm">Lester Labs does not provide an indexed USD price, 24-hour volume, or price-change series. Open Charts to inspect bounded pair reserve ratios, which are not oracle prices or valuations.</p>
         </div>
 
         {/* Recent Transfers */}

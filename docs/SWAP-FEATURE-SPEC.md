@@ -1,8 +1,20 @@
 # Swap Feature — Implementation Notes
 
-> Status: implemented locally. The approved treasury target is an EOA, not a
-> multisig, and the live rotation is incomplete until the independent verifier
-> passes.
+> **Historical only:** the incident-associated `0xCbf8…` destination named below
+> is rejected and must not be used. The July rotation never executed.
+> Fresh DEX deployment is governed by `POST-COMPROMISE-REDEPLOYMENT.md` and its
+> fail-closed address-only plan.
+
+> **Scanner-relevant finding:** this legacy pair is not canonical Uniswap V2.
+> `swap()` transfers `0.20%` of each measured input token directly to mutable
+> `feeTo`. This is not an arbitrary drain, but the extra recipient is a plausible
+> transaction-scanner drainer heuristic and compromised `feeToSetter` authority
+> can redirect it. Do not carry this behavior into the replacement.
+
+> **Historical status:** the described direct-fee deployment remains
+> recovery-only and its proposed EOA was rejected. There is currently no
+> approved replacement controller, treasury, or gas EOA. The replacement must
+> follow the thirteen-contract post-compromise runbook.
 
 ## Scope
 
@@ -12,7 +24,7 @@ The Lester Labs DEX rollout covers three connected surfaces:
 - `/pool` for LP balance and exposure discovery
 - Launchpad finalization wired into the same Lester Labs Uniswap V2 deployment
 
-## Fee Model
+## Legacy fee model
 
 | Recipient | Amount |
 |---|---|
@@ -20,7 +32,8 @@ The Lester Labs DEX rollout covers three connected surfaces:
 | LPs retained in-pool | `0.10%` |
 | **Total per trade** | **`0.30%`** |
 
-Treasury wallet:
+Historical incident-associated destination (never use as treasury, controller,
+delegate, or deployer):
 
 `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28`
 
@@ -36,7 +49,7 @@ Implemented under `contracts/contracts/uniswap/`:
 - wrapped native asset contract for zkLTC router compatibility
 - `UniSwapConnector.sol` for Launchpad finalization
 
-Key Lester Labs-specific behavior:
+Historical Lester Labs-specific behavior (not present in the replacement Pair):
 
 - factory constructor sets both `feeTo` and `feeToSetter` to the treasury
 - pair `swap()` routes `0.20%` of input directly to treasury and leaves `0.10%` for LPs
@@ -64,30 +77,24 @@ Behavior:
 - paid writes authenticate the canonical factory/router/wrapped-native
   addresses and re-read `feeTo` plus `feeToSetter` immediately before signing
 
-## Environment Variables
+## Source-pinned frontend configuration
 
-```env
-NEXT_PUBLIC_LITVM_RPC_URL=https://liteforge.rpc.caldera.xyz/infra-partner-http
-NEXT_PUBLIC_UNISWAP_V2_FACTORY_ADDRESS=
-NEXT_PUBLIC_UNISWAP_V2_ROUTER_ADDRESS=
-NEXT_PUBLIC_WRAPPED_ZKLTC_ADDRESS=
-```
+The LitVM RPC, factory, router, and wrapped-native targets are pinned in reviewed
+source. `NEXT_PUBLIC_*` deployment/RPC overrides are rejected at build time so a
+compromised hosting account cannot substitute a spender or transaction target.
 
-These remain environment-driven until the live deployment is executed.
+## Retired deployment sequence
 
-## Deployment Sequence
-
-1. Run `cd contracts && npm run deploy:uniswap:litvm`
-2. Export the deployed factory, router, and wrapped-native addresses to frontend env
-3. Run `cd contracts && npm run deploy:litvm`
-4. Confirm `ILOFactory` points to `UniSwapConnector`
-5. Verify `feeTo` and `feeToSetter` both equal `0xCbf819017ae48F261Fe143B2a7c8a29d9a2FCD28`
-6. Keep the canonical legacy ILO factory and connector disabled for creation,
-   funding, and finalization; deploy and pin a separately reviewed replacement
-   before enabling a future Launchpad
+The old partial DEX and connector commands fail closed. Do not run or revive
+them. Deploy Factory, Router, Connector, ILO Factory, and governance only as
+part of the single nonce-bound thirteen-contract workflow in
+`POST-COMPROMISE-REDEPLOYMENT.md`; pin frontend addresses only from its final
+independently verified manifest.
 
 ## Notes
 
 - The router still uses a wrapped-native contract under the hood because standard Uniswap V2 periphery expects a wrapped asset
 - Runtime swaps do not depend on an external DEX
-- The implementation intentionally stays close to Uniswap V2 and existing Lester Labs frontend patterns
+- The legacy direct fee transfer is a deliberate but noncanonical divergence.
+  The post-compromise replacement must restore canonical Uniswap V2 pair fee
+  behavior and must not copy this direct-recipient path.

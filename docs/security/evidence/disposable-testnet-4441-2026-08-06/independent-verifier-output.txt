@@ -1,0 +1,5 @@
+Verified post-compromise replacement manifest: /private/tmp/lester-deployment-records.E8PLyP/replacement-4441-0x439945924515218061b644901a31ac4a6c00957c-nonce-0.json
+Verification block: 37470947
+Disposable transaction signer and fee recipient (no administrative role): 0x439945924515218061b644901a31aC4A6c00957c
+Controller: 0x0000000000000000000000000000000000000001
+Treasury: 0x439945924515218061b644901a31aC4A6c00957c

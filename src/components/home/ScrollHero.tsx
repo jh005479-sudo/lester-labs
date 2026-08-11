@@ -139,7 +139,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
               textShadow: '0 2px 20px rgba(10,8,24,.7)',
             }}
           >
-            Welcome To
+            Independent LitVM Testnet Software
           </div>
 
           <div
@@ -177,13 +177,37 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
                 letterSpacing: 0,
               }}
             >
-              The DeFi Utility Suite for LitVM
+              Post-compromise containment and recovery
             </span>
           </div>
 
+          <Link
+            href="/security"
+            prefetch={false}
+            style={{
+              display: 'block',
+              maxWidth: 680,
+              marginTop: 24,
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: '1px solid rgba(251,191,36,.34)',
+              background: 'rgba(120,53,15,.34)',
+              color: 'rgba(254,243,199,.95)',
+              fontSize: 13,
+              lineHeight: 1.55,
+              textAlign: 'center',
+              textDecoration: 'none',
+              backdropFilter: 'blur(12px)',
+            }}
+          >
+            <strong>Security containment active.</strong> Ordinary contract writes are disabled while replacement
+            deployments and the served build are independently verified. Read-only views and narrowly labelled
+            legacy recovery actions remain available.
+          </Link>
+
           <div className="scroll-hero-actions hero-cta-group" style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 36 }}>
-            <Link className="hero-btn-primary" href="/launch" prefetch={false}>
-              Launch App <ArrowRight size={15} aria-hidden="true" />
+            <Link className="hero-btn-primary" href="/security" prefetch={false}>
+              Review Security Status <ArrowRight size={15} aria-hidden="true" />
             </Link>
             <button
               className="hero-btn-ghost"

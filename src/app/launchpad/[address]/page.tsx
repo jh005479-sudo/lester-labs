@@ -11,7 +11,6 @@ import { TxStatusModal } from '@/components/shared/TxStatusModal'
 import { TokenLogoUpload } from '@/components/shared/TokenLogoUpload'
 import { ERC20_ABI, ILO_ABI } from '@/config/abis'
 import {
-  LITVM_TESTNET_CONTRACTS,
   hasApprovedIloPaidWritePath,
   isApprovedLesterTreasury,
 } from '@/config/contracts'
@@ -20,7 +19,7 @@ import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { useTokenImageUrls } from '@/hooks/useTokenImageUrls'
 import { litvm } from '@/config/chains'
-import { isFactoryCreatedIlo } from '@/lib/launchpadProvenance'
+import { attestIloProvenance, type AttestedIloProvenance } from '@/lib/launchpadProvenance'
 
 const useReadContract: typeof useWagmiReadContract = ((parameters: Parameters<typeof useWagmiReadContract>[0]) =>
   useWagmiReadContract({ ...parameters, chainId: litvm.id } as never)) as typeof useWagmiReadContract
@@ -60,7 +59,13 @@ export default function PresalePage() {
   const routeIloAddress = isAddress(rawAddress) ? (rawAddress as `0x${string}`) : undefined
 
   const { address: userAddress, isConnected } = useAccount()
-  const { ensureLitvmWrite, isWrongNetwork, isSwitchingChain, switchChainAsync, writeContractAsync } = useSafeWriteContract()
+  const {
+    ensureLitvmWrite,
+    isWrongNetwork,
+    isSwitchingChain,
+    writeContractAsync,
+    writeRecoveryContractAsync,
+  } = useSafeWriteContract()
 
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
   const [contributionAmount, setContributionAmount] = useState('')
@@ -74,24 +79,33 @@ export default function PresalePage() {
   const [provenanceStatus, setProvenanceStatus] = useState<'checking' | 'verified' | 'unverified' | 'error'>(
     routeIloAddress ? 'checking' : 'unverified',
   )
+  const [iloProvenance, setIloProvenance] = useState<AttestedIloProvenance | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
     if (!routeIloAddress) {
       setProvenanceStatus('unverified')
+      setIloProvenance(null)
       return () => {
         cancelled = true
       }
     }
 
     setProvenanceStatus('checking')
-    void isFactoryCreatedIlo(routeIloAddress)
-      .then((verified) => {
-        if (!cancelled) setProvenanceStatus(verified ? 'verified' : 'unverified')
+    setIloProvenance(null)
+    void attestIloProvenance(routeIloAddress)
+      .then((attested) => {
+        if (!cancelled) {
+          setIloProvenance(attested)
+          setProvenanceStatus('verified')
+        }
       })
       .catch(() => {
-        if (!cancelled) setProvenanceStatus('error')
+        if (!cancelled) {
+          setIloProvenance(null)
+          setProvenanceStatus('error')
+        }
       })
 
     return () => {
@@ -99,7 +113,7 @@ export default function PresalePage() {
     }
   }, [routeIloAddress])
 
-  const iloAddress = provenanceStatus === 'verified' ? routeIloAddress : undefined
+  const iloAddress = provenanceStatus === 'verified' && iloProvenance ? routeIloAddress : undefined
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -302,13 +316,13 @@ export default function PresalePage() {
   const isWhitelisted = Boolean(whitelistRead.data)
   const isOwner = Boolean(owner && userAddress && owner.toLowerCase() === userAddress.toLowerCase())
   const treasuryApproved = treasuryRead.isSuccess && isApprovedLesterTreasury(treasury)
-  // The only provenance accepted above is the canonical legacy factory. Even
-  // after its mutable factory treasury is rotated, every child it creates
-  // remains recovery-only until a separately reviewed factory is pinned.
   const paidWritesApproved = hasApprovedIloPaidWritePath({
-    factory: provenanceStatus === 'verified' ? LITVM_TESTNET_CONTRACTS.iloFactory : undefined,
+    factory: iloProvenance?.sourceKind === 'current' ? iloProvenance.sourceFactory : undefined,
     treasury,
   })
+  const paidWriteBlockReason = iloProvenance?.sourceKind === 'legacy'
+    ? 'This presale was created by a recovery-only legacy factory. New funding, contributions, whitelist changes, and finalization are disabled.'
+    : 'This replacement presale did not pass the current source-factory and treasury provenance gate. Paid and settlement writes are disabled.'
   const fundingGap = tokensRequired > contractTokenBalance ? tokensRequired - contractTokenBalance : 0n
   const progress = hardCap > 0n ? Math.min(100, Number((totalRaised * 10_000n) / hardCap) / 100) : 0
   const isLive = now >= startTime && now <= endTime && !finalized && !cancelled
@@ -340,7 +354,20 @@ export default function PresalePage() {
         : hasEnded
           ? 'Ended'
           : 'Upcoming'
-  const statusColor = status === 'Live' ? '#4ade80' : status === 'Finalized' ? '#818cf8' : status === 'Upcoming' ? '#fbbf24' : '#f87171'
+  const statusLabel = !paidWritesApproved && status === 'Live'
+    ? 'Historical window open · writes disabled'
+    : !paidWritesApproved && status === 'Upcoming'
+      ? 'Historical schedule · writes disabled'
+      : status
+  const statusColor = !paidWritesApproved && (status === 'Live' || status === 'Upcoming')
+    ? '#fbbf24'
+    : status === 'Live'
+      ? '#4ade80'
+      : status === 'Finalized'
+        ? '#818cf8'
+        : status === 'Upcoming'
+          ? '#fbbf24'
+          : '#f87171'
   const cardStyle = {
     background: 'var(--surface-1)',
     border: '1px solid rgba(255,255,255,0.07)',
@@ -367,24 +394,14 @@ export default function PresalePage() {
   }, [fundingAmount, fundingGap, tokenDecimals])
 
   async function ensureLitvm() {
-    if (!isConnected) {
-      setTxOpen(true)
-      setTxStatus('error')
-      setTxMessage('Connect a wallet before submitting a transaction.')
-      return false
-    }
-
-    if (!isWrongNetwork) return true
-
-    try {
-      await switchChainAsync({ chainId: litvm.id })
-      return true
-    } catch {
-      setTxOpen(true)
-      setTxStatus('error')
-      setTxMessage(`Switch to LitVM Testnet (Chain ID ${litvm.id}) before continuing.`)
-      return false
-    }
+    return ensureLitvmWrite({
+      action: 'continuing with this presale action',
+      onError: (message) => {
+        setTxOpen(true)
+        setTxStatus('error')
+        setTxMessage(message)
+      },
+    })
   }
 
   async function refreshPresaleState() {
@@ -432,7 +449,7 @@ export default function PresalePage() {
     if (!iloAddress || provenanceStatus !== 'verified') {
       setTxOpen(true)
       setTxStatus('error')
-      setTxMessage('This address is not verified as a presale created by the canonical Lester Labs factory.')
+      setTxMessage('This address is not verified against the exact source factory reported by the ILO child.')
       return
     }
 
@@ -457,7 +474,7 @@ export default function PresalePage() {
       setTxHash(hash)
       setTxMessage('Transaction submitted. Waiting for confirmation…')
 
-      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash, chainId: litvm.id })
       if (receipt.status === 'reverted') {
         throw new Error('Transaction reverted on-chain.')
       }
@@ -478,7 +495,7 @@ export default function PresalePage() {
     if (!paidWritesApproved) {
       setTxOpen(true)
       setTxStatus('error')
-      setTxMessage('Contributions are disabled for every presale created by the canonical legacy factory.')
+      setTxMessage(paidWriteBlockReason)
       return
     }
 
@@ -503,6 +520,10 @@ export default function PresalePage() {
           abi: ILO_ABI,
           functionName: 'contribute',
           value: amount,
+        }, {
+          kind: 'current-ilo-child',
+          child: iloAddress,
+          sourceFactory: iloProvenance!.sourceFactory,
         }),
     })
   }
@@ -512,7 +533,7 @@ export default function PresalePage() {
     if (!paidWritesApproved) {
       setTxOpen(true)
       setTxStatus('error')
-      setTxMessage('Funding is disabled for every presale created by the canonical legacy factory.')
+      setTxMessage(paidWriteBlockReason)
       return
     }
 
@@ -537,6 +558,10 @@ export default function PresalePage() {
           abi: ERC20_ABI,
           functionName: 'transfer',
           args: [iloAddress, amount],
+        }, {
+          kind: 'current-ilo-child',
+          child: iloAddress,
+          sourceFactory: iloProvenance!.sourceFactory,
         }),
     })
   }
@@ -546,7 +571,7 @@ export default function PresalePage() {
     if (!paidWritesApproved) {
       setTxOpen(true)
       setTxStatus('error')
-      setTxMessage('Whitelist changes are disabled for every presale created by the canonical legacy factory.')
+      setTxMessage(paidWriteBlockReason)
       return
     }
 
@@ -568,6 +593,10 @@ export default function PresalePage() {
           abi: ILO_ABI,
           functionName: 'setWhitelist',
           args: [users as `0x${string}`[], true],
+        }, {
+          kind: 'current-ilo-child',
+          child: iloAddress,
+          sourceFactory: iloProvenance!.sourceFactory,
         }),
     })
   }
@@ -577,7 +606,7 @@ export default function PresalePage() {
     if (!paidWritesApproved) {
       setTxOpen(true)
       setTxStatus('error')
-      setTxMessage('Finalization is disabled for every presale created by the canonical legacy factory.')
+      setTxMessage(paidWriteBlockReason)
       return
     }
 
@@ -589,6 +618,10 @@ export default function PresalePage() {
           address: iloAddress,
           abi: ILO_ABI,
           functionName: 'finalize',
+        }, {
+          kind: 'current-ilo-child',
+          child: iloAddress,
+          sourceFactory: iloProvenance!.sourceFactory,
         }),
     })
   }
@@ -600,10 +633,15 @@ export default function PresalePage() {
       pendingMessage: 'Claiming your purchased tokens…',
       successMessage: 'Token claim completed.',
       request: () =>
-        writeContractAsync({
+        writeRecoveryContractAsync({
           address: iloAddress,
           abi: ILO_ABI,
           functionName: 'claim',
+        }, {
+          kind: 'ilo-child',
+          sourceFactory: iloProvenance!.sourceFactory,
+          child: iloAddress,
+          role: 'claimant',
         }),
     })
   }
@@ -615,10 +653,15 @@ export default function PresalePage() {
       pendingMessage: 'Requesting your refund…',
       successMessage: 'Refund completed.',
       request: () =>
-        writeContractAsync({
+        writeRecoveryContractAsync({
           address: iloAddress,
           abi: ILO_ABI,
           functionName: 'refund',
+        }, {
+          kind: 'ilo-child',
+          sourceFactory: iloProvenance!.sourceFactory,
+          child: iloAddress,
+          role: 'claimant',
         }),
     })
   }
@@ -630,10 +673,15 @@ export default function PresalePage() {
       pendingMessage: 'Claiming unlocked LP tokens…',
       successMessage: 'LP claim completed.',
       request: () =>
-        writeContractAsync({
+        writeRecoveryContractAsync({
           address: iloAddress,
           abi: ILO_ABI,
           functionName: 'claimLP',
+        }, {
+          kind: 'ilo-child',
+          sourceFactory: iloProvenance!.sourceFactory,
+          child: iloAddress,
+          role: 'owner',
         }),
     })
   }
@@ -642,13 +690,18 @@ export default function PresalePage() {
     if (!iloAddress) return
 
     await submitTransaction({
-      pendingMessage: 'Sweeping any unused zkLTC left after liquidity creation…',
-      successMessage: 'Excess zkLTC swept to the presale owner.',
+      pendingMessage: 'Recovering residual zkLTC left after liquidity creation…',
+      successMessage: 'Residual zkLTC returned to the on-chain presale owner.',
       request: () =>
-        writeContractAsync({
+        writeRecoveryContractAsync({
           address: iloAddress,
           abi: ILO_ABI,
           functionName: 'sweepExcessETH',
+        }, {
+          kind: 'ilo-child',
+          sourceFactory: iloProvenance!.sourceFactory,
+          child: iloAddress,
+          role: 'owner',
         }),
     })
   }
@@ -657,13 +710,18 @@ export default function PresalePage() {
     if (!iloAddress) return
 
     await submitTransaction({
-      pendingMessage: 'Sweeping recoverable sale tokens…',
-      successMessage: 'Excess sale tokens swept to the presale owner.',
+      pendingMessage: 'Recovering residual sale tokens…',
+      successMessage: 'Residual sale tokens returned to the on-chain presale owner.',
       request: () =>
-        writeContractAsync({
+        writeRecoveryContractAsync({
           address: iloAddress,
           abi: ILO_ABI,
           functionName: 'sweepExcessTokens',
+        }, {
+          kind: 'ilo-child',
+          sourceFactory: iloProvenance!.sourceFactory,
+          child: iloAddress,
+          role: 'owner',
         }),
     })
   }
@@ -675,10 +733,15 @@ export default function PresalePage() {
       pendingMessage: 'Cancelling the presale…',
       successMessage: 'Presale cancelled.',
       request: () =>
-        writeContractAsync({
+        writeRecoveryContractAsync({
           address: iloAddress,
           abi: ILO_ABI,
           functionName: 'cancel',
+        }, {
+          kind: 'ilo-child',
+          sourceFactory: iloProvenance!.sourceFactory,
+          child: iloAddress,
+          role: 'owner',
         }),
     })
   }
@@ -709,10 +772,10 @@ export default function PresalePage() {
             </h1>
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
               {isChecking
-                ? 'Checking this contract against the canonical Lester Labs ILO factory on LitVM.'
+                ? 'Checking this contract against both source-pinned legacy Lester Labs ILO factories and reviewed child runtimes.'
                 : provenanceStatus === 'error'
                   ? 'The LitVM provenance check is temporarily unavailable. Transaction controls remain disabled until verification succeeds.'
-                  : 'This contract was not found in the canonical Lester Labs ILO factory. Lester Labs will not offer contribution, funding, or settlement controls for it.'}
+                  : 'This contract did not authenticate against the exact source factory it reports. Lester Labs will not offer transaction controls for it.'}
             </p>
             {!isChecking && (
               <a
@@ -784,7 +847,7 @@ export default function PresalePage() {
               color: statusColor,
               fontWeight: 600,
             }}>
-              ● {status}
+              ● {statusLabel}
             </span>
           </div>
         </div>
@@ -796,7 +859,7 @@ export default function PresalePage() {
               <div>
                 <p style={{ fontSize: '14px', fontWeight: 600, color: '#fcd34d' }}>Wallet is on the wrong network</p>
                 <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>
-                  Switch to LitVM Testnet before contributing, funding, or finalizing this presale.
+                  Switch to LitVM LiteForge only if you need to inspect wallet-specific state or use an eligible recovery action. Contributions, funding, and finalization remain disabled.
                 </p>
               </div>
             </div>
@@ -822,7 +885,7 @@ export default function PresalePage() {
 
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', gap: '12px' }}>
-            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>Raised</span>
+            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>Historical amount raised</span>
             <span style={{ fontSize: '13px', fontWeight: 600, textAlign: 'right' }}>
               {formatEther(totalRaised)} zkLTC / {formatEther(hardCap)} zkLTC
             </span>
@@ -836,11 +899,11 @@ export default function PresalePage() {
               <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Filled</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700 }}>{softCapMet ? 'Met' : 'Open'}</div>
+              <div style={{ fontSize: '18px', fontWeight: 700 }}>{softCapMet ? 'Met' : 'Not met'}</div>
               <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Soft Cap</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700 }}>{whitelistEnabled ? (isWhitelisted ? 'Approved' : 'Enabled') : 'Open'}</div>
+              <div style={{ fontSize: '18px', fontWeight: 700 }}>{whitelistEnabled ? (isWhitelisted ? 'Listed' : 'Enabled') : 'Not gated'}</div>
               <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Whitelist</div>
             </div>
           </div>
@@ -848,7 +911,7 @@ export default function PresalePage() {
 
         <div style={{ ...cardStyle, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '14px' }}>
           {[
-            ['Token price', tokensPerEth > 0n ? `${formatTokenValue(tokensPerEth, tokenDecimals, 2)} / zkLTC` : '—'],
+            ['Historical token rate', tokensPerEth > 0n ? `${formatTokenValue(tokensPerEth, tokenDecimals, 2)} / zkLTC` : '—'],
             ['LP allocation', `${(liquidityBps / 100).toFixed(0)}%`],
             ['Lock duration', `${Math.round(lpLockDuration / 86400)} days`],
           ].map(([label, value]) => (
@@ -870,7 +933,7 @@ export default function PresalePage() {
           <StatRow label="Soft Cap" value={`${formatEther(softCap)} zkLTC`} />
           <StatRow label="Hard Cap" value={`${formatEther(hardCap)} zkLTC`} />
           <StatRow
-            label="Token Price"
+            label="Historical Token Rate"
             value={tokensPerEth > 0n ? `${formatTokenValue(tokensPerEth, tokenDecimals, 6)} tokens / zkLTC` : '—'}
           />
           <StatRow label="Liquidity" value={`${(liquidityBps / 100).toFixed(0)}% to Lester DEX LP`} />
@@ -890,43 +953,47 @@ export default function PresalePage() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
               <AlertTriangle size={18} color="#fca5a5" />
               <div>
-                <p style={{ fontSize: '14px', fontWeight: 700, color: '#fecaca' }}>Legacy factory safeguard active</p>
+                <p style={{ fontSize: '14px', fontWeight: 700, color: '#fecaca' }}>
+                  {iloProvenance?.sourceKind === 'legacy' ? 'Legacy factory safeguard active' : 'Replacement provenance gate failed'}
+                </p>
                 <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)', marginTop: '4px', lineHeight: 1.6 }}>
                   {treasuryRead.isLoading
                     ? 'The presale treasury is being verified. Paid and settlement actions remain disabled until verification succeeds.'
-                    : treasuryApproved
-                      ? 'This presale came from the canonical legacy factory. Contributions, token funding, whitelist changes, and finalization remain disabled even though the factory treasury has rotated. Cancellation, refunds, claims, and other recovery actions remain available when the contract permits them.'
-                      : 'This presale came from the canonical legacy factory and permanently routes its platform fee to the retired treasury. Contributions, token funding, whitelist changes, and finalization are disabled. Cancellation, refunds, claims, and other recovery actions remain available when the contract permits them.'}
+                    : iloProvenance?.sourceKind !== 'legacy'
+                      ? paidWriteBlockReason
+                      : treasuryApproved
+                      ? 'This presale came from a source-pinned legacy factory. Contributions, token funding, whitelist changes, and finalization remain disabled. Cancellation, refunds, claims, and other recovery actions remain available when the child contract permits them.'
+                      : 'This presale came from a source-pinned legacy factory and retains its historical treasury route. Contributions, token funding, whitelist changes, and finalization are disabled. Cancellation, refunds, claims, and other recovery actions remain available when the child contract permits them.'}
                 </p>
               </div>
             </div>
           </div>
         )}
 
-        <div style={{ ...cardStyle, border: '1px solid rgba(94,106,210,0.24)', background: 'rgba(94,106,210,0.08)' }}>
+        {iloProvenance?.sourceKind === 'legacy' && <div style={{ ...cardStyle, border: '1px solid rgba(94,106,210,0.24)', background: 'rgba(94,106,210,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
             <ShieldCheck size={18} color="#93c5fd" />
             <div>
-              <p style={{ fontSize: '14px', fontWeight: 700, color: '#dbeafe' }}>Creator checklist</p>
+              <p style={{ fontSize: '14px', fontWeight: 700, color: '#dbeafe' }}>Legacy recovery checklist</p>
               <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)', marginTop: '4px', lineHeight: 1.6 }}>
-                1. Fund the presale with the required sale tokens. 2. Upload a whitelist if enabled. 3. Share the
-                presale once funding is complete. 4. After the raise closes or hard cap is hit, finalize to create the
-                Lester DEX pool and lock LP in one transaction.
+                1. Verify the exact source factory and child runtime. 2. Do not fund, contribute, change a whitelist,
+                or finalize. 3. Confirm the connected wallet&apos;s role and current contract state. 4. Use only the
+                narrowly enabled cancellation, refund, claim, LP, or excess-asset recovery action.
               </p>
             </div>
           </div>
-        </div>
+        </div>}
 
         {!isOwner && hardCap > 0n && softCap > 0n && !finalized && !cancelled && (hasEnded || totalRaised >= hardCap || softCapMet) && (
           <div style={cardStyle}>
             <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Settlement</h2>
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.58)', marginBottom: '14px', lineHeight: 1.6 }}>
-              Once a sale reaches hard cap or ends above soft cap, anyone can finalize it. This prevents a completed
-              raise from waiting on the creator wallet.
+              Legacy finalization is disabled even when a sale reaches hard cap or ends above soft cap. Historical
+              state is shown only to determine whether a refund or another authenticated recovery path is available.
             </p>
             {fundingGap > 0n && (
               <p style={{ fontSize: '13px', color: '#fbbf24', marginBottom: '12px', lineHeight: 1.6 }}>
-                Finalization is waiting for the creator to fund {formatTokenValue(fundingGap, tokenDecimals)} {tokenSymbol}.
+                The historical funding gap is {formatTokenValue(fundingGap, tokenDecimals)} {tokenSymbol}. Do not fund it; finalization remains disabled.
               </p>
             )}
             {!softCapMet && (
@@ -947,7 +1014,7 @@ export default function PresalePage() {
                 cursor: canFinalize && fundingGap === 0n ? 'pointer' : 'not-allowed',
               }}
             >
-              Finalize & Create Lester DEX Pool
+              Legacy Finalization Disabled
             </button>
           </div>
         )}
@@ -972,8 +1039,8 @@ export default function PresalePage() {
                   <strong style={{ fontSize: '14px', color: '#fff' }}>Fund Sale Tokens</strong>
                 </div>
                 <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', marginBottom: '10px', lineHeight: 1.6 }}>
-                  The ILO contract must hold both the sale allocation and the liquidity allocation before it can
-                  finalize and create the Lester DEX pool.
+                  Historical funding state is shown for diagnosis only. Do not approve or transfer additional sale
+                  tokens to this legacy ILO.
                 </p>
                 <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', marginBottom: '10px' }}>
                   Funded: {formatTokenValue(contractTokenBalance, tokenDecimals)} {tokenSymbol}
@@ -1040,10 +1107,9 @@ export default function PresalePage() {
 
               {whitelistEnabled && (
                 <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '16px', background: 'rgba(255,255,255,0.03)' }}>
-                  <strong style={{ fontSize: '14px', color: '#fff' }}>Whitelist Upload</strong>
+                    <strong style={{ fontSize: '14px', color: '#fff' }}>Historical Whitelist — Changes Disabled</strong>
                   <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', margin: '8px 0 10px', lineHeight: 1.6 }}>
-                    Add one wallet per line or separate them with commas. Approved addresses can contribute while the
-                    whitelist is active.
+                    The legacy whitelist state can be inspected, but adding or removing addresses is disabled.
                   </p>
                   <textarea
                     value={whitelistInput}
@@ -1073,16 +1139,16 @@ export default function PresalePage() {
                       cursor: !paidWritesApproved || !whitelistInput.trim() ? 'not-allowed' : 'pointer',
                     }}
                   >
-                    Approve Whitelist
+                    Whitelist Changes Disabled
                   </button>
                 </div>
               )}
 
               <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '16px', background: 'rgba(255,255,255,0.03)' }}>
-                <strong style={{ fontSize: '14px', color: '#fff' }}>Launch & settlement</strong>
+                <strong style={{ fontSize: '14px', color: '#fff' }}>Historical settlement and recovery</strong>
                 <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', margin: '8px 0 10px', lineHeight: 1.6 }}>
-                  Finalization uses the funded token balance plus raised zkLTC to seed the Lester Labs DEX pool and
-                  lock LP in-contract.
+                  Finalization into the retired connector and DEX is disabled. State-dependent LP claims, cancellation,
+                  refunds, and excess-asset recovery may remain available when authenticated.
                 </p>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <button
@@ -1098,7 +1164,7 @@ export default function PresalePage() {
                       cursor: canFinalize && fundingGap === 0n ? 'pointer' : 'not-allowed',
                     }}
                   >
-                    Finalize & Create Lester DEX Pool
+                    Legacy Finalization Disabled
                   </button>
                   <button
                     onClick={() => { void handleClaimLp() }}
@@ -1126,7 +1192,7 @@ export default function PresalePage() {
                       cursor: canSweepExcess ? 'pointer' : 'not-allowed',
                     }}
                   >
-                    Sweep Excess zkLTC
+                    Recover Residual zkLTC
                   </button>
                   <button
                     onClick={() => { void handleSweepExcessTokens() }}
@@ -1140,7 +1206,7 @@ export default function PresalePage() {
                       cursor: canSweepExcessTokens ? 'pointer' : 'not-allowed',
                     }}
                   >
-                    Sweep Excess Sale Tokens
+                    Recover Residual Sale Tokens
                   </button>
                   <button
                     onClick={() => { void handleCancel() }}
@@ -1167,12 +1233,12 @@ export default function PresalePage() {
           {status === 'Live' ? (
             <div style={{ display: 'grid', gap: '12px' }}>
               <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.58)', lineHeight: 1.6 }}>
-                Contribute zkLTC during the live window. If the sale finalizes successfully, you can return here to
-                claim your tokens. If the soft cap is missed or the sale is cancelled, refunds are self-serve.
+                The recorded sale window is still open in legacy contract state, but new contributions are disabled.
+                Existing contributors should use only a claim or refund action when the authenticated child state permits it.
               </p>
               {whitelistEnabled && !isWhitelisted && isConnected && (
                 <div style={{ border: '1px solid rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.08)', borderRadius: '10px', padding: '12px 14px', color: '#fcd34d', fontSize: '13px' }}>
-                  This sale is whitelist-gated. Your connected wallet is not approved yet.
+                  This historical sale is whitelist-gated. New contributions and whitelist changes remain disabled.
                 </div>
               )}
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -1205,7 +1271,7 @@ export default function PresalePage() {
                   }}
                 >
                   {!paidWritesApproved
-                    ? 'Contributions paused for legacy factory'
+                      ? 'Legacy Contributions Disabled'
                     : isConnected
                       ? 'Contribute zkLTC'
                       : 'Connect wallet to contribute'}
@@ -1214,8 +1280,8 @@ export default function PresalePage() {
             </div>
           ) : (
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.58)', lineHeight: 1.6 }}>
-              Contributions open only while the presale is live. Claims, refunds, and post-launch liquidity actions are
-              shown automatically when the contract reaches the corresponding state.
+              New contributions are disabled regardless of the historical sale window. Authenticated claims, refunds,
+              and post-finalization recovery actions are shown only when the contract reaches the corresponding state.
             </p>
           )}
 

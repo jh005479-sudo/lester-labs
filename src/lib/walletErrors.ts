@@ -25,5 +25,5 @@ export function getWalletErrorMessage(
 }
 
 export function getWrongNetworkMessage(action: string): string {
-  return `Switch to LitVM Testnet (Chain ID ${litvm.id}) before ${action}.`
+  return `Switch to LitVM LiteForge (Chain ID ${litvm.id}) before ${action}.`
 }

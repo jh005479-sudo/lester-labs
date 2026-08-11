@@ -1,12 +1,12 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Swap — DEX Token Trading on LitVM | Lester Labs',
-  description: 'Trade ERC-20 tokens on LitVM through the Lester Labs DEX with live quotes, configurable slippage, and explicit wallet settlement.',
+  title: 'DEX Recovery Status & Reserve Quotes on LitVM | Lester Labs',
+  description: 'Inspect bounded reserve quotes and recover eligible legacy DEX positions. New swaps, wrapping, pool creation, and liquidity additions remain disabled during post-compromise replacement.',
   alternates: { canonical: 'https://www.lester-labs.com/swap' },
   openGraph: {
-    title: 'Swap — DEX Token Trading on LitVM | Lester Labs',
-    description: 'Trade ERC-20 tokens on LitVM with live quotes, configurable slippage, and explicit wallet settlement.',
+    title: 'DEX Recovery Status & Reserve Quotes on LitVM | Lester Labs',
+    description: 'Read-only reserve quotes and narrowly authenticated legacy DEX recovery while ordinary writes remain disabled.',
     url: 'https://www.lester-labs.com/swap',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Swap — DEX Token Trading on LitVM | Lester Labs',
-    description: 'Trade any ERC-20 token on LitVM at 0.30% per swap.',
+    title: 'DEX Recovery Status on LitVM | Lester Labs',
+    description: 'New swaps and liquidity writes are disabled during the post-compromise replacement.',
   },
 }
 

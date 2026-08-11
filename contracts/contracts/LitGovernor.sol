@@ -23,7 +23,15 @@ contract LitGovernor {
 
     // ── Types ───────────────────────────────────────────────────────────
 
-    enum ProposalState { Pending, Active, Defeated, Succeeded, Queued, Executed, Canceled }
+    enum ProposalState {
+        Pending,
+        Active,
+        Defeated,
+        Succeeded,
+        Queued,
+        Executed,
+        Canceled
+    }
 
     struct ProposalCore {
         uint64 snapshotBlock;
@@ -45,10 +53,11 @@ contract LitGovernor {
 
     ERC20Votes public immutable token;
     TimelockController public immutable timelock;
-    uint256 public immutable votingDelay_;        // blocks before voting starts
-    uint256 public immutable votingPeriod_;       // blocks voting window
-    uint256 public immutable proposalThreshold_;  // min delegated power to propose
-    uint256 public immutable quorumBps_;          // basis points (100 = 1%)
+    uint256 public immutable votingDelay_; // blocks before voting starts
+    uint256 public immutable votingPeriod_; // blocks voting window
+    uint256 public immutable proposalThreshold_; // min delegated power to propose
+    uint256 public immutable quorumBps_; // basis points (100 = 1%)
+    address public immutable deploymentSigner;
 
     // ── storage ────────────────────────────────────────────────────────
 
@@ -63,11 +72,7 @@ contract LitGovernor {
     // ── events ─────────────────────────────────────────────────────────
 
     event ProposalCreated(
-        uint256 indexed proposalId,
-        address proposer,
-        uint64 startBlock,
-        uint64 endBlock,
-        string description
+        uint256 indexed proposalId, address proposer, uint64 startBlock, uint64 endBlock, string description
     );
     event VoteCast(uint256 indexed proposalId, address voter, uint8 support, uint256 weight);
     event ProposalCanceled(uint256 indexed proposalId);
@@ -77,7 +82,7 @@ contract LitGovernor {
     // ── constants ──────────────────────────────────────────────────────
 
     uint8 public constant AGAINST = 0;
-    uint8 public constant FOR     = 1;
+    uint8 public constant FOR = 1;
     uint8 public constant ABSTAIN = 2;
 
     // ── constructor ────────────────────────────────────────────────────
@@ -88,17 +93,24 @@ contract LitGovernor {
     constructor(
         ERC20Votes token_,
         TimelockController timelock_,
-        uint256 votingDelay,
-        uint256 votingPeriod,
-        uint256 proposalThreshold,
-        uint256 quorumBps
+        uint256 votingDelayBlocks,
+        uint256 votingPeriodBlocks,
+        uint256 proposalThresholdAmount,
+        uint256 quorumBpsValue
     ) {
+        require(address(token_).code.length > 0, "Governor: invalid token");
+        require(address(timelock_).code.length > 0, "Governor: invalid timelock");
+        require(votingDelayBlocks > 0 && votingDelayBlocks <= type(uint64).max, "Governor: invalid voting delay");
+        require(votingPeriodBlocks > 0 && votingPeriodBlocks <= type(uint64).max, "Governor: invalid voting period");
+        require(quorumBpsValue > 0 && quorumBpsValue <= 10_000, "Governor: invalid quorum");
+        require(proposalThresholdAmount <= token_.totalSupply(), "Governor: invalid threshold");
         token = token_;
         timelock = timelock_;
-        votingDelay_ = votingDelay;
-        votingPeriod_ = votingPeriod;
-        proposalThreshold_ = proposalThreshold;
-        quorumBps_ = quorumBps;
+        votingDelay_ = votingDelayBlocks;
+        votingPeriod_ = votingPeriodBlocks;
+        proposalThreshold_ = proposalThresholdAmount;
+        quorumBps_ = quorumBpsValue;
+        deploymentSigner = msg.sender;
     }
 
     // ── ERC-6372 clock ─────────────────────────────────────────────────
@@ -124,33 +136,22 @@ contract LitGovernor {
     ) external returns (uint256 proposalId) {
         uint256 weight = token.getVotes(msg.sender);
         require(weight >= proposalThreshold_, "Governor: proposer below threshold");
-        require(
-            targets.length == values.length && targets.length == calldatas.length,
-            "Governor: mismatched arrays"
-        );
+        require(targets.length == values.length && targets.length == calldatas.length, "Governor: mismatched arrays");
         require(targets.length > 0, "Governor: empty proposal");
 
         uint64 snapshot = uint64(block.number) + uint64(votingDelay_);
         uint64 startBlock = snapshot;
-        uint64 endBlock   = startBlock + uint64(votingPeriod_);
+        uint64 endBlock = startBlock + uint64(votingPeriod_);
 
         proposalId = ++_proposalCount;
 
         _proposals[proposalId] = ProposalCore({
-            snapshotBlock: snapshot,
-            startBlock: startBlock,
-            endBlock: endBlock,
-            proposer: msg.sender,
-            canceled: false
+            snapshotBlock: snapshot, startBlock: startBlock, endBlock: endBlock, proposer: msg.sender, canceled: false
         });
 
         // Store details for queue/execute paths
-        _proposalDetails[proposalId] = ProposalDetails({
-            targets: targets,
-            values: values,
-            calldatas: calldatas,
-            description: description
-        });
+        _proposalDetails[proposalId] =
+            ProposalDetails({targets: targets, values: values, calldatas: calldatas, description: description});
 
         emit ProposalCreated(proposalId, msg.sender, startBlock, endBlock, description);
     }
@@ -166,7 +167,9 @@ contract LitGovernor {
         uint256 proposalId,
         uint8 support,
         string calldata /* reason */
-    ) external {
+    )
+        external
+    {
         require(support <= ABSTAIN, "Governor: invalid vote type");
         _castVote(proposalId, msg.sender, support);
         // Reason not stored on-chain in this minimal version
@@ -175,13 +178,7 @@ contract LitGovernor {
     /**
      * @notice Cast a vote via EIP-712 signature (off-chain vote + on-chain tally)
      */
-    function castVoteBySig(
-        uint256 proposalId,
-        uint8 support,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external {
+    function castVoteBySig(uint256 proposalId, uint8 support, uint8 v, bytes32 r, bytes32 s) external {
         require(support <= ABSTAIN, "Governor: invalid vote type");
 
         bytes32 domainSeparator = keccak256(
@@ -192,11 +189,8 @@ contract LitGovernor {
                 address(this)
             )
         );
-        bytes32 structHash = keccak256(abi.encode(
-            keccak256("Ballot(uint256 proposalId,uint8 support)"),
-            proposalId,
-            support
-        ));
+        bytes32 structHash =
+            keccak256(abi.encode(keccak256("Ballot(uint256 proposalId,uint8 support)"), proposalId, support));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
 
         address signer = ecrecover(digest, v, r, s);
@@ -204,11 +198,7 @@ contract LitGovernor {
         _castVote(proposalId, signer, support);
     }
 
-    function _castVote(
-        uint256 proposalId,
-        address voter,
-        uint8 support
-    ) internal returns (uint256 weight) {
+    function _castVote(uint256 proposalId, address voter, uint8 support) internal returns (uint256 weight) {
         require(state(proposalId) == ProposalState.Active, "Governor: voting not active");
         require(!_hasVoted[proposalId][voter], "Governor: already voted");
 
@@ -232,23 +222,10 @@ contract LitGovernor {
         ProposalDetails storage details = _proposalDetails[proposalId];
         bytes32 salt = _timelockSalt(proposalId);
 
-        bytes32 opId = timelock.hashOperationBatch(
-            details.targets,
-            details.values,
-            details.calldatas,
-            0,
-            salt
-        );
+        bytes32 opId = timelock.hashOperationBatch(details.targets, details.values, details.calldatas, 0, salt);
         _timelockIds[proposalId] = opId;
 
-        timelock.scheduleBatch(
-            details.targets,
-            details.values,
-            details.calldatas,
-            0,
-            salt,
-            timelock.getMinDelay()
-        );
+        timelock.scheduleBatch(details.targets, details.values, details.calldatas, 0, salt, timelock.getMinDelay());
 
         emit ProposalQueued(proposalId);
     }
@@ -258,7 +235,7 @@ contract LitGovernor {
     /**
      * @notice Execute a queued proposal through the timelock once the delay has passed.
      */
-    function execute(uint256 proposalId) external payable {
+    function execute(uint256 proposalId) external {
         _executeQueuedProposal(proposalId);
     }
 
@@ -275,13 +252,7 @@ contract LitGovernor {
         ProposalDetails storage details = _proposalDetails[proposalId];
         bytes32 salt = _timelockSalt(proposalId);
 
-        timelock.executeBatch(
-            details.targets,
-            details.values,
-            details.calldatas,
-            0,
-            salt
-        );
+        timelock.executeBatch(details.targets, details.values, details.calldatas, 0, salt);
         emit ProposalExecuted(proposalId);
     }
 
@@ -291,9 +262,7 @@ contract LitGovernor {
         require(msg.sender == _proposals[proposalId].proposer, "Governor: not proposer");
         ProposalState s = state(proposalId);
         require(
-            s == ProposalState.Pending ||
-            s == ProposalState.Active  ||
-            s == ProposalState.Succeeded,
+            s == ProposalState.Pending || s == ProposalState.Active || s == ProposalState.Succeeded,
             "Governor: cannot cancel"
         );
         _cancel(proposalId);
@@ -329,11 +298,7 @@ contract LitGovernor {
         view
         returns (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes)
     {
-        return (
-            _voteTally[proposalId][AGAINST],
-            _voteTally[proposalId][FOR],
-            _voteTally[proposalId][ABSTAIN]
-        );
+        return (_voteTally[proposalId][AGAINST], _voteTally[proposalId][FOR], _voteTally[proposalId][ABSTAIN]);
     }
 
     // These shadow the immutable state variables but public getters for
@@ -373,14 +338,18 @@ contract LitGovernor {
 
         uint256 currentBlock = block.number;
 
-        if (currentBlock < p.startBlock)  return ProposalState.Pending;
-        if (currentBlock <= p.endBlock)   return ProposalState.Active;
+        if (currentBlock <= p.startBlock) return ProposalState.Pending;
+        if (currentBlock <= p.endBlock) return ProposalState.Active;
 
         // voting closed
         bytes32 opId = _timelockIds[proposalId];
         if (opId != bytes32(0)) {
             if (timelock.isOperationDone(opId)) return ProposalState.Executed;
-            if (timelock.isOperation(opId))    return ProposalState.Queued;
+            if (timelock.isOperation(opId)) return ProposalState.Queued;
+            // An operation id is stored only after a successful schedule. If
+            // the timelock later reports it unset, an emergency canceller
+            // removed it; never let that proposal become Succeeded again.
+            return ProposalState.Canceled;
         }
 
         if (_isDefeated(proposalId)) return ProposalState.Defeated;
@@ -388,12 +357,12 @@ contract LitGovernor {
     }
 
     function _isDefeated(uint256 proposalId) internal view returns (bool) {
-        uint256 forVotes     = _voteTally[proposalId][FOR];
+        uint256 forVotes = _voteTally[proposalId][FOR];
         uint256 againstVotes = _voteTally[proposalId][AGAINST];
         uint256 abstainVotes = _voteTally[proposalId][ABSTAIN];
 
         uint256 snapshotSupply = token.getPastTotalSupply(_proposals[proposalId].snapshotBlock);
-        uint256 quorumNeeded   = (snapshotSupply * quorumBps_) / 10_000;
+        uint256 quorumNeeded = (snapshotSupply * quorumBps_) / 10_000;
 
         if (forVotes + againstVotes + abstainVotes < quorumNeeded) {
             return true;
@@ -412,8 +381,4 @@ contract LitGovernor {
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
         return interfaceId == type(IGovernor).interfaceId;
     }
-
-    // ── receive ETH ───────────────────────────────────────────────────
-
-    receive() external payable {}
 }

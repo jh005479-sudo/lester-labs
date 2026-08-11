@@ -1,12 +1,12 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Pool — Liquidity Provider Positions on LitVM | Lester Labs',
-  description: 'Track your liquidity provider positions across any LitVM trading pair. View reserves, LP token balances, and your share of each pool.',
+  title: 'Pool — Bounded LP Views & Legacy Recovery on LitVM | Lester Labs',
+  description: 'Inspect the newest bounded factory-pair window and eligible wallet LP positions. Pool creation and liquidity additions remain disabled; authenticated legacy removal is recovery-only.',
   alternates: { canonical: 'https://www.lester-labs.com/pool' },
   openGraph: {
-    title: 'Pool — Liquidity Provider Positions on LitVM | Lester Labs',
-    description: 'Track your LP positions across all LitVM pairs. View reserves, balances, and pool share.',
+    title: 'Pool — Bounded LP Views & Legacy Recovery on LitVM | Lester Labs',
+    description: 'Inspect a bounded newest-pair window and recover eligible legacy LP positions.',
     url: 'https://www.lester-labs.com/pool',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Pool — Liquidity Provider Positions on LitVM | Lester Labs',
-    description: 'Track your liquidity positions across all LitVM pairs.',
+    title: 'Pool Recovery Status | Lester Labs',
+    description: 'Pool creation and liquidity additions are disabled during post-compromise replacement.',
   },
 }
 

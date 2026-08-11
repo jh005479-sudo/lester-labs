@@ -9,7 +9,10 @@
     "start": "next start",
     "lint": "eslint",
     "test:unit": "NODE_OPTIONS='--disable-warning=MODULE_TYPELESS_PACKAGE_JSON' node --experimental-strip-types --test 'src/**/*.test.mjs'",
-    "security:policy": "node scripts/security/verify-package-policy.mjs"
+    "security:policy": "node scripts/security/verify-package-policy.mjs",
+    "security:secrets": "node scripts/security/scan-secrets.mjs",
+    "security:public-manifest": "node scripts/security/verify-approved-public-replacement.mjs",
+    "security:capture-activity": "node scripts/security/capture-platform-activity-cutover.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.15",

@@ -5,9 +5,14 @@
  * Provides: request coalescing, rate limiting, exponential backoff, caching.
  */
 
+import { litvm } from '@/config/chains'
+
 // ── Configuration ──────────────────────────────────────────────────────────
 
-export const RPC_URL = process.env.NEXT_PUBLIC_LITVM_RPC_URL ?? 'https://liteforge.rpc.caldera.xyz/infra-partner-http'
+// Security-relevant reads must not be redirectable by a compromised hosting
+// environment. next.config.ts rejects the former NEXT_PUBLIC_LITVM_RPC_URL
+// override at build time; this value is sourced from the reviewed chain file.
+export const RPC_URL = litvm.rpcUrls.default.http[0]
 
 const MAX_RPS = 5                // Conservative: 5 requests/sec for free Caldera
 const BURST_CAPACITY = 10        // Allow short bursts up to 10
@@ -177,7 +182,7 @@ export async function rpc<T>(method: string, params: unknown[], options?: {
 // ── Convenience Functions ──────────────────────────────────────────────────
 
 export const hexToNumber = (value?: string | null) => (value ? parseInt(value, 16) : 0)
-export const hexToBigInt = (value?: string | null) => (value ? BigInt(value) : 0)
+export const hexToBigInt = (value?: string | null): bigint => (value ? BigInt(value) : 0n)
 
 export function formatAddress(addr?: string | null) {
   if (!addr) return 'Contract Creation'

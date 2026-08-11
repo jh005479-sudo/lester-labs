@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ConnectButton } from '@/components/shared/LocalWalletConnect'
-import { ChevronDown, Grid3X3, Menu, Wallet, X } from 'lucide-react'
+import { ChevronDown, Grid3X3, Menu, X } from 'lucide-react'
 import { appGroups, isActivePath } from '@/lib/product-flow'
+import { InjectedWalletButton } from '@/components/shared/InjectedWalletButton'
 
 const directLinks = [
   { href: '/ledger', label: 'Ledger' },
@@ -193,68 +193,16 @@ export function Navbar() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-          <ConnectButton.Custom>
-            {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
-              const connected = mounted && account && chain
-
-              if (!connected) {
-                return (
-                  <button
-                    onClick={openConnectModal}
-                    type="button"
-                    className="min-h-11 rounded-[14px] px-3 py-2 text-[13px] font-semibold sm:px-4 sm:text-[14px]"
-                    style={{
-                      color: '#f6f4ff',
-                      background: 'linear-gradient(135deg, #6B4FFF 0%, #5B3FF0 100%)',
-                      boxShadow: '0 8px 24px rgba(75, 49, 220, 0.35)',
-                      border: 'none',
-                    }}
-                  >
-                    <span className="sm:hidden">Connect</span>
-                    <span className="hidden sm:inline">Connect Wallet</span>
-                  </button>
-                )
-              }
-
-              return (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={openChainModal}
-                    type="button"
-                    className="hidden min-h-11 items-center gap-2 rounded-[14px] px-4 py-2 text-[14px] font-semibold sm:inline-flex"
-                    style={{
-                      color: '#f6f4ff',
-                      background: 'rgba(74, 49, 220, 0.22)',
-                      border: '1px solid rgba(167, 137, 255, 0.46)',
-                      boxShadow: '0 8px 22px rgba(45, 26, 120, 0.35)',
-                    }}
-                  >
-                    {chain?.name}
-                    <ChevronDown size={16} />
-                  </button>
-
-                  <button
-                    onClick={openAccountModal}
-                    type="button"
-                    className="inline-flex h-11 min-w-[64px] items-center justify-center rounded-[14px] px-3"
-                    aria-label="Disconnect wallet"
-                    style={{
-                      background: 'rgba(74, 49, 220, 0.22)',
-                      border: '1px solid rgba(167, 137, 255, 0.46)',
-                      boxShadow: '0 8px 22px rgba(45, 26, 120, 0.35)',
-                    }}
-                  >
-                    {chain?.hasIcon && chain.iconUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={chain.iconUrl} alt={chain.name ?? 'Chain'} className="h-6 w-6 rounded-full" />
-                    ) : (
-                      <Wallet size={16} color="#f6f4ff" />
-                    )}
-                  </button>
-                </div>
-              )
-            }}
-          </ConnectButton.Custom>
+          <InjectedWalletButton
+            compact
+            disconnectedLabel={(
+              <>
+                <span className="sm:hidden">Connect</span>
+                <span className="hidden sm:inline">Connect Wallet</span>
+              </>
+            )}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[14px] px-3 py-2 text-[13px] font-semibold transition sm:px-4 sm:text-[14px] disabled:cursor-not-allowed disabled:opacity-60"
+          />
 
           <button
             className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded-lg transition-colors duration-300 xl:hidden"

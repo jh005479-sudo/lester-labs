@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getTokenDetails, getTokenTransfers, type TokenDetails, type TokenTransfer } from '@/lib/token-indexer'
 import { ArrowLeft, Copy, ExternalLink, RefreshCw } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { safeExternalUrl } from '../safeExternalUrl'
 
 function formatAddress(addr: string): string {
@@ -54,7 +53,6 @@ export default function TokenDetailPage() {
   const [transfers, setTransfers] = useState<TokenTransfer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [chartTimeframe, setChartTimeframe] = useState<'24h' | '7d'>('24h')
 
   const load = useCallback(async () => {
     try {
@@ -93,8 +91,6 @@ export default function TokenDetailPage() {
     )
   }
 
-  // Chart data: derive from priceHistory if available, otherwise show empty
-  const hasChartData = token.priceHistory && token.priceHistory.length > 0
   const websiteUrl = safeExternalUrl(token.website)
 
   return (
@@ -137,41 +133,14 @@ export default function TokenDetailPage() {
             {/* Chart */}
             <div className="rounded-xl bg-[var(--surface-1)] border border-white/10 p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Indexed Price History</h3>
-                <div className="flex gap-2">
-                  {(['24h', '7d'] as const).map(tf => (
-                    <button
-                      key={tf}
-                      onClick={() => setChartTimeframe(tf)}
-                      className={`px-3 py-1 rounded text-xs font-mono ${chartTimeframe === tf ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/60'}`}
-                    >
-                      {tf.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
+                <h3 className="font-semibold">Indexed Market History Unavailable</h3>
               </div>
 
-              {hasChartData ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={token.priceHistory}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="timestamp" tickFormatter={(ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} stroke="rgba(255,255,255,0.2)" tick={{ fontSize: 10 }} />
-                    <YAxis stroke="rgba(255,255,255,0.2)" tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
-                    <Tooltip
-                      contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-                      labelFormatter={(ts) => new Date(ts * 1000).toLocaleString()}
-                      formatter={(value: unknown) => [`$${Number(value).toFixed(6)}`, 'Price']}
-                    />
-                    <Line type="monotone" dataKey="price" stroke="#22c55e" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[300px] flex flex-col items-center justify-center text-white/30">
-                  <div className="text-4xl mb-3">📊</div>
-                  <div className="text-lg mb-1">No indexed price history</div>
-                  <div className="text-sm text-white/20">Open Market Charts for current reserve ratios and verified Sync history.</div>
-                </div>
-              )}
+              <div className="h-[300px] flex flex-col items-center justify-center text-white/30">
+                <div className="text-4xl mb-3">📊</div>
+                <div className="text-lg mb-1">No indexed price history</div>
+                <div className="max-w-lg text-center text-sm text-white/20">Lester Labs does not supply USD price or 24-hour market series. Open Charts for bounded on-chain reserve ratios and Sync-event history; those values are not oracle prices.</div>
+              </div>
             </div>
 
             {/* Token Info Grid */}
@@ -199,12 +168,8 @@ export default function TokenDetailPage() {
                   <div className="font-mono">{formatSupply(token.totalSupply)}</div>
                 </div>
                 <div>
-                  <div className="text-white/40 text-xs mb-1">Buys / Sells</div>
-                  <div className="font-mono">
-                    {token.buyCount !== undefined || token.sellCount !== undefined
-                      ? `${token.buyCount ?? '—'} / ${token.sellCount ?? '—'}`
-                      : <span className="text-white/20">—</span>}
-                  </div>
+                  <div className="text-white/40 text-xs mb-1">Trade Classification</div>
+                  <div className="text-white/30">Not indexed</div>
                 </div>
                 <div>
                   <div className="text-white/40 text-xs mb-1">LP Lock Evidence</div>

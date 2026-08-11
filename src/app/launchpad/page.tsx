@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ConnectButton } from '@/components/shared/LocalWalletConnect'
 import { waitForTransactionReceipt } from 'wagmi/actions'
 import Link from 'next/link'
 import { BuilderChecklist } from '@/components/shared/BuilderChecklist'
@@ -20,7 +19,7 @@ import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import {
   APPROVED_ILO_CREATION_FACTORY_ADDRESS,
   ILO_FACTORY_ADDRESS,
-  LESTER_TREASURY_ADDRESS,
+  LESTER_TREASURY_STATUS,
   isApprovedIloCreationFactory,
   isApprovedLesterTreasury,
 } from '@/config/contracts'
@@ -33,9 +32,9 @@ import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getRecentWindowIndices } from '@/lib/launchpadPagination'
 import { getLaunchpadReadPlan, type LaunchpadTab } from '@/lib/launchpadTab'
 import { isTrustedIloFactoryConfigured } from '@/lib/launchpadProvenance'
+import { InjectedWalletButton } from '@/components/shared/InjectedWalletButton'
 import {
   filterPresales,
-  formatPresaleMarketCap,
   getPresaleReminder,
   getPresaleProgress,
   getPresaleStatus,
@@ -384,7 +383,7 @@ function CreatePresaleForm() {
     if (!creationFactoryApproved || !creationFactoryAddress) {
       setModalOpen(true)
       setTxStatus('error')
-      setTxMessage('The legacy ILO Factory is retired for new presales. Creation remains disabled until an audited replacement is explicitly pinned in this application.')
+      setTxMessage('The legacy ILO Factory is retired for new presales. Creation remains disabled until an independently reviewed replacement is explicitly source-pinned in this application.')
       return
     }
     if (!factoryTreasuryApproved) {
@@ -435,7 +434,7 @@ function CreatePresaleForm() {
       setCurrentTxHash(hash)
       setTxMessage('Transaction submitted. Waiting for confirmation…')
 
-      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash, chainId: litvm.id })
       if (receipt.status === 'reverted') {
         setTxStatus('error')
         setTxMessage('Transaction reverted on-chain. Please verify your presale inputs and the factory configuration, then try again.')
@@ -520,7 +519,7 @@ function CreatePresaleForm() {
         }}
       >
         <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '8px' }}>
-          Create Presale
+          Presale creation disabled
         </h2>
         <p
           style={{
@@ -529,8 +528,7 @@ function CreatePresaleForm() {
             marginBottom: '28px',
           }}
         >
-          Launch a community presale. LP is automatically created and locked
-          for your chosen duration when you finalize the raise.
+          This form is retained to document the intended replacement flow. Do not fund, approve, or submit it while the legacy factories and connector remain retired.
         </p>
 
         <div style={{ display: 'grid', gap: '20px' }}>
@@ -700,7 +698,7 @@ function CreatePresaleForm() {
                 cursor: 'pointer',
               }}
             >
-              Enable whitelist (you control who can contribute)
+              Whitelist option (configuration preview only while creation is disabled)
             </label>
           </div>
 
@@ -715,11 +713,16 @@ function CreatePresaleForm() {
               color: 'rgba(255,255,255,0.6)',
             }}
           >
-            Creation fee:{' '}
-            <strong style={{ color: 'rgba(255,255,255,0.9)' }}>{feeDisplay} zkLTC</strong>{' '}
-            · Platform fee:{' '}
-            <strong style={{ color: 'rgba(255,255,255,0.9)' }}>2% of raise</strong>{' '}
-            at finalization
+            {creationFactoryApproved ? (
+              <>
+                Source-pinned replacement creation fee:{' '}
+                <strong style={{ color: 'rgba(255,255,255,0.9)' }}>{feeDisplay} zkLTC</strong>{' '}
+                · Finalization fee:{' '}
+                <strong style={{ color: 'rgba(255,255,255,0.9)' }}>2% of raise</strong>
+              </>
+            ) : (
+              <>Legacy fee terms are historical reference only. Do not approve or pay a creation fee.</>
+            )}
           </div>
 
           {/* Contract address guard warning */}
@@ -734,8 +737,8 @@ function CreatePresaleForm() {
             }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <AlertTriangle size={14} />
-                The canonical legacy ILO Factory is permanently disabled for new presales. An audited replacement
-                must be separately configured and explicitly pinned before creation can resume.
+                The canonical legacy ILO Factory is retired and disabled for new presales. A replacement must be
+                independently reviewed, separately configured, and explicitly source-pinned before creation can resume.
               </span>
             </div>
           )}
@@ -753,7 +756,7 @@ function CreatePresaleForm() {
                 <AlertTriangle size={14} />
                 {isFactoryTreasuryLoading
                   ? 'Verifying the replacement ILO Factory treasury before enabling creation…'
-                  : `Presale creation is disabled until the replacement factory treasury is verified as ${LESTER_TREASURY_ADDRESS}.`}
+                  : `Presale creation is disabled because ${LESTER_TREASURY_STATUS}.`}
               </span>
             </div>
           )}
@@ -772,7 +775,7 @@ function CreatePresaleForm() {
             </div>
           )}
 
-          {isWrongNetwork && (
+          {creationFactoryApproved && isWrongNetwork && (
             <div style={{
               padding: '10px 14px',
               background: 'rgba(251,191,36,0.1)',
@@ -785,7 +788,7 @@ function CreatePresaleForm() {
             </div>
           )}
 
-          {isFeeError && (
+          {creationFactoryApproved && isFeeError && (
             <div style={{
               padding: '10px 14px',
               background: 'rgba(239,68,68,0.1)',
@@ -798,28 +801,26 @@ function CreatePresaleForm() {
             </div>
           )}
 
-          {!isConnected ? (
-            <ConnectButton.Custom>
-              {({ openConnectModal, mounted }) => (
-                <button
-                  onClick={openConnectModal}
-                  disabled={!mounted}
-                  style={{
-                    padding: '14px',
-                    background: mounted ? 'var(--accent)' : 'rgba(99,102,241,0.3)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '15px',
-                    fontWeight: 600,
-                    cursor: mounted ? 'pointer' : 'not-allowed',
-                    transition: 'opacity 0.2s',
-                  }}
-                >
-                  Connect Wallet
-                </button>
-              )}
-            </ConnectButton.Custom>
+          {!creationFactoryApproved ? (
+            <button
+              disabled
+              style={{
+                padding: '14px',
+                background: 'rgba(99,102,241,0.3)',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#fff',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: 'not-allowed',
+              }}
+            >
+              New Presales Disabled — Do Not Connect or Pay
+            </button>
+          ) : !isConnected ? (
+            <InjectedWalletButton
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-[15px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+            />
           ) : isWrongNetwork ? (
             <button
               onClick={handleSwitchNetwork}
@@ -957,24 +958,22 @@ function PresaleCard({
 }) {
   const progressPct = getPresaleProgress(presale)
   const status = getPresaleStatus(presale, now)
-  const timeLabel = getPresaleTimeLabel(presale, now)
-  const reminder = getPresaleReminder(presale, now, isOwner)
+  const timeLabel = status === 'Live' || status === 'Upcoming'
+    ? 'Ordinary writes disabled'
+    : getPresaleTimeLabel(presale, now)
+  const rawReminder = getPresaleReminder(presale, now, isOwner)
+  const reminder = rawReminder === 'Ending soon' ? null : rawReminder
+  const statusLabel = status === 'Live'
+    ? 'Historical window open · writes disabled'
+    : status === 'Upcoming'
+      ? 'Historical schedule · writes disabled'
+      : status
   const statusColor =
-    status === 'Live'
-      ? '#4ade80'
+    status === 'Live' || status === 'Upcoming'
+      ? '#fbbf24'
       : status === 'Finalized'
         ? '#818cf8'
-        : status === 'Upcoming'
-          ? '#fbbf24'
         : '#f87171'
-  const sparkPoints = [6, 12, 9, 16, 14, 22, 18, Math.max(20, progressPct)]
-  const sparkPath = sparkPoints
-    .map((value, index) => {
-      const x = 6 + index * 19
-      const y = 42 - Math.min(34, value * 0.34)
-      return `${index === 0 ? 'M' : 'L'}${x},${y.toFixed(1)}`
-    })
-    .join(' ')
 
   return (
     <div
@@ -1088,7 +1087,7 @@ function PresaleCard({
         </div>
       </div>
 
-      {/* Market cap row */}
+      {/* Factual recorded progress only; no synthetic valuation or price series. */}
       <div
         style={{
           display: 'flex',
@@ -1096,27 +1095,10 @@ function PresaleCard({
           fontSize: '12px',
         }}
       >
-        <span style={{ color: '#9ca3af' }}>Market Cap</span>
+        <span style={{ color: '#9ca3af' }}>Historical raise progress</span>
         <span style={{ color: '#e5e7eb', fontWeight: 500 }}>
-          {formatPresaleMarketCap(presale)}
+          {parseFloat(presale.raised).toFixed(2)} / {presale.hardCap} zkLTC
         </span>
-      </div>
-
-      <div
-        aria-hidden="true"
-        style={{
-          height: '54px',
-          borderRadius: '10px',
-          border: '1px solid rgba(255,255,255,0.06)',
-          background: 'linear-gradient(180deg, rgba(94,106,210,0.13), rgba(54,209,220,0.04))',
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
-        <svg viewBox="0 0 150 54" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-          <path d={`${sparkPath} L139,54 L6,54 Z`} fill="rgba(54,209,220,0.12)" />
-          <path d={sparkPath} fill="none" stroke="#36D1DC" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
       </div>
 
       {/* Multi-color gradient progress bar */}
@@ -1179,7 +1161,7 @@ function PresaleCard({
               fontWeight: 600,
             }}
           >
-            ● {status}
+            ● {statusLabel}
           </span>
           <span style={{ color: '#6b7280' }}>
             {timeLabel}
@@ -1342,10 +1324,10 @@ export default function LaunchpadPage() {
       style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >
       <ToolHero
-        category="Presale Platform"
+        category="Historical Presale Recovery"
         title="Lester"
         titleHighlight="Launch"
-        subtitle="Community presales with automatic LP creation and locking at finalization. Self-service, permissionless, contract-enforced."
+        subtitle="Browse source-pinned historical ILOs and use only state-dependent recovery. Creation, funding, contribution, whitelist, and finalization writes are disabled."
         subtitleMaxWidth="560px"
         color="#5E6AD2"
         image="/images/carousel/launchpad.png"
@@ -1354,9 +1336,9 @@ export default function LaunchpadPage() {
         compact
         flowKey="launchpad"
         stats={[
-          { label: 'Mode', value: 'Permissionless' },
-          { label: 'LP', value: 'Auto-created' },
-          { label: 'Fee', value: '2% of raise' },
+          { label: 'Mode', value: 'Recovery only' },
+          { label: 'Factories', value: 'Legacy' },
+          { label: 'New writes', value: 'Disabled' },
         ]}
       />
       <div className="tool-page-content" style={{ maxWidth: '1120px', paddingTop: 40 }}>
@@ -1375,9 +1357,9 @@ export default function LaunchpadPage() {
         >
           {(
             [
-              ['Total Presales', readPlan.factoryCount ? (iloCountLoading ? '…' : liveCount.toString()) : '—'],
+              ['Legacy children', readPlan.factoryCount ? (iloCountLoading ? '…' : liveCount.toString()) : '—'],
               [raisedLabel, iloDataLoading ? '…' : totalRaised],
-              ['Platform Fee', '2%'],
+              ['Historical finalization fee', '2%'],
             ] as [string, string][]
           ).map(([label, value], i, arr) => (
             <div
@@ -1467,7 +1449,7 @@ export default function LaunchpadPage() {
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 {t === 'browse' ? <Radio size={14} /> : <Rocket size={14} />}
-                {t === 'browse' ? 'Browse Presales' : 'Create Presale'}
+                {t === 'browse' ? 'Historical Presales' : 'Creation Disabled'}
               </span>
             </button>
           ))}
@@ -1639,10 +1621,10 @@ export default function LaunchpadPage() {
                     marginBottom: '8px',
                   }}
                 >
-                  No active presales
+                  No historical presales in this bounded view
                 </div>
                 <div style={{ fontSize: '14px' }}>
-                  Be the first to launch on LitVM
+                  New presale creation remains disabled during containment.
                 </div>
               </div>
             ) : visiblePresales.length === 0 ? (

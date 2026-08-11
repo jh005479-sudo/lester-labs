@@ -1,69 +1,59 @@
-# Token Factory
+# Token Factory — Containment and Replacement Readiness
 
-## Overview
+> **Current status:** the legacy Token Factory at
+> `0x93acc61fcdc2e3407A0c03450Adfd8aE78964948` remains controlled by the
+> compromised legacy authority. New token creation and its paid write are
+> disabled. Do not call `createToken` directly or send zkLTC to the factory.
 
-The Token Factory allows anyone to deploy a standard ERC-20 token on LitVM in a single transaction — no Solidity knowledge required. Configure name, symbol, supply, and optional mint/burn capabilities, then deploy directly to the chain.
+## Historical behavior
 
-## How it works
+The legacy factory deployed `LesterToken` ERC-20 contracts and minted the
+configured initial supply to the caller. Token creators selected custom
+decimals and optional owner minting, holder burning, and owner pause controls.
+Each child token has its own transferable owner; replacing the factory does not
+change a child token's owner or make a historical token trusted.
 
-The factory deploys a LesterToken built from OpenZeppelin ERC-20 modules and mints the configured supply to your wallet. Lester-specific logic adds custom decimals and optional owner minting, holder burning, and owner pause controls; review those choices before deployment.
+The legacy creation fee was `0.05 zkLTC` and accrued under the compromised
+factory owner. That fee is a historical parameter, not a current offer.
 
-## Step-by-step guide
+## Safe use during containment
 
-1. Connect your wallet and switch to LitVM network
-2. Navigate to Token Factory
-3. Enter token name (e.g. "My Project Token")
-4. Enter token symbol (e.g. "MPT")
-5. Set total supply (e.g. 1,000,000,000)
-6. Set decimals (default: 18 — change only if you have a specific reason)
-7. Toggle mintable and/or burnable if required
-8. Review the fee (0.05 zkLTC) and confirm
-9. Sign the transaction — your token contract is deployed instantly
-10. Copy the contract address from the confirmation screen
+- Existing child tokens can still be inspected as independent ERC-20
+  contracts.
+- Verify a token's exact runtime, owner, mintability, pause controls, supply,
+  and factory-event provenance before relying on it.
+- A matching name or symbol does not prove that a token came from the factory.
+- Do not approve, pay, or deploy through the legacy factory.
+- The Lester explorer's factory-token list is a bounded newest-event sample,
+  not a complete index.
 
-## Parameters
+## Replacement design
 
-| Field | Description | Constraints |
-|---|---|---|
-| Name | Full token name | 1–50 characters |
-| Symbol | Ticker symbol | 1–8 characters, uppercase |
-| Total Supply | Initial supply minted to deployer | Must be > 0 |
-| Decimals | Token decimal places | Default 18; range 0–18 |
-| Mintable | Owner can mint additional supply | Boolean |
-| Burnable | Holders can burn their own tokens | Boolean |
+A replacement factory is prepared but not active. Its reviewed deployment must:
 
-## Fee structure
+- be deployed from the separately attested single-use gas EOA;
+- place administrative ownership with the approved **controller**;
+- forward creation fees directly to the distinct approved **treasury** rather
+  than accumulating them for an owner sweep;
+- reject zero or retired role addresses and pin its exact runtime hash; and
+- remain unreachable from the frontend until the served build and the explicit
+  paid-write allowlist are verified.
 
-| Fee | Amount | When charged |
-|---|---|---|
-| Deployment fee | 0.05 zkLTC | At transaction confirmation |
+Controller and treasury are deliberately different roles. “The owner matches
+the treasury” is not a valid activation check.
 
-The fee is non-refundable and accrues in the factory until its owner withdraws
-it. The
-frontend reads the live factory owner when the form loads and again
-immediately before `createToken`; the paid write is disabled unless the owner
-is the approved treasury controller.
+## Intended replacement interface
 
-## Smart contract
+- `createToken(...)` — deploy a configured ERC-20 child; disabled until activation
+- `owner()` — returns the controller, not the fee recipient
+- child `mint(address, amount)` — child-owner only, when enabled at creation
+- child `burn(amount)` — holder action, when enabled at creation
+- child `pause()` / `unpause()` — child-owner controls, when enabled
 
-- **Forked from:** OpenZeppelin ERC-20 (v5.x)
-- **Contract address:** `0x93acc61fcdc2e3407A0c03450Adfd8aE78964948`
+## Sources and limitations
 
-**Key functions:**
-- `constructor(name, symbol, supply, decimals, mintable, burnable)` — deploys token with specified parameters
-- `mint(address, amount)` — mint additional tokens (owner only, if mintable enabled)
-- `burn(amount)` — burn caller's own tokens (if burnable enabled)
-- `transfer(address, amount)` — standard ERC-20 transfer
-- `approve(address, amount)` — standard ERC-20 approval
-
-## Sources
-
-- [OpenZeppelin ERC-20](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol)
-
-## Security
-
-The implementation composes maintained OpenZeppelin ERC-20, burnable, pausable, and ownership modules with Lester-specific feature flags and custom-decimal behavior. The Lester Labs factory and resulting integration remain unaudited testnet software; upstream OpenZeppelin review does not constitute an audit of this deployment.
-
-Each created token has its own transferable owner. Rotating TokenFactory
-ownership does not rotate child token ownership. A child owner can mint or
-pause only when those options were enabled at creation.
+The token implementation composes OpenZeppelin modules with Lester-specific
+configuration. Upstream review does not constitute an audit of Lester Labs,
+the deployment process, or a token creator's choices. No replacement should be
+described as live until its address, constructor inputs, runtime hash, roles,
+and served-frontend target have all been independently verified.

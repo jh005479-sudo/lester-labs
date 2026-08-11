@@ -106,7 +106,7 @@ export default function ExplorerPage() {
 
   const stats = [
     { label: 'Latest Block', value: summary.latestBlock ? `#${summary.latestBlock.toLocaleString()}` : 'Ready' },
-    { label: 'Block Feed', value: summary.blocks.length > 1 ? 'Live' : loadingBlocks ? 'Syncing' : '—' },
+    { label: 'Block Feed', value: summary.blocks.length > 1 ? 'Recent' : loadingBlocks ? 'Syncing' : '—' },
     { label: 'Recent Blocks', value: loadingBlocks && summary.blocks.length === 0 ? 'Syncing' : summary.blocks.length.toString() },
     { label: 'Sampled Txs', value: loadingTransactions && summary.transactions.length === 0 ? 'Syncing' : summary.transactions.length.toString() },
     { label: 'Chain ID', value: '4441' },
@@ -119,7 +119,7 @@ export default function ExplorerPage() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">Explorer</h1>
-          <p className="text-white/50 text-sm mt-1">Live LitVM chain data — blocks, transactions, and network stats</p>
+          <p className="text-white/50 text-sm mt-1">Exact block/transaction lookups and bounded newest-first RPC samples — not a full-history index</p>
         </div>
 
         {/* Network Stats Bar */}
@@ -177,8 +177,8 @@ export default function ExplorerPage() {
                 <Coins size={18} />
               </span>
               <div>
-                <p className="text-sm font-semibold text-white">Token Launch Tracker</p>
-                <p className="mt-1 text-xs text-white/40">Search new LitVM assets.</p>
+                <p className="text-sm font-semibold text-white">Factory Token Sample</p>
+                <p className="mt-1 text-xs text-white/40">Newest bounded factory-event window.</p>
               </div>
             </div>
           </Link>
@@ -188,8 +188,8 @@ export default function ExplorerPage() {
                 <BarChart3 size={18} />
               </span>
               <div>
-                <p className="text-sm font-semibold text-white">Market Charts</p>
-                <p className="mt-1 text-xs text-white/40">Price and reserve views.</p>
+                <p className="text-sm font-semibold text-white">Reserve-Ratio Charts</p>
+                <p className="mt-1 text-xs text-white/40">Bounded pair sample; not oracle prices.</p>
               </div>
             </div>
           </Link>
@@ -199,8 +199,8 @@ export default function ExplorerPage() {
                 <Droplets size={18} />
               </span>
               <div>
-                <p className="text-sm font-semibold text-white">DEX Pools</p>
-                <p className="mt-1 text-xs text-white/40">Inspect pairs and liquidity.</p>
+                <p className="text-sm font-semibold text-white">DEX Recovery Pools</p>
+                <p className="mt-1 text-xs text-white/40">Inspect bounded pairs and eligible LP recovery.</p>
               </div>
             </div>
           </Link>

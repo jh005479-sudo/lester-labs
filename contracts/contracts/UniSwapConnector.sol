@@ -12,7 +12,10 @@ contract UniSwapConnector is ReentrancyGuard {
     address public immutable router;
     address public immutable factory;
     address public immutable treasury;
+    address public immutable controller;
     address public immutable wrappedNative;
+    address public immutable deploymentSigner;
+    bool public immutable deploymentSignerMayReceiveFees;
 
     event LiquiditySeeded(
         address indexed caller,
@@ -23,10 +26,22 @@ contract UniSwapConnector is ReentrancyGuard {
         uint256 liquidity
     );
 
-    constructor(address _router, address _factory, address _treasury) {
+    constructor(
+        address _router,
+        address _factory,
+        address _treasury,
+        address _controller,
+        bool _allowDeploymentSignerAsFeeRecipient
+    ) {
         require(_router != address(0), "Invalid router");
         require(_factory != address(0), "Invalid factory");
         require(_treasury != address(0), "Invalid treasury");
+        require(_controller != address(0), "Invalid controller");
+        // A deployment signer may be the fee recipient, but never the
+        // immutable routing controller.
+        require(_controller != msg.sender, "Deployer cannot control");
+        require(_allowDeploymentSignerAsFeeRecipient || _treasury != msg.sender, "Deployer fee recipient disabled");
+        require(_treasury != _controller, "Controller and treasury must differ");
         require(IUniswapV2Router02(_router).factory() == _factory, "Router factory mismatch");
 
         address _wrappedNative = IUniswapV2Router02(_router).WETH();
@@ -35,7 +50,10 @@ contract UniSwapConnector is ReentrancyGuard {
         router = _router;
         factory = _factory;
         treasury = _treasury;
+        controller = _controller;
         wrappedNative = _wrappedNative;
+        deploymentSigner = msg.sender;
+        deploymentSignerMayReceiveFees = _allowDeploymentSignerAsFeeRecipient;
     }
 
     function assertTreasuryRouting() external view returns (bool) {
@@ -56,6 +74,8 @@ contract UniSwapConnector is ReentrancyGuard {
         require(msg.value > 0, "Zero native amount");
         require(to != address(0), "Invalid recipient");
 
+        uint256 nativeBalanceBeforeCall = address(this).balance - msg.value;
+
         _assertTreasuryRouting();
 
         IERC20 tokenContract = IERC20(token);
@@ -63,13 +83,9 @@ contract UniSwapConnector is ReentrancyGuard {
         tokenContract.forceApprove(router, amountTokenDesired);
 
         (amountToken, amountETH, liquidity) = IUniswapV2Router02(router).addLiquidityETH{value: msg.value}(
-            token,
-            amountTokenDesired,
-            amountTokenMin,
-            amountETHMin,
-            to,
-            deadline
+            token, amountTokenDesired, amountTokenMin, amountETHMin, to, deadline
         );
+        tokenContract.forceApprove(router, 0);
 
         pair = IUniswapV2Factory(factory).getPair(token, wrappedNative);
         require(pair != address(0), "Pair missing");
@@ -79,9 +95,10 @@ contract UniSwapConnector is ReentrancyGuard {
             tokenContract.safeTransfer(msg.sender, remainingToken);
         }
 
-        uint256 remainingNative = address(this).balance;
-        if (remainingNative > 0) {
-            (bool refunded, ) = payable(msg.sender).call{value: remainingNative}("");
+        uint256 nativeBalanceAfterCall = address(this).balance;
+        if (nativeBalanceAfterCall > nativeBalanceBeforeCall) {
+            uint256 refundableNative = nativeBalanceAfterCall - nativeBalanceBeforeCall;
+            (bool refunded,) = payable(msg.sender).call{value: refundableNative}("");
             require(refunded, "Native refund failed");
         }
 
@@ -90,7 +107,7 @@ contract UniSwapConnector is ReentrancyGuard {
 
     function _assertTreasuryRouting() internal view {
         require(IUniswapV2Factory(factory).feeTo() == treasury, "Invalid feeTo");
-        require(IUniswapV2Factory(factory).feeToSetter() == treasury, "Invalid feeToSetter");
+        require(IUniswapV2Factory(factory).feeToSetter() == controller, "Invalid feeToSetter");
         require(IUniswapV2Router02(router).factory() == factory, "Router factory mismatch");
     }
 

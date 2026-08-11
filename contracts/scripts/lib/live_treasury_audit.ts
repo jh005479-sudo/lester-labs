@@ -2,6 +2,9 @@ import { ethers, type Log, type Provider } from "ethers";
 
 export const EXPECTED_CHAIN_ID = 4441n;
 export const RETIRED_TREASURY = "0xdd221fbbcb0f6092afe51183d964aa89a968ee13";
+// Historical incident-associated July target only. The rotation never
+// executed. It must never be used by a new deployment.
+// Kept solely so the historical inventory/audit fixtures remain reproducible.
 export const TARGET_TREASURY = "0xcbf819017ae48f261fe143b2a7c8a29d9a2fcd28";
 export const TIMELOCK_DEPLOYMENT_BLOCK = 334_011;
 export const TIMELOCK_INVENTORY_CHECKPOINT_BLOCK = 34_083_003;
@@ -10,6 +13,7 @@ export const TIMELOCK_INVENTORY_CHECKPOINT_HASH =
 
 export const ADDRESSES = {
   iloFactory: "0xa533bbe87bdcd91e4367de517e99bf8ba75fd0ab",
+  productionBuildIloFactory: "0xc9b1961def0cc5bc1ffe3cfe37a4988d7987a43f",
   tokenFactory: "0x93acc61fcdc2e3407a0c03450adfd8ae78964948",
   vestingFactory: "0x6ee07118d39e9330ef0658ffa797eedd2cb823cf",
   liquidityLocker: "0x80d88c7f529d256e5e6a2cb0e0c30d82bc8827a9",
@@ -31,6 +35,7 @@ export const ADDRESSES = {
  */
 export const EXPECTED_RUNTIME_HASHES: Record<keyof typeof ADDRESSES, string> = {
   iloFactory: "0x9c52ccc3cf932eeff5f19c65d7055f9c8eaa50b68e64a1e1e6bafebaf0e81b9a",
+  productionBuildIloFactory: "0xed56b878c6c936b7a54c0fc501a87cd96dc185e8d0967759df88817a03bc2dd5",
   tokenFactory: "0x5b3bb2e693021e2ab040b6bf248785eb627600bbec002e87c10e138521be1d9d",
   vestingFactory: "0x96f1c281dcb7a5a69cb007f511067ac08cf39811fc1d5b92864fb3f455ed2e73",
   liquidityLocker: "0xfa5c90c1aee9f3f2606cf1a04b3a4a742ac2950dbf09e0d2e67412d311786c8a",

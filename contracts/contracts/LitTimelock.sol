@@ -9,10 +9,28 @@ import "@openzeppelin/contracts/governance/TimelockController.sol";
  *         roles are granted to the Governor contract; canceller role to owner.
  */
 contract LitTimelock is TimelockController {
-    constructor(
-        uint256 minDelay,
-        address[] memory proposers,
-        address[] memory executors,
-        address admin
-    ) TimelockController(minDelay, proposers, executors, admin) {}
+    address public immutable governor;
+    address public immutable emergencyCanceller;
+    address public immutable deploymentSigner;
+
+    constructor(uint256 minDelay, address governor_, address emergencyCanceller_)
+        TimelockController(minDelay, _singleton(governor_), _singleton(governor_), address(0))
+    {
+        require(governor_ != address(0), "LitTimelock: zero governor");
+        require(emergencyCanceller_ != address(0), "LitTimelock: zero canceller");
+        require(governor_ != emergencyCanceller_, "LitTimelock: roles must differ");
+        require(governor_ != msg.sender && emergencyCanceller_ != msg.sender, "LitTimelock: deployer control");
+
+        governor = governor_;
+        emergencyCanceller = emergencyCanceller_;
+        deploymentSigner = msg.sender;
+
+        _revokeRole(CANCELLER_ROLE, governor_);
+        _grantRole(CANCELLER_ROLE, emergencyCanceller_);
+    }
+
+    function _singleton(address account) private pure returns (address[] memory accounts) {
+        accounts = new address[](1);
+        accounts[0] = account;
+    }
 }

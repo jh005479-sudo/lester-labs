@@ -1,153 +1,124 @@
-# Governance Platform — Spec
+# Governance replacement specification
 
-## Overview
+## Status and scope
 
-Self-contained on-chain governance for LitVM. No Snapshot, no IPFS requirement — proposals and votes live entirely on the LitVM chain.
+The source in this repository describes the reviewed post-compromise
+replacement. It is not the currently trusted live governance system, and its
+addresses remain undefined in the frontend until the thirteen-contract
+replacement manifest passes independent verification and cutover review.
 
----
+The legacy governance stack is unsafe: `LitGovToken` ownership and all initial
+voting supply remain associated with the retired compromised controller; that
+controller also holds Timelock admin and canceller authority; and the legacy
+Timelock has no executor. Preserve those contracts as read-only evidence only.
 
-## Architecture
+## Replacement contracts
 
-### Contracts
+### `LitGovToken`
 
-**1. `LitGovToken` — Governance Token**
-- ERC20 + ERC20Votes (OpenZeppelin)
-- Mintable by owner (LDA treasury)
-- `delegate(address)` — delegate voting power
-- `delegateBySig(...)` — offline delegation (EIP-712)
-- Total supply: 100M (18 decimals)
-- Owner can mint batches for distribution
+- OpenZeppelin ERC-20 and ERC20Votes token named `Lit Governance Token` (`LGT`).
+- In the production profile, the constructor mints exactly 10,000,000 LGT to
+  the reviewed treasury and self-delegates that balance so voting power is
+  immediately visible.
+- In the disposable functional-test profile, the same supply is minted and
+  self-delegated to LitVM's verified `0x…01` ECRECOVER precompile. No account
+  can transfer or exercise that voting power, so the disposable governance
+  graph is intentionally inert.
+- Mint ownership is assigned directly to the predicted `LitTimelock` address.
+  There is no deployer-owned bootstrap or post-deployment ownership transfer.
+- The deployment signer receives no token balance or votes.
+- Timelock-governed `mint`, `batchMint` (maximum 200 recipients), and ownership
+  transfer remain possible. Ownership cannot be transferred to the deployment
+  signer or the initial holder.
 
-**2. `LitGovernor` — Governor Contract** (OpenZeppelin Governor + Timelock)
-- Uses LitGovToken for voting weight
-- Proposal lifecycle: Pending → Active → Succeeded → Queued → Executed → Expired
-- Configurable: voting delay (1 block), voting period (7 days), quorum (4%), proposal threshold
-- `propose(targets[], values[], calldatas[], description)` — standard OZ
-- `castVote(proposalId, support)` — For / Against / Abstain
-- `castVoteWithReason(proposalId, support, reason)` — with reason
-- `execute(targets[], values[], calldatas[], descriptionHash)` — after succeeded
-- `cancel(proposalId)` — by proposer or admin
+Transfers move delegated votes according to ERC20Votes. A recipient must call
+`delegate(recipient)` or delegate to another account to activate the received
+voting weight; receiving later tokens does not silently change its delegate.
 
-**3. `LitTimelock` — Timelock Controller**
-- Delay: 2 days (configurable)
-- After a proposal succeeds, it sits in timelock for 2 days before execution
-- Provides安全保障 against flash loan / governance attacks
+### `LitTimelock`
 
-### Deployment (LitVM testnet, chain ID 4441)
+- Minimum delay: 172,800 seconds (two days).
+- `DEFAULT_ADMIN_ROLE`: the Timelock contract itself, and nobody else at
+  construction.
+- `PROPOSER_ROLE`: only the predicted `LitGovernor`.
+- `EXECUTOR_ROLE`: only the predicted `LitGovernor`; execution is not open to
+  the zero address.
+- `CANCELLER_ROLE`: only the reviewed controller. OpenZeppelin initially grants
+  this role to each proposer, so the constructor explicitly revokes it from the
+  Governor before granting it to the controller.
+- The deployment signer and treasury have no role.
 
-| Contract | Address |
-|----------|---------|
-| LitGovToken | TBD — deployer mints |
-| LitTimelock | TBD |
-| LitGovernor | TBD |
+The controller can cancel a queued Timelock operation directly. The Governor
+detects that its stored operation ID changed from scheduled to unset and then
+reports the proposal as permanently `Canceled`; it cannot be queued again.
 
-Governor is configured with:
-- `votingDelay`: 1 block
-- `votingPeriod`: 7 days (on LitVM block time ~3s → ~518,400 blocks)
-- `quorum`: 4% of total supply
-- `proposalThreshold`: 100,000 tokens (0.1% of supply)
+### `LitGovernor`
 
----
+The replacement is the repository's minimal on-chain Governor using
+ERC20Votes snapshots and OpenZeppelin TimelockController execution:
 
-## Frontend
+- voting delay: 1 block;
+- voting period: 45,600 blocks;
+- proposal threshold: 100,000 LGT;
+- quorum: 4% of total supply at the proposal snapshot;
+- choices: Against, For, and Abstain;
+- lifecycle: Pending → Active → Defeated or Succeeded → Queued → Executed, with
+  durable Canceled state;
+- proposal descriptions and target/value/calldata arrays are stored on-chain;
+- queue and execute use a deterministic salt derived from Governor address and
+  proposal ID.
 
-### Pages & Routing
+The proposal creator can cancel only Pending, Active, or Succeeded proposals.
+Once queued, the controller's Timelock canceller role is the emergency path.
 
-| Route | Description |
-|-------|-------------|
-| `/governance` | Main governance page |
-| `/governance/[proposalId]` | Individual proposal page (detail + vote) |
+`execute(uint256)` and `executeTimelocked(uint256)` are nonpayable, and the
+Governor has no `receive` function. A proposal that transfers native value must
+therefore use native currency already held by the Timelock. Sending value to
+the Governor or attaching value to `execute` reverts.
 
-### Components
+## Predicted deployment graph
 
-**`SpacesTab`** — list available governance spaces (from governor contract)
-- Shows: space name, token, proposal count, your voting weight
-- One space per deployment (expandable later)
+Governance is transactions 11–13 in the single post-compromise CREATE sequence:
 
-**`ProposalList`** — fetches from governor via `queryFilter`
-- States: Pending, Active, Defeated, Succeeded, Queued, Executed, Canceled
-- Filter by state
+1. Predict Token, Timelock, and Governor addresses from the fresh single-use
+   gas EOA and pinned starting nonce.
+2. Deploy Token with predicted Timelock as owner. The initial holder is the
+   treasury in production and frozen `0x…01` in the disposable profile.
+3. Deploy Timelock with predicted Governor as proposer/executor and controller
+   as emergency canceller.
+4. Deploy Governor after both referenced contracts have runtime code.
 
-**`ProposalDetail`** (new page `/governance/[proposalId]`)
-- Title, description, proposer address
-- Vote breakdown: For / Against / Abstain (live from `proposalVotes()`)
-- Vote buttons (connected wallet)
-- Vote power shown (from token balance + delegation)
-- Execute button (after succeeded + timelock elapsed)
+In production, controller, treasury, and gas-only deployer must all be distinct,
+and both known incident addresses are rejected for every role. In the
+disposable profile, the disclosed signer may equal the fixed test-fee treasury
+but cannot equal the frozen controller; this manifest is forbidden from public
+frontend activation or reputation-remediation evidence.
 
-**`CreateProposalTab`**
-- Title, body (markdown rendered on-chain as string)
-- Actions: list of target addresses + calldata (basic)
-- For testnet: simpler version — just text proposal, targets=[zero], calldatas=[], values=[0]
-- Submit calls `governor.propose()`
+## Verification gates
 
-**`VoteTab`**
-- Load proposal by ID
-- Show current vote tally
-- Cast vote button (wallet connected required)
-- Reason field (optional)
+Before frontend activation, the replacement manifest verifier must establish:
 
-### Data Fetching
+- exact CREATE transactions, constructor calldata, runtime hashes, and local
+  constructor simulation for all thirteen deployments;
+- exact 10,000,000 LGT initial supply, profile-specific initial-holder
+  balance/delegation/votes, and zero deployer balance/votes;
+- Token owner equals Timelock;
+- Timelock's sole-role graph matches the specification above and no role is
+  open to the zero address;
+- Governor token, Timelock, voting parameters, and initial proposal count are
+  exact; and
+- source-pinned frontend addresses are changed only from the final verified
+  manifest in a separately reviewed cutover.
 
-- Proposals: `governor.queryFilter governor.ProposalCreated` — paginated
-- Proposal state: `governor.state(proposalId)` — live
-- Vote tally: `governor.proposalVotes(proposalId)` — live
-- User voting power: `token.getVotes(account)` — at current block
-- User balance: `token.balanceOf(account)`
-- Delegatee: `token.delegates(account)`
+Tests additionally cover successful queue/execute after delay, rejection of
+early execution, durable direct-Timelock cancellation, nonpayable Governor
+behavior, and prefunded-Timelock native-value proposals.
 
-### ABI & Config
+## Frontend behavior
 
-```typescript
-// src/config/abis/governance.ts
-export const GOV_TOKEN_ABI = [...]
-export const GOV_GOVERNOR_ABI = [...]
-export const GOV_TIMELOCK_ABI = [...]
-
-// src/config/contracts.ts
-NEXT_PUBLIC_GOV_TOKEN_ADDRESS=0x...
-NEXT_PUBLIC_GOVERNOR_ADDRESS=0x...
-NEXT_PUBLIC_TIMELOCK_ADDRESS=0x...
-```
-
----
-
-## User Flow
-
-1. User lands on `/governance` → sees Spaces tab → proposal list
-2. Connect wallet → sees voting weight
-3. Click Active proposal → `/governance/[id]` → reads proposal → votes
-4. Create proposal tab → submits on-chain proposal
-5. After voting period ends → proposer executes
-
----
-
-## Vote Weight Logic
-
-```
-votingPower = token.balanceOf(account) + token.delegatedBalance(account)
-             = token.getVotes(account) at current block
-```
-
-Users must delegate to themselves (or someone else) to have voting power. Self-delegation happens automatically on first token receive OR via explicit `delegate()` call.
-
----
-
-## Testnet Bootstrap
-
-- LDA deploys contracts
-- LDA mints and distributes 10M tokens each to ~10 bootstrap wallets for testnet voting
-- Tokens transferable — community can acquire and delegate
-
----
-
-## Scope for v1 (testnet)
-
-- ✅ One governance space (LitVM community)
-- ✅ Create text proposals
-- ✅ Vote (For / Against / Abstain)
-- ✅ Execute after timelock
-- ✅ Live from contract data
-- ⬜ Multi-space (later)
-- ⬜ EIP-712 offline delegation
-- ⬜ Dynamic quorum curves
+The governance UI may display proposal state, stored proposal details, vote
+tallies, current voting power, balances, and delegatees. Any create, vote,
+queue, cancel, or execute control must remain disabled while governance target
+addresses are undefined or fail source/runtime/role attestation. UI copy must
+not describe token balance as voting power unless `getVotes(account)` confirms
+delegation.

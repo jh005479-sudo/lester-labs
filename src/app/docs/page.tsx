@@ -4,21 +4,20 @@ import { Metadata } from 'next'
 import { DocsClient } from './DocsClient'
 
 export const metadata: Metadata = {
-  title: 'Docs — DeFi Tools on LitVM | Lester Labs',
-  description: 'Complete documentation for the Lester Labs DeFi suite on LitVM. Learn how to use the DEX swap, token factory, launchpad, airdrop tool, liquidity locker, vesting, and governance.',
+  title: 'Security, Recovery & Deployment Docs | Lester Labs',
+  description: 'Current containment status, legacy recovery boundaries, replacement role separation, bounded data coverage, and source-pinned deployment requirements for Lester Labs on LitVM testnet.',
   keywords: [
     'Lester Labs docs',
-    'LitVM DEX documentation',
-    'LitVM token factory guide',
-    'LitVM launchpad docs',
-    'LitVM airdrop tool guide',
-    'LitVM liquidity locker documentation',
-    'LitVM vesting guide',
+    'LitVM DEX recovery documentation',
+    'Lester Labs post-compromise deployment',
+    'LitVM launchpad recovery',
+    'LitVM contract verification',
+    'Lester Labs containment status',
   ],
   alternates: { canonical: 'https://www.lester-labs.com/docs' },
   openGraph: {
-    title: 'Docs — DeFi Tools on LitVM | Lester Labs',
-    description: 'Documentation for the Lester Labs DeFi suite on LitVM. DEX swap, token factory, launchpad, airdrop, locker, vesting, and governance.',
+    title: 'Security, Recovery & Deployment Docs | Lester Labs',
+    description: 'Containment, recovery boundaries, replacement roles, and source-pinned deployment requirements.',
     url: 'https://www.lester-labs.com/docs',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -26,8 +25,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Docs — DeFi Tools on LitVM | Lester Labs',
-    description: 'Documentation for the Lester Labs DeFi suite on LitVM.',
+    title: 'Security, Recovery & Deployment Docs | Lester Labs',
+    description: 'Current containment and replacement-deployment documentation for independent review.',
   },
 }
 

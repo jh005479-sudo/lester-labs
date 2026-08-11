@@ -44,8 +44,9 @@ body {
   --error: #F87171;
 
   /* Typography */
-  --font-heading: var(--font-poppins), 'Poppins', sans-serif;
-  --font-body: var(--font-inter), 'Inter', sans-serif;
+  --font-heading: ui-rounded, 'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 }
 
 /* ─── Tailwind theme ─────────────────────────────────────────────────── */
@@ -69,10 +70,10 @@ body {
   --color-warning: var(--warning);
   --color-error: var(--error);
   --color-primary: var(--surface-1);
-  --font-heading: var(--font-heading);
-  --font-body: var(--font-body);
-  --font-sans: var(--font-body);
-  --font-mono: var(--font-geist-mono);
+  --font-heading: ui-rounded, 'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 }
 
 /* ─── Base ───────────────────────────────────────────────────────────── */
@@ -237,10 +238,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 .prose-docs img { border-radius: 8px; margin: 1rem 0; }
 
-/* ─── RainbowKit dark theme override ────────────────────────────────── */
-[data-rk] {
-  --rk-colors-accentColor: var(--accent) !important;
-}
 .fade-up { animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .fade-up-d1 { animation-delay: 0.1s; }
 .fade-up-d2 { animation-delay: 0.2s; }
@@ -372,74 +369,6 @@ h1, h2, h3, h4, h5, h6 {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
-}
-
-/* ─── RainbowKit ─────────────────────────────────────────────────────── */
-[data-rk] {
-  --rk-colors-accentColor: #6B4FFF !important;
-  --rk-colors-accentColorForeground: #f6f4ff !important;
-  --rk-colors-connectButtonBackground: linear-gradient(135deg, #6B4FFF 0%, #5B3FF0 100%) !important;
-  --rk-colors-connectButtonInnerBackground: transparent !important;
-  --rk-colors-connectButtonText: #f6f4ff !important;
-  --rk-colors-generalBorder: transparent !important;
-  --rk-colors-generalBorderDim: transparent !important;
-  --rk-radii-connectButton: 14px !important;
-  --rk-radii-menuButton: 14px !important;
-  --rk-fonts-body: var(--font-body) !important;
-}
-
-/* Nav wallet buttons only (avoid affecting RainbowKit modal internals) */
-[data-rk] [data-testid='rk-connect-button'],
-[data-rk] [data-testid='rk-chain-button'],
-[data-rk] [data-testid='rk-account-button'] {
-  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
-  font-weight: 600 !important;
-}
-
-/* Disconnected: Connect Wallet */
-[data-rk] [data-testid='rk-connect-button'] {
-  border: none !important;
-  box-shadow: 0 8px 24px rgba(75, 49, 220, 0.35);
-}
-
-/* Connected: chain + account buttons */
-[data-rk] [data-testid='rk-chain-button'],
-[data-rk] [data-testid='rk-account-button'] {
-  background: rgba(74, 49, 220, 0.22) !important;
-  color: #f6f4ff !important;
-  border: 1px solid rgba(167, 137, 255, 0.46) !important;
-  box-shadow: 0 8px 22px rgba(45, 26, 120, 0.35);
-  backdrop-filter: blur(8px) saturate(130%);
-}
-
-/* Only the account button's direct inner capsule */
-[data-rk] [data-testid='rk-account-button'] > [style] {
-  background: transparent !important;
-  border: 1px solid rgba(167, 137, 255, 0.46) !important;
-  box-shadow: none !important;
-}
-
-/* Extra hard override for the lingering white ring on account pill */
-[data-rk] [data-testid='rk-account-button'],
-[data-rk] [data-testid='rk-account-button'] > * {
-  box-shadow: 0 8px 22px rgba(45, 26, 120, 0.35) !important;
-}
-
-[data-rk] [data-testid='rk-connect-button']:hover,
-[data-rk] [data-testid='rk-chain-button']:hover,
-[data-rk] [data-testid='rk-account-button']:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.04);
-  box-shadow: 0 10px 28px rgba(75, 49, 220, 0.45);
-}
-
-/* Keep keyboard focus visible without the default high-contrast capsule. */
-[data-rk] [data-testid='rk-connect-button']:focus-visible,
-[data-rk] [data-testid='rk-chain-button']:focus-visible,
-[data-rk] [data-testid='rk-account-button']:focus-visible {
-  outline: 2px solid #c1b8ff !important;
-  outline-offset: 3px !important;
-  box-shadow: 0 8px 22px rgba(45, 26, 120, 0.35), 0 0 0 4px rgba(107,79,255,.22) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

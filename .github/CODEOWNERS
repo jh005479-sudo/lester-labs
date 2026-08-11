@@ -13,7 +13,6 @@
 
 # CI, security policy, and secret-scanner configuration
 /.github/CODEOWNERS @jh005479-sudo
-/.github/dependabot.yml @jh005479-sudo
 /.github/workflows/ @jh005479-sudo
 /.gitleaks.toml @jh005479-sudo
 /.gitleaksignore @jh005479-sudo
@@ -22,7 +21,6 @@
 
 # Deployment, contracts, and privileged operational scripts
 /vercel.json @jh005479-sudo
-/emergency-site/ @jh005479-sudo
 /next.config.ts @jh005479-sudo
 /run-sweep.sh @jh005479-sudo
 /contracts/hardhat.config.ts @jh005479-sudo

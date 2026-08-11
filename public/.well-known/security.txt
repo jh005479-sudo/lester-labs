@@ -1,0 +1,5 @@
+Contact: https://github.com/jh005479-sudo/lester-labs/security/advisories/new
+Expires: 2027-08-01T00:00:00Z
+Preferred-Languages: en
+Canonical: https://www.lester-labs.com/.well-known/security.txt
+Policy: https://github.com/jh005479-sudo/lester-labs/security

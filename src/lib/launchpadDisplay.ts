@@ -143,10 +143,3 @@ export function sortPresales(presales: LaunchpadDisplayPresale[], now: number): 
     return b.startTime - a.startTime
   })
 }
-
-export function formatPresaleMarketCap(presale: Pick<LaunchpadDisplayPresale, 'raised' | 'hardCap'>) {
-  const raised = Number.parseFloat(presale.raised)
-  if (!Number.isFinite(raised)) return '$0'
-  const implied = raised * 50
-  return `$${implied.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-}

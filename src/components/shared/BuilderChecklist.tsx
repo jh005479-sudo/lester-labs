@@ -7,12 +7,12 @@ import { Check, Circle, Rocket } from 'lucide-react'
 const CHECKLIST_KEY = 'lester:builder-checklist:v1'
 
 const STEPS = [
-  { id: 'deploy', label: 'Deploy token', href: '/launch' },
-  { id: 'presale', label: 'Run presale', href: '/launchpad?tab=create' },
-  { id: 'pool', label: 'Seed liquidity', href: '/swap?createPool=1' },
-  { id: 'lock', label: 'Lock LP', href: '/locker' },
-  { id: 'chart', label: 'Track chart', href: '/charts' },
-  { id: 'ledger', label: 'Post update', href: '/ledger' },
+  { id: 'deploy', label: 'Review factory status', href: '/launch' },
+  { id: 'presale', label: 'Inspect legacy presales', href: '/launchpad' },
+  { id: 'pool', label: 'Inspect legacy pools', href: '/pool' },
+  { id: 'lock', label: 'Review existing locks', href: '/locker' },
+  { id: 'chart', label: 'Inspect bounded charts', href: '/charts' },
+  { id: 'ledger', label: 'Read ledger history', href: '/ledger' },
 ]
 
 function readChecked() {
@@ -50,8 +50,8 @@ export function BuilderChecklist() {
     <section className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-violet-200/70">Builder checklist</p>
-          <h2 className="mt-2 text-lg font-semibold text-white">Launch flow</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-violet-200/70">Containment checklist</p>
+          <h2 className="mt-2 text-lg font-semibold text-white">Read and recovery flow</h2>
         </div>
         <div className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65">
           <Rocket size={15} />

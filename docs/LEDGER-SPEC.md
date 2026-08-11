@@ -1,5 +1,12 @@
 # The Ledger — Full Build Brief for Codex
 
+> **Post-compromise status:** this is the original product brief. The reviewed
+> replacement source in `contracts/contracts/TheLedger.sol` is authoritative.
+> It separates owner and treasury, forbids deployment-signer control, forwards
+> the configured 50% cut immediately, and exposes only a permissionless
+> `flushRetainedFeesToTreasury()` for the held remainder. That function has no
+> recipient parameter and can never pay its caller.
+
 > Build Lead: Cortana (Jack's AI)
 > Project: Lester Labs dApp on LitVM
 > Repo: `~/Projects/lester-labs`
@@ -62,7 +69,7 @@ function post(bytes calldata message) external payable
 
 ### RPC endpoints (already configured in `src/lib/rpcClient.ts`)
 ```
-HTTP:  https://liteforge.rpc.caldera.xyz/infra-partner-http
+HTTP:  https://liteforge.rpc.caldera.xyz/http
 WebSocket: wss://liteforge.rpc.caldera.xyz/ws
 ```
 
@@ -123,6 +130,8 @@ function post(bytes calldata message) external payable nonReentrant {
 ```solidity
 function setTreasury(address _treasury) external onlyOwner {
     require(_treasury != address(0), "Zero address");
+    require(_treasury != deploymentSigner, "Deployer cannot control");
+    require(_treasury != owner(), "Owner and treasury must differ");
     treasury = _treasury;
 }
 
@@ -134,7 +143,16 @@ function setMinFee(uint256 _minFee) external onlyOwner {
 
 /// @notice Rescue any ERC-20 tokens sent directly to the contract
 function rescueERC20(address token, uint256 amount) external onlyOwner {
-    IERC20(token).transfer(owner(), amount);
+    IERC20(token).safeTransfer(treasury, amount);
+}
+
+/// @notice Anyone may forward the retained native balance, but only to the
+/// source-pinned treasury. The caller cannot choose or receive the proceeds.
+function flushRetainedFeesToTreasury() external nonReentrant {
+    uint256 amount = address(this).balance;
+    require(amount > 0, "No retained fees");
+    (bool sent, ) = treasury.call{value: amount}("");
+    require(sent, "Transfer failed");
 }
 
 /// @notice Accept direct ETH transfers
@@ -162,14 +180,12 @@ receive() external payable {}
 |---|---|
 | Per message fee | **0.01 zkLTC** |
 | LDA treasury cut | **50%** → 0.005 LTC per message |
-| Burn / remainder | **50%** → 0.005 LTC (no further action needed, just don't send it anywhere — it stays in the contract or gets re-emptively sent to address(0) burn) |
+| Retained remainder | **50%** → 0.005 zkLTC held until anyone calls the fixed-recipient treasury flush |
 
-**Alternative burn implementation** (cleaner):
-```solidity
-uint256 burnAmount = msg.value - treasuryAmount;
-// burn is implicit — don't send burnAmount anywhere, or send to 0x000000...
-```
-OR just let the remainder stay in the contract and add a `withdraw()` function for the owner to sweep occasionally. The treasury cut is the primary revenue mechanism.
+The retained amount is not described as burned: it remains in the contract and
+is observable on-chain. It can be forwarded only to `treasury` through
+`flushRetainedFeesToTreasury()`. There is no owner-selected withdrawal
+recipient and no generic native-token sweep.
 
 ---
 
@@ -403,10 +419,10 @@ Before frontend work begins, deploy the contract:
 
 ```bash
 cd contracts
-forge create src/TheLedger.sol:TheLedger --constructor-args <TREASURY_ADDRESS> --rpc-url https://liteforge.rpc.caldera.xyz/infra-partner-http --private-key <DEPLOYER_KEY>
+forge create src/TheLedger.sol:TheLedger --constructor-args <TREASURY_ADDRESS> --rpc-url https://liteforge.rpc.caldera.xyz/http --private-key <DEPLOYER_KEY>
 ```
 
-Verify on: https://liteforge.caldera.xyz/
+Verify on: https://liteforge.explorer.caldera.xyz/
 
 Provide the deployed address to the frontend team before UI build starts.
 

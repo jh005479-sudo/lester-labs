@@ -17,7 +17,7 @@ import {
 import {
   hasApprovedLesterControl,
   isCanonicalLitvmContract,
-  LESTER_TREASURY_ADDRESS,
+  LESTER_TREASURY_STATUS,
   LITVM_TESTNET_CONTRACTS,
 } from '@/config/contracts'
 import { litvm } from '@/config/chains'
@@ -27,7 +27,7 @@ import { getWalletErrorMessage } from '@/lib/walletErrors'
 const STEPS = [
   { id: 1, label: 'Token Basics' },
   { id: 2, label: 'Features' },
-  { id: 3, label: 'Review & Deploy' },
+  { id: 3, label: 'Review Status' },
 ]
 
 import { setTokenImageUrl } from '@/lib/tokenImageStore'
@@ -312,7 +312,7 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
     if (!factoryControlApproved) {
       setModalOpen(true)
       setTxStatus('error')
-      setTxMessage(`Token deployment is disabled until the live Token Factory owner is verified as ${LESTER_TREASURY_ADDRESS}.`)
+      setTxMessage(`Token deployment is disabled because ${LESTER_TREASURY_STATUS}.`)
       return
     }
     if (!feeReady) return // RP-003: Block submit until fee loaded
@@ -423,8 +423,8 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
         {isContractConfigured && !factoryControlApproved && (
           <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
             {isOwnerLoading
-              ? 'Verifying the live Token Factory owner before enabling paid deployments…'
-              : `Paid token deployment is disabled until the Token Factory owner is verified as ${LESTER_TREASURY_ADDRESS}.`}
+              ? 'Checking the configured Token Factory owner; new paid deployments remain unavailable…'
+              : `Paid token deployment is disabled because ${LESTER_TREASURY_STATUS}.`}
           </div>
         )}
 

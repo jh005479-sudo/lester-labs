@@ -1,75 +1,50 @@
-# The Ledger
+# The Ledger — Historical Reads and Replacement Readiness
 
-## Overview
+> **Current status:** the Ledger at
+> `0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079` is a compromised legacy
+> deployment. Historical messages can be sampled and exact transactions can be
+> looked up, but paid posting is disabled. Do not call `post()` directly or send
+> zkLTC to this contract.
 
-The Ledger is a fee-gated message board recorded in LitVM transaction calldata.
-Confirmed transaction data cannot be edited or deleted by the contract owner.
-The web interface and mutable fee/treasury settings are still operational
-dependencies, so this is not “no platform risk.”
+## What the legacy contract recorded
 
-It's a social layer that runs on smart contract infrastructure: post a message by calling the `post()` function with native zkLTC, and it lives in the chain history.
+A successful `post(message)` transaction placed ABI-encoded message bytes in
+transaction input data and emitted a `MessagePosted` event. Confirmed chain
+data cannot be edited through the Ledger contract. Availability and retention
+still depend on the testnet and on an RPC, archive, or explorer retaining the
+relevant history; the website does not promise perpetual availability.
 
-**Contract:** `0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079`
-**Network:** LitVM testnet (chain ID 4441)
-**Fee:** 0.01 zkLTC per message
+The Lester feed is a paginated RPC/event view. It is not a complete archive,
+moderated record, or proof that a message is accurate or endorsed. Anyone could
+post arbitrary content from any wallet.
 
-## How it works
+## Reading historical messages
 
-The Ledger uses transaction calldata to store messages. When you call `post(message)`, the bytes of your message are embedded directly in the transaction input data — which is permanently recorded by LitVM validators. The message is then decoded and displayed in the feed at [lester-labs.com/ledger](/ledger).
+- A wallet is not required to read the sampled feed.
+- Verify the sender, exact Ledger target, block, transaction status, input data,
+  and event log before attributing a message.
+- Use an exact transaction hash on an independently selected RPC or explorer
+  when completeness matters.
+- Do not infer identity, authorship beyond the sending address, or Lester Labs
+  endorsement from an on-chain message.
 
-The smart contract emits a `MessagePosted` event on every call, which the frontend subscribes to in real-time via WebSocket.
+## Historical fee and roles
 
-## What makes it different
+The legacy minimum fee was `0.01 zkLTC`. Its owner could change that fee and
+the treasury destination. The legacy configuration split value between a
+treasury transfer and contract-held balance; both mutable control and fee
+routing were compromised. This is why checking only `owner()` or only
+`treasury()` would be insufficient.
 
-Unlike traditional social platforms:
-- **No account** — post with any wallet
-- **No server** — data lives in blockchain state
-- **No deletion** — nothing can be removed once posted
-- **No moderation** — the protocol doesn't filter content
-- **No token required** — pay in native LTC directly
+## Replacement design
 
-## Step-by-step guide
+The prepared replacement keeps the **controller** and **treasury** distinct:
+the controller manages the limited administrative settings, while the treasury
+receives the configured fee share directly. The remaining contract share can
+be withdrawn only to that same pinned treasury. A separate single-use gas EOA
+deploys the attested artifact.
 
-1. Connect your wallet and switch to LitVM network
-2. Navigate to [lester-labs.com/ledger](/ledger)
-3. Type your message (max 1,024 characters)
-4. Review the fee (0.01 zkLTC) — shown in the composer
-5. Click **Post to Ledger**
-6. Confirm in your wallet
-7. Your message appears in the feed — confirmed on-chain
-
-## Reading messages
-
-You don't need a wallet to read The Ledger. Simply visit [lester-labs.com/ledger](/ledger) — the feed loads publicly via LitVM RPC. Each message card shows:
-- The wallet address that posted it
-- The block number and transaction hash
-- The message content
-- A link to view the raw transaction on the block explorer
-
-## Real-time updates
-
-The feed subscribes to `MessagePosted` events via LitVM's WebSocket endpoint, so new messages appear instantly without refreshing the page.
-
-## FAQ
-
-**Can I edit or delete a message?**
-No. Once confirmed, a message is permanent. Choose your words carefully.
-
-**Is there content filtering?**
-The protocol does not filter messages. However, Lester Labs may apply off-chain moderation on the frontend UI at its discretion.
-
-**What's the fee for?**
-The minimum fee (0.01 zkLTC) deters spam. The configured 50% treasury share is
-sent to the treasury; the remainder stays in the contract unless moved by a
-future contract mechanism.
-
-**Can I post any content?**
-The message bytes are limited to 1,024 bytes per call. Any UTF-8 content is valid.
-
-## Paid-write safety
-
-The owner can change the minimum fee and treasury destination. Before posting,
-the frontend authenticates the canonical Ledger address and re-reads both
-`owner()` and `treasury()`; it repeats the check immediately before the paid
-write and fails closed unless both equal the approved treasury controller.
-Reading historical messages remains available regardless of that gate.
+Posting may resume only after the exact runtime, role graph, fee behavior,
+frontend target/function/value allowlist, and clean served build are verified.
+Historical counts remain first-party activity records, not counts of distinct
+authors, wallets, or people.
