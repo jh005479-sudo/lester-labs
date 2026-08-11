@@ -777,7 +777,7 @@ describe('dependency-free Vercel REST release adapter', () => {
         pollIntervalMs: 0,
       })
       assert.equal(canary.status, 'PASSED')
-      assert.equal(canary.results.automaticAliasesAbsent, true)
+      assert.equal(canary.results.customProductionAliasesAbsent, true)
       assert.equal(canaryMock.state.currentDeploymentId, OLD_DEPLOYMENT_ID)
       assert.equal(canaryMock.state.deleted, true)
     } finally {
@@ -822,7 +822,7 @@ describe('dependency-free Vercel REST release adapter', () => {
     }
   })
 
-  it('reports only public routing metadata when a staged canary is marked alias-assigned', async () => {
+  it('accepts exact assigned provider hostnames only for the reviewed READY/STAGED canary', async () => {
     const fixture = createEmergencyPackage()
     try {
       const canaryMock = makeVercelMock({
@@ -831,6 +831,42 @@ describe('dependency-free Vercel REST release adapter', () => {
         projectName: REVIEWED_CANARY_PROJECT_NAME,
         publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
         createdAliases: REVIEWED_CANARY_PROVIDER_ALIASES,
+        stagedAliasAssigned: true,
+      })
+      const canary = await runProviderCanary({
+        ...CANARY_WORKFLOW_IDENTITY,
+        artifactKind: 'emergency-static',
+        releaseDirectory: fixture.releaseDirectory,
+        sourceDirectory: fixture.sourceDirectory,
+        sourceCommit: SOURCE_COMMIT,
+        maximumUploadBytes: 128_000,
+        token: TOKEN,
+        teamId: REVIEWED_CANARY_TEAM_ID,
+        projectId: REVIEWED_CANARY_PROJECT_ID,
+        projectName: REVIEWED_CANARY_PROJECT_NAME,
+        productionProjectId: PRODUCTION_PROJECT_ID,
+        fetchImpl: canaryMock.fetchImpl,
+        delay: async () => {},
+        maxPollAttempts: 3,
+        pollIntervalMs: 0,
+      })
+      assert.equal(canary.status, 'PASSED')
+      assert.equal(canary.schemaVersion, 3)
+      assert.equal(canary.results.customProductionAliasesAbsent, true)
+      assert.equal(canaryMock.state.deleted, true)
+      assert.equal(canaryMock.state.currentDeploymentId, OLD_DEPLOYMENT_ID)
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps aliasAssigned fail-closed for every unreviewed project identity', async () => {
+    const fixture = createEmergencyPackage()
+    try {
+      const canaryMock = makeVercelMock({
+        projectId: CANARY_PROJECT_ID,
+        projectName: 'unreviewed-canary',
+        publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
         stagedAliasAssigned: true,
       })
       await assert.rejects(
@@ -842,23 +878,16 @@ describe('dependency-free Vercel REST release adapter', () => {
           sourceCommit: SOURCE_COMMIT,
           maximumUploadBytes: 128_000,
           token: TOKEN,
-          teamId: REVIEWED_CANARY_TEAM_ID,
-          projectId: REVIEWED_CANARY_PROJECT_ID,
-          projectName: REVIEWED_CANARY_PROJECT_NAME,
+          teamId: TEAM_ID,
+          projectId: CANARY_PROJECT_ID,
+          projectName: 'unreviewed-canary',
           productionProjectId: PRODUCTION_PROJECT_ID,
           fetchImpl: canaryMock.fetchImpl,
           delay: async () => {},
           maxPollAttempts: 3,
           pollIntervalMs: 0,
         }),
-        (error) => (
-          /unexpectedly has aliases assigned/i.test(error.message) &&
-          error.message.includes(`https://new-${REVIEWED_CANARY_PROJECT_NAME}.vercel.app`) &&
-          error.message.includes('"readyState": "READY"') &&
-          error.message.includes('"readySubstate": "STAGED"') &&
-          REVIEWED_CANARY_PROVIDER_ALIASES.every((alias) => error.message.includes(alias)) &&
-          !error.message.includes(TOKEN)
-        ),
+        (error) => /unexpectedly has aliases assigned/i.test(error.message) && !error.message.includes(TOKEN),
       )
       assert.equal(canaryMock.state.deleted, true)
       assert.equal(canaryMock.state.currentDeploymentId, OLD_DEPLOYMENT_ID)
