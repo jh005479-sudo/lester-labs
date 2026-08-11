@@ -1,12 +1,13 @@
 # MetaMask Classification Review Draft
 
-Status: **READY FOR OWNER REVIEW; EXTENSION RETEST STILL OPEN**
+Status: **SUBMITTED 2026-08-11; EXTENSION RETEST STILL OPEN**
 
-This draft is deliberately fail-closed. Do not submit it, claim a false
-positive, or request removal until every release prerequisite below is checked
-and the placeholders are replaced with public, redacted evidence references.
-Never include a private key, seed phrase, cookie, token, authenticated header,
-unredacted provider log, or complete wallet trace.
+The repository owner authorised the complete remediation and appeal workflow.
+The issue was submitted as a factual request for rescan and classification
+review, not as a claim that every open prerequisite passed or that the historic
+warning was a false positive. The unchecked items below remain explicit follow-up
+work. Never include a private key, seed phrase, cookie, token, authenticated
+header, unredacted provider log, or complete wallet trace.
 
 MetaMask's published guidance directs a site owner who believes a warning is
 incorrect to open a case in the `MetaMask/eth-phishing-detect` repository. Use
@@ -57,6 +58,19 @@ the current process linked from:
 - [ ] The repository owner has checked this final text and every linked public
       artifact; a later real-value production appeal package requires the
       independent-review controls documented in the production profile.
+
+## Submission record
+
+- Submitted at: `2026-08-11T08:46:47Z`
+- Official issue: https://github.com/MetaMask/eth-phishing-detect/issues/281296
+- Public evidence commit:
+  `ff122b5673fd38b3d2edd960e6ab398e7ffaf7e9`
+- Submission record:
+  `docs/security/evidence/metamask-appeal-submission-2026-08-11.json`
+- Requested outcome: rescan both hostnames and identify any remaining
+  observable behavior supporting the classification.
+- Explicit limitation: the controlled workspace could not run a genuine
+  MetaMask-extension session because Chrome control was unavailable.
 
 ## Proposed issue
 
