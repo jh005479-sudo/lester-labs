@@ -46,6 +46,16 @@ const REVIEWED_REPOSITORY = "jh005479-sudo/lester-labs";
 const REVIEWED_REF = "refs/heads/main";
 const REVIEWED_PROMOTION_WORKFLOW = ".github/workflows/vercel-production-release.yml";
 const REVIEWED_PROMOTION_ENVIRONMENT = "frontend-production-promotion";
+const REVIEWED_STAGED_PROVIDER_ALIASES = Object.freeze({
+  "prj_sUhxc4VDzA9cWn2rv7gr1cwJOo6K": Object.freeze({
+    teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
+    projectName: "lester-labs-release-canary",
+    aliases: Object.freeze([
+      "lester-labs-release-canary-jh005479-8603-lester-labs.vercel.app",
+      "lester-labs-release-canary-lester-labs.vercel.app",
+    ]),
+  }),
+});
 const PROVIDER_CANARY_BOOTSTRAP = Symbol("provider-canary-bootstrap");
 const NEXT_ARCHIVE_NAME = "frontend-standalone.tar";
 const NEXT_INVENTORY_NAME = "deployment-payload.inventory.json";
@@ -882,22 +892,33 @@ function validateDeploymentIdentity(deployment, expected) {
   return deployment;
 }
 
-function assertNoProductionAliases(deployment) {
+function reviewedStagedProviderAliases(target) {
+  const reviewed = REVIEWED_STAGED_PROVIDER_ALIASES[target.projectId];
+  if (!reviewed) return [];
+  if (reviewed.teamId !== target.teamId || reviewed.projectName !== target.projectName) {
+    throw new Error("The Vercel target identity differs from its reviewed staged-alias binding.");
+  }
+  return reviewed.aliases;
+}
+
+function assertNoProductionAliases(deployment, target) {
   if (deployment.aliasAssigned !== false) {
     throw new Error("The staged deployment unexpectedly has aliases assigned.");
   }
   const aliases = normalizeAliases(deployment);
   const immutableDeploymentHost = new URL(deploymentUrl(deployment)).hostname;
-  const routedAliases = aliases.filter((alias) => alias !== immutableDeploymentHost);
-  if (routedAliases.length !== 0) {
+  const reviewedProviderAliases = reviewedStagedProviderAliases(target);
+  const allowedProviderMetadata = new Set([immutableDeploymentHost, ...reviewedProviderAliases]);
+  const unexpectedAliases = aliases.filter((alias) => !allowedProviderMetadata.has(alias));
+  if (unexpectedAliases.length !== 0) {
     throw new Error(
       `The staged deployment was assigned an unexpected alias: ${canonicalJson({
         deploymentUrl: deploymentUrl(deployment),
-        aliases: routedAliases,
+        aliases: unexpectedAliases,
       }).trim()}`,
     );
   }
-  return routedAliases;
+  return [];
 }
 
 function assertCurrentProductionDeployment(deployment) {
@@ -963,7 +984,7 @@ async function pollStagedDeployment(api, target, deploymentId, {
   for (let attempt = 0; attempt < maxPollAttempts; attempt += 1) {
     const deployment = await getDeployment(api, target, deploymentId);
     validateDeploymentIdentity(deployment, { projectId: target.projectId, deploymentId });
-    const aliases = assertNoProductionAliases(deployment);
+    const aliases = assertNoProductionAliases(deployment, target);
     if (["ERROR", "CANCELED"].includes(deployment.readyState)) {
       throw new Error(`The staged Vercel deployment entered terminal state ${deployment.readyState}.`);
     }
@@ -1388,7 +1409,8 @@ export async function stageVercelRelease({
     // The create response can contain Vercel's generated deployment URL in its
     // alias fields even when no routing mutation occurred. Treat the subsequent
     // deployment read as authoritative: pollStagedDeployment requires
-    // aliasAssigned=false, an empty alias set, and READY/STAGED before returning.
+    // aliasAssigned=false, READY/STAGED, and no hostname outside the immutable
+    // deployment URL plus an exact project-bound provider-metadata allow-list.
     const { deployment, aliases } = await pollStagedDeployment(
       api,
       target,
@@ -2404,7 +2426,7 @@ export async function promoteVercelRelease({
   if (staged.readyState !== "READY" || staged.readySubstate !== "STAGED") {
     throw new Error("The exact approved deployment is no longer READY/STAGED.");
   }
-  assertNoProductionAliases(staged);
+  assertNoProductionAliases(staged, target);
   const controls = {
     maxPollAttempts,
     pollIntervalMs,
