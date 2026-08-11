@@ -15,6 +15,12 @@ import {
   sha256Bytes,
   sha256Canonical,
 } from "./frontend-release-common.mjs";
+import {
+  assertReleaseProfile,
+  releaseProfileForVerification,
+  vantageIdsForVerification,
+  verificationProfileForRelease,
+} from "./release-profiles.mjs";
 import { verifyEmergencyContainment } from "./verify-emergency-containment.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -375,21 +381,23 @@ function summarizeUploadFiles(files, maximumUploadBytes) {
 
 function validateProviderCanary(
   value,
-  { providerMode, sourceUploadSha256, projectSettingsSha256 },
+  { providerMode, releaseProfile, sourceUploadSha256, projectSettingsSha256 },
 ) {
   assertExactKeys(value, [
-    "kind", "schemaVersion", "status", "providerMode", "checkedAt", "sourceUploadSha256",
+    "kind", "schemaVersion", "status", "providerMode", "releaseProfile", "checkedAt", "sourceUploadSha256",
     "projectSettingsSha256", "canaryProject", "stagedDeploymentId", "rollbackDeploymentId",
     "workflow", "results", "evidenceSha256",
   ], "Vercel provider-canary evidence");
   if (
     value.kind !== "lester-labs-vercel-provider-canary" ||
-    value.schemaVersion !== 1 ||
+    value.schemaVersion !== 2 ||
     value.status !== "PASSED" ||
     value.providerMode !== providerMode ||
+    value.releaseProfile !== releaseProfile ||
     value.sourceUploadSha256 !== sourceUploadSha256 ||
     value.projectSettingsSha256 !== projectSettingsSha256
   ) throw new Error("The Vercel provider canary is not bound to the exact reviewed provider input.");
+  assertReleaseProfile(value.releaseProfile, "Provider-canary release profile");
   assertCanonicalTimestamp(value.checkedAt, "Vercel provider-canary timestamp");
   assertHash(value.sourceUploadSha256, SHA256_PATTERN, "Provider-canary upload digest");
   assertHash(value.projectSettingsSha256, SHA256_PATTERN, "Provider-canary settings digest");
@@ -436,6 +444,7 @@ function readProviderCanary({
   providerCanaryEvidencePath,
   providerCanaryProvenancePath,
   providerMode,
+  releaseProfile,
   sourceUploadSha256,
   projectSettings,
 }) {
@@ -445,6 +454,7 @@ function readProviderCanary({
   );
   validateProviderCanary(evidence.value, {
     providerMode,
+    releaseProfile,
     sourceUploadSha256,
     projectSettingsSha256: sha256Canonical(projectSettings),
   });
@@ -469,6 +479,7 @@ function readProviderCanary({
 
 function preparedRelease({
   artifactKind,
+  releaseProfile,
   sourceCommit,
   manifestSha256,
   artifact,
@@ -482,6 +493,7 @@ function preparedRelease({
   providerCanaryBootstrap,
   canaryProbes,
 }) {
+  assertReleaseProfile(releaseProfile);
   assertIdentifier(sourceCommit, COMMIT_PATTERN, "Release source commit");
   assertHash(manifestSha256, SHA256_PATTERN, "Release manifest digest");
   const sourceUpload = summarizeUploadFiles(uploadFiles, maximumUploadBytes);
@@ -491,6 +503,7 @@ function preparedRelease({
       providerCanaryEvidencePath,
       providerCanaryProvenancePath,
       providerMode,
+      releaseProfile,
       sourceUploadSha256: sourceUpload.sha256,
       projectSettings,
     });
@@ -512,6 +525,7 @@ function preparedRelease({
   const source = {
     commit: sourceCommit,
     manifestSha256,
+    releaseProfile,
     sourceReviewSha256: sha256Canonical(review),
   };
   return {
@@ -532,6 +546,7 @@ export function prepareEmergencyRelease({
   releaseDirectory,
   sourceDirectory = join(repositoryRoot, "emergency-site"),
   sourceCommit,
+  releaseProfile,
   maximumUploadBytes,
   providerCanaryEvidencePath,
   providerCanaryProvenancePath,
@@ -592,6 +607,7 @@ export function prepareEmergencyRelease({
   );
   return preparedRelease({
     artifactKind: "emergency-static",
+    releaseProfile,
     sourceCommit,
     manifestSha256: manifest.sha256,
     artifact: {
@@ -675,6 +691,7 @@ export function prepareNextContainerRelease({
   ];
   return preparedRelease({
     artifactKind: "next-standalone-container",
+    releaseProfile: approved.value.releaseProfile,
     sourceCommit: approved.value.sourceCommit,
     manifestSha256: approved.sha256,
     artifact: {
@@ -1004,16 +1021,25 @@ function validateRollbackDisposition(value, artifactKind, priorDeploymentId) {
   return value;
 }
 
-function validateSafeEmergencyParityComparison(value, promotion, promotionProvenanceSha256) {
+function validateSafeEmergencyParityComparison(
+  value,
+  promotion,
+  promotionProvenanceSha256,
+  releaseProfile,
+) {
   assertExactKeys(value, [
-    "kind", "schemaVersion", "leftVantageId", "rightVantageId", "sourceCommit",
+    "kind", "schemaVersion", "verificationProfile", "leftVantageId", "rightVantageId", "sourceCommit",
     "artifactSha256", "deploymentId", "promotionEvidenceSha256", "promotionProvenanceSha256",
     "promotionVerificationBindingSha256", "servedReleaseSha256", "identical", "evidenceSha256",
   ], "Safe-containment served-parity comparison");
   const { evidenceSha256, ...payload } = value;
+  const verificationProfile = verificationProfileForRelease(releaseProfile);
+  const vantageIds = vantageIdsForVerification(verificationProfile);
   if (
     value.kind !== "lester-labs-independent-emergency-vantage-comparison" ||
-    value.schemaVersion !== 2 ||
+    value.schemaVersion !== 3 ||
+    value.verificationProfile !== verificationProfile ||
+    releaseProfileForVerification(value.verificationProfile) !== releaseProfile ||
     value.identical !== true ||
     value.sourceCommit !== promotion.sourceCommit ||
     value.artifactSha256 !== promotion.artifactSha256 ||
@@ -1021,7 +1047,7 @@ function validateSafeEmergencyParityComparison(value, promotion, promotionProven
     value.promotionEvidenceSha256 !== promotion.evidenceSha256 ||
     value.promotionProvenanceSha256 !== promotionProvenanceSha256 ||
     new Set([value.leftVantageId, value.rightVantageId]).size !== 2 ||
-    !["protected-eu-network", "protected-us-network"].every((id) => (
+    !vantageIds.every((id) => (
       value.leftVantageId === id || value.rightVantageId === id
     ))
   ) throw new Error("Safe-containment parity is not bound to the exact prior emergency promotion.");
@@ -1037,6 +1063,7 @@ function validateSafeEmergencyParityComparison(value, promotion, promotionProven
 
 function resolveRollbackDisposition({
   artifactKind,
+  releaseProfile,
   target,
   priorDeploymentId,
   safeRollbackPromotionEvidencePath,
@@ -1085,9 +1112,11 @@ function resolveRollbackDisposition({
     parityRecord.value,
     promotion,
     promotionProvenance.sha256,
+    releaseProfile,
   );
   if (
     promotion.artifactKind !== "emergency-static" ||
+    promotion.releaseProfile !== releaseProfile ||
     promotion.rollbackDisposition.mode !== "HOLD_PROMOTED" ||
     promotion.project.teamId !== target.teamId ||
     promotion.project.projectId !== target.projectId ||
@@ -1122,7 +1151,7 @@ function stageEvidencePayload(
 ) {
   return {
     kind: "lester-labs-vercel-stage-evidence",
-    schemaVersion: 2,
+    schemaVersion: 3,
     status: "STAGED",
     artifactKind: prepared.artifactKind,
     stagedAt,
@@ -1212,6 +1241,7 @@ async function deleteExactNoncurrentDeployment(api, target, deploymentId, priorD
 
 export async function stageVercelRelease({
   prepared,
+  releaseProfile,
   token,
   teamId,
   projectId,
@@ -1261,6 +1291,10 @@ export async function stageVercelRelease({
   if (!prepared || !Array.isArray(prepared.uploadFiles) || prepared.uploadFiles.length === 0) {
     throw new Error("A locally validated release package is required.");
   }
+  assertReleaseProfile(releaseProfile);
+  if (prepared.source.releaseProfile !== releaseProfile) {
+    throw new Error("The staged release package differs from the selected release profile.");
+  }
   if (!prepared.providerBoundary) {
     throw new Error("Production staging requires signed provider-canary evidence.");
   }
@@ -1279,6 +1313,7 @@ export async function stageVercelRelease({
   const priorDeploymentId = initial.currentDeploymentId;
   const rollbackDisposition = resolveRollbackDisposition({
     artifactKind: prepared.artifactKind,
+    releaseProfile: prepared.source.releaseProfile,
     target,
     priorDeploymentId,
     safeRollbackPromotionEvidencePath,
@@ -1295,6 +1330,7 @@ export async function stageVercelRelease({
     lesterArtifactSha256: prepared.artifact.sha256,
     lesterManifestSha256: prepared.source.manifestSha256,
     lesterOperation: "production-stage",
+    lesterReleaseProfile: prepared.source.releaseProfile,
     lesterReleaseRunAttempt: String(workflow.runAttempt),
     lesterReleaseRunId: workflow.runId,
     lesterSourceCommit: prepared.source.commit,
@@ -1621,6 +1657,7 @@ async function cleanFailedCanaryStage(api, target, stagedDeploymentId, rollbackD
 
 export async function runProviderCanary({
   artifactKind,
+  releaseProfile,
   releaseDirectory,
   sourceDirectory,
   sourceCommit,
@@ -1669,18 +1706,23 @@ export async function runProviderCanary({
     workflow.sourceAttestationRunAttempt < 1
   ) throw new Error("Provider-canary workflow identity is invalid.");
   const trustedProbeHeaders = trustedOidcProbeHeaders(trustedOidcToken);
+  assertReleaseProfile(releaseProfile);
   const bootstrap = { [PROVIDER_CANARY_BOOTSTRAP]: PROVIDER_CANARY_BOOTSTRAP };
   const prepared = artifactKind === "emergency-static"
     ? prepareEmergencyRelease({
       releaseDirectory,
       sourceDirectory,
       sourceCommit,
+      releaseProfile,
       maximumUploadBytes,
       ...bootstrap,
     })
     : artifactKind === "next-standalone-container"
       ? prepareNextContainerRelease({ releaseDirectory, maximumUploadBytes, ...bootstrap })
       : (() => { throw new Error("The provider-canary artifact kind is unsupported."); })();
+  if (prepared.source.releaseProfile !== releaseProfile) {
+    throw new Error("The provider canary release package differs from the selected release profile.");
+  }
   const api = makeApi({ token, fetchImpl, requestTimeoutMs });
   const initial = await preflight(api, target);
   const rollbackDeploymentId = initial.currentDeploymentId;
@@ -1776,9 +1818,10 @@ export async function runProviderCanary({
   const checkedAt = assertCanonicalTimestamp(now(), "Provider-canary evidence timestamp");
   const payload = {
     kind: "lester-labs-vercel-provider-canary",
-    schemaVersion: 1,
+    schemaVersion: 2,
     status: "PASSED",
     providerMode: prepared.providerMode,
+    releaseProfile: prepared.source.releaseProfile,
     checkedAt,
     sourceUploadSha256: prepared.sourceUpload.sha256,
     projectSettingsSha256: sha256Canonical(prepared.projectSettings),
@@ -1802,6 +1845,7 @@ export async function runProviderCanary({
   const value = { ...payload, evidenceSha256: sha256Canonical(payload) };
   validateProviderCanary(value, {
     providerMode: prepared.providerMode,
+    releaseProfile: prepared.source.releaseProfile,
     sourceUploadSha256: prepared.sourceUpload.sha256,
     projectSettingsSha256: sha256Canonical(prepared.projectSettings),
   });
@@ -1816,7 +1860,7 @@ export function validateStageEvidence(value) {
   ], "Vercel stage evidence");
   if (
     value.kind !== "lester-labs-vercel-stage-evidence" ||
-    value.schemaVersion !== 2 ||
+    value.schemaVersion !== 3 ||
     value.status !== "STAGED" ||
     !["emergency-static", "next-standalone-container"].includes(value.artifactKind)
   ) throw new Error("The Vercel stage evidence kind, schema, status, or artifact kind is unsupported.");
@@ -1824,9 +1868,10 @@ export function validateStageEvidence(value) {
   assertHash(evidenceSha256, SHA256_PATTERN, "Vercel stage evidence digest");
   if (evidenceSha256 !== sha256Canonical(payload)) throw new Error("The Vercel stage evidence digest is invalid.");
   assertCanonicalTimestamp(value.stagedAt, "Vercel stage timestamp");
-  assertExactKeys(value.source, ["commit", "manifestSha256", "sourceReviewSha256"], "Stage source");
+  assertExactKeys(value.source, ["commit", "manifestSha256", "releaseProfile", "sourceReviewSha256"], "Stage source");
   assertIdentifier(value.source.commit, COMMIT_PATTERN, "Stage source commit");
   assertHash(value.source.manifestSha256, SHA256_PATTERN, "Stage manifest digest");
+  assertReleaseProfile(value.source.releaseProfile, "Stage release profile");
   assertHash(value.source.sourceReviewSha256, SHA256_PATTERN, "Stage source-review digest");
   assertExactKeys(value.review, ["evidence"], "Stage review");
   if (!Array.isArray(value.review.evidence) || value.review.evidence.length < 2) {
@@ -2395,11 +2440,12 @@ export async function promoteVercelRelease({
   }
   const payload = {
     kind: "lester-labs-vercel-promotion-evidence",
-    schemaVersion: 2,
+    schemaVersion: 3,
     status: "CURRENT",
     confirmation,
     promotedAt: operationTime,
     sourceCommit: stage.source.commit,
+    releaseProfile: stage.source.releaseProfile,
     artifactKind: stage.artifactKind,
     manifestSha256: stage.source.manifestSha256,
     artifactSha256: stage.artifact.sha256,
@@ -2486,14 +2532,14 @@ export async function recoverVercelPromotion({
 
 function validatePromotionEvidence(value) {
   assertExactKeys(value, [
-    "kind", "schemaVersion", "status", "promotedAt", "sourceCommit", "artifactKind",
+    "kind", "schemaVersion", "status", "promotedAt", "sourceCommit", "releaseProfile", "artifactKind",
     "manifestSha256", "artifactSha256", "stageEvidenceSha256", "stageProvenanceSha256", "promotionApprovalSha256",
     "promotionApprovalProvenanceSha256", "parityEvidenceSha256", "parityProvenanceSha256",
     "confirmation", "project", "deployment", "priorDeploymentId", "rollbackDisposition", "evidenceSha256",
   ], "Vercel promotion evidence");
   if (
     value.kind !== "lester-labs-vercel-promotion-evidence" ||
-    value.schemaVersion !== 2 ||
+    value.schemaVersion !== 3 ||
     value.status !== "CURRENT" ||
     !["DIRECT", "RECOVERED_AFTER_AMBIGUOUS_RESPONSE"].includes(value.confirmation)
   ) throw new Error("The Vercel promotion evidence kind, schema, or status is unsupported.");
@@ -2502,6 +2548,7 @@ function validatePromotionEvidence(value) {
   if (evidenceSha256 !== sha256Canonical(payload)) throw new Error("The Vercel promotion evidence digest is invalid.");
   assertCanonicalTimestamp(value.promotedAt, "Vercel promotion timestamp");
   assertIdentifier(value.sourceCommit, COMMIT_PATTERN, "Promotion source commit");
+  assertReleaseProfile(value.releaseProfile, "Promotion release profile");
   for (const field of [
     "manifestSha256", "artifactSha256", "stageEvidenceSha256", "stageProvenanceSha256", "promotionApprovalSha256",
     "promotionApprovalProvenanceSha256", "parityEvidenceSha256", "parityProvenanceSha256",
@@ -2670,12 +2717,14 @@ async function main() {
     const options = parseOptions(argumentsList, [
       "--release-dir", "--source-dir", "--source-commit", "--team-id", "--project-id",
       "--project-name", "--production-project-id", "--maximum-upload-bytes", "--workflow-run-id",
-      "--workflow-run-attempt", "--source-attestation-run-id", "--source-attestation-run-attempt", "--output",
+      "--workflow-run-attempt", "--source-attestation-run-id", "--source-attestation-run-attempt",
+      "--release-profile", "--output",
     ]);
     const common = {
       artifactKind: command === "provider-canary-emergency"
         ? "emergency-static"
         : "next-standalone-container",
+      releaseProfile: requireOption(options, "--release-profile"),
       releaseDirectory: resolve(requireOption(options, "--release-dir")),
       maximumUploadBytes: Number(requireOption(options, "--maximum-upload-bytes")),
       teamId: requireOption(options, "--team-id"),
@@ -2707,11 +2756,12 @@ async function main() {
       "--source-attestation-run-id", "--source-attestation-run-attempt", "--provider-canary-run-id",
       "--provider-canary-run-attempt", "--safe-rollback-promotion-evidence",
       "--safe-rollback-promotion-provenance", "--safe-rollback-parity-evidence",
-      "--safe-rollback-parity-provenance", "--output",
+      "--safe-rollback-parity-provenance", "--release-profile", "--output",
     ];
     const options = parseOptions(argumentsList, allowed);
     const common = {
       releaseDirectory: resolve(requireOption(options, "--release-dir")),
+      releaseProfile: requireOption(options, "--release-profile"),
       maximumUploadBytes: Number(requireOption(options, "--maximum-upload-bytes")),
       teamId: requireOption(options, "--team-id"),
       projectId: requireOption(options, "--project-id"),

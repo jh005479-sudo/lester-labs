@@ -42,13 +42,16 @@ const OLD_DEPLOYMENT_ID = 'dpl_old000001'
 const NEW_DEPLOYMENT_ID = 'dpl_new000001'
 const THIRD_DEPLOYMENT_ID = 'dpl_third00001'
 const SOURCE_COMMIT = 'a'.repeat(40)
+const RELEASE_PROFILE = 'production-separated-authority'
 const CANARY_WORKFLOW_IDENTITY = Object.freeze({
+  releaseProfile: RELEASE_PROFILE,
   workflowRunId: '111111',
   workflowRunAttempt: 1,
   sourceAttestationRunId: '222222',
   sourceAttestationRunAttempt: 1,
 })
 const STAGE_WORKFLOW_IDENTITY = Object.freeze({
+  releaseProfile: RELEASE_PROFILE,
   workflowRunId: '333333',
   workflowRunAttempt: 1,
   sourceAttestationRunId: '222222',
@@ -152,6 +155,7 @@ function createNextPackage() {
   const base = {
     kind: 'lester-labs-frontend-release-attestation',
     schemaVersion: 1,
+    releaseProfile: RELEASE_PROFILE,
     sourceCommit: SOURCE_COMMIT,
     buildId: SOURCE_COMMIT,
     builderImage: REVIEWED_FRONTEND_BUILDER_IMAGE,
@@ -455,11 +459,12 @@ function writeStageAndParity(root, stage) {
 function writeSafeRollbackPackage(root) {
   const promotionPayload = {
     kind: 'lester-labs-vercel-promotion-evidence',
-    schemaVersion: 2,
+    schemaVersion: 3,
     status: 'CURRENT',
     confirmation: 'DIRECT',
     promotedAt: '2026-08-10T20:00:00.000Z',
     sourceCommit: 'b'.repeat(40),
+    releaseProfile: RELEASE_PROFILE,
     artifactKind: 'emergency-static',
     manifestSha256: '1'.repeat(64),
     artifactSha256: '2'.repeat(64),
@@ -500,7 +505,8 @@ function writeSafeRollbackPackage(root) {
   writeFixtureFile(root, 'safe-promotion.provenance.jsonl', promotionProvenance)
   const parityPayload = {
     kind: 'lester-labs-independent-emergency-vantage-comparison',
-    schemaVersion: 2,
+    schemaVersion: 3,
+    verificationProfile: 'production-independent-network',
     leftVantageId: 'protected-eu-network',
     rightVantageId: 'protected-us-network',
     sourceCommit: promotion.sourceCommit,
@@ -1216,6 +1222,7 @@ describe('dependency-free Vercel REST release adapter', () => {
           releaseDirectory: fixture.releaseDirectory,
           sourceDirectory: fixture.sourceDirectory,
           sourceCommit: SOURCE_COMMIT,
+          releaseProfile: RELEASE_PROFILE,
           maximumUploadBytes: 128_000,
         }),
         /tar|canary/i,
@@ -1225,6 +1232,7 @@ describe('dependency-free Vercel REST release adapter', () => {
           releaseDirectory: fixture.releaseDirectory,
           sourceDirectory: fixture.sourceDirectory,
           sourceCommit: SOURCE_COMMIT,
+          releaseProfile: RELEASE_PROFILE,
           maximumUploadBytes: 1,
         }),
         /byte limit|empty|cap/i,

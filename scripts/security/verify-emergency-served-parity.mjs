@@ -13,6 +13,13 @@ import {
 } from "./frontend-release-common.mjs";
 import { HTTP_USER_AGENT_PROFILES } from "./verify-frontend-release-parity.mjs";
 import { verifyEmergencyContainment } from "./verify-emergency-containment.mjs";
+import {
+  assertReleaseProfile,
+  assertVerificationProfile,
+  assertVantageId,
+  releaseProfileForVerification,
+  vantageIdsForVerification,
+} from "./release-profiles.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const DEFAULT_SOURCE_DIRECTORY = join(repositoryRoot, "emergency-site");
@@ -29,10 +36,6 @@ const PRODUCTION_ORIGINS = Object.freeze([
 const PRODUCTION_DOMAINS = Object.freeze([
   "lester-labs.com",
   "www.lester-labs.com",
-]);
-const PRODUCTION_VANTAGE_IDS = Object.freeze([
-  "protected-eu-network",
-  "protected-us-network",
 ]);
 const EMERGENCY_RESULT_FIELDS = Object.freeze([
   "artifactBytesMatch",
@@ -578,7 +581,7 @@ function validatePromotionVerification({
 
 function validateEmergencyPromotionEvidence(value, expectedSourceCommit) {
   assertExactKeys(value, [
-    "kind", "schemaVersion", "status", "promotedAt", "sourceCommit", "artifactKind",
+    "kind", "schemaVersion", "status", "promotedAt", "sourceCommit", "releaseProfile", "artifactKind",
     "manifestSha256", "artifactSha256", "stageEvidenceSha256", "stageProvenanceSha256",
     "promotionApprovalSha256", "promotionApprovalProvenanceSha256", "parityEvidenceSha256",
     "parityProvenanceSha256", "confirmation", "project", "deployment", "priorDeploymentId",
@@ -586,7 +589,7 @@ function validateEmergencyPromotionEvidence(value, expectedSourceCommit) {
   ], "Emergency promotion evidence");
   if (
     value.kind !== "lester-labs-vercel-promotion-evidence" ||
-    value.schemaVersion !== 2 ||
+    value.schemaVersion !== 3 ||
     value.status !== "CURRENT" ||
     !["DIRECT", "RECOVERED_AFTER_AMBIGUOUS_RESPONSE"].includes(value.confirmation) ||
     value.artifactKind !== "emergency-static" ||
@@ -594,6 +597,7 @@ function validateEmergencyPromotionEvidence(value, expectedSourceCommit) {
     typeof value.promotedAt !== "string"
   ) throw new Error("Emergency production parity is bound to a different promotion.");
   canonicalTimestamp(value.promotedAt, "Emergency promotion timestamp");
+  assertReleaseProfile(value.releaseProfile, "Emergency promotion release profile");
   const { evidenceSha256, ...payload } = value;
   if (!/^[0-9a-f]{64}$/u.test(evidenceSha256) || evidenceSha256 !== sha256Canonical(payload)) {
     throw new Error("Emergency promotion evidence digest is invalid.");
@@ -668,6 +672,7 @@ export async function verifyEmergencyProductionParity({
   promotionVerificationBytes,
   expectedSourceCommit,
   vantageId,
+  verificationProfile,
   origins = PRODUCTION_ORIGINS,
   sourceDirectory = DEFAULT_SOURCE_DIRECTORY,
   fetchImpl = globalThis.fetch,
@@ -699,8 +704,10 @@ export async function verifyEmergencyProductionParity({
     productionOrigins.length !== PRODUCTION_ORIGINS.length ||
     PRODUCTION_ORIGINS.some((origin) => !productionOrigins.includes(origin))
   ) throw new Error("Emergency production parity requires the exact reviewed apex and www origins.");
-  if (!PRODUCTION_VANTAGE_IDS.includes(vantageId)) {
-    throw new Error("Emergency production parity requires a reviewed EU or US vantage ID.");
+  assertVerificationProfile(verificationProfile, "Emergency verification profile");
+  assertVantageId(verificationProfile, vantageId);
+  if (promotion.releaseProfile !== releaseProfileForVerification(verificationProfile)) {
+    throw new Error("Emergency promotion and verification profiles do not match.");
   }
   canonicalTimestamp(checkedAt, "Emergency production parity timestamp");
   if (Date.parse(checkedAt) < Date.parse(promotion.promotedAt)) {
@@ -723,6 +730,7 @@ export async function verifyEmergencyProductionParity({
     throw new Error("Emergency production parity did not pass every reviewed result.");
   }
   const servedReleaseSha256 = sha256Canonical({
+    verificationProfile,
     sourceCommit: promotion.sourceCommit,
     artifactSha256: promotion.artifactSha256,
     deploymentId: promotion.deployment.id,
@@ -730,9 +738,10 @@ export async function verifyEmergencyProductionParity({
   });
   const payload = {
     kind: "lester-labs-served-emergency-parity",
-    schemaVersion: 1,
+    schemaVersion: 2,
     checkedAt,
     vantageId,
+    verificationProfile,
     sourceCommit: promotion.sourceCommit,
     artifactSha256: promotion.artifactSha256,
     deploymentId: promotion.deployment.id,
@@ -879,17 +888,16 @@ function validateEmergencyProfile(profile, expectedProfileId, expectedFiles, exp
 
 function validateEmergencyVantageEvidence(value, label) {
   assertExactKeys(value, [
-    "kind", "schemaVersion", "checkedAt", "vantageId", "sourceCommit", "artifactSha256",
+    "kind", "schemaVersion", "checkedAt", "vantageId", "verificationProfile", "sourceCommit", "artifactSha256",
     "deploymentId", "promotionEvidenceSha256", "promotionProvenanceSha256",
     "promotionVerification", "servedReleaseSha256", "results", "observations", "evidenceSha256",
   ], `${label} emergency vantage evidence`);
-  if (value.kind !== "lester-labs-served-emergency-parity" || value.schemaVersion !== 1) {
+  if (value.kind !== "lester-labs-served-emergency-parity" || value.schemaVersion !== 2) {
     throw new Error(`The ${label} emergency vantage kind or schema is invalid.`);
   }
   canonicalTimestamp(value.checkedAt, `${label} emergency vantage timestamp`);
-  if (!PRODUCTION_VANTAGE_IDS.includes(value.vantageId)) {
-    throw new Error(`The ${label} emergency vantage ID is not a reviewed independent vantage.`);
-  }
+  assertVerificationProfile(value.verificationProfile, `${label} emergency verification profile`);
+  assertVantageId(value.verificationProfile, value.vantageId);
   if (typeof value.sourceCommit !== "string" || !/^[0-9a-f]{40}$/u.test(value.sourceCommit)) {
     throw new Error(`The ${label} emergency vantage source commit is invalid.`);
   }
@@ -945,6 +953,7 @@ function validateEmergencyVantageEvidence(value, label) {
   }
   const observationSha256 = sha256Canonical(value.observations);
   const expectedServedReleaseSha256 = sha256Canonical({
+    verificationProfile: value.verificationProfile,
     sourceCommit: value.sourceCommit,
     artifactSha256: value.artifactSha256,
     deploymentId: value.deploymentId,
@@ -963,15 +972,19 @@ function validateEmergencyVantageEvidence(value, label) {
 export function compareEmergencyVantageEvidence(left, right) {
   validateEmergencyVantageEvidence(left, "left");
   validateEmergencyVantageEvidence(right, "right");
+  if (left.verificationProfile !== right.verificationProfile) {
+    throw new Error("Emergency vantages use different verification profiles.");
+  }
+  const expectedVantageIds = vantageIdsForVerification(left.verificationProfile);
   if (
-    new Set([left.vantageId, right.vantageId]).size !== PRODUCTION_VANTAGE_IDS.length ||
-    PRODUCTION_VANTAGE_IDS.some((vantageId) => ![left.vantageId, right.vantageId].includes(vantageId))
-  ) throw new Error("Emergency production parity requires the exact EU and US vantage IDs.");
+    new Set([left.vantageId, right.vantageId]).size !== expectedVantageIds.length ||
+    expectedVantageIds.some((vantageId) => ![left.vantageId, right.vantageId].includes(vantageId))
+  ) throw new Error("Emergency parity requires the exact verification-profile vantage IDs.");
   if (Math.abs(Date.parse(left.checkedAt) - Date.parse(right.checkedAt)) > MAXIMUM_VANTAGE_SKEW_MS) {
     throw new Error("Emergency production parity vantages exceed the reviewed 30-minute timestamp skew.");
   }
   for (const field of [
-    "sourceCommit", "artifactSha256", "deploymentId", "promotionEvidenceSha256",
+    "verificationProfile", "sourceCommit", "artifactSha256", "deploymentId", "promotionEvidenceSha256",
     "promotionProvenanceSha256", "servedReleaseSha256",
   ]) {
     if (left[field] !== right[field]) throw new Error(`Emergency vantages differ at ${field}.`);
@@ -981,7 +994,8 @@ export function compareEmergencyVantageEvidence(left, right) {
   }
   const payload = {
     kind: "lester-labs-independent-emergency-vantage-comparison",
-    schemaVersion: 2,
+    schemaVersion: 3,
+    verificationProfile: left.verificationProfile,
     leftVantageId: left.vantageId,
     rightVantageId: right.vantageId,
     sourceCommit: left.sourceCommit,
@@ -1008,7 +1022,7 @@ function parseOptions(argumentsList) {
       ![
         "--origin", "--source-dir", "--output", "--promotion-evidence",
         "--promotion-provenance", "--promotion-verification", "--expected-source-commit",
-        "--vantage-id",
+        "--vantage-id", "--verification-profile",
       ].includes(name)
     ) throw new Error(`Invalid emergency parity option ${JSON.stringify(name)}.`);
     if (name === "--origin") {
@@ -1054,6 +1068,7 @@ async function main() {
       promotionVerificationBytes: readFileSync(0),
       expectedSourceCommit: options.get("--expected-source-commit"),
       vantageId: options.get("--vantage-id"),
+      verificationProfile: options.get("--verification-profile"),
       origins: options.get("--origin"),
       sourceDirectory: resolve(options.get("--source-dir") ?? DEFAULT_SOURCE_DIRECTORY),
     });

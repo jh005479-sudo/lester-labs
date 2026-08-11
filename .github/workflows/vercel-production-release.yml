@@ -14,6 +14,13 @@ on:
         options:
           - emergency-static
           - next-standalone-container
+      release_profile:
+        description: Explicit authority and parity profile
+        required: true
+        type: choice
+        options:
+          - production-separated-authority
+          - public-testnet-immutable
       attestation_run_id:
         description: Exact successful source-attestation workflow run ID
         required: true
@@ -56,6 +63,7 @@ jobs:
     outputs:
       reviewed_commit: ${{ steps.validate.outputs.reviewed_commit }}
       release_kind: ${{ steps.validate.outputs.release_kind }}
+      release_profile: ${{ steps.validate.outputs.release_profile }}
       attestation_run_id: ${{ steps.validate.outputs.attestation_run_id }}
       attestation_run_attempt: ${{ steps.validate.outputs.attestation_run_attempt }}
       provider_canary_run_id: ${{ steps.validate.outputs.provider_canary_run_id }}
@@ -77,6 +85,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
           RELEASE_KIND: ${{ inputs.release_kind }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
           ATTESTATION_RUN_ID: ${{ inputs.attestation_run_id }}
           PROVIDER_CANARY_RUN_ID: ${{ inputs.provider_canary_run_id }}
           SAFE_ROLLBACK_COMMIT: ${{ inputs.safe_rollback_commit }}
@@ -94,6 +103,10 @@ jobs:
           test "$ATTESTATION_RUN_ID" != "$PROVIDER_CANARY_RUN_ID"
           [[ "$MAXIMUM_UPLOAD_BYTES" =~ ^[1-9][0-9]{0,8}$ ]]
           test "$MAXIMUM_UPLOAD_BYTES" -le 536870912
+          case "$RELEASE_PROFILE" in
+            production-separated-authority|public-testnet-immutable) ;;
+            *) exit 1 ;;
+          esac
           case "$RELEASE_KIND" in
             emergency-static)
               release_artifact_prefix="emergency-containment-$REVIEWED_COMMIT"
@@ -184,6 +197,7 @@ jobs:
           {
             printf 'reviewed_commit=%s\n' "$REVIEWED_COMMIT"
             printf 'release_kind=%s\n' "$RELEASE_KIND"
+            printf 'release_profile=%s\n' "$RELEASE_PROFILE"
             printf 'attestation_run_id=%s\n' "$ATTESTATION_RUN_ID"
             printf 'attestation_run_attempt=%s\n' "$source_run_attempt"
             printf 'provider_canary_run_id=%s\n' "$PROVIDER_CANARY_RUN_ID"
@@ -233,6 +247,7 @@ jobs:
         env:
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
           RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          RELEASE_PROFILE: ${{ needs.validate-inputs.outputs.release_profile }}
           MAXIMUM_UPLOAD_BYTES: ${{ needs.validate-inputs.outputs.maximum_upload_bytes }}
           PROTECTED_REF: ${{ github.ref_protected }}
           TEAM_ID: ${{ vars.VERCEL_PRODUCTION_TEAM_ID }}
@@ -253,6 +268,7 @@ jobs:
           [[ "$PROJECT_ID" =~ ^prj_[A-Za-z0-9]{8,80}$ ]]
           [[ "$PROJECT_NAME" =~ ^[a-z0-9]([a-z0-9-]{0,98}[a-z0-9])?$ ]]
           case "$RELEASE_KIND" in emergency-static|next-standalone-container) ;; *) exit 1 ;; esac
+          node scripts/security/verify-release-profile.mjs "$RELEASE_PROFILE"
 
       - name: Download the exact source-attested package
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
@@ -358,8 +374,9 @@ jobs:
         id: stage-operation
         shell: bash
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_STAGING_TOKEN }}
+          VERCEL_TOKEN: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && secrets.VERCEL_TOKEN || secrets.VERCEL_STAGING_TOKEN }}
           RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
+          RELEASE_PROFILE: ${{ needs.validate-inputs.outputs.release_profile }}
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
           MAXIMUM_UPLOAD_BYTES: ${{ needs.validate-inputs.outputs.maximum_upload_bytes }}
           TEAM_ID: ${{ vars.VERCEL_PRODUCTION_TEAM_ID }}
@@ -382,6 +399,7 @@ jobs:
             --source-attestation-run-attempt "${{ needs.validate-inputs.outputs.attestation_run_attempt }}"
             --provider-canary-run-id "${{ needs.validate-inputs.outputs.provider_canary_run_id }}"
             --provider-canary-run-attempt "${{ needs.validate-inputs.outputs.provider_canary_run_attempt }}"
+            --release-profile "$RELEASE_PROFILE"
             --output "$GITHUB_WORKSPACE/vercel-stage-evidence/stage-evidence.json"
           )
           if test "$RELEASE_KIND" = "emergency-static"; then
@@ -449,7 +467,7 @@ jobs:
                steps.upload-stage-evidence.outcome != 'success') }}
         shell: bash
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_STAGE_CLEANUP_TOKEN }}
+          VERCEL_TOKEN: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && secrets.VERCEL_TOKEN || secrets.VERCEL_STAGE_CLEANUP_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/vercel-stage-cleanup"
@@ -801,7 +819,7 @@ jobs:
         id: promote-operation
         shell: bash
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_PROMOTION_TOKEN }}
+          VERCEL_TOKEN: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && secrets.VERCEL_TOKEN || secrets.VERCEL_PROMOTION_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/vercel-promotion-evidence"
@@ -849,7 +867,7 @@ jobs:
                steps.upload-promotion-evidence.outcome != 'success') }}
         shell: bash
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_PROMOTION_COMPENSATION_TOKEN }}
+          VERCEL_TOKEN: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && secrets.VERCEL_TOKEN || secrets.VERCEL_PROMOTION_COMPENSATION_TOKEN }}
         run: |
           set -euo pipefail
           test -f "$RUNNER_TEMP/promotion-input/stage-evidence.json"
@@ -902,6 +920,7 @@ jobs:
       release_run_id: ${{ needs.validate-inputs.outputs.attestation_run_id }}
       promotion_run_id: ${{ github.run_id }}
       promotion_run_attempt: ${{ github.run_attempt }}
+      release_profile: ${{ needs.validate-inputs.outputs.release_profile }}
 
   emergency-production-parity:
     name: Independent emergency production parity
@@ -917,6 +936,7 @@ jobs:
       reviewed_commit: ${{ needs.validate-inputs.outputs.reviewed_commit }}
       promotion_run_id: ${{ github.run_id }}
       promotion_run_attempt: ${{ github.run_attempt }}
+      release_profile: ${{ needs.validate-inputs.outputs.release_profile }}
 
   rollback-on-parity-failure:
     name: Reconcile the signed failure disposition if independent parity fails
@@ -983,7 +1003,7 @@ jobs:
       - name: Apply the signed hold-or-safe-rollback disposition
         shell: bash
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_AUTOMATIC_ROLLBACK_TOKEN }}
+          VERCEL_TOKEN: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && secrets.VERCEL_TOKEN || secrets.VERCEL_AUTOMATIC_ROLLBACK_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/vercel-reconciliation-evidence"

@@ -105,6 +105,7 @@ function makeFixture() {
     deploymentArtifactPath: join(root, 'frontend-standalone.tar'),
     deploymentInventoryPath: join(root, 'deployment-payload.inventory.json'),
     builderImage: REVIEWED_FRONTEND_BUILDER_IMAGE,
+    releaseProfile: 'production-separated-authority',
     sourceCommit,
   }
 }
@@ -191,10 +192,11 @@ function approve(candidate, fixture) {
 function frontendPromotionFixture(approved, promotedAt = '2026-08-10T20:04:00.000Z') {
   const payload = {
     kind: 'lester-labs-vercel-promotion-evidence',
-    schemaVersion: 2,
+    schemaVersion: 3,
     status: 'CURRENT',
     promotedAt,
     sourceCommit: approved.sourceCommit,
+    releaseProfile: approved.releaseProfile,
     artifactKind: 'next-standalone-container',
     manifestSha256: sha256Bytes(canonicalJson(approved)),
     artifactSha256: approved.deploymentArtifact.archiveSha256,
@@ -331,6 +333,8 @@ function recomputeFrontendVantage(value) {
     profiles: profiles.map(({ profile, servedProfileSha256 }) => ({ profile, servedProfileSha256 })),
   })))
   value.servedReleaseSha256 = sha256Canonical({
+    verificationProfile: value.verificationProfile,
+    releaseProfile: value.releaseProfile,
     sourceCommit: value.sourceCommit,
     manifestSha256: value.manifestSha256,
     deploymentId: value.deploymentId,
@@ -661,6 +665,7 @@ describe('credential-free served frontend parity', () => {
           fetchImpl: async () => { requests += 1; throw new Error('must not run') },
           checkedAt: '2026-08-10T00:00:00.000Z',
           vantageId: 'protected-eu-network',
+          verificationProfile: 'production-independent-network',
         }),
         /fail-closed/i,
       )
@@ -713,6 +718,7 @@ describe('credential-free served frontend parity', () => {
         verifyProvenance: () => [{ verified: true }],
         checkedAt: '2026-08-10T20:05:00.000Z',
         vantageId: 'protected-eu-network',
+        verificationProfile: 'production-independent-network',
         ...verifiedPromotion,
       })
       assert.equal(result.apexAndWwwByteEquivalent, true)
@@ -772,6 +778,7 @@ describe('credential-free served frontend parity', () => {
           verifyProvenance: () => [{ verified: true }],
           checkedAt: '2026-08-10T00:00:00.000Z',
           vantageId: 'protected-eu-network',
+          verificationProfile: 'production-independent-network',
           requestOrigins: ['https://reviewed-stage.vercel.app'],
         }),
         /non-production probe origins/i,
@@ -784,7 +791,9 @@ describe('credential-free served frontend parity', () => {
       secondVantage.evidenceSha256 = sha256Canonical(secondVantage)
       const comparisonPayload = {
         kind: 'lester-labs-independent-vantage-comparison',
-        schemaVersion: 2,
+        schemaVersion: 3,
+        verificationProfile: 'production-independent-network',
+        releaseProfile: 'production-separated-authority',
         sourceCommit: result.sourceCommit,
         manifestSha256: result.manifestSha256,
         leftVantageId: 'protected-eu-network',
@@ -798,7 +807,7 @@ describe('credential-free served frontend parity', () => {
       })
       assert.throws(
         () => compareFrontendVantageEvidence(result, result),
-        /exact EU and US vantage IDs/i,
+        /exact verification-profile vantage IDs/i,
       )
       const digestConsistentTamper = (mutate) => {
         const value = structuredClone(result)
@@ -859,6 +868,7 @@ describe('credential-free served frontend parity', () => {
         verifyProvenance: () => [{ verified: true }],
         checkedAt: '2026-08-10T20:05:00.000Z',
         vantageId: 'protected-eu-network',
+        verificationProfile: 'production-independent-network',
       }
       await assert.rejects(
         verifyFrontendReleaseParity({

@@ -26,6 +26,7 @@ import {
   validateRouteSourceCoverageAgainstSources,
   verifyResponsePolicy,
 } from "./frontend-release-common.mjs";
+import { assertReleaseProfile } from "./release-profiles.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const defaultPolicyPath = join(repositoryRoot, "src/config/frontendReleasePolicy.json");
@@ -718,6 +719,7 @@ export async function createFrontendReleaseAttestation({
   routeCapturePath,
   deploymentArtifactPath,
   deploymentInventoryPath,
+  releaseProfile,
   fetchImpl = globalThis.fetch,
 } = {}) {
   if (!sbomPath) throw new Error("A CycloneDX SBOM path is required.");
@@ -727,6 +729,7 @@ export async function createFrontendReleaseAttestation({
   if ((localOrigin ? 1 : 0) + (routeCapturePath ? 1 : 0) !== 1) {
     throw new Error("Exactly one loopback server or raw route-capture path is required.");
   }
+  assertReleaseProfile(releaseProfile, "Frontend release profile");
   const policy = validateFrontendReleasePolicy(readJson(policyPath));
   const inventory = createFrontendArtifactInventory({
     root,
@@ -743,6 +746,7 @@ export async function createFrontendReleaseAttestation({
   const base = {
     kind: "lester-labs-frontend-release-attestation",
     schemaVersion: 1,
+    releaseProfile,
     sourceCommit,
     buildId: inventory.buildId,
     builderImage: inventory.builderImage,
@@ -879,6 +883,7 @@ export function validateFrontendReleaseAttestation(
       "status",
       "kind",
       "schemaVersion",
+      "releaseProfile",
       "sourceCommit",
       "buildId",
       "builderImage",
@@ -906,6 +911,7 @@ export function validateFrontendReleaseAttestation(
   if (value.kind !== "lester-labs-frontend-release-attestation" || value.schemaVersion !== 1) {
     throw new Error("The frontend release attestation kind or schema version is unsupported.");
   }
+  assertReleaseProfile(value.releaseProfile, "Frontend release profile");
   if (!COMMIT_PATTERN.test(value.sourceCommit) || value.buildId !== value.sourceCommit) {
     throw new Error("The frontend release attestation is not bound to one valid source commit.");
   }
@@ -1270,7 +1276,7 @@ async function main() {
   const allowed = new Set([
     "--root", "--build-dir", "--public-dir", "--policy", "--source-commit", "--output",
     "--builder-image", "--sbom", "--local-origin", "--route-capture",
-    "--deployment-artifact", "--deployment-inventory",
+    "--deployment-artifact", "--deployment-inventory", "--release-profile",
   ]);
   for (const name of options.keys()) if (!allowed.has(name)) throw new Error(`Unknown option ${name}.`);
   const attestation = await createFrontendReleaseAttestation({
@@ -1282,6 +1288,7 @@ async function main() {
       : undefined,
     deploymentArtifactPath: resolve(requireOption(options, "--deployment-artifact")),
     deploymentInventoryPath: resolve(requireOption(options, "--deployment-inventory")),
+    releaseProfile: requireOption(options, "--release-profile"),
   });
   writeJson(outputPath, attestation);
   console.log(`Wrote candidate frontend release ${attestation.reviewPayloadSha256} to ${outputPath}.`);

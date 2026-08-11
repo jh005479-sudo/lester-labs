@@ -19,6 +19,10 @@ on:
         description: Exact Vercel production workflow run attempt
         required: true
         type: number
+      release_profile:
+        description: Explicit authority and parity profile
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       reviewed_commit:
@@ -37,12 +41,19 @@ on:
         description: Exact Vercel production workflow run attempt
         required: true
         type: number
+      release_profile:
+        description: Explicit authority and parity profile
+        required: true
+        type: choice
+        options:
+          - production-separated-authority
+          - public-testnet-immutable
 
 permissions:
   contents: read
 
 concurrency:
-  group: frontend-served-parity-${{ inputs.reviewed_commit }}
+  group: frontend-served-parity-${{ inputs.release_profile }}-${{ inputs.reviewed_commit }}
   cancel-in-progress: false
 
 env:
@@ -62,6 +73,10 @@ jobs:
       release_run_attempt: ${{ steps.validate.outputs.release_run_attempt }}
       promotion_run_id: ${{ steps.validate.outputs.promotion_run_id }}
       promotion_run_attempt: ${{ steps.validate.outputs.promotion_run_attempt }}
+      release_profile: ${{ steps.validate.outputs.release_profile }}
+      verification_profile: ${{ steps.validate.outputs.verification_profile }}
+      vantage_a_id: ${{ steps.validate.outputs.vantage_a_id }}
+      vantage_b_id: ${{ steps.validate.outputs.vantage_b_id }}
     steps:
       - name: Validate protected source and bounded identifiers
         id: validate
@@ -71,6 +86,7 @@ jobs:
           RELEASE_RUN_ID: ${{ inputs.release_run_id }}
           PROMOTION_RUN_ID: ${{ inputs.promotion_run_id }}
           PROMOTION_RUN_ATTEMPT: ${{ inputs.promotion_run_attempt }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
           OBSERVED_COMMIT: ${{ github.sha }}
           OBSERVED_REF: ${{ github.ref }}
           PROTECTED_REF: ${{ github.ref_protected }}
@@ -85,6 +101,19 @@ jobs:
           test "$OBSERVED_REF" = "refs/heads/main"
           test "$PROTECTED_REF" = "true"
           test "$OBSERVED_COMMIT" = "$REVIEWED_COMMIT"
+          case "$RELEASE_PROFILE" in
+            production-separated-authority)
+              verification_profile="production-independent-network"
+              vantage_a_id="protected-eu-network"
+              vantage_b_id="protected-us-network"
+              ;;
+            public-testnet-immutable)
+              verification_profile="public-testnet-github-hosted"
+              vantage_a_id="github-hosted-a"
+              vantage_b_id="github-hosted-b"
+              ;;
+            *) exit 1 ;;
+          esac
           gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" > "$RUNNER_TEMP/release-run.json"
           gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$PROMOTION_RUN_ID" > "$RUNNER_TEMP/promotion-run.json"
           release_run_attempt="$(node --input-type=module - "$RUNNER_TEMP/release-run.json" "$REVIEWED_COMMIT" <<'NODE'
@@ -122,12 +151,16 @@ jobs:
           printf 'release_run_attempt=%s\n' "$release_run_attempt" >> "$GITHUB_OUTPUT"
           printf 'promotion_run_id=%s\n' "$PROMOTION_RUN_ID" >> "$GITHUB_OUTPUT"
           printf 'promotion_run_attempt=%s\n' "$PROMOTION_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          printf 'release_profile=%s\n' "$RELEASE_PROFILE" >> "$GITHUB_OUTPUT"
+          printf 'verification_profile=%s\n' "$verification_profile" >> "$GITHUB_OUTPUT"
+          printf 'vantage_a_id=%s\n' "$vantage_a_id" >> "$GITHUB_OUTPUT"
+          printf 'vantage_b_id=%s\n' "$vantage_b_id" >> "$GITHUB_OUTPUT"
 
   vantage-eu:
     name: Protected EU network vantage
     needs: validate-inputs
-    runs-on: [self-hosted, linux, x64, lester-vantage-eu]
-    environment: frontend-vantage-eu
+    runs-on: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && fromJSON('["ubuntu-24.04"]') || fromJSON('["self-hosted","linux","x64","lester-vantage-eu"]') }}
+    environment: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && 'frontend-public-testnet-vantage-a' || 'frontend-vantage-eu' }}
     timeout-minutes: 45
     permissions:
       actions: read
@@ -140,6 +173,13 @@ jobs:
         with:
           ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
           persist-credentials: false
+
+      - name: Use the exact reviewed Node runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          package-manager-cache: false
 
       - name: Enforce protected source and isolated vantage prerequisites
         shell: bash
@@ -213,7 +253,8 @@ jobs:
               --promotion-verification - \
               --policy /source/src/config/frontendReleasePolicy.json \
               --expected-source-commit "$GITHUB_SHA" \
-              --vantage-id protected-eu-network \
+              --vantage-id "${{ needs.validate-inputs.outputs.vantage_a_id }}" \
+              --verification-profile "${{ needs.validate-inputs.outputs.verification_profile }}" \
               --output /evidence/vantage-eu.json
 
       - name: Sign EU vantage evidence
@@ -242,8 +283,8 @@ jobs:
   vantage-us:
     name: Protected US network vantage
     needs: validate-inputs
-    runs-on: [self-hosted, linux, x64, lester-vantage-us]
-    environment: frontend-vantage-us
+    runs-on: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && fromJSON('["ubuntu-24.04"]') || fromJSON('["self-hosted","linux","x64","lester-vantage-us"]') }}
+    environment: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && 'frontend-public-testnet-vantage-b' || 'frontend-vantage-us' }}
     timeout-minutes: 45
     permissions:
       actions: read
@@ -256,6 +297,13 @@ jobs:
         with:
           ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
           persist-credentials: false
+
+      - name: Use the exact reviewed Node runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          package-manager-cache: false
 
       - name: Enforce protected source and isolated vantage prerequisites
         shell: bash
@@ -329,7 +377,8 @@ jobs:
               --promotion-verification - \
               --policy /source/src/config/frontendReleasePolicy.json \
               --expected-source-commit "$GITHUB_SHA" \
-              --vantage-id protected-us-network \
+              --vantage-id "${{ needs.validate-inputs.outputs.vantage_b_id }}" \
+              --verification-profile "${{ needs.validate-inputs.outputs.verification_profile }}" \
               --output /evidence/vantage-us.json
 
       - name: Sign US vantage evidence
