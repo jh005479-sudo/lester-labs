@@ -1559,7 +1559,9 @@ async function fetchCanaryProbe(origin, probe, fetchImpl, trustedProbeHeaders) {
   }
   const bytes = await readResponseBounded(response, 16 * 1024 * 1024);
   if (response.status !== probe.status) {
-    throw new Error(`The provider-canary HTTP probe for ${probe.path} returned an unexpected status.`);
+    throw new Error(
+      `The provider-canary HTTP probe for ${probe.path} returned status ${response.status}; expected ${probe.status}.`,
+    );
   }
   if (probe.bytes && !bytes.equals(probe.bytes)) {
     throw new Error(`The provider-canary HTTP probe for ${probe.path} returned different bytes.`);
