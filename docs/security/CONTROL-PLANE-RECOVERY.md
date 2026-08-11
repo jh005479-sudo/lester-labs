@@ -186,12 +186,14 @@ was disconnected, all 23 legacy project environment-variable entries were
 removed, two non-current browser sessions were revoked, and the Vercel CLI
 OAuth application was disconnected. No deploy hook or project webhook remained
 visible, and the existing production deployment and domain aliases were not
-changed by those containment actions.
+changed by those containment actions. Automatic production-domain assignment
+was subsequently disabled and re-read as disabled after saving, so future
+production builds require an explicit promotion before taking the custom domains.
 
 The observation is deliberately not marked as provider recovery approval. The
 account still had no active account-level two-factor authentication or passkey,
 the current recovery browser session remained active, and global team token
 revocation could affect unrelated projects. The account owner must enrol MFA,
 review recovery methods and global credentials, and coordinate any team-wide
-revocation. Automatic production-domain assignment must also be proven disabled
-before the provider adapter may stage either the emergency or full artifact.
+revocation. The current rollback deployment ID must still be independently
+recorded before the provider adapter may stage either the emergency or full artifact.

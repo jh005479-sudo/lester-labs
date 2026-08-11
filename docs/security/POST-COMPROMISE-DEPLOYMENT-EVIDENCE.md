@@ -235,11 +235,13 @@ account recovery; it does not relax any full-replacement or appeal gate.
 An authenticated, redacted Vercel dashboard observation at
 `2026-08-11T00:36:28Z` is recorded in
 `evidence/vercel-control-plane-observation-2026-08-11.json` (SHA-256
-`3c59ce6cb0e630b9f050ee4cca0e0a2b677354e18cbe1b4e7425648cf7039aa5`).
+`b3d962557a0144e81e70dfa526b68d035687a2d6c41b7dfaff1f4520126619fe`).
 During that containment session, the project Git integration was disconnected,
 23 legacy project environment-variable entries were removed, two non-current
 browser sessions were revoked, and the Vercel CLI OAuth application was
-disconnected. No deploy hook or project webhook remained visible. The live
+disconnected. At `2026-08-11T06:18:52Z`, automatic production-domain assignment
+was also disabled and re-read as disabled after saving, so a staged build must
+be promoted explicitly. No deploy hook or project webhook remained visible. The live
 deployment was deliberately left unchanged pending signed-artifact staging and
 parity checks. Account-level 2FA/passkey enrolment, global credential review,
 registrar/DNS recovery, and independent approval remain release blockers; this
