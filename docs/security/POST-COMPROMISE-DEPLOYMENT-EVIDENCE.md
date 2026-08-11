@@ -5,7 +5,7 @@ Use one copy of this document per incident and deployment. Record UTC timestamps
 Never record a private key, seed phrase, raw session cookie, registry token, deploy token, or unredacted environment value here.
 
 > **Current Lester Labs public-testnet status (2026-08-11): immutable
-> replacement approved; frontend deployment and served parity pending.** The
+> replacement and cacheless frontend deployment live.** The
 > exact 2026-08-06 stack is now accepted only for the valueless
 > `public-testnet-immutable` chain-4441 profile. Every administrator and all
 > governance voting power are frozen at the verified `0x…01` ECRECOVER
@@ -15,8 +15,10 @@ Never record a private key, seed phrase, raw session cookie, registry token, dep
 > The repository-owner's testnet exception requires neither Safe authorities nor
 > two reviewer identities. Those controls remain mandatory and fail-closed for
 > the separate `production-separated-authority` profile. Do not claim this test
-> wallet or stack is safe for real value. Do not submit the MetaMask appeal until
-> the approved frontend is live and apex/`www` served-artifact parity passes.
+> wallet or stack is safe for real value. The exact frontend cutover is recorded
+> in `evidence/frontend-production-cutover-2026-08-11.json`; single-vantage
+> apex/`www` parity has passed. Account-owner recovery checks, an independent
+> network vantage, and a genuine MetaMask-extension retest remain open.
 
 The authorised immutable profile executed on 2026-08-06 from source commit
 `abcf1b75ee7945f557163dce11485555da63a5b6`. Its exact manifest and build
@@ -35,9 +37,11 @@ Wallet` dialog with Rainbow, Base Account, MetaMask, and WalletConnect options
 plus an external Rainbow education link. No wallet provider was installed in
 that isolated browser, so no connector was selected and no signature or
 transaction trace was generated; this is UI evidence, not proof of the deeper
-connector paths. The remediated runtime source removes RainbowKit imports and use, disables
-remote/multi-provider discovery, and exposes one deterministic injected-wallet
-control. Do not claim that change is live until served-bundle parity proves it.
+connector paths. The remediated runtime removes RainbowKit imports and use,
+disables remote/multi-provider discovery, and exposes one deterministic
+injected-wallet control. Deployment `dpl_BpJHwiNjru7nj2hBsuDPSi8oKtdn` now
+serves that source; the 2026-08-11 route evidence binds the reviewed pages to
+that deployment.
 
 An independent external-reputation signal also exists. A public third-party
 post directs users to Lester Labs to manufacture testnet activity, calls a
@@ -286,24 +290,48 @@ That public-list result does not clear the separately observed dapp-scanner
 
 | Field | Evidence |
 | --- | --- |
-| Hosting account/project ID | TODO |
-| Deployment ID and immutable URL | TODO |
-| Deployment commit SHA | TODO |
-| Deployed artifact SHA-256 | TODO |
-| Production alias mapping | TODO |
-| Deployment actor and reviewer | TODO |
+| Hosting account/project ID | Vercel project `prj_dbAIzvnFWLzxkt2dpphAWbserIG7` |
+| Deployment ID and immutable URL | `dpl_BpJHwiNjru7nj2hBsuDPSi8oKtdn`; `https://lester-labs-rmjqigpt4-lester-labs.vercel.app` |
+| Deployment commit SHA | `3e70876ed6e5e2b987ef1bb9d6990ab87eda7335` |
+| Deployed artifact SHA-256 | Per-route response digests in `evidence/frontend-production-route-digests-2026-08-11.json`; raw evidence SHA-256 `76bb76a143bf005196107da00280fd457eae1692959abecc3736e322b62e6b2d` |
+| Production alias mapping | `www.lester-labs.com` and `lester-labs-psi.vercel.app` point to the exact deployment; apex returns `307` to `www` |
+| Deployment actor and reviewer | Repository owner testnet exception; no independent-reviewer claim |
 | Environment variable names and rotation times (values redacted) | TODO |
-| DNS record set and resolver evidence | TODO |
-| TLS certificate fingerprint and transparency entry | TODO |
+| DNS record set and resolver evidence | Apex A `216.198.79.1`; `www` CNAME `lester-labs.com.` at `2026-08-11T08:33:01Z` |
+| TLS certificate fingerprint and transparency entry | Apex SHA-256 `3BD3D5EC93A62FA5AE39DBD9A49E845C077EDB0EB8859DAA8DA5169ABFD73445`; `www` SHA-256 `1F240C4D5F535AE08A865D8CA79F1D547998566FDABFBA00CFA8BBCBA46EDBA6`; CT entry remains account-owner verification |
 | Cache/service-worker purge time | TODO |
 | Rollback deployment ID | TODO |
 
 - [ ] Production and preview projects cannot silently share privileged secrets.
-- [ ] The production domain resolves only to the intended provider and project.
+- [x] The production domain resolves only to the intended provider and project
+      in the recorded DNS/provider observations.
 - [ ] No stale deployment, redirect, rewrite, middleware, edge function, service worker, injected tag, or analytics container can serve unreviewed code.
-- [ ] Security headers, content security policy, redirects, robots metadata, and well-known security contact were captured from the live origin.
+- [x] Security headers, content security policy, redirects, robots metadata,
+      and the well-known security contact were captured from the live origin.
 
 ## 6. Served-artifact parity
+
+For the bounded `public-testnet-immutable` release:
+
+- [x] The source-pinned replacement package, exact deployment manifest, child
+      runtimes, two-RPC verifier, and zero cutover counters are approved under
+      the repository-owner testnet exception.
+- [x] Exact frontend commit
+      `3e70876ed6e5e2b987ef1bb9d6990ab87eda7335` was built with
+      `npm ci --ignore-scripts`, zero audit findings, and Vercel build cache
+      explicitly skipped.
+- [x] Deployment `dpl_BpJHwiNjru7nj2hBsuDPSi8oKtdn` was promoted without a
+      rebuild and is current on `www`; apex redirects to it.
+- [x] Thirty-four reviewed routes match byte-for-byte between `www` and the
+      production Vercel alias under three credential-free profiles (204
+      checks); all critical headers match and no cookies are set.
+- [ ] The evidence is from one network vantage. The protected EU/US vantages
+      and genuine MetaMask-extension session remain open and must not be
+      inferred from the checks above.
+
+The following checklist is retained for the separate
+`production-separated-authority` release and is not satisfied by this testnet
+cutover:
 
 - [ ] The source-pinned `APPROVED` public package contains the complete verified production manifest, child-runtime attestations, raw production-authority/control-plane evidence digests, full exact-block Safe verification report, independent cutover candidate/proof digests and URL, exact block/hash/totals, and five literal zero replacement counters. It also embeds the full distinct-origin second-RPC manifest/Safe/counter verification report and binds that report to its own recomputed digest, the exact manifest digest, and the exact cutover block/hash. Its recomputed canonical payload SHA-256 matches `approvalPayloadSha256`; the nested manifest also independently matches `deploymentManifestSha256`.
 - [ ] Every one of the thirteen manifest addresses equals the deterministic `CREATE(gasOnlyDeployer, nonce)` address for its declared nonce; no disposable-stack address was relabelled as production evidence.
@@ -412,9 +440,9 @@ Capture the exact request, response, UTC time, scanner version/list version, cat
 
 | Provider/list | Before remediation | After remediation | Evidence |
 | --- | --- | --- | --- |
-| MetaMask domain scan/warning | TODO | TODO | TODO |
+| MetaMask domain scan/warning | Separately observed `BLOCK` / critical `DRAINER` dapp-scanner result | Genuine-extension retest unavailable; appeal package records this as open | `METAMASK-APPEAL-DRAFT.md`; the exact historic raw response was not preserved and must not be invented |
 | MetaMask transaction simulation | TODO | TODO | TODO |
-| eth-phishing-detect or related blocklist | TODO | TODO | TODO |
+| eth-phishing-detect or related blocklist | Public utility returned not blocked on 2026-08-10 | Public utility again returned not blocked for apex and `www` on 2026-08-11 | `evidence/metamask-public-list-observation-2026-08-10.json`; later observation in `evidence/frontend-production-cutover-2026-08-11.json` |
 | Browser safe-browsing provider | TODO | TODO | TODO |
 | Hosting/registrar abuse status | TODO | TODO | TODO |
 | Independent malware/phishing scanners | TODO | TODO | TODO |
