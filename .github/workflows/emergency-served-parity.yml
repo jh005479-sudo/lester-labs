@@ -178,7 +178,7 @@ jobs:
           set -euo pipefail
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
           mkdir -p "$GITHUB_WORKSPACE/emergency-parity-evidence"
-          gh attestation verify "$RUNNER_TEMP/promotion/promotion-evidence.json" \
+          bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/promotion/promotion-evidence.json" \
             --repo jh005479-sudo/lester-labs \
             --bundle "$RUNNER_TEMP/promotion/promotion-evidence.provenance.jsonl" \
             --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
@@ -279,7 +279,7 @@ jobs:
           set -euo pipefail
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
           mkdir -p "$GITHUB_WORKSPACE/emergency-parity-evidence"
-          gh attestation verify "$RUNNER_TEMP/promotion/promotion-evidence.json" \
+          bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/promotion/promotion-evidence.json" \
             --repo jh005479-sudo/lester-labs \
             --bundle "$RUNNER_TEMP/promotion/promotion-evidence.provenance.jsonl" \
             --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
@@ -361,7 +361,7 @@ jobs:
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
           test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
           for vantage in eu us; do
-            gh attestation verify "$RUNNER_TEMP/vantages/vantage-$vantage.json" \
+            bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/vantages/vantage-$vantage.json" \
               --repo jh005479-sudo/lester-labs \
               --bundle "$RUNNER_TEMP/vantages/vantage-$vantage.provenance.jsonl" \
               --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/emergency-served-parity.yml \

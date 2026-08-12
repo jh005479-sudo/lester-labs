@@ -322,7 +322,7 @@ jobs:
             subject="$1"
             bundle="$2"
             signer="$3"
-            gh attestation verify "$subject" \
+            bash scripts/security/verify-gh-attestation-with-retry.sh "$subject" \
               --repo jh005479-sudo/lester-labs --bundle "$bundle" \
               --signer-workflow "github.com/jh005479-sudo/lester-labs/$signer" \
               --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
@@ -357,13 +357,13 @@ jobs:
               "$release/approved-manifest.provenance.jsonl" \
               .github/workflows/frontend-release-attestation.yml
             safe_commit="${{ needs.validate-inputs.outputs.safe_rollback_commit }}"
-            gh attestation verify "$RUNNER_TEMP/safe-rollback/promotion-evidence.json" \
+            bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/safe-rollback/promotion-evidence.json" \
               --repo jh005479-sudo/lester-labs \
               --bundle "$RUNNER_TEMP/safe-rollback/promotion-evidence.provenance.jsonl" \
               --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
               --source-ref refs/heads/main --source-digest "$safe_commit" \
               --signer-digest "$safe_commit" --deny-self-hosted-runners --format json >/dev/null
-            gh attestation verify "$RUNNER_TEMP/safe-rollback/independent-vantage-comparison.json" \
+            bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/safe-rollback/independent-vantage-comparison.json" \
               --repo jh005479-sudo/lester-labs \
               --bundle "$RUNNER_TEMP/safe-rollback/independent-vantage-comparison.provenance.jsonl" \
               --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/emergency-served-parity.yml \
@@ -573,7 +573,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
-          gh attestation verify "$RUNNER_TEMP/stage/stage-evidence.json" \
+          bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/stage/stage-evidence.json" \
             --repo jh005479-sudo/lester-labs \
             --bundle "$RUNNER_TEMP/stage/stage-evidence.provenance.jsonl" \
             --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
@@ -698,29 +698,17 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
           verify_subject() {
-            subject="$1"
-            bundle="$2"
-            label="$3"
-            for attempt in 1 2 3; do
-              if gh attestation verify "$subject" --repo jh005479-sudo/lester-labs --bundle "$bundle" \
-                --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
-                --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
-                --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
-                --format json >/dev/null; then
-                return 0
-              fi
-              if test "$attempt" -eq 3; then
-                echo "::error::Exact $label attestation verification failed after three bounded attempts." >&2
-                return 1
-              fi
-              echo "::warning::Exact $label attestation verification attempt $attempt failed; retrying." >&2
-              sleep "$((attempt * 5))"
-            done
+            bash scripts/security/verify-gh-attestation-with-retry.sh "$1" \
+              --repo jh005479-sudo/lester-labs --bundle "$2" \
+              --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+              --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
+              --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
+              --format json >/dev/null
           }
           verify_subject "$RUNNER_TEMP/reviewed-stage/stage-evidence.json" \
-            "$RUNNER_TEMP/reviewed-stage/stage-evidence.provenance.jsonl" stage
+            "$RUNNER_TEMP/reviewed-stage/stage-evidence.provenance.jsonl"
           verify_subject "$RUNNER_TEMP/reviewed-stage/staged-parity.json" \
-            "$RUNNER_TEMP/reviewed-stage/staged-parity.provenance.jsonl" staged-parity
+            "$RUNNER_TEMP/reviewed-stage/staged-parity.provenance.jsonl"
           node --input-type=module - "$RUNNER_TEMP/reviewed-stage/stage-evidence.json" \
             "$STAGE_DEPLOYMENT_ID" "$STAGE_DEPLOYMENT_URL" "$PRIOR_DEPLOYMENT_ID" <<'NODE'
           import { readFileSync } from "node:fs";
@@ -823,23 +811,14 @@ jobs:
           test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
-          for attempt in 1 2 3; do
-            if gh attestation verify "$RUNNER_TEMP/failed-pre-promotion-stage/stage-evidence.json" \
-              --repo jh005479-sudo/lester-labs \
-              --bundle "$RUNNER_TEMP/failed-pre-promotion-stage/stage-evidence.provenance.jsonl" \
-              --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
-              --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
-              --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
-              --format json >/dev/null; then
-              break
-            fi
-            if test "$attempt" -eq 3; then
-              echo "::error::Exact stage attestation verification failed after three bounded cleanup attempts." >&2
-              exit 1
-            fi
-            echo "::warning::Exact stage attestation verification attempt $attempt failed; retrying cleanup verification." >&2
-            sleep "$((attempt * 5))"
-          done
+          bash scripts/security/verify-gh-attestation-with-retry.sh \
+            "$RUNNER_TEMP/failed-pre-promotion-stage/stage-evidence.json" \
+            --repo jh005479-sudo/lester-labs \
+            --bundle "$RUNNER_TEMP/failed-pre-promotion-stage/stage-evidence.provenance.jsonl" \
+            --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+            --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
+            --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
+            --format json >/dev/null
 
       - name: Delete only the signed noncurrent staged deployment
         shell: bash
@@ -926,7 +905,8 @@ jobs:
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
           verify_subject() {
-            gh attestation verify "$1" --repo jh005479-sudo/lester-labs --bundle "$2" \
+            bash scripts/security/verify-gh-attestation-with-retry.sh "$1" \
+              --repo jh005479-sudo/lester-labs --bundle "$2" \
               --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
               --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
               --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
@@ -1116,7 +1096,7 @@ jobs:
           test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
-          gh attestation verify "$RUNNER_TEMP/failed-stage/stage-evidence.json" \
+          bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/failed-stage/stage-evidence.json" \
             --repo jh005479-sudo/lester-labs \
             --bundle "$RUNNER_TEMP/failed-stage/stage-evidence.provenance.jsonl" \
             --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \

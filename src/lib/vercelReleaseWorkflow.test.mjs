@@ -135,7 +135,7 @@ describe('Vercel release orchestration', () => {
     assert.match(combined, /VERCEL_TRUSTED_OIDC_TOKEN=\\n/)
   })
 
-  it('pins the gh verifier inside every attestation-verification shell block', () => {
+  it('pins the gh verifier and uses the bounded wrapper inside every attestation-verification shell block', () => {
     const files = [
       'frontend-release-attestation.yml',
       'vercel-provider-canary.yml',
@@ -147,12 +147,14 @@ describe('Vercel release orchestration', () => {
     let verificationBlocks = 0
     for (const name of files) {
       for (const block of shellRunBlocks(workflow(name))) {
-        if (!block.includes('gh attestation verify')) continue
+        if (!block.includes('verify-gh-attestation-with-retry.sh')) continue
         verificationBlocks += 1
         assert.match(block, /gh version \| head -n 1 \| cut -d' ' -f3\)" = "2\.96\.0"/)
       }
     }
     assert.ok(verificationBlocks >= 10)
+    const combined = files.map(workflow).join('\n')
+    assert.doesNotMatch(combined, /(?<!verify-)gh attestation verify/)
   })
 
   it('uses run-attempt-qualified release artifacts and has one EU and one US vantage job', () => {
@@ -195,11 +197,15 @@ describe('Vercel release orchestration', () => {
     assert.doesNotMatch(release, /pattern: vercel-(?:stage|\*)/)
   })
 
-  it('bounds transient protected-approval attestation verification retries', () => {
-    const release = workflow('vercel-production-release.yml')
-    assert.match(release, /Exact \$label attestation verification failed after three bounded attempts/)
-    assert.match(release, /for attempt in 1 2 3/)
-    assert.match(release, /sleep "\$\(\(attempt \* 5\)\)"/)
+  it('bounds transient attestation verification retries without weakening verifier arguments', () => {
+    const wrapper = readFileSync(
+      new URL('../../scripts/security/verify-gh-attestation-with-retry.sh', import.meta.url),
+      'utf8',
+    )
+    assert.match(wrapper, /for attempt in 1 2 3/)
+    assert.match(wrapper, /gh attestation verify "\$@"/)
+    assert.match(wrapper, /sleep "\$\(\(attempt \* 5\)\)"/)
+    assert.match(wrapper, /failed after three bounded attempts/)
   })
 
   it('prints each release evidence digest once', () => {

@@ -149,7 +149,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
-          gh attestation verify "$RUNNER_TEMP/promotion/promotion-evidence.json" \
+          bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/promotion/promotion-evidence.json" \
             --repo jh005479-sudo/lester-labs \
             --bundle "$RUNNER_TEMP/promotion/promotion-evidence.provenance.jsonl" \
             --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
