@@ -149,7 +149,7 @@ describe('Vercel release orchestration', () => {
       for (const block of shellRunBlocks(workflow(name))) {
         if (!block.includes('verify-gh-attestation-with-retry.sh') && !block.includes('gh attestation verify')) continue
         verificationBlocks += 1
-        assert.match(block, /gh version \| head -n 1 \| cut -d' ' -f3\)" = "2\.96\.0"/)
+        assert.match(block, /source scripts\/security\/use-reviewed-gh\.sh/)
       }
     }
     assert.ok(verificationBlocks >= 10)
@@ -208,6 +208,21 @@ describe('Vercel release orchestration', () => {
     assert.ok((release.match(/for attempt in 1 2 3/g) ?? []).length >= 6)
     assert.ok((release.match(/sleep "\$\(\(attempt \* 5\)\)"/g) ?? []).length >= 6)
     assert.match(release, /Exact release-input attestation verification failed after three bounded attempts/)
+  })
+
+  it('bootstraps the exact reviewed GitHub CLI archive independently of mutable runner images', () => {
+    const bootstrap = readFileSync(
+      new URL('../../scripts/security/use-reviewed-gh.sh', import.meta.url),
+      'utf8',
+    )
+    assert.match(bootstrap, /reviewed_gh_version="2\.96\.0"/)
+    assert.match(bootstrap, /83d5c2ccad5498f58bf6368acb1ab32588cf43ab3a4b1c301bf36328b1c8bd60/)
+    assert.match(bootstrap, /56b8bbbb27b066ecb33dbef9a256dc9d1314adaeff0908a752feba6c34053b40/)
+    assert.match(bootstrap, /github\.com\/cli\/cli\/releases\/download\/v\$\{reviewed_gh_version\}/)
+    assert.match(bootstrap, /sha256sum --check --strict/)
+    assert.match(bootstrap, /--no-same-owner --no-same-permissions/)
+    assert.match(bootstrap, /test ! -L "\$reviewed_gh_binary"/)
+    assert.doesNotMatch(bootstrap, /latest|\.curlrc|\bnpx\b|npm exec/)
   })
 
   it('prints each release evidence digest once', () => {
