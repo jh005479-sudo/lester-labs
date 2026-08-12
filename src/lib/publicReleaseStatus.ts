@@ -34,8 +34,6 @@ export interface PublicReleaseStatus {
     heroTagline: string
     heroHeading: string
     heroDetail: string
-    noticeHeading: string
-    noticeDetail: string
     suiteSummary: string
     gettingStarted: string
     trustLabel: string
@@ -70,8 +68,6 @@ const CONTAINMENT_STATUS: PublicReleaseStatus = Object.freeze({
     heroTagline: 'Post-compromise containment and recovery',
     heroHeading: 'Security containment active.',
     heroDetail: 'Ordinary contract writes are disabled while replacement deployments and the served build are independently verified. Read-only views and narrowly labelled legacy recovery actions remain available.',
-    noticeHeading: 'Post-compromise containment is active.',
-    noticeDetail: 'The former build machine, deployer, treasury, controller, and legacy contract set are not trusted for new activity. Ordinary writes stay disabled until both independent gates pass: authority/control-plane recovery, and malicious-flag/source/runtime/served-build remediation. Passing either gate alone is insufficient; an appeal follows only after both pass.',
     suiteSummary: 'Read-only discovery and narrowly authenticated recovery remain available while replacement writes are disabled.',
     gettingStarted: 'Review network setup, current containment, historical contract behavior, and the checks required before replacement writes can resume.',
     trustLabel: 'An independent project publishing containment status, source, and deployment evidence for public review.',
@@ -137,8 +133,6 @@ const APPROVED_PRODUCTION_STATUS: PublicReleaseStatus = Object.freeze({
     heroTagline: 'Source-pinned post-compromise release candidate',
     heroHeading: 'Reviewed replacement candidate built.',
     heroDetail: 'Candidate writes target the source-pinned replacement deployment. Legacy contracts remain retired; verify chain 4441, target, function, recipient, and value before signing.',
-    noticeHeading: 'Reviewed post-compromise candidate is ready for the deployment gate.',
-    noticeDetail: 'The approval payload binds reviewed production authorities, control-plane recovery evidence, exact replacement runtimes, an independently rechecked historical cutover, and zero replacement activity at that block. This candidate must not be served publicly until the separate frontend approval, deployment, and apex/www byte-parity gate passes.',
     suiteSummary: 'Candidate replacement actions sit alongside bounded discovery and authenticated legacy recovery; production serving is separately gated.',
     gettingStarted: 'Review network setup, source-pinned replacement contracts, historical recovery boundaries, and both the candidate and frontend deployment evidence.',
     trustLabel: 'An independent project publishing source, deployment evidence, bounded analytics, and explicit release-gate boundaries for public review.',
@@ -204,8 +198,6 @@ const APPROVED_PUBLIC_TESTNET_STATUS: PublicReleaseStatus = Object.freeze({
     heroTagline: 'Source-pinned immutable LitVM public testnet',
     heroHeading: 'Replacement testnet stack active.',
     heroDetail: 'Writes target the source-pinned immutable replacement contracts on LitVM chain 4441. The controller is permanently frozen; the disclosed treasury can receive only valueless test assets.',
-    noticeHeading: 'Immutable public-testnet replacements are active.',
-    noticeDetail: 'This bounded testnet release intentionally uses no Safe authorities or independent reviewer requirement. Every administrative role is frozen at the ECRECOVER precompile, the disclosed wallet is only the valueless test-gas and fee destination, replacement governance writes remain disabled, and legacy contracts remain recovery-only.',
     suiteSummary: 'Chain-guarded replacement actions sit alongside bounded analytics and authenticated legacy recovery.',
     gettingStarted: 'Confirm LitVM chain 4441, review the exact contract target and transaction preview, and use only disposable testnet wallets and valueless test assets.',
     trustLabel: 'An independent testnet project publishing exact source, deployment, runtime, cutover, and served-build evidence for public review.',

@@ -111,6 +111,5 @@ spender, allowance, recipient, and decoded parameters before signing.
 
 ## Support
 
-- Security status: [lester-labs.com/security](https://www.lester-labs.com/security)
 - X: [@lesterlabshq](https://x.com/lesterlabshq)
 - Website: [www.lester-labs.com](https://www.lester-labs.com)

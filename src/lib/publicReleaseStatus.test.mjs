@@ -43,7 +43,6 @@ describe('public release status', () => {
     assert.equal(status.mode, 'containment')
     assert.equal(status.ordinaryWritesEnabled, false)
     assert.match(status.banner, /ordinary contract writes are disabled/i)
-    assert.match(status.homepage.noticeHeading, /post-compromise containment is active/i)
     assert.match(status.security.gatesSummary, /only after both gates pass/i)
     assert.equal(status.security.rows.find((row) => row.area === 'Application writes')?.status, 'Contained')
   })
@@ -54,7 +53,6 @@ describe('public release status', () => {
     assert.equal(status.mode, 'approved-public-testnet')
     assert.equal(status.ordinaryWritesEnabled, true)
     assert.match(status.banner, /chain 4441 guard|public testnet replacement active/i)
-    assert.match(status.homepage.noticeDetail, /no Safe authorities or independent reviewer requirement/i)
     assert.match(status.security.gateADetail, /production multisig and independent-reviewer requirements remain reserved/i)
     assert.equal(status.security.rows.find((row) => row.area === 'Governance writes')?.status, 'Disabled')
   })
@@ -75,7 +73,6 @@ describe('public release status', () => {
 
     assert.equal(status.mode, 'approved-production')
     assert.equal(status.ordinaryWritesEnabled, true)
-    assert.match(status.homepage.noticeHeading, /candidate is ready/i)
     assert.match(status.security.gatesSummary, /protected frontend approval and served parity remain mandatory/i)
     assert.match(publicCopy, /must not be served publicly|not authorized for public serving/i)
     assert.doesNotMatch(publicCopy, /both independent release gates passed|served-build evidence passed|production release is active/i)
@@ -93,10 +90,9 @@ describe('public release status', () => {
     }
   })
 
-  it('routes the homepage, security page, global banner, footer, metadata, and navigation copy through the model', () => {
+  it('routes the homepage, global banner, footer, metadata, and navigation copy through the model', () => {
     for (const relativePath of [
       '../app/page.tsx',
-      '../app/security/page.tsx',
       '../app/layout.tsx',
       '../components/home/ScrollHero.tsx',
       '../components/LTCBanner.tsx',

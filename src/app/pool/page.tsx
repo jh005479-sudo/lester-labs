@@ -137,7 +137,7 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
             </button>
           )}
           <Link
-            href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/security'}
+            href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/docs'}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
           >
             <Plus size={12} />
@@ -1250,7 +1250,7 @@ export default function PoolPage() {
               </div>
             )}
             <Link
-              href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/security'}
+              href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/docs'}
               className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition sm:flex-none"
               style={{
                 background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
@@ -1291,14 +1291,14 @@ export default function PoolPage() {
                   : 'This bounded newest-pair view returned no pools. New pool creation remains disabled.'}
               </p>
               <Link
-                href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/security'}
+                href={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? '/swap' : '/docs'}
                 className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition"
                 style={{
                   background: `linear-gradient(135deg, ${ACCENT} 0%, #b43684 100%)`,
                 }}
               >
                 <Plus size={14} />
-                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Create Pool' : 'Review Security Status'}
+                {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Create Pool' : 'Read the Docs'}
               </Link>
             </div>
           ) : (

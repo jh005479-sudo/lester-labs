@@ -10,11 +10,9 @@ function read(relativePath) {
 describe('public compromise-remediation posture', () => {
   it('preserves future production gates while publishing the bounded testnet exception and deferring the appeal', () => {
     const homepage = read('../app/page.tsx')
-    const security = read('../app/security/page.tsx')
     const docs = read('../content/docs/index.md')
 
     assert.match(homepage, /PUBLIC_RELEASE_STATUS/)
-    assert.match(security, /PUBLIC_RELEASE_STATUS/)
     assert.match(docs, /contract and authority remediation/i)
     assert.match(docs, /malicious-warning and served-site remediation/i)
     assert.match(docs, /future\s+production release still requires separate reviewed controller and treasury\s+safes/i)
@@ -26,7 +24,6 @@ describe('public compromise-remediation posture', () => {
 
   it('does not market the public testnet as a real-value fee or grant service', () => {
     const homepage = read('../app/page.tsx')
-    assert.match(PUBLIC_RELEASE_STATUS.homepage.noticeHeading, /public-testnet replacements are active/i)
     assert.match(PUBLIC_RELEASE_STATUS.homepage.ctaFinePrint, /test assets have no represented value/i)
     assert.doesNotMatch(homepage, /Fee capture layer|Docs, grants|audited unique-user/i)
   })
@@ -76,7 +73,7 @@ describe('reputation-sensitive metadata and indexing', () => {
   it('uses a factual fixed sitemap revision and prioritizes security', () => {
     const sitemap = read('../app/sitemap.ts')
     assert.match(sitemap, /2026-08-04T00:00:00\.000Z/)
-    assert.match(sitemap, /route: '\/security', priority: 0\.95/)
+    assert.doesNotMatch(sitemap, /route: '\/security'/)
     assert.doesNotMatch(sitemap, /lastModified:\s*new Date\(\)/)
   })
 
