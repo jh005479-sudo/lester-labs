@@ -112,6 +112,8 @@ function makeFixture() {
     ['.next/cache/nondeterministic.bin', 'ignored-cache'],
     ['.next/diagnostics/build-diagnostics.json', '{"ignored":true}'],
     ['.next/trace', 'ignored-trace'],
+    ['.next/trace-build', 'ignored-build-trace'],
+    ['.next/trace-build-runtime', 'retained-runtime-object'],
     ['.next/types/routes.d.ts', 'ignored-types'],
     ['public/robots.txt', 'User-agent: *\n'],
     ['public/.well-known/security.txt', ROUTE_BODY],
@@ -440,6 +442,8 @@ describe('frontend release artifact attestation', () => {
       })
       assert.equal(left.artifactInventory.files.some(({ path }) => path.includes('/cache/')), false)
       assert.equal(left.artifactInventory.files.some(({ path }) => path === 'build/trace'), false)
+      assert.equal(left.artifactInventory.files.some(({ path }) => path === 'build/trace-build'), false)
+      assert.equal(left.artifactInventory.files.some(({ path }) => path === 'build/trace-build-runtime'), true)
       assert.deepEqual(
         left.sourceTree.files.map(({ path }) => path),
         execFileSync('git', ['ls-files'], { cwd: first.root, encoding: 'utf8' }).trim().split('\n').sort(),
