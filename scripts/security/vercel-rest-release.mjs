@@ -1001,7 +1001,13 @@ function assertCurrentProductionDeployment(deployment, target) {
     aliases.some((alias) => !allowedAliases.has(alias)) ||
     aliases.length > expectedAliases.length + (allowImmutableDeploymentHostAlias ? 1 : 0)
   ) {
-    throw new Error("The current deployment aliases differ from the exact reviewed production set.");
+    throw new Error(
+      `The current deployment aliases differ from the exact reviewed production set: ${canonicalJson({
+        aliases,
+        expectedAliases,
+        immutableDeploymentHost: allowImmutableDeploymentHostAlias ? immutableDeploymentHost : null,
+      }).trim()}`,
+    );
   }
   return aliases;
 }

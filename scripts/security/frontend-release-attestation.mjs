@@ -288,11 +288,18 @@ function collectArtifactInventory(buildDirectory, publicDirectory, root) {
 
 function collectArtifactEmbeddedOrigins(buildDirectory, publicDirectory, policy) {
   const origins = new Set();
+  const originFiles = new Map();
   for (const root of [buildDirectory, publicDirectory]) {
+    const rootLabel = root === buildDirectory ? "build" : "public";
     for (const file of walkFiles(root, { excludeBuildEphemera: root === buildDirectory })) {
       if (!EMBEDDED_ORIGIN_TEXT_EXTENSIONS.test(file.relativePath)) continue;
       const text = readFileSync(join(root, file.relativePath), "utf8");
-      for (const origin of observeEmbeddedNetworkOrigins(text)) origins.add(origin);
+      for (const origin of observeEmbeddedNetworkOrigins(text)) {
+        origins.add(origin);
+        const paths = originFiles.get(origin) ?? [];
+        if (paths.length < 3) paths.push(`${rootLabel}/${file.relativePath}`);
+        originFiles.set(origin, paths);
+      }
     }
   }
   for (const origin of policy.deploymentOrigins) origins.delete(origin);
@@ -300,8 +307,11 @@ function collectArtifactEmbeddedOrigins(buildDirectory, publicDirectory, policy)
   const allowed = new Set(policy.allowedArtifactEmbeddedOrigins);
   const unexpected = observed.filter((origin) => !allowed.has(origin));
   if (unexpected.length > 0) {
+    const diagnostics = unexpected.slice(0, 30).map(
+      (origin) => `${origin} in ${(originFiles.get(origin) ?? []).join(", ")}`,
+    );
     throw new Error(
-      `Built frontend artifacts embed unreviewed network origins: ${unexpected.slice(0, 30).join(", ")}.`,
+      `Built frontend artifacts embed unreviewed network origins: ${diagnostics.join("; ")}.`,
     );
   }
   return observed;
