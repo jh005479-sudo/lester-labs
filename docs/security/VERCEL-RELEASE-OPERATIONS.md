@@ -129,7 +129,8 @@ Vercel URL until the canary deletes the staged deployment.
    Record the successful canary run ID.
 4. Dispatch `vercel-production-release.yml` with the same exact values plus the
    canary run ID, `safe_rollback_commit=none`, and
-   `safe_rollback_run_id=none`. Before final approval, inspect the displayed staged URL and
+   `safe_rollback_run_id=none`, and `safe_rollback_parity_run_id=none`. Before
+   final approval, inspect the displayed staged URL and
    download `stage-evidence.json` and `staged-parity.json`. Confirm the displayed
    staged ID and recorded prior ID are the intended pair, and that the signed
    disposition is `HOLD_PROMOTED` / `UNSAFE_PRECONTAINMENT`.
@@ -154,8 +155,13 @@ Vercel URL until the canary deletes the staged deployment.
    Vercel. Dispatch `vercel-production-release.yml` with the exact commit,
    artifact run, canary run, kind, upload cap, the emergency containment source
    commit as `safe_rollback_commit`, and its successful production workflow run
-   ID as `safe_rollback_run_id`. The workflow downloads the exact run-attempt-
-   qualified emergency promotion and independent comparison artifacts and binds
+   ID as `safe_rollback_run_id`. Provide the separate successful
+   `emergency-served-parity.yml` dispatch as `safe_rollback_parity_run_id`. The
+   production run may be red only when its signed promotion jobs succeeded and
+   its signed hold-current reconciliation also succeeded; every other failed
+   production-run shape is rejected. The workflow downloads the exact
+   run-attempt-qualified emergency promotion and independently dispatched
+   comparison artifacts and binds
    their hashes into the new stage disposition. The staged-parity job verifies every reviewed
    route, dynamic API schema, active resource, public file, response header, and
    HTTP request profile at the immutable stage URL before approval.

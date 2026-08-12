@@ -35,7 +35,12 @@ on:
         default: none
         type: string
       safe_rollback_run_id:
-        description: Exact successful prior emergency production run, or none for initial emergency containment
+        description: Exact prior emergency production run containing the signed promotion, or none for initial emergency containment
+        required: true
+        default: none
+        type: string
+      safe_rollback_parity_run_id:
+        description: Exact successful independent emergency parity run, or none for initial emergency containment
         required: true
         default: none
         type: string
@@ -75,6 +80,8 @@ jobs:
       safe_rollback_commit: ${{ steps.validate.outputs.safe_rollback_commit }}
       safe_rollback_run_id: ${{ steps.validate.outputs.safe_rollback_run_id }}
       safe_rollback_run_attempt: ${{ steps.validate.outputs.safe_rollback_run_attempt }}
+      safe_rollback_parity_run_id: ${{ steps.validate.outputs.safe_rollback_parity_run_id }}
+      safe_rollback_parity_run_attempt: ${{ steps.validate.outputs.safe_rollback_parity_run_attempt }}
       safe_rollback_promotion_artifact_name: ${{ steps.validate.outputs.safe_rollback_promotion_artifact_name }}
       safe_rollback_parity_artifact_name: ${{ steps.validate.outputs.safe_rollback_parity_artifact_name }}
     steps:
@@ -90,6 +97,7 @@ jobs:
           PROVIDER_CANARY_RUN_ID: ${{ inputs.provider_canary_run_id }}
           SAFE_ROLLBACK_COMMIT: ${{ inputs.safe_rollback_commit }}
           SAFE_ROLLBACK_RUN_ID: ${{ inputs.safe_rollback_run_id }}
+          SAFE_ROLLBACK_PARITY_RUN_ID: ${{ inputs.safe_rollback_parity_run_id }}
           MAXIMUM_UPLOAD_BYTES: ${{ inputs.maximum_upload_bytes }}
           PROTECTED_REF: ${{ github.ref_protected }}
         run: |
@@ -113,14 +121,19 @@ jobs:
               source_signer_workflow=".github/workflows/emergency-containment-attestation.yml"
               test "$SAFE_ROLLBACK_COMMIT" = "none"
               test "$SAFE_ROLLBACK_RUN_ID" = "none"
+              test "$SAFE_ROLLBACK_PARITY_RUN_ID" = "none"
               ;;
             next-standalone-container)
               release_artifact_prefix="frontend-release-approved-evidence-$REVIEWED_COMMIT"
               source_signer_workflow=".github/workflows/frontend-release-attestation.yml"
               [[ "$SAFE_ROLLBACK_COMMIT" =~ ^[0-9a-f]{40}$ ]]
               [[ "$SAFE_ROLLBACK_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+              [[ "$SAFE_ROLLBACK_PARITY_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
               test "$SAFE_ROLLBACK_RUN_ID" != "$ATTESTATION_RUN_ID"
               test "$SAFE_ROLLBACK_RUN_ID" != "$PROVIDER_CANARY_RUN_ID"
+              test "$SAFE_ROLLBACK_PARITY_RUN_ID" != "$ATTESTATION_RUN_ID"
+              test "$SAFE_ROLLBACK_PARITY_RUN_ID" != "$PROVIDER_CANARY_RUN_ID"
+              test "$SAFE_ROLLBACK_PARITY_RUN_ID" != "$SAFE_ROLLBACK_RUN_ID"
               ;;
             *) exit 1 ;;
           esac
@@ -131,6 +144,10 @@ jobs:
           if test "$RELEASE_KIND" = "next-standalone-container"; then
             gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$SAFE_ROLLBACK_RUN_ID" \
               > "$RUNNER_TEMP/safe-rollback-run.json"
+            gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$SAFE_ROLLBACK_RUN_ID/jobs?per_page=100" \
+              > "$RUNNER_TEMP/safe-rollback-jobs.json"
+            gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$SAFE_ROLLBACK_PARITY_RUN_ID" \
+              > "$RUNNER_TEMP/safe-rollback-parity-run.json"
           fi
           run_attempts="$(node --input-type=module - "$RUNNER_TEMP/source-run.json" \
             "$RUNNER_TEMP/canary-run.json" "$REVIEWED_COMMIT" "$source_signer_workflow" <<'NODE'
@@ -172,27 +189,56 @@ jobs:
           release_artifact_name="$release_artifact_prefix-$ATTESTATION_RUN_ID-$source_run_attempt"
           canary_artifact_name="vercel-provider-canary-$RELEASE_KIND-$REVIEWED_COMMIT-$PROVIDER_CANARY_RUN_ID-$canary_run_attempt"
           safe_rollback_run_attempt="none"
+          safe_rollback_parity_run_attempt="none"
           safe_rollback_promotion_artifact_name="none"
           safe_rollback_parity_artifact_name="none"
           if test "$RELEASE_KIND" = "next-standalone-container"; then
-            safe_rollback_run_attempt="$(node --input-type=module - \
-              "$RUNNER_TEMP/safe-rollback-run.json" "$SAFE_ROLLBACK_COMMIT" <<'NODE'
+            safe_attempts="$(node --input-type=module - \
+              "$RUNNER_TEMP/safe-rollback-run.json" "$RUNNER_TEMP/safe-rollback-jobs.json" \
+              "$RUNNER_TEMP/safe-rollback-parity-run.json" "$SAFE_ROLLBACK_COMMIT" <<'NODE'
           import { readFileSync } from "node:fs";
-          const [path, commit] = process.argv.slice(2);
+          const [path, jobsPath, parityPath, commit] = process.argv.slice(2);
           const run = JSON.parse(readFileSync(path, "utf8"));
+          const jobsResponse = JSON.parse(readFileSync(jobsPath, "utf8"));
+          const jobs = jobsResponse.jobs;
+          const parity = JSON.parse(readFileSync(parityPath, "utf8"));
+          const exactRun = (candidate, workflow, conclusions) => (
+            candidate.head_sha === commit && candidate.head_branch === "main" &&
+            candidate.event === "workflow_dispatch" && candidate.status === "completed" &&
+            conclusions.includes(candidate.conclusion) && candidate.path === workflow &&
+            Number.isSafeInteger(candidate.run_attempt) && candidate.run_attempt >= 1
+          );
           if (
-            run.head_sha !== commit || run.head_branch !== "main" ||
-            run.event !== "workflow_dispatch" || run.status !== "completed" ||
-            run.conclusion !== "success" ||
-            run.path !== ".github/workflows/vercel-production-release.yml" ||
-            !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1
-          ) throw new Error("Safe rollback run is not the exact successful emergency production workflow.");
-          process.stdout.write(String(run.run_attempt));
+            !exactRun(run, ".github/workflows/vercel-production-release.yml", ["success", "failure"])
+          ) throw new Error("Safe rollback promotion run is not the exact completed emergency production workflow.");
+          if (
+            !Array.isArray(jobs) || !Number.isSafeInteger(jobsResponse.total_count) ||
+            jobsResponse.total_count !== jobs.length
+          ) throw new Error("Safe rollback promotion job evidence is malformed or truncated.");
+          const succeeded = new Set(jobs.filter((job) => (
+            job.run_attempt === run.run_attempt && job.conclusion === "success"
+          )).map((job) => job.name));
+          for (const required of [
+            "Stage exact signed bytes without production aliases",
+            "Prove staged HTTP behavior before final approval",
+            "Route production aliases to the approved deployment without rebuild",
+          ]) {
+            if (!succeeded.has(required)) throw new Error(`Safe rollback run lacks successful job: ${required}`);
+          }
+          if (run.conclusion === "failure" && !succeeded.has(
+            "Reconcile the signed failure disposition if independent parity fails"
+          )) throw new Error("Failed safe rollback run lacks successful signed reconciliation.");
+          if (!exactRun(parity, ".github/workflows/emergency-served-parity.yml", ["success"])) {
+            throw new Error("Safe rollback parity run is not the exact successful independent workflow.");
+          }
+          process.stdout.write(`${run.run_attempt}\t${parity.run_attempt}`);
           NODE
             )"
+            IFS=$'\t' read -r safe_rollback_run_attempt safe_rollback_parity_run_attempt <<< "$safe_attempts"
             [[ "$safe_rollback_run_attempt" =~ ^[1-9][0-9]{0,5}$ ]]
+            [[ "$safe_rollback_parity_run_attempt" =~ ^[1-9][0-9]{0,5}$ ]]
             safe_rollback_promotion_artifact_name="vercel-promotion-emergency-static-$SAFE_ROLLBACK_COMMIT-$SAFE_ROLLBACK_RUN_ID-$safe_rollback_run_attempt"
-            safe_rollback_parity_artifact_name="emergency-parity-comparison-$SAFE_ROLLBACK_COMMIT-$SAFE_ROLLBACK_RUN_ID-$safe_rollback_run_attempt"
+            safe_rollback_parity_artifact_name="emergency-parity-comparison-$SAFE_ROLLBACK_COMMIT-$SAFE_ROLLBACK_PARITY_RUN_ID-$safe_rollback_parity_run_attempt"
           fi
           {
             printf 'reviewed_commit=%s\n' "$REVIEWED_COMMIT"
@@ -209,6 +255,8 @@ jobs:
             printf 'safe_rollback_commit=%s\n' "$SAFE_ROLLBACK_COMMIT"
             printf 'safe_rollback_run_id=%s\n' "$SAFE_ROLLBACK_RUN_ID"
             printf 'safe_rollback_run_attempt=%s\n' "$safe_rollback_run_attempt"
+            printf 'safe_rollback_parity_run_id=%s\n' "$SAFE_ROLLBACK_PARITY_RUN_ID"
+            printf 'safe_rollback_parity_run_attempt=%s\n' "$safe_rollback_parity_run_attempt"
             printf 'safe_rollback_promotion_artifact_name=%s\n' "$safe_rollback_promotion_artifact_name"
             printf 'safe_rollback_parity_artifact_name=%s\n' "$safe_rollback_parity_artifact_name"
           } >> "$GITHUB_OUTPUT"
@@ -306,7 +354,7 @@ jobs:
           name: ${{ needs.validate-inputs.outputs.safe_rollback_parity_artifact_name }}
           path: ${{ runner.temp }}/safe-rollback
           repository: ${{ github.repository }}
-          run-id: ${{ needs.validate-inputs.outputs.safe_rollback_run_id }}
+          run-id: ${{ needs.validate-inputs.outputs.safe_rollback_parity_run_id }}
           github-token: ${{ github.token }}
 
       - name: Verify the canary and every source subject before token use
