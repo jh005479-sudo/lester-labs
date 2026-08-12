@@ -665,11 +665,12 @@ function routeSnapshotsFromCapture(capture, policy, publicArtifacts) {
   return snapshots;
 }
 
-function npmVersion() {
-  return execFileSync("npm", ["--version"], {
-    encoding: "utf8",
-    env: { PATH: process.env.PATH ?? "" },
-  }).trim();
+function reviewedNpmVersion(root) {
+  const packageManager = readJson(join(root, "package.json"))?.packageManager;
+  if (packageManager !== "npm@11.16.0") {
+    throw new Error("The release source must pin the exact reviewed npm@11.16.0 package manager.");
+  }
+  return packageManager.slice("npm@".length);
 }
 
 function sbomRecord(sbomPath) {
@@ -752,7 +753,7 @@ export async function createFrontendReleaseAttestation({
     builderImage: inventory.builderImage,
     runtime: {
       node: process.version,
-      npm: npmVersion(),
+      npm: reviewedNpmVersion(root),
       os: process.platform,
       arch: process.arch,
     },
