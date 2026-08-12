@@ -1125,6 +1125,14 @@ function validateFrontendRouteEvidence(route, expectedPath, origin, policy, allo
   return route;
 }
 
+export function isSafeFrontendSourcePath(value) {
+  return (
+    typeof value === "string" &&
+    /^(?:build|public|source)\/[A-Za-z0-9._@+\[\]\-/]{1,1024}$/u.test(value) &&
+    !value.split("/").some((segment) => segment === "." || segment === "..")
+  );
+}
+
 function validateFrontendAssetsEvidence(assets, expectedPublicArtifactsSha256, policy, allowedOrigins, label) {
   assertExactKeys(assets, ["sha256", "fileCount", "totalBytes", "files"], label);
   assertHash(assets.sha256, `${label} inventory digest`);
@@ -1143,9 +1151,7 @@ function validateFrontendAssetsEvidence(assets, expectedPublicArtifactsSha256, p
       throw new Error(`${label} file ${index} has an invalid URL path.`);
     }
     if (
-      typeof file.sourcePath !== "string" ||
-      !/^(?:build|public|source)\/[A-Za-z0-9._@+\-/]{1,1024}$/u.test(file.sourcePath) ||
-      file.sourcePath.split("/").some((segment) => segment === "." || segment === "..") ||
+      !isSafeFrontendSourcePath(file.sourcePath) ||
       !file.urlPath.startsWith("/") ||
       file.urlPath.startsWith("//") ||
       requested.origin !== "https://www.lester-labs.com" ||
