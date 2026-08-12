@@ -61,7 +61,7 @@ const rails: Record<'explorer' | 'analytics' | 'portfolio' | 'ledger', RailConfi
         label: 'Status',
         value: writesActive ? 'Public-testnet replacement' : 'Writes disabled',
         detail: writesActive ? 'Verify chain 4441, the source-pinned target, and deployment evidence.' : 'Review replacement readiness first.',
-        href: '/security',
+        href: '/docs',
       },
     ],
   },

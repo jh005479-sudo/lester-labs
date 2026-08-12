@@ -8,7 +8,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const routes: { route: string; priority: number; changefreq: 'weekly' | 'monthly' }[] = [
     { route: '', priority: 1, changefreq: 'weekly' },
-    { route: '/security', priority: 0.95, changefreq: 'weekly' },
     { route: '/docs', priority: 0.9, changefreq: 'weekly' },
     { route: '/tutorials', priority: 0.8, changefreq: 'monthly' },
     { route: '/litvm-testnet', priority: 0.75, changefreq: 'monthly' },

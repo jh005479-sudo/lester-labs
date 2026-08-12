@@ -29,9 +29,11 @@ describe('shared UI regression contracts', () => {
   })
 
   it('keeps the retired security, activity-disclosure, and scroll copy off the homepage', async () => {
+    const page = await source('src/app/page.tsx')
     const hero = await source('src/components/home/ScrollHero.tsx')
     const stats = await source('src/components/home/PlatformStats.tsx')
 
+    assert.doesNotMatch(page, /Immutable public-testnet replacements are active|Read the security status|href="\/security"/)
     assert.doesNotMatch(hero, /heroHeading|heroDetail|Review Security Status|>Scroll</)
     assert.doesNotMatch(stats, /getPlatformStatsDisclosure|coverage\.|Provenance and baseline breakdown/)
   })

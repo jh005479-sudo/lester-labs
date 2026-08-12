@@ -411,14 +411,6 @@ export default function HomePage() {
         >
 
         <section className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
-          <div className={`mb-4 rounded-2xl border p-4 text-sm leading-relaxed ${PUBLIC_RELEASE_STATUS.tone === 'success' ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-50' : 'border-amber-300/25 bg-amber-300/10 text-amber-50'}`}>
-            <strong>{PUBLIC_RELEASE_STATUS.homepage.noticeHeading}</strong>{' '}
-            {PUBLIC_RELEASE_STATUS.homepage.noticeDetail}{' '}
-            Historical counters are first-party continuity records, not independently verified counts of unique wallets or people.{' '}
-            <Link href="/security" prefetch={false} className="font-semibold underline underline-offset-4">
-              Read the security status.
-            </Link>
-          </div>
           <ResumeDashboard />
         </section>
 
@@ -742,8 +734,7 @@ export default function HomePage() {
               <h2 className="cta-title"><span className="grad">Verify first.</span><br />Sign later.</h2>
               <p>{PUBLIC_RELEASE_STATUS.homepage.ctaDetail}</p>
               <div className="cta-buttons">
-                <Link prefetch={false} href="/security" className="btn-primary magnetic">Security Status →</Link>
-                <Link href="/docs" prefetch={false} className="btn-ghost magnetic">Read the Docs ↗</Link>
+                <Link href="/docs" prefetch={false} className="btn-primary magnetic">Read the Docs →</Link>
               </div>
               <p className="cta-fine">{PUBLIC_RELEASE_STATUS.homepage.ctaFinePrint}</p>
             </div>

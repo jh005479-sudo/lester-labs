@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 /**
@@ -30,9 +29,6 @@ export function LTCBanner() {
       </div>
       <div className="hidden shrink-0 items-center gap-3 sm:flex" style={{ color: 'rgba(255,255,255,0.48)' }}>
         <span>LiteForge testnet · chain 4441 · zkLTC has no represented monetary value</span>
-        <Link href="/security" className="underline underline-offset-2 hover:text-white">
-          Security status
-        </Link>
       </div>
     </div>
   )

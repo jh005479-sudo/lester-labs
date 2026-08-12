@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "sourceTreeSha256": "f13b05ae8724e04ae97d5c1e78d22a1447b522914653a7de73e27fd110febb1e",
+  "sourceTreeSha256": "3c585d307362ed4fe2549a0be919d820412d98f80b0b88c41f59a928745d03cc",
   "observations": [
     {
       "path": "build/server/app/api/platform-stats/route.js",
@@ -16,12 +16,6 @@
     },
     {
       "path": "build/server/app/page.js",
-      "origins": [
-        "https://rpc.lite-node.com"
-      ]
-    },
-    {
-      "path": "build/server/app/security/page.js",
       "origins": [
         "https://rpc.lite-node.com"
       ]
@@ -167,12 +161,6 @@
     },
     {
       "path": "build/standalone/.next/server/app/page.js",
-      "origins": [
-        "https://rpc.lite-node.com"
-      ]
-    },
-    {
-      "path": "build/standalone/.next/server/app/security/page.js",
       "origins": [
         "https://rpc.lite-node.com"
       ]

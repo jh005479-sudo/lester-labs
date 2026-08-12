@@ -48,7 +48,6 @@ export function SiteFooter() {
             <h4>Developers</h4>
             <Link href="/docs" prefetch={false}>Docs</Link>
             <Link href="/tutorials" prefetch={false}>Tutorials</Link>
-            <Link href="/security" prefetch={false}>Security status</Link>
             <Link href="/governance" prefetch={false}>Governance</Link>
             <a href="https://www.litvm.com/" target="_blank" rel="noopener noreferrer">LitVM website</a>
           </div>
