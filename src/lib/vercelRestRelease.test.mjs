@@ -1049,6 +1049,7 @@ describe('dependency-free Vercel REST release adapter', () => {
         productionAliases: REVIEWED_PRODUCTION_PROMOTED_API_ALIASES,
         createdAliases: REVIEWED_PRODUCTION_PROVIDER_ALIASES,
         stagedAliasAssigned: true,
+        promotionSubstateLagReads: 2,
       })
       const stage = await stageEmergencyRelease({
         ...STAGE_WORKFLOW_IDENTITY,
@@ -1125,6 +1126,7 @@ describe('dependency-free Vercel REST release adapter', () => {
       })
       assert.equal(promotion.deployment.id, NEW_DEPLOYMENT_ID)
       assert.deepEqual(promotion.deployment.aliases, REVIEWED_PRODUCTION_PROMOTED_API_ALIASES)
+      assert.equal(productionMock.state.promotionDeploymentReads, 3)
       const recovery = await recoverVercelPromotion({
         stageEvidencePath: releaseEvidence.stageEvidencePath,
         stageProvenancePath: releaseEvidence.stageProvenancePath,

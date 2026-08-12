@@ -110,11 +110,21 @@ runtime network monitoring.
 Framework and dependency artifacts can also contain inert documentation,
 standards, example, or source-map URLs that are not network destinations used by
 the application. Those strings are not granted a package-wide or hostname-wide
-exception. `src/config/reviewedEmbeddedOriginNoise.json` binds each reviewed
-observation to one exact artifact path, the complete file SHA-256, and the exact
-sorted origin set. A byte change, path change, or new origin therefore fails the
-release. The review file is itself source material in the signed candidate and
-must be regenerated and manually reviewed after any build or dependency change.
+exception. `src/config/reviewedEmbeddedOriginNoise.json` binds the complete set
+of reviewed observations to the SHA-256 of every tracked source file except that
+review file itself, and each observation to one exact artifact path and exact
+sorted origin set. Excluding only the review file avoids a self-referential
+digest while still making any application, dependency lock, build, CI,
+documentation, or contract source change invalidate the whole review. An
+artifact path move or new origin also fails the release. Generated bundle hashes
+remain recorded in the signed artifact inventory; they are deliberately not used
+as repository-pinned inputs because the reviewed source commit is embedded
+during the build. For Next static JavaScript and CSS only, the final 16-character
+content-hash filename suffix is represented by the literal `{content-hash}`
+marker; the directory, logical chunk name, extension, exact origin set, and whole
+tracked-source digest remain exact. No marker or wildcard is accepted elsewhere.
+The review file is itself source material in the signed candidate and must be
+regenerated and manually reviewed after any other tracked-file change.
 
 ## Independent post-promotion evidence
 

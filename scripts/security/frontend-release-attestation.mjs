@@ -58,6 +58,8 @@ const APP_METADATA_PUBLIC_ARTIFACTS = Object.freeze([
   Object.freeze({ sourcePath: "src/app/favicon.ico", urlPath: "/favicon.ico" }),
 ]);
 const EMBEDDED_ORIGIN_TEXT_EXTENSIONS = /\.(?:cjs|css|html|js|json|mjs|txt|webmanifest|xml)$/iu;
+const STATIC_CONTENT_HASH_PATH = /-[0-9a-f]{16}(\.(?:css|js))$/u;
+const STATIC_REVIEW_HASH_MARKER_PATH = /-\{content-hash\}(\.(?:css|js))$/u;
 export const REVIEWED_FRONTEND_BUILDER_IMAGE =
   "docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5";
 
@@ -289,20 +291,32 @@ function collectArtifactInventory(buildDirectory, publicDirectory, root) {
 }
 
 export function validateReviewedEmbeddedOriginNoise(value) {
-  assertExactKeys(value, ["schemaVersion", "observations"], "Reviewed embedded-origin noise");
-  if (value.schemaVersion !== 1 || !Array.isArray(value.observations)) {
-    throw new Error("Reviewed embedded-origin noise must use schemaVersion 1 with observations.");
+  assertExactKeys(
+    value,
+    ["schemaVersion", "sourceTreeSha256", "observations"],
+    "Reviewed embedded-origin noise",
+  );
+  if (value.schemaVersion !== 2 || !Array.isArray(value.observations)) {
+    throw new Error("Reviewed embedded-origin noise must use schemaVersion 2 with observations.");
   }
+  assertHash(value.sourceTreeSha256, "Reviewed embedded-origin source-tree hash");
   const previousPaths = new Set();
   for (const observation of value.observations) {
-    assertExactKeys(observation, ["path", "sha256", "origins"], "Reviewed embedded-origin observation");
+    assertExactKeys(observation, ["path", "origins"], "Reviewed embedded-origin observation");
     if (
       typeof observation.path !== "string" ||
       !observation.path.startsWith("build/") ||
       observation.path.includes("..") ||
       /[\\\u0000-\u001f\u007f]/u.test(observation.path)
     ) throw new Error("Reviewed embedded-origin observation contains an unsafe path.");
-    assertHash(observation.sha256, `Reviewed embedded-origin hash for ${observation.path}`);
+    const markerCount = observation.path.split("{content-hash}").length - 1;
+    if (
+      markerCount > 1 ||
+      (markerCount === 1 && (
+        !observation.path.startsWith("build/static/") ||
+        !STATIC_REVIEW_HASH_MARKER_PATH.test(observation.path)
+      ))
+    ) throw new Error("Reviewed embedded-origin observation contains an invalid hash marker.");
     if (
       !Array.isArray(observation.origins) ||
       observation.origins.length === 0 ||
@@ -322,13 +336,27 @@ export function validateReviewedEmbeddedOriginNoise(value) {
   return value;
 }
 
-function collectArtifactEmbeddedOrigins(buildDirectory, publicDirectory, policy, root) {
+function embeddedOriginReviewPath(artifactPath) {
+  if (!artifactPath.startsWith("build/static/")) return artifactPath;
+  return artifactPath.replace(STATIC_CONTENT_HASH_PATH, "-{content-hash}$1");
+}
+
+function collectArtifactEmbeddedOrigins(buildDirectory, publicDirectory, policy, root, sourceTree) {
   const origins = new Set();
   const unexpected = [];
   const allowed = new Set([...policy.deploymentOrigins, ...policy.allowedArtifactEmbeddedOrigins]);
   const reviewedNoise = validateReviewedEmbeddedOriginNoise(
     readJson(join(root, EMBEDDED_ORIGIN_NOISE_PATH)),
   );
+  const reviewedSourceFiles = sourceTree.files.filter(
+    ({ path }) => path !== EMBEDDED_ORIGIN_NOISE_PATH,
+  );
+  const observedSourceTreeSha256 = sha256Canonical(reviewedSourceFiles);
+  if (reviewedNoise.sourceTreeSha256 !== observedSourceTreeSha256) {
+    throw new Error(
+      "Reviewed embedded-origin observations do not match the exact tracked source tree.",
+    );
+  }
   const reviewedByPath = new Map(
     reviewedNoise.observations.map((observation) => [observation.path, observation]),
   );
@@ -338,12 +366,12 @@ function collectArtifactEmbeddedOrigins(buildDirectory, publicDirectory, policy,
       if (!EMBEDDED_ORIGIN_TEXT_EXTENSIONS.test(file.relativePath)) continue;
       const text = readFileSync(join(root, file.relativePath), "utf8");
       const artifactPath = `${rootLabel}/${file.relativePath}`;
-      const reviewed = reviewedByPath.get(artifactPath);
+      const reviewed = reviewedByPath.get(embeddedOriginReviewPath(artifactPath));
       for (const origin of observeEmbeddedNetworkOrigins(text)) {
         origins.add(origin);
         if (
           !allowed.has(origin) &&
-          !(reviewed?.sha256 === file.sha256 && reviewed.origins.includes(origin))
+          !reviewed?.origins.some((reviewedOrigin) => reviewedOrigin === origin)
         ) unexpected.push({ origin, path: artifactPath, sha256: file.sha256 });
       }
     }
@@ -475,6 +503,7 @@ export function createFrontendArtifactInventory({
       publicDirectory,
       policy,
       root,
+      sourceTree,
     ),
     artifactInventory,
     publicArtifacts,
