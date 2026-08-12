@@ -317,7 +317,7 @@ jobs:
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
         run: |
           set -euo pipefail
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           verify_subject() {
             subject="$1"
             bundle="$2"
@@ -577,7 +577,7 @@ jobs:
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
         run: |
           set -euo pipefail
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           for attempt in 1 2 3; do
             if gh attestation verify "$RUNNER_TEMP/stage/stage-evidence.json" \
               --repo jh005479-sudo/lester-labs \
@@ -711,7 +711,7 @@ jobs:
           test "$PROTECTED_REF" = "true"
           test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           verify_subject() {
             subject="$1"
             bundle="$2"
@@ -836,7 +836,7 @@ jobs:
           test "$PROTECTED_REF" = "true"
           test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           for attempt in 1 2 3; do
             if gh attestation verify "$RUNNER_TEMP/failed-pre-promotion-stage/stage-evidence.json" \
               --repo jh005479-sudo/lester-labs \
@@ -938,7 +938,7 @@ jobs:
           test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           verify_subject() {
             subject="$1"
             bundle="$2"
@@ -1141,7 +1141,7 @@ jobs:
           test "$PROTECTED_REF" = "true"
           test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           for attempt in 1 2 3; do
             if gh attestation verify "$RUNNER_TEMP/failed-stage/stage-evidence.json" \
               --repo jh005479-sudo/lester-labs \
