@@ -71,6 +71,7 @@ const REVIEWED_PROMOTED_PROVIDER_ALIASES = Object.freeze({
     teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
     projectName: "lester-labs",
     releaseProfile: "public-testnet-immutable",
+    allowImmutableDeploymentHostAlias: true,
     aliases: Object.freeze([
       "lester-labs-jh005479-8603-lester-labs.vercel.app",
       "lester-labs-lester-labs.vercel.app",
@@ -983,9 +984,22 @@ function assertCurrentProductionDeployment(deployment, target) {
   }
   const aliases = normalizeAliases(deployment);
   const expectedAliases = promotedAliasesForTarget(target);
+  const reviewed = REVIEWED_PROMOTED_PROVIDER_ALIASES[target.projectId];
+  const allowImmutableDeploymentHostAlias = (
+    reviewed?.allowImmutableDeploymentHostAlias === true &&
+    reviewed.teamId === target.teamId &&
+    reviewed.projectName === target.projectName &&
+    reviewed.releaseProfile === "public-testnet-immutable" &&
+    target.releaseProfile === "public-testnet-immutable"
+  );
+  const immutableDeploymentHost = new URL(deploymentUrl(deployment)).hostname;
+  const allowedAliases = allowImmutableDeploymentHostAlias
+    ? new Set([...expectedAliases, immutableDeploymentHost])
+    : new Set(expectedAliases);
   if (
-    aliases.length !== expectedAliases.length ||
-    aliases.some((alias, index) => alias !== expectedAliases[index])
+    expectedAliases.some((alias) => !aliases.includes(alias)) ||
+    aliases.some((alias) => !allowedAliases.has(alias)) ||
+    aliases.length > expectedAliases.length + (allowImmutableDeploymentHostAlias ? 1 : 0)
   ) {
     throw new Error("The current deployment aliases differ from the exact reviewed production set.");
   }
@@ -2668,15 +2682,14 @@ function validatePromotionEvidence(value) {
   if (
     value.deployment.readyState !== "READY" ||
     value.deployment.readySubstate !== "PROMOTED" ||
-    value.deployment.aliasAssigned !== true ||
-    canonicalJson(normalizeAliases(value.deployment)) !== canonicalJson(promotedAliasesForTarget({
-      teamId: value.project.teamId,
-      projectId: value.project.projectId,
-      projectName: value.project.name,
-      releaseProfile: value.releaseProfile,
-    }))
+    value.deployment.aliasAssigned !== true
   ) throw new Error("Promotion evidence does not identify the current production aliases.");
-  deploymentUrl(value.deployment);
+  assertCurrentProductionDeployment(value.deployment, {
+    teamId: value.project.teamId,
+    projectId: value.project.projectId,
+    projectName: value.project.name,
+    releaseProfile: value.releaseProfile,
+  });
   assertIdentifier(value.priorDeploymentId, DEPLOYMENT_ID_PATTERN, "Prior deployment ID");
   if (value.priorDeploymentId === value.deployment.id) throw new Error("Prior deployment equals the promoted deployment.");
   if (!["emergency-static", "next-standalone-container"].includes(value.artifactKind)) {
