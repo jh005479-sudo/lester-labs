@@ -461,7 +461,11 @@ describe('frontend release artifact attestation', () => {
       writeFixtureFile(fixture.root, '.next/BUILD_ID', `${fixture.sourceCommit}\n`)
       writeFixtureFile(fixture.root, '.next/standalone/.next/BUILD_ID', `${fixture.sourceCommit}\n`)
       const inventory = createFrontendArtifactInventory(fixture)
-      assert.ok(inventory.artifactEmbeddedOrigins.includes('https://docs.example.invalid'))
+      assert.ok(
+        inventory.artifactEmbeddedOrigins.some(
+          (origin) => origin === 'https://docs.example.invalid',
+        ),
+      )
 
       writeFixtureFile(fixture.root, '.next/server/reviewed-origin-noise.js', `${reviewedContents}// changed bytes\n`)
       assert.throws(
