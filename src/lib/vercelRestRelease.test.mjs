@@ -1126,6 +1126,18 @@ describe('dependency-free Vercel REST release adapter', () => {
       })
       assert.equal(promotion.deployment.id, NEW_DEPLOYMENT_ID)
       assert.deepEqual(promotion.deployment.aliases, REVIEWED_PRODUCTION_PROMOTED_ALIASES)
+      const recovery = await recoverVercelPromotion({
+        stageEvidencePath: releaseEvidence.stageEvidencePath,
+        stageProvenancePath: releaseEvidence.stageProvenancePath,
+        token: TOKEN,
+        fetchImpl: productionMock.fetchImpl,
+        now: () => '2026-08-11T03:40:00.000Z',
+        delay: async () => {},
+        maxPollAttempts: 3,
+        pollIntervalMs: 0,
+      })
+      assert.equal(recovery.action, 'HELD_PROMOTED')
+      assert.equal(recovery.currentDeploymentId, NEW_DEPLOYMENT_ID)
       const promotionEvidencePath = join(fixture.root, 'promotion.json')
       writeFixtureFile(fixture.root, 'promotion.json', canonicalJson(promotion))
       await assert.rejects(
