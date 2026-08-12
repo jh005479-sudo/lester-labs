@@ -74,6 +74,8 @@ describe('Vercel release orchestration', () => {
     assert.match(rollback, /promotion_source_commit:/)
     assert.match(rollback, /environment: frontend-vercel-rollback/)
     assert.match(rollback, /value\.deployment\?\.id !== deploymentId/)
+    assert.match(rollback, /value\.schemaVersion !== 3/)
+    assert.doesNotMatch(rollback, /value\.schemaVersion !== 2/)
     assert.match(rollback, /vercel-rest-release\.mjs rollback/)
   })
 
