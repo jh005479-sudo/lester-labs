@@ -17,6 +17,7 @@ import {
   verifyEmergencyProductionParity,
 } from '../../scripts/security/verify-emergency-served-parity.mjs'
 import { verifyVercelStagedParity } from '../../scripts/security/verify-vercel-staged-parity.mjs'
+import { PUBLIC_TESTNET_VERCEL_TARGET } from '../../scripts/security/release-profiles.mjs'
 
 const repositoryRoot = new URL('../..', import.meta.url).pathname
 const sourceDirectory = join(repositoryRoot, 'emergency-site')
@@ -359,6 +360,50 @@ describe('wallet-free emergency served parity', () => {
         value.checkedAt = '2026-08-11T03:00:00.000Z'
       }), second),
       /30-minute timestamp skew/i,
+    )
+  })
+
+  it('accepts only the exact public-testnet provider alias metadata while still probing apex and www', async () => {
+    const sourceCommit = 'a'.repeat(40)
+    const promotionEvidence = promotionEvidenceFixture(sourceCommit)
+    promotionEvidence.releaseProfile = 'public-testnet-immutable'
+    promotionEvidence.project = {
+      teamId: PUBLIC_TESTNET_VERCEL_TARGET.teamId,
+      projectId: PUBLIC_TESTNET_VERCEL_TARGET.projectId,
+      name: PUBLIC_TESTNET_VERCEL_TARGET.projectName,
+      autoAssignCustomDomains: false,
+    }
+    promotionEvidence.deployment.aliases = [...PUBLIC_TESTNET_VERCEL_TARGET.promotedApiAliases]
+    delete promotionEvidence.evidenceSha256
+    promotionEvidence.evidenceSha256 = sha256Canonical(promotionEvidence)
+    const observed = await verifyEmergencyProductionParity({
+      ...verifiedPromotionFiles(promotionEvidence),
+      verificationProfile: 'public-testnet-github-hosted',
+      expectedSourceCommit: sourceCommit,
+      vantageId: 'github-hosted-a',
+      sourceDirectory,
+      fetchImpl: fixtureFetch({ trusted: false }),
+      checkedAt: '2026-08-11T01:01:00.000Z',
+    })
+    assert.deepEqual(observed.observations.map(({ origin }) => origin), [
+      'https://lester-labs.com',
+      'https://www.lester-labs.com',
+    ])
+    const wrongProject = structuredClone(promotionEvidence)
+    wrongProject.project.projectId = 'prj_unreviewed'
+    delete wrongProject.evidenceSha256
+    wrongProject.evidenceSha256 = sha256Canonical(wrongProject)
+    await assert.rejects(
+      verifyEmergencyProductionParity({
+        ...verifiedPromotionFiles(wrongProject),
+        verificationProfile: 'public-testnet-github-hosted',
+        expectedSourceCommit: sourceCommit,
+        vantageId: 'github-hosted-a',
+        sourceDirectory,
+        fetchImpl: async () => assert.fail('wrong target must fail before probing apex or www'),
+        checkedAt: '2026-08-11T01:01:00.000Z',
+      }),
+      /different Vercel target/i,
     )
   })
 

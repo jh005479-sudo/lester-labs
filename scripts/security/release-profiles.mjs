@@ -8,6 +8,21 @@ export const VERIFICATION_PROFILES = Object.freeze({
   PUBLIC_TESTNET: "public-testnet-github-hosted",
 });
 
+export const PRODUCTION_DOMAINS = Object.freeze([
+  "lester-labs.com",
+  "www.lester-labs.com",
+]);
+
+export const PUBLIC_TESTNET_VERCEL_TARGET = Object.freeze({
+  teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
+  projectId: "prj_dbAIzvnFWLzxkt2dpphAWbserIG7",
+  projectName: "lester-labs",
+  promotedApiAliases: Object.freeze([
+    "lester-labs-jh005479-8603-lester-labs.vercel.app",
+    "lester-labs-lester-labs.vercel.app",
+  ]),
+});
+
 const VANTAGE_IDS_BY_VERIFICATION_PROFILE = Object.freeze({
   [VERIFICATION_PROFILES.PRODUCTION]: Object.freeze([
     "protected-eu-network",
@@ -58,4 +73,15 @@ export function assertVantageId(verificationProfile, vantageId) {
     throw new Error(`Vantage ID is not approved for ${verificationProfile}.`);
   }
   return vantageId;
+}
+
+export function promotedApiAliasesForReleaseProfile(releaseProfile, project) {
+  assertReleaseProfile(releaseProfile);
+  if (releaseProfile === RELEASE_PROFILES.PRODUCTION) return PRODUCTION_DOMAINS;
+  if (
+    project?.teamId !== PUBLIC_TESTNET_VERCEL_TARGET.teamId ||
+    project?.projectId !== PUBLIC_TESTNET_VERCEL_TARGET.projectId ||
+    project?.name !== PUBLIC_TESTNET_VERCEL_TARGET.projectName
+  ) throw new Error("Public-testnet promoted aliases are bound to a different Vercel target.");
+  return PUBLIC_TESTNET_VERCEL_TARGET.promotedApiAliases;
 }
