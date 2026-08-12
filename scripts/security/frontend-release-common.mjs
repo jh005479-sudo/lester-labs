@@ -14,7 +14,10 @@ const REQUIRED_SECURITY_HEADERS = [
   "x-xss-protection",
 ];
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-const URL_EXPRESSION = /\b(?:https?|wss?):\/\/[^\s"'<>\\)]+/giu;
+// Backticks delimit URLs in Markdown/code spans embedded in serialized route
+// bodies. Excluding them prevents the delimiter from being parsed as part of
+// a hostname while preserving the complete URL path before it.
+const URL_EXPRESSION = /\b(?:https?|wss?):\/\/[^\s"'`<>\\)]+/giu;
 const ACTIVE_TAG_EXPRESSION = /<(script|img|iframe|source|video|audio|link|track|embed|object|input|image|use|feimage)\b(?:"[^"]*"|'[^']*'|[^'">])*>/giu;
 const OPENING_TAG_EXPRESSION = /<[a-z][a-z0-9:-]*(?=[\s/>])(?:"[^"]*"|'[^']*'|[^'">])*>/giu;
 const META_TAG_EXPRESSION = /<meta\b(?:"[^"]*"|'[^']*'|[^'">])*>/giu;
@@ -28,7 +31,10 @@ const ATTRIBUTE_EXPRESSION = /(?:^|[\s/])(src|href|poster|data|xlink:href|rel|ty
 const SRCSET_EXPRESSION = /(?:^|[\s/])(srcset|imagesrcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+))/giu;
 const CSS_URL_EXPRESSION = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^\s"')]+))\s*\)/giu;
 const CSS_IMPORT_EXPRESSION = /@import\s+(?:url\(\s*)?(?:"([^"]*)"|'([^']*)'|([^\s"') ;]+))/giu;
-const NON_NETWORK_NAMESPACE_ORIGINS = new Set(["http://www.w3.org"]);
+const NON_NETWORK_NAMESPACE_ORIGINS = new Set([
+  "http://www.sitemaps.org",
+  "http://www.w3.org",
+]);
 const HTML_URL_ENTITIES = Object.freeze({
   amp: "&",
   apos: "'",
@@ -126,12 +132,13 @@ export function validateFrontendReleasePolicy(value) {
       "criticalResponseHeaders",
       "allowedThirdPartyOrigins",
       "allowedActiveResourceOrigins",
+      "allowedFirstPartyActiveResourceUrls",
       "allowedArtifactEmbeddedOrigins",
       "maximumResponseBytes",
     ],
     "The frontend release policy",
   );
-  if (value.kind !== "lester-labs-frontend-release-policy" || value.schemaVersion !== 1) {
+  if (value.kind !== "lester-labs-frontend-release-policy" || value.schemaVersion !== 2) {
     throw new Error("The frontend release policy kind or schema version is unsupported.");
   }
   if (!Array.isArray(value.deploymentOrigins) || value.deploymentOrigins.length !== 2) {
@@ -256,6 +263,9 @@ export function validateFrontendReleasePolicy(value) {
   if (!Array.isArray(value.allowedActiveResourceOrigins)) {
     throw new Error("allowedActiveResourceOrigins must be an array.");
   }
+  if (!Array.isArray(value.allowedFirstPartyActiveResourceUrls)) {
+    throw new Error("allowedFirstPartyActiveResourceUrls must be an array.");
+  }
   if (!Array.isArray(value.allowedArtifactEmbeddedOrigins)) {
     throw new Error("allowedArtifactEmbeddedOrigins must be an array.");
   }
@@ -265,6 +275,29 @@ export function validateFrontendReleasePolicy(value) {
   const allowedActiveResourceOrigins = value.allowedActiveResourceOrigins.map((origin, index) =>
     normalizeOrigin(origin, `allowedActiveResourceOrigins[${index}]`),
   );
+  const allowedFirstPartyActiveResourceUrls = value.allowedFirstPartyActiveResourceUrls.map((raw, index) => {
+    let parsed;
+    try {
+      parsed = new URL(raw, "https://first-party.invalid");
+    } catch {
+      throw new Error(`allowedFirstPartyActiveResourceUrls[${index}] is not a valid URL path.`);
+    }
+    if (
+      typeof raw !== "string" ||
+      !raw.startsWith("/") ||
+      raw.startsWith("//") ||
+      parsed.origin !== "https://first-party.invalid" ||
+      parsed.username ||
+      parsed.password ||
+      !parsed.search ||
+      parsed.hash ||
+      raw !== `${parsed.pathname}${parsed.search}` ||
+      parsed.pathname.split("/").includes("..")
+    ) {
+      throw new Error(`allowedFirstPartyActiveResourceUrls[${index}] must be one exact root-relative path and query.`);
+    }
+    return raw;
+  });
   const allowedArtifactEmbeddedOrigins = value.allowedArtifactEmbeddedOrigins.map((origin, index) =>
     normalizeOrigin(origin, `allowedArtifactEmbeddedOrigins[${index}]`, { allowLoopbackHttp: false }),
   );
@@ -273,6 +306,12 @@ export function validateFrontendReleasePolicy(value) {
   }
   if (new Set(allowedActiveResourceOrigins).size !== allowedActiveResourceOrigins.length) {
     throw new Error("Allowed active-resource origins must be unique.");
+  }
+  if (
+    new Set(allowedFirstPartyActiveResourceUrls).size !== allowedFirstPartyActiveResourceUrls.length ||
+    canonicalJson(allowedFirstPartyActiveResourceUrls) !== canonicalJson([...allowedFirstPartyActiveResourceUrls].sort())
+  ) {
+    throw new Error("Allowed first-party active-resource URLs must be sorted and unique.");
   }
   if (new Set(allowedArtifactEmbeddedOrigins).size !== allowedArtifactEmbeddedOrigins.length) {
     throw new Error("Allowed embedded-artifact origins must be unique.");
@@ -297,6 +336,7 @@ export function validateFrontendReleasePolicy(value) {
     criticalResponseHeaders,
     allowedThirdPartyOrigins,
     allowedActiveResourceOrigins,
+    allowedFirstPartyActiveResourceUrls,
     allowedArtifactEmbeddedOrigins,
   };
 }
@@ -481,22 +521,24 @@ function activeResourceCandidates(body) {
   return candidates;
 }
 
-function sameOriginAssetPath(candidate, baseUrl, firstPartyOrigins) {
+function sameOriginAssetPath(candidate, baseUrl, firstPartyOrigins, allowedFirstPartyActiveResourceUrls) {
+  let parsed;
   try {
-    const parsed = new URL(decodeHtmlUrlEntities(candidate), baseUrl);
-    if (!firstPartyOrigins.has(parsed.origin) || parsed.username || parsed.password) return null;
-    if (parsed.search) {
-      throw new Error(`A first-party active-resource URL contains an unreviewed query string: ${parsed.pathname}${parsed.search}.`);
-    }
-    return parsed.pathname;
+    parsed = new URL(decodeHtmlUrlEntities(candidate), baseUrl);
   } catch {
     if (candidate.includes("?") || candidate.includes("&#")) throw new Error("An active-resource URL could not be resolved safely.");
     return null;
   }
+  if (!firstPartyOrigins.has(parsed.origin) || parsed.username || parsed.password) return null;
+  if (parsed.search && !allowedFirstPartyActiveResourceUrls.has(`${parsed.pathname}${parsed.search}`)) {
+    throw new Error(`A first-party active-resource URL contains an unreviewed query string: ${parsed.pathname}${parsed.search}.`);
+  }
+  return parsed.pathname;
 }
 
 export function observeResponseBody(body, baseUrl, responseHeaders, policy) {
   const firstPartyOrigins = new Set([...policy.deploymentOrigins, new URL(baseUrl).origin]);
+  const allowedFirstPartyActiveResourceUrls = new Set(policy.allowedFirstPartyActiveResourceUrls);
   const thirdPartyOrigins = new Set();
   const activeResourceOrigins = new Set();
   const referencedActiveResourcePaths = new Set();
@@ -517,7 +559,7 @@ export function observeResponseBody(body, baseUrl, responseHeaders, policy) {
       !firstPartyOrigins.has(origin) &&
       !NON_NETWORK_NAMESPACE_ORIGINS.has(origin)
     ) activeResourceOrigins.add(origin);
-    const path = sameOriginAssetPath(candidate, baseUrl, firstPartyOrigins);
+    const path = sameOriginAssetPath(candidate, baseUrl, firstPartyOrigins, allowedFirstPartyActiveResourceUrls);
     if (path) referencedActiveResourcePaths.add(path);
   }
 

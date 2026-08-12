@@ -22,6 +22,7 @@ import {
 import {
   canonicalJson,
   fetchBounded,
+  observeEmbeddedNetworkOrigins,
   observeResponseBody,
   sha256Bytes,
   sha256Canonical,
@@ -850,6 +851,57 @@ describe('credential-free served frontend parity', () => {
       '/logo.png',
       '/reviewed.bin',
     ])
+    const reviewedFirstPartyQuery = observeResponseBody(
+      '<link rel="icon" href="/favicon.ico?e20b20c11ae833f4">',
+      'https://www.lester-labs.com/',
+      headers,
+      policy,
+    )
+    assert.deepEqual(reviewedFirstPartyQuery.referencedActiveResourcePaths, ['/favicon.ico'])
+    assert.throws(
+      () => observeResponseBody(
+        '<link rel="icon" href="/favicon.ico?unreviewed">',
+        'https://www.lester-labs.com/',
+        headers,
+        policy,
+      ),
+      /unreviewed query string.*favicon\.ico\?unreviewed/i,
+    )
+    const markdownDelimited = observeResponseBody(
+      '<p>`https://liteforge.rpc.caldera.xyz/http`</p>',
+      'https://www.lester-labs.com/',
+      headers,
+      policy,
+    )
+    assert.ok(markdownDelimited.thirdPartyOrigins.includes('https://liteforge.rpc.caldera.xyz'))
+    assert.ok(markdownDelimited.thirdPartyOrigins.every((origin) => !origin.includes('`')))
+    assert.deepEqual(
+      observeEmbeddedNetworkOrigins('`https://liteforge.rpc.caldera.xyz/http` https://${host}`'),
+      ['https://${host', 'https://liteforge.rpc.caldera.xyz'],
+    )
+    const sitemapNamespace = observeResponseBody(
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>',
+      'https://www.lester-labs.com/sitemap.xml',
+      headers,
+      policy,
+    )
+    assert.ok(!sitemapNamespace.thirdPartyOrigins.includes('http://www.sitemaps.org'))
+    for (const invalidUrls of [
+      ['https://www.lester-labs.com/favicon.ico?e20b20c11ae833f4'],
+      ['/favicon.ico'],
+      ['/favicon.ico?z=1', '/favicon.ico?a=1'],
+      ['/favicon.ico?e20b20c11ae833f4', '/favicon.ico?e20b20c11ae833f4'],
+      ['//attacker.invalid/favicon.ico?reviewed'],
+      ['/favicon.ico?reviewed#fragment'],
+    ]) {
+      assert.throws(
+        () => validateFrontendReleasePolicy({
+          ...policy,
+          allowedFirstPartyActiveResourceUrls: invalidUrls,
+        }),
+        /first-party active-resource URL|allowedFirstPartyActiveResourceUrls/i,
+      )
+    }
     const ordinaryInlineStyles = observeResponseBody(
       '<div style="background-image:url(&#47;reviewed-background.png)"></div>' +
         '<span/style="mask-image:url(/reviewed-mask.svg)"></span>',
