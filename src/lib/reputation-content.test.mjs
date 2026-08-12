@@ -7,16 +7,26 @@ function read(relativePath) {
   return readFileSync(new URL(relativePath, import.meta.url), 'utf8')
 }
 
-describe('public compromise-remediation posture', () => {
-  it('preserves future production gates while publishing the bounded testnet exception and deferring the appeal', () => {
+describe('public release posture', () => {
+  it('keeps release controls in the central model while product docs stay focused on the current suite', () => {
     const homepage = read('../app/page.tsx')
-    const docs = read('../content/docs/index.md')
+    const docs = [
+      'index.md',
+      'token-factory.md',
+      'liquidity-locker.md',
+      'token-vesting.md',
+      'airdrop-tool.md',
+      'governance.md',
+      'launchpad.md',
+      'dex-swap.md',
+      'ledger.md',
+    ].map((file) => read(`../content/docs/${file}`)).join('\n')
 
     assert.match(homepage, /PUBLIC_RELEASE_STATUS/)
-    assert.match(docs, /contract and authority remediation/i)
-    assert.match(docs, /malicious-warning and served-site remediation/i)
-    assert.match(docs, /future\s+production release still requires separate reviewed controller and treasury\s+safes/i)
-    assert.match(docs, /apex.*www.*parity/i)
+    assert.match(docs, /Contract directory/i)
+    assert.match(docs, /createToken\(name, symbol, totalSupply/i)
+    assert.match(docs, /swapExactTokensForTokens/i)
+    assert.doesNotMatch(docs, /compromis|legacy deployment|replacement status|authority model|remediation|served-site|MetaMask|cutover block/i)
     assert.equal(PUBLIC_RELEASE_STATUS.mode, 'approved-public-testnet')
     assert.match(PUBLIC_RELEASE_STATUS.security.gatesSummary, /does not weaken the future production profile/i)
     assert.match(PUBLIC_RELEASE_STATUS.security.rows.find((row) => row.area === 'Site reputation')?.detail ?? '', /MetaMask warning.*appeal/i)

@@ -139,7 +139,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
               textShadow: '0 2px 20px rgba(10,8,24,.7)',
             }}
           >
-            Independent LitVM Testnet Software
+            A LitVM native DeFi suite
           </div>
 
           <div

@@ -9,10 +9,70 @@ interface DocEntry {
   content: string
 }
 
+type DocBlock =
+  | { type: 'markdown'; content: string }
+  | { type: 'table'; headers: string[]; rows: string[][] }
+
+function splitTableRow(line: string) {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim())
+}
+
+function isTableSeparator(line: string) {
+  const cells = splitTableRow(line)
+  return cells.length > 1 && cells.every((cell) => /^:?-{3,}:?$/.test(cell))
+}
+
+function parseDocBlocks(content: string): DocBlock[] {
+  const lines = content.split('\n')
+  const blocks: DocBlock[] = []
+  let markdownStart = 0
+  let index = 0
+
+  while (index < lines.length - 1) {
+    const headers = splitTableRow(lines[index])
+    if (!lines[index].includes('|') || !isTableSeparator(lines[index + 1])) {
+      index += 1
+      continue
+    }
+
+    const markdown = lines.slice(markdownStart, index).join('\n').trim()
+    if (markdown) blocks.push({ type: 'markdown', content: markdown })
+
+    const rows: string[][] = []
+    index += 2
+    while (index < lines.length && lines[index].includes('|')) {
+      const row = splitTableRow(lines[index])
+      if (row.length !== headers.length) break
+      rows.push(row)
+      index += 1
+    }
+    blocks.push({ type: 'table', headers, rows })
+    markdownStart = index
+  }
+
+  const markdown = lines.slice(markdownStart).join('\n').trim()
+  if (markdown) blocks.push({ type: 'markdown', content: markdown })
+  return blocks
+}
+
+function MarkdownCell({ content }: { content: string }) {
+  return (
+    <ReactMarkdown components={{ p: ({ children }) => <>{children}</> }}>
+      {content}
+    </ReactMarkdown>
+  )
+}
+
 export function DocsClient({ docs }: { docs: DocEntry[] }) {
   const [activeSlug, setActiveSlug] = useState('index')
 
   const activeDoc = docs.find((d) => d.slug === activeSlug) ?? docs[0]
+  const blocks = parseDocBlocks(activeDoc.content)
 
   return (
     <div className="min-h-screen pt-36 pb-16 px-4 sm:px-6 lg:px-8 max-w-[1480px] mx-auto flex flex-col lg:grid lg:grid-cols-[320px_minmax(0,1fr)] gap-6 lg:gap-10">
@@ -60,7 +120,28 @@ export function DocsClient({ docs }: { docs: DocEntry[] }) {
 
       {/* Content */}
       <article className="min-w-0 prose-docs p-6 md:p-8 rounded-2xl border border-white/10 bg-[rgba(255,255,255,0.015)]">
-        <ReactMarkdown>{activeDoc.content}</ReactMarkdown>
+        {blocks.map((block, index) => block.type === 'markdown' ? (
+          <ReactMarkdown key={`markdown-${index}`}>{block.content}</ReactMarkdown>
+        ) : (
+          <table key={`table-${index}`}>
+            <thead>
+              <tr>
+                {block.headers.map((header, cellIndex) => (
+                  <th key={`header-${cellIndex}`}><MarkdownCell content={header} /></th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, rowIndex) => (
+                <tr key={`row-${rowIndex}`}>
+                  {row.map((cell, cellIndex) => (
+                    <td key={`cell-${rowIndex}-${cellIndex}`}><MarkdownCell content={cell} /></td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ))}
       </article>
     </div>
   )

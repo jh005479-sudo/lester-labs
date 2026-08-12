@@ -1,52 +1,59 @@
-# Governance — Intentionally Disabled Immutable Testnet Stack
+# Governance
 
-> **Legacy deployment status:** the legacy governance token, governor, and timelock are
-> retired and read-only. Proposal submission, voting, delegation, queueing,
-> cancellation, and execution are disabled in the Lester Labs application.
+The Governance section provides contract data, proposal views, and a local
+proposal-drafting interface for LitVM testnet.
 
-Live-chain review found that the compromised controller owns the legacy voting
-token, holds the concentrated delegated supply, and retains timelock admin and
-canceller authority while the timelock has no executor. Those addresses must
-not be described as canonical governance or revived merely because the main
-application contract set is replaced.
+On-chain proposal, voting, queue, and execution actions are not enabled in the
+current Lester Labs interface. Drafts remain local until they are copied into
+another workflow.
 
-## Historical addresses
+## Contracts
 
-| Contract | Retired address |
+| Contract | Address |
 |---|---|
-| LitGovToken | `0xa5111cedc04554676DbCCA39F2268070008C7A8A` |
-| LitGovernor | `0x5b0092996BA897617B46D42B3F108B253be9Ad3d` |
-| LitTimelock | `0xd38ed693730Db3eB22bA6d6F0050FC45Ac9240ba` |
+| Lit Governance Token (`LGT`) | `0x7c1A67Ec89c22b8a738DD881289576102306219C` |
+| Governor | `0x05e29e239C6e40EcF9639781bba5D558b9f98305` |
+| Timelock | `0x17Ddf4d2e7C0789f600d4f7182785e9E193b44aA` |
 
-The explorer may display historical calls, but must label the token and role
-graph as retired. A matching `LGT` symbol is not identity or provenance.
+## Governance parameters
 
-## Safe governance work
+| Parameter | Value |
+|---|---:|
+| Voting delay | 1 block |
+| Voting period | 45,600 blocks |
+| Proposal threshold | 100,000 `LGT` |
+| Quorum | 4% |
+| Timelock delay | 172,800 seconds (2 days) |
 
-Teams may draft proposal text locally, document an intended action, identify a
-public discussion link, and state a future execution path. This is planning
-only. The Lester Labs UI does not publish to Snapshot/IPFS, collect votes, or
-execute an on-chain action.
+## Token functions
 
-Do not ask a community to sign an opaque typed-data payload or send a vote to
-the retired contracts. Any third-party forum or Snapshot space must be verified
-independently and is outside Lester Labs' security boundary.
+The governance token implements ERC-20 and ERC-20 Votes interfaces.
 
-## Replacement status
+| Function | Description |
+|---|---|
+| `delegate(delegatee)` | Assigns voting power to a delegate |
+| `getVotes(account)` | Returns current delegated voting power |
+| `getPastVotes(account, blockNumber)` | Returns voting power at a past block |
+| `getPastTotalSupply(blockNumber)` | Returns total supply at a past block |
+| `nonces(account)` | Returns the signature nonce for an account |
 
-The immutable testnet deployment includes a fresh governance token, timelock,
-and governor, but governance writes intentionally remain disabled:
+## Governor functions
 
-- the complete test governance supply and its delegated votes are held by the
-  no-key `0x…01` precompile, not the disclosed test treasury;
-- the emergency canceller is also frozen at `0x…01`, while the timelock's
-  self-administered Governor path cannot meet the proposal threshold; and
-- the frontend governance latch is false even though the three exact runtimes
-  are retained in the verified deployment manifest.
+| Function | Description |
+|---|---|
+| `proposalCount()` | Returns the number of proposals |
+| `proposals(proposalId)` | Returns core proposal timing and proposer data |
+| `proposalDetails(proposalId)` | Returns targets, values, calldata, and description |
+| `proposalVotes(proposalId)` | Returns against, for, and abstain totals |
+| `state(proposalId)` | Returns the proposal state |
+| `quorum(proposalId)` | Returns the quorum requirement |
+| `hasVoted(proposalId, account)` | Reports whether an account voted |
+| `propose(targets, values, calldatas, description)` | Creates a proposal |
+| `castVote(proposalId, support)` | Casts against, for, or abstain |
+| `castVoteWithReason(proposalId, support, reason)` | Casts a vote with text |
+| `queue(proposalId)` | Queues a successful proposal |
+| `execute(proposalId)` | Executes a queued proposal |
+| `cancel(proposalId)` | Cancels an eligible proposal |
 
-No governance write is authorized for this testnet profile. A future production
-governance deployment requires a separate reviewed, executable multisig/
-timelock authority design and cannot activate merely by changing frontend copy.
-
-No governance outcome is proof of safety or value, and source availability is
-not an audit.
+The function table documents the deployed interfaces. The Lester Labs UI
+currently uses the read methods and local drafting features only.

@@ -1,60 +1,38 @@
-# Liquidity Locker — Immutable Replacement and Legacy Withdrawal
+# Liquidity Locker
 
-> **Legacy deployment status:** the locker at
-> `0x80d88C7F529D256e5e6A2CB0e0C30D82bC8827A9` is a compromised legacy
-> deployment. New locks and token approvals to that locker are disabled. A
-> narrowly authenticated withdrawal may remain available for an existing,
-> matured lock when the connected wallet is the recorded withdrawer.
+The Liquidity Locker holds LP tokens until a selected unlock timestamp.
 
-New testnet locks use only the approved immutable replacement at
-`0xEfE43FB51a3219B35Ffc30e508e14003752fc18f` after chain-`4441`, target,
-spender, native-value, and runtime checks pass.
+## Contract
 
-## Historical lock behavior
+| Parameter | Value |
+|---|---|
+| Address | `0xEfE43FB51a3219B35Ffc30e508e14003752fc18f` |
+| Lock fee | `0.03 zkLTC` |
 
-A lock record contains an LP-token address, amount, unlock timestamp,
-withdrawer, and withdrawal state. The reviewed legacy implementation has no
-setter to change the recorded withdrawer or shorten/edit the timestamp after
-creation. Only the recorded withdrawer can withdraw after the timestamp.
+## Create a lock
 
-That limited property does not make the factory safe for new deposits. Its
-owner and fee path were compromised, and an LP token itself may represent an
-unsafe or retired DEX pair.
+1. Select the LP token and amount.
+2. Choose a future unlock date and the address that can withdraw.
+3. Approve the locker for the LP-token amount.
+4. Submit the lock transaction with the displayed fee.
 
-## Existing-lock recovery
+Each lock receives a numeric ID. Store the ID or use the Locker interface to
+find the associated record.
 
-1. Open the source-pinned locker view; never paste a locker address supplied by
-   a message or mutable environment value.
-2. Verify the exact locker runtime hash and the lock record's token,
-   withdrawer, amount, unlock time, and unwithdrawn state.
-3. Verify the connected wallet exactly matches the recorded withdrawer.
-4. If the lock is mature, review a `withdraw(lockId)` transaction with no native
-   value and the expected locker as its target.
-5. After confirmation, verify the token transfer and updated withdrawal state
-   on an independently selected explorer or RPC.
+## Contract functions
 
-Do not grant a new LP-token allowance or create a new lock on the legacy
-deployment. If a position is not present in the source-pinned recovery
-registry, the application must not construct a recovery transaction for it.
+| Function | Description |
+|---|---|
+| `lockLiquidity(lpToken, amount, unlockTime, withdrawer)` | Transfers LP tokens into a new lock and returns its ID |
+| `getLock(lockId)` | Returns the token, amount, unlock time, withdrawer, and withdrawal state |
+| `locks(lockId)` | Reads a lock from the public mapping |
+| `lockCount()` | Returns the number of created locks |
+| `lockFee()` | Returns the current lock fee |
+| `withdraw(lockId)` | Releases a matured lock to its configured withdrawer |
 
-## Historical fee
+`lockLiquidity` requires a positive amount, a future Unix timestamp, and a
+nonzero withdrawer address. `withdraw` succeeds only after the unlock time and
+can be called only by the configured withdrawer.
 
-The legacy lock fee was `0.03 zkLTC`. It is not a current service offer. The
-legacy contract accrued fees for its compromised owner.
-
-## Approved replacement
-
-The approved replacement:
-
-- freezes its controller at the no-key `0x…01` precompile;
-- sends the `0.03 zkLTC` test fee directly to the disclosed valueless test
-  treasury, which has no administrative role; and
-- has no upgrade path and cannot rewrite any existing lock record.
-
-The frontend verifies constructor-bound roles, runtime bytecode, chain, target,
-function, allowance spender, fee, and lock parameters before requesting a
-wallet transaction. Replacement activation does not migrate old lock records;
-historical recovery remains tied to the exact legacy contract holding the LP
-tokens.
-
-Upstream Unicrypt-style inspiration is not an audit of either deployment.
+The contract emits `LockCreated` when a lock is opened and `LockWithdrawn` when
+it is released.

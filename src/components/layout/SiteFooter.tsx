@@ -33,7 +33,7 @@ export function SiteFooter() {
         </div>
         <div className="footer-cols">
           <div className="footer-col">
-            <h4>Status &amp; recovery</h4>
+            <h4>Tools</h4>
             {toolLinks.map(({ href, label }) => (
               <Link key={href} href={href} prefetch={false}>{label}</Link>
             ))}
@@ -58,8 +58,8 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="footer-bottom">
-        <span>© 2026 Lester Labs. Independent testnet software.</span>
-        <span>Not affiliated with or endorsed by Litecoin, LitVM, Caldera, or MetaMask. No rewards promised.</span>
+        <span>© 2026 Lester Labs. Built for LitVM LiteForge testnet.</span>
+        <span>Testnet assets are for development and testing only.</span>
       </div>
     </footer>
   )

@@ -16,7 +16,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.lester-labs.com'),
   title: {
-    default: 'Lester Labs — LitVM Testnet Security & Recovery',
+    default: 'Lester Labs — A LitVM Native DeFi Suite',
     // Route metadata already includes the brand. Keep it from being appended twice.
     template: '%s',
   },
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   },
   manifest: '/site.webmanifest',
   openGraph: {
-    title: 'Lester Labs — LitVM Testnet Security & Recovery',
+    title: 'Lester Labs — A LitVM Native DeFi Suite',
     description: PUBLIC_RELEASE_STATUS.openGraphDescription,
     url: 'https://www.lester-labs.com',
     siteName: 'Lester Labs',
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Lester Labs — LitVM Testnet Security & Recovery',
+    title: 'Lester Labs — A LitVM Native DeFi Suite',
     description: PUBLIC_RELEASE_STATUS.twitterDescription,
   },
 }

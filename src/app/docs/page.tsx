@@ -2,27 +2,22 @@ import fs from 'fs'
 import path from 'path'
 import { Metadata } from 'next'
 import { DocsClient } from './DocsClient'
-import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 export const metadata: Metadata = {
-  title: 'Security, Recovery & Deployment Docs | Lester Labs',
-  description: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-    ? 'Immutable public-testnet replacement status, legacy recovery boundaries, bounded data coverage, and future production requirements for Lester Labs on LitVM.'
-    : 'Current containment status, legacy recovery boundaries, replacement role separation, bounded data coverage, and source-pinned deployment requirements for Lester Labs on LitVM testnet.',
+  title: 'Developer Documentation | Lester Labs',
+  description: 'Guides, contract addresses, functions, and network configuration for the Lester Labs DeFi suite on LitVM testnet.',
   keywords: [
     'Lester Labs docs',
-    'LitVM DEX recovery documentation',
-    'Lester Labs post-compromise deployment',
-    'LitVM launchpad recovery',
-    'LitVM contract verification',
-    'Lester Labs containment status',
+    'LitVM DeFi documentation',
+    'LitVM smart contracts',
+    'LitVM DEX',
+    'LitVM launchpad',
+    'LitVM developer guides',
   ],
   alternates: { canonical: 'https://www.lester-labs.com/docs' },
   openGraph: {
-    title: 'Security, Recovery & Deployment Docs | Lester Labs',
-    description: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-      ? 'Immutable testnet replacement, recovery boundaries, frozen authority, and separate future production requirements.'
-      : 'Containment, recovery boundaries, replacement roles, and source-pinned deployment requirements.',
+    title: 'Developer Documentation | Lester Labs',
+    description: 'Guides, contract addresses, and function references for the Lester Labs suite on LitVM testnet.',
     url: 'https://www.lester-labs.com/docs',
     siteName: 'Lester Labs',
     locale: 'en_US',
@@ -30,10 +25,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Security, Recovery & Deployment Docs | Lester Labs',
-    description: PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-      ? 'Source-pinned public-testnet replacement and deployment-evidence documentation for independent review.'
-      : 'Current containment and replacement-deployment documentation for independent review.',
+    title: 'Developer Documentation | Lester Labs',
+    description: 'Build with the Lester Labs DeFi suite on LitVM testnet.',
   },
 }
 

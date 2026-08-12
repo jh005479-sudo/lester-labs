@@ -1,52 +1,48 @@
-# Token Factory — Immutable Public-Testnet Replacement
+# Token Factory
 
-> **Active replacement status:** new token creation targets only the
-> source-pinned immutable factory on LitVM LiteForge chain `4441`. The legacy
-> factory remains retired and read-only.
+The Token Factory creates configurable ERC-20 tokens on LitVM testnet.
 
-## Legacy deployment
+## Contract
 
-The factory at `0x93acc61fcdc2e3407A0c03450Adfd8aE78964948`
-remains associated with compromised legacy authority. Do not call its
-`createToken` function or send zkLTC to it. Existing child tokens remain
-independent ERC-20 contracts; replacing the factory does not alter their owners
-or make them trusted.
+| Parameter | Value |
+|---|---|
+| Address | `0x1A098a86d4C73b44d38e40711e0dd869591B4F60` |
+| Creation fee | `0.05 zkLTC` |
 
-The legacy creation fee was `0.05 zkLTC` and accrued under the compromised
-factory owner. That is a historical parameter, not a current offer.
+## Create a token
 
-## Approved replacement
+1. Enter the token name, symbol, initial supply, and decimals.
+2. Select whether minting, burning, and pausing should be available.
+3. Review the fee and parameters.
+4. Submit the creation transaction.
 
-The approved factory is
-`0x1A098a86d4C73b44d38e40711e0dd869591B4F60`. It:
+The initial supply is minted to the creator. The selected decimals value is
+stored by the new token and the initial supply is passed to the factory in base
+units.
 
-- was created in the source-pinned attested deployment sequence;
-- has its administrative owner permanently frozen at
-  `0x0000000000000000000000000000000000000001`;
-- forwards each `0.05 zkLTC` testnet creation fee directly to the disclosed
-  valueless test treasury rather than accumulating funds for an owner sweep;
-- has no upgrade path and rejects invalid role addresses; and
-- is reachable only after the frontend proves chain `4441`, the exact factory
-  address/runtime, function, and native value.
+## Factory functions
 
-The fee recipient has no controller authority. This testnet-only authority
-model does not replace the distinct multisig controller/treasury requirements
-for a future real-value production deployment.
+| Function | Description |
+|---|---|
+| `createToken(name, symbol, totalSupply, decimals, mintable, burnable, pausable)` | Creates a token and returns its address |
+| `creationFee()` | Returns the current creation fee |
 
-## Child-token behavior
+`createToken` is payable and requires the exact value returned by
+`creationFee()`.
 
-Token creators select custom decimals and optional owner minting, holder
-burning, and owner pause controls. The initial supply is minted to the creator.
-Child-token ownership belongs to the creator, not Lester Labs:
+## Created-token functions
 
-- `mint(address, amount)` — child-owner only, when enabled at creation;
-- `burn(amount)` — holder action, when enabled at creation; and
-- `pause()` / `unpause()` — child-owner controls, when enabled.
+Every created token includes the standard ERC-20 functions such as
+`totalSupply()`, `balanceOf()`, `transfer()`, `approve()`, and
+`transferFrom()`.
 
-Verify a child's exact runtime, owner, mintability, pause controls, supply, and
-factory-event provenance. A matching name or symbol does not prove factory
-origin. The explorer list is a bounded newest-event sample, not a complete
-index.
+| Optional function | Availability |
+|---|---|
+| `mint(to, amount)` | Token owner, when minting was enabled |
+| `burn(amount)` | Token holder, when burning was enabled |
+| `burnFrom(account, amount)` | Approved spender, when burning was enabled |
+| `pause()` | Token owner, when pausing was enabled |
+| `unpause()` | Token owner, when pausing was enabled |
 
-OpenZeppelin ancestry does not constitute an audit of Lester Labs, the
-deployment process, or a token creator's choices.
+The factory emits `TokenCreated(tokenAddress, creator, name, symbol)` after a
+successful deployment.

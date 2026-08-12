@@ -1,53 +1,44 @@
-# The Ledger — Immutable Replacement and Historical Reads
+# The Ledger
 
-> **Legacy deployment status:** the Ledger at
-> `0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079` is a compromised legacy
-> deployment. Historical messages can be sampled and exact transactions can be
-> looked up, but paid posting is disabled. Do not call `post()` directly or send
-> zkLTC to this contract.
+The Ledger publishes short messages as LitVM transaction data and emits an
+event that can be displayed in the Lester Labs message feed.
 
-New testnet posts use only the approved immutable Ledger at
-`0xEdf195A557EaAE7829f867d6f84316908A65D9B1`, after chain-`4441`, target,
-runtime, message, and native-value checks pass.
+## Contract
 
-## What the legacy contract recorded
+| Parameter | Value |
+|---|---|
+| Address | `0xEdf195A557EaAE7829f867d6f84316908A65D9B1` |
+| Minimum post fee | `0.01 zkLTC` |
+| Maximum message size | `1,024 bytes` |
 
-A successful `post(message)` transaction placed ABI-encoded message bytes in
-transaction input data and emitted a `MessagePosted` event. Confirmed chain
-data cannot be edited through the Ledger contract. Availability and retention
-still depend on the testnet and on an RPC, archive, or explorer retaining the
-relevant history; the website does not promise perpetual availability.
+## Post a message
 
-The Lester feed is a paginated RPC/event view. It is not a complete archive,
-moderated record, or proof that a message is accurate or endorsed. Anyone could
-post arbitrary content from any wallet.
+1. Open the Ledger and enter a message.
+2. Review the UTF-8 byte count and posting fee.
+3. Submit the transaction.
+4. Follow the transaction or event in the LitVM explorer.
 
-## Reading historical messages
+## Contract functions
 
-- A wallet is not required to read the sampled feed.
-- Verify the sender, exact Ledger target, block, transaction status, input data,
-  and event log before attributing a message.
-- Use an exact transaction hash on an independently selected RPC or explorer
-  when completeness matters.
-- Do not infer identity, authorship beyond the sending address, or Lester Labs
-  endorsement from an on-chain message.
+| Function | Description |
+|---|---|
+| `post(message)` | Publishes a nonempty byte string and emits `MessagePosted` |
+| `messageCount()` | Returns the number of messages posted to the contract |
+| `MIN_FEE()` | Returns the current minimum posting fee |
 
-## Historical fee and roles
+`post` is payable. The attached value must be at least `MIN_FEE()`, and the
+message must contain between 1 and 1,024 bytes.
 
-The legacy minimum fee was `0.01 zkLTC`. Its owner could change that fee and
-the treasury destination. The legacy configuration split value between a
-treasury transfer and contract-held balance; both mutable control and fee
-routing were compromised. This is why checking only `owner()` or only
-`treasury()` would be insufficient.
+## Message events
 
-## Approved replacement
+```solidity
+event MessagePosted(
+  address indexed sender,
+  uint256 indexed index,
+  uint256 timestamp,
+  bytes data
+);
+```
 
-The replacement freezes its controller at the no-key `0x…01` precompile. The
-disclosed valueless test treasury receives the configured direct share and is
-the only destination for the contract-held share; it has no admin role. There
-is no upgrade path or arbitrary withdrawal recipient.
-
-Posting is available only when the exact runtime, role graph, fee behavior, and
-frontend chain/target/function/value allowlist are verified.
-Historical counts remain first-party activity records, not counts of distinct
-authors, wallets, or people.
+The website reads recent `MessagePosted` events in pages. For older messages,
+query the event directly by contract address, block range, or transaction hash.
