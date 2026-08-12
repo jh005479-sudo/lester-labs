@@ -53,6 +53,8 @@ const REVIEWED_PRODUCTION_PROVIDER_ALIASES = [
   'lester-labs-lester-labs.vercel.app',
 ]
 const REVIEWED_PRODUCTION_PROMOTED_ALIASES = [
+  'lester-labs-jh005479-8603-lester-labs.vercel.app',
+  'lester-labs-lester-labs.vercel.app',
   'lester-labs-psi.vercel.app',
   'www.lester-labs.com',
 ]
