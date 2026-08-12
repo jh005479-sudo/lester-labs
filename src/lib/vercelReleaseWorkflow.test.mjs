@@ -63,6 +63,11 @@ describe('Vercel release orchestration', () => {
     assert.match(release, /needs\.emergency-production-parity\.result != 'success'/)
     assert.match(release, /uses: \.\/\.github\/workflows\/frontend-served-parity\.yml/)
     assert.match(release, /uses: \.\/\.github\/workflows\/emergency-served-parity\.yml/)
+    assert.equal(
+      release.match(/promotion_run_attempt: \$\{\{ fromJSON\(github\.run_attempt\) \}\}/gu)?.length,
+      2,
+    )
+    assert.doesNotMatch(release, /promotion_run_attempt: \$\{\{ github\.run_attempt \}\}/u)
 
     assert.match(rollback, /expected_promoted_deployment_id:/)
     assert.match(rollback, /adapter_commit:/)

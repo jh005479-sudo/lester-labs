@@ -1117,7 +1117,7 @@ jobs:
       reviewed_commit: ${{ needs.validate-inputs.outputs.reviewed_commit }}
       release_run_id: ${{ needs.validate-inputs.outputs.attestation_run_id }}
       promotion_run_id: ${{ github.run_id }}
-      promotion_run_attempt: ${{ github.run_attempt }}
+      promotion_run_attempt: ${{ fromJSON(github.run_attempt) }}
       release_profile: ${{ needs.validate-inputs.outputs.release_profile }}
 
   emergency-production-parity:
@@ -1133,7 +1133,7 @@ jobs:
     with:
       reviewed_commit: ${{ needs.validate-inputs.outputs.reviewed_commit }}
       promotion_run_id: ${{ github.run_id }}
-      promotion_run_attempt: ${{ github.run_attempt }}
+      promotion_run_attempt: ${{ fromJSON(github.run_attempt) }}
       release_profile: ${{ needs.validate-inputs.outputs.release_profile }}
 
   rollback-on-parity-failure:
