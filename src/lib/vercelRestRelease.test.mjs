@@ -52,6 +52,10 @@ const REVIEWED_PRODUCTION_PROVIDER_ALIASES = [
   'lester-labs-jh005479-8603-lester-labs.vercel.app',
   'lester-labs-lester-labs.vercel.app',
 ]
+const REVIEWED_PRODUCTION_PROMOTED_ALIASES = [
+  'lester-labs-psi.vercel.app',
+  'www.lester-labs.com',
+]
 const OLD_DEPLOYMENT_ID = 'dpl_old000001'
 const NEW_DEPLOYMENT_ID = 'dpl_new000001'
 const THIRD_DEPLOYMENT_ID = 'dpl_third00001'
@@ -1041,7 +1045,7 @@ describe('dependency-free Vercel REST release adapter', () => {
         projectId: REVIEWED_PRODUCTION_PROJECT_ID,
         projectName: 'lester-labs',
         publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
-        productionAliases: ['lester-labs.com', 'www.lester-labs.com'],
+        productionAliases: REVIEWED_PRODUCTION_PROMOTED_ALIASES,
         createdAliases: REVIEWED_PRODUCTION_PROVIDER_ALIASES,
         stagedAliasAssigned: true,
       })
@@ -1119,7 +1123,7 @@ describe('dependency-free Vercel REST release adapter', () => {
         pollIntervalMs: 0,
       })
       assert.equal(promotion.deployment.id, NEW_DEPLOYMENT_ID)
-      assert.deepEqual(promotion.deployment.aliases, ['lester-labs.com', 'www.lester-labs.com'])
+      assert.deepEqual(promotion.deployment.aliases, REVIEWED_PRODUCTION_PROMOTED_ALIASES)
       const promotionEvidencePath = join(fixture.root, 'promotion.json')
       writeFixtureFile(fixture.root, 'promotion.json', canonicalJson(promotion))
       await assert.rejects(
