@@ -45,6 +45,10 @@ function makeFixture() {
     new URL('../config/frontendReleasePolicy.json', import.meta.url),
     'utf8',
   )
+  const reviewedOriginNoiseContents = readFileSync(
+    new URL('../config/reviewedEmbeddedOriginNoise.json', import.meta.url),
+    'utf8',
+  )
   const policyValue = JSON.parse(policyContents)
   for (const [path, contents] of [
     ['package.json', '{"name":"fixture","packageManager":"npm@11.16.0"}\n'],
@@ -52,6 +56,7 @@ function makeFixture() {
     ['next.config.ts', 'export default {}\n'],
     ['vercel.json', '{"framework":"nextjs"}\n'],
     ['src/config/frontendReleasePolicy.json', policyContents],
+    ['src/config/reviewedEmbeddedOriginNoise.json', reviewedOriginNoiseContents],
     ['.next/static/chunks/app.js', CHUNK_BODY],
     ['.next/server/app/page.js', 'export default 1\n'],
     ['.next/standalone/server.js', 'export default 1\n'],
@@ -418,6 +423,56 @@ describe('frontend release artifact attestation', () => {
       assert.throws(
         () => createFrontendArtifactInventory({ ...fixture, sourceCommit: wrongCommit }),
         /does not match clean Git HEAD/i,
+      )
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it('accepts reviewed origin noise only at the exact path and byte hash', () => {
+    const fixture = makeFixture()
+    try {
+      const reviewedPath = 'build/server/reviewed-origin-noise.js'
+      const reviewedContents = 'const documentation = "https://docs.example.invalid"\n'
+      writeFixtureFile(fixture.root, '.next/server/reviewed-origin-noise.js', reviewedContents)
+      const reviewPath = join(fixture.root, 'src/config/reviewedEmbeddedOriginNoise.json')
+      const review = JSON.parse(readFileSync(reviewPath, 'utf8'))
+      review.observations.push({
+        path: reviewedPath,
+        sha256: sha256Bytes(reviewedContents),
+        origins: ['https://docs.example.invalid'],
+      })
+      review.observations.sort((left, right) => left.path.localeCompare(right.path))
+      writeFixtureFile(fixture.root, 'src/config/reviewedEmbeddedOriginNoise.json', canonicalJson(review))
+      execFileSync('git', ['add', 'src/config/reviewedEmbeddedOriginNoise.json'], { cwd: fixture.root })
+      execFileSync(
+        'git',
+        ['-c', 'user.name=Release Fixture', '-c', 'user.email=fixture@invalid.example', 'commit', '--quiet', '-m', 'review exact origin noise'],
+        {
+          cwd: fixture.root,
+          env: {
+            ...process.env,
+            GIT_AUTHOR_DATE: '2026-08-10T00:02:00Z',
+            GIT_COMMITTER_DATE: '2026-08-10T00:02:00Z',
+          },
+        },
+      )
+      fixture.sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: fixture.root, encoding: 'utf8' }).trim()
+      writeFixtureFile(fixture.root, '.next/BUILD_ID', `${fixture.sourceCommit}\n`)
+      writeFixtureFile(fixture.root, '.next/standalone/.next/BUILD_ID', `${fixture.sourceCommit}\n`)
+      const inventory = createFrontendArtifactInventory(fixture)
+      assert.ok(inventory.artifactEmbeddedOrigins.includes('https://docs.example.invalid'))
+
+      writeFixtureFile(fixture.root, '.next/server/reviewed-origin-noise.js', `${reviewedContents}// changed bytes\n`)
+      assert.throws(
+        () => createFrontendArtifactInventory(fixture),
+        /docs\.example\.invalid.*reviewed-origin-noise\.js.*sha256/i,
+      )
+      writeFixtureFile(fixture.root, '.next/server/reviewed-origin-noise.js', reviewedContents)
+      writeFixtureFile(fixture.root, '.next/server/moved-origin-noise.js', reviewedContents)
+      assert.throws(
+        () => createFrontendArtifactInventory(fixture),
+        /docs\.example\.invalid.*moved-origin-noise\.js.*sha256/i,
       )
     } finally {
       rmSync(fixture.root, { recursive: true, force: true })

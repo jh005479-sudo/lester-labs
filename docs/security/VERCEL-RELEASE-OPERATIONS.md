@@ -41,6 +41,20 @@ bytes, closes the preflight/upload race by re-reading the current deployment,
 and requires the new deployment to be `READY/STAGED`, alias-free, and identified
 by one immutable `dpl_` ID and `.vercel.app` URL.
 
+The sole public-testnet exception is bound in code to team
+`team_vnMG4DPuSLlOs9bEi7QcRjhx`, project
+`prj_dbAIzvnFWLzxkt2dpphAWbserIG7`, project name `lester-labs`, and profile
+`public-testnet-immutable`. Vercel may report `aliasAssigned: true` only when the
+raw `READY/STAGED` alias array is exactly
+`lester-labs-jh005479-8603-lester-labs.vercel.app` and
+`lester-labs-lester-labs.vercel.app`. The promoted API state must retain exactly
+that same pair. The immutable deployment hostname, project alias, apex, `www`,
+and every other hostname are rejected from that API alias array. Apex and `www`
+remain absent throughout staging and are proven separately after promotion by
+credential-free served-artifact parity. `autoAssignCustomDomains === false`
+remains mandatory. This exception does not apply to the
+`production-separated-authority` profile.
+
 Promotion treats a lost API response or failed confirmation as an ambiguous
 provider mutation. The adapter re-reads the project and accepts only the exact
 staged or prior deployment IDs. Its recovery action is fixed in the signed stage

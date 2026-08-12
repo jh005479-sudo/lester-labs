@@ -30,6 +30,7 @@ import { assertReleaseProfile } from "./release-profiles.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const defaultPolicyPath = join(repositoryRoot, "src/config/frontendReleasePolicy.json");
+const EMBEDDED_ORIGIN_NOISE_PATH = "src/config/reviewedEmbeddedOriginNoise.json";
 const BUILD_EXCLUSIONS = ["cache", "diagnostics", "trace", "types"];
 const MAXIMUM_INVENTORY_FILES = 50_000;
 const MAXIMUM_INVENTORY_FILE_BYTES = 256 * 1024 * 1024;
@@ -44,6 +45,7 @@ const SOURCE_MATERIAL_PATHS = [
   "next.config.ts",
   "vercel.json",
   "src/config/frontendReleasePolicy.json",
+  EMBEDDED_ORIGIN_NOISE_PATH,
 ];
 const REVIEW_ROLES = ["release-operations", "source-security"];
 const APPROVAL_ENVIRONMENTS = Object.freeze({
@@ -286,29 +288,71 @@ function collectArtifactInventory(buildDirectory, publicDirectory, root) {
   return { artifactInventory, publicArtifacts: summarizeFiles(publicArtifacts) };
 }
 
-function collectArtifactEmbeddedOrigins(buildDirectory, publicDirectory, policy) {
+export function validateReviewedEmbeddedOriginNoise(value) {
+  assertExactKeys(value, ["schemaVersion", "observations"], "Reviewed embedded-origin noise");
+  if (value.schemaVersion !== 1 || !Array.isArray(value.observations)) {
+    throw new Error("Reviewed embedded-origin noise must use schemaVersion 1 with observations.");
+  }
+  const previousPaths = new Set();
+  for (const observation of value.observations) {
+    assertExactKeys(observation, ["path", "sha256", "origins"], "Reviewed embedded-origin observation");
+    if (
+      typeof observation.path !== "string" ||
+      !observation.path.startsWith("build/") ||
+      observation.path.includes("..") ||
+      /[\\\u0000-\u001f\u007f]/u.test(observation.path)
+    ) throw new Error("Reviewed embedded-origin observation contains an unsafe path.");
+    assertHash(observation.sha256, `Reviewed embedded-origin hash for ${observation.path}`);
+    if (
+      !Array.isArray(observation.origins) ||
+      observation.origins.length === 0 ||
+      observation.origins.some((origin) => typeof origin !== "string" || origin.length === 0) ||
+      canonicalJson(observation.origins) !== canonicalJson([...observation.origins].sort()) ||
+      new Set(observation.origins).size !== observation.origins.length
+    ) throw new Error(`Reviewed embedded origins for ${observation.path} must be sorted and unique.`);
+    if (previousPaths.has(observation.path)) {
+      throw new Error(`Reviewed embedded-origin path is duplicated: ${observation.path}.`);
+    }
+    previousPaths.add(observation.path);
+  }
+  const paths = value.observations.map(({ path }) => path);
+  if (canonicalJson(paths) !== canonicalJson([...paths].sort())) {
+    throw new Error("Reviewed embedded-origin observations must be sorted by exact artifact path.");
+  }
+  return value;
+}
+
+function collectArtifactEmbeddedOrigins(buildDirectory, publicDirectory, policy, root) {
   const origins = new Set();
-  const originFiles = new Map();
+  const unexpected = [];
+  const allowed = new Set([...policy.deploymentOrigins, ...policy.allowedArtifactEmbeddedOrigins]);
+  const reviewedNoise = validateReviewedEmbeddedOriginNoise(
+    readJson(join(root, EMBEDDED_ORIGIN_NOISE_PATH)),
+  );
+  const reviewedByPath = new Map(
+    reviewedNoise.observations.map((observation) => [observation.path, observation]),
+  );
   for (const root of [buildDirectory, publicDirectory]) {
     const rootLabel = root === buildDirectory ? "build" : "public";
     for (const file of walkFiles(root, { excludeBuildEphemera: root === buildDirectory })) {
       if (!EMBEDDED_ORIGIN_TEXT_EXTENSIONS.test(file.relativePath)) continue;
       const text = readFileSync(join(root, file.relativePath), "utf8");
+      const artifactPath = `${rootLabel}/${file.relativePath}`;
+      const reviewed = reviewedByPath.get(artifactPath);
       for (const origin of observeEmbeddedNetworkOrigins(text)) {
         origins.add(origin);
-        const paths = originFiles.get(origin) ?? [];
-        if (paths.length < 3) paths.push(`${rootLabel}/${file.relativePath}`);
-        originFiles.set(origin, paths);
+        if (
+          !allowed.has(origin) &&
+          !(reviewed?.sha256 === file.sha256 && reviewed.origins.includes(origin))
+        ) unexpected.push({ origin, path: artifactPath, sha256: file.sha256 });
       }
     }
   }
   for (const origin of policy.deploymentOrigins) origins.delete(origin);
   const observed = [...origins].sort();
-  const allowed = new Set(policy.allowedArtifactEmbeddedOrigins);
-  const unexpected = observed.filter((origin) => !allowed.has(origin));
   if (unexpected.length > 0) {
     const diagnostics = unexpected.slice(0, 30).map(
-      (origin) => `${origin} in ${(originFiles.get(origin) ?? []).join(", ")}`,
+      ({ origin, path, sha256 }) => `${origin} in ${path} (sha256:${sha256})`,
     );
     throw new Error(
       `Built frontend artifacts embed unreviewed network origins: ${diagnostics.join("; ")}.`,
@@ -430,6 +474,7 @@ export function createFrontendArtifactInventory({
       buildDirectory,
       publicDirectory,
       policy,
+      root,
     ),
     artifactInventory,
     publicArtifacts,

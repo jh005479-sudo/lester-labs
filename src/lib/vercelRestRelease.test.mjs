@@ -52,16 +52,10 @@ const REVIEWED_PRODUCTION_PROVIDER_ALIASES = [
   'lester-labs-jh005479-8603-lester-labs.vercel.app',
   'lester-labs-lester-labs.vercel.app',
 ]
-const REVIEWED_PRODUCTION_PROMOTED_ALIASES = [
+const REVIEWED_PRODUCTION_PROMOTED_API_ALIASES = [
   'lester-labs-jh005479-8603-lester-labs.vercel.app',
   'lester-labs-lester-labs.vercel.app',
-  'lester-labs-psi.vercel.app',
-  'www.lester-labs.com',
 ]
-const REVIEWED_PRODUCTION_PROMOTED_API_ALIASES = [
-  ...REVIEWED_PRODUCTION_PROMOTED_ALIASES,
-  'new-lester-labs.vercel.app',
-].sort()
 const OLD_DEPLOYMENT_ID = 'dpl_old000001'
 const NEW_DEPLOYMENT_ID = 'dpl_new000001'
 const THIRD_DEPLOYMENT_ID = 'dpl_third00001'
@@ -163,6 +157,7 @@ function createNextPackage() {
     'package-lock.json',
     'package.json',
     'src/config/frontendReleasePolicy.json',
+    'src/config/reviewedEmbeddedOriginNoise.json',
     'vercel.json',
   ].map((path) => ({ path, bytes: 1, sha256: '1'.repeat(64) }))
   const sourceTree = inventory([{ path: 'src/app/page.tsx', bytes: 1, sha256: '2'.repeat(64) }])
