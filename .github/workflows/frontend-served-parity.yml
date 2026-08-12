@@ -199,7 +199,7 @@ jobs:
           test "$(uname -m)" = "x86_64"
           test "$(node --version)" = "v24.18.0"
           command -v gh >/dev/null
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           command -v docker >/dev/null
           docker pull --platform linux/amd64 "$RELEASE_IMAGE"
 
@@ -228,7 +228,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/parity-evidence"
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           gh_path="$(command -v gh)"
           bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/promotion/promotion-evidence.json" \
             --repo jh005479-sudo/lester-labs \
@@ -323,7 +323,7 @@ jobs:
           test "$(uname -m)" = "x86_64"
           test "$(node --version)" = "v24.18.0"
           command -v gh >/dev/null
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           command -v docker >/dev/null
           docker pull --platform linux/amd64 "$RELEASE_IMAGE"
 
@@ -352,7 +352,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/parity-evidence"
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           gh_path="$(command -v gh)"
           bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/promotion/promotion-evidence.json" \
             --repo jh005479-sudo/lester-labs \
@@ -433,7 +433,7 @@ jobs:
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
         run: |
           set -euo pipefail
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           [[ "$REVIEWED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
           test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
           for vantage in eu us; do

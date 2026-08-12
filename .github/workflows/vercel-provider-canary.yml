@@ -205,7 +205,7 @@ jobs:
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
         run: |
           set -euo pipefail
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           verify_subject() {
             subject="$1"
             bundle="$2"

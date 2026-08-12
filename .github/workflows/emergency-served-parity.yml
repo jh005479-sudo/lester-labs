@@ -176,7 +176,7 @@ jobs:
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
         run: |
           set -euo pipefail
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           mkdir -p "$GITHUB_WORKSPACE/emergency-parity-evidence"
           bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/promotion/promotion-evidence.json" \
             --repo jh005479-sudo/lester-labs \
@@ -277,7 +277,7 @@ jobs:
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
         run: |
           set -euo pipefail
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           mkdir -p "$GITHUB_WORKSPACE/emergency-parity-evidence"
           bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/promotion/promotion-evidence.json" \
             --repo jh005479-sudo/lester-labs \
@@ -358,7 +358,7 @@ jobs:
           REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
         run: |
           set -euo pipefail
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
           for vantage in eu us; do
             bash scripts/security/verify-gh-attestation-with-retry.sh "$RUNNER_TEMP/vantages/vantage-$vantage.json" \
