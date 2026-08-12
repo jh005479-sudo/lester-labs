@@ -1,6 +1,6 @@
 {
   "kind": "lester-labs-frontend-release-policy",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "deploymentOrigins": [
     "https://lester-labs.com",
     "https://www.lester-labs.com"
@@ -115,6 +115,9 @@
   ],
   "allowedActiveResourceOrigins": [
     "https://raw.githubusercontent.com"
+  ],
+  "allowedFirstPartyActiveResourceUrls": [
+    "/favicon.ico?e20b20c11ae833f4"
   ],
   "allowedArtifactEmbeddedOrigins": [
     "https://github.com",

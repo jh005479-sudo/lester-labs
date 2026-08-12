@@ -111,6 +111,12 @@ same-origin script, stylesheet, preload, image, media object, icon, and manifest
 must resolve to the reviewed public inventory. The HTML scanner deliberately
 fails closed on ambiguous active markup, including entity-encoded and
 slash-separated attributes, but it is not a browser DOM or JavaScript engine.
+First-party active-resource queries are rejected unless the policy lists the
+entire root-relative path and query exactly. The public-testnet policy contains
+one such value: Next's deterministic content-tagged favicon URL. Markdown
+backticks terminate lexical URL observations, while the W3 and sitemaps.org XML
+namespace identifiers are classified as non-network vocabulary identifiers;
+neither rule permits a browser-active resource origin.
 Served parity fetches every inventoried public/static object using three
 credential-free HTTP user-agent strings modelled on Chromium, Firefox, and
 MetaMask Mobile, with cookies and authorization omitted.

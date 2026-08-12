@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "sourceTreeSha256": "d3d6f13dae0f3ff1ae50cda9c8851d04c5a1eb10b5801765395cc3857dee518a",
+  "sourceTreeSha256": "b7e61ad1b7863c49448ea7c3fb45de4ae875c1aec9aea15a0024086664319e85",
   "observations": [
     {
       "path": "build/server/app/api/platform-stats/route.js",
@@ -11,12 +11,6 @@
         "https://ipfs.io",
         "https://oxlib.sh",
         "https://rpc.lite-node.com"
-      ]
-    },
-    {
-      "path": "build/server/app/docs.html",
-      "origins": [
-        "https://liteforge.explorer.caldera.xyz`"
       ]
     },
     {
@@ -34,8 +28,7 @@
     {
       "path": "build/server/app/sitemap.xml/route.js",
       "origins": [
-        "http://www.google.com",
-        "http://www.sitemaps.org"
+        "http://www.google.com"
       ]
     },
     {
@@ -85,8 +78,8 @@
       "path": "build/server/chunks/2430.js",
       "origins": [
         "http://n",
-        "https://${b}`",
-        "https://${c}`",
+        "https://${b",
+        "https://${c",
         "https://nextjs.org",
         "https://preview.nextjs.org"
       ]
@@ -169,12 +162,6 @@
       ]
     },
     {
-      "path": "build/standalone/.next/server/app/docs.html",
-      "origins": [
-        "https://liteforge.explorer.caldera.xyz`"
-      ]
-    },
-    {
       "path": "build/standalone/.next/server/app/page.js",
       "origins": [
         "https://rpc.lite-node.com"
@@ -189,8 +176,7 @@
     {
       "path": "build/standalone/.next/server/app/sitemap.xml/route.js",
       "origins": [
-        "http://www.google.com",
-        "http://www.sitemaps.org"
+        "http://www.google.com"
       ]
     },
     {
@@ -240,8 +226,8 @@
       "path": "build/standalone/.next/server/chunks/2430.js",
       "origins": [
         "http://n",
-        "https://${b}`",
-        "https://${c}`",
+        "https://${b",
+        "https://${c",
         "https://nextjs.org",
         "https://preview.nextjs.org"
       ]
@@ -725,7 +711,7 @@
     {
       "path": "build/standalone/node_modules/next/dist/compiled/@mswjs/interceptors/ClientRequest/index.js",
       "origins": [
-        "http://${o.url}`"
+        "http://${o.url"
       ]
     },
     {
@@ -927,7 +913,7 @@
       "origins": [
         "http://localhost",
         "http://n",
-        "http://n${t}`",
+        "http://n${t",
         "https://nextjs.org",
         "https://react.dev"
       ]
@@ -937,7 +923,7 @@
       "origins": [
         "http://localhost",
         "http://n",
-        "http://n${t}`",
+        "http://n${t",
         "https://nextjs.org",
         "https://react.dev"
       ]
@@ -947,7 +933,7 @@
       "origins": [
         "http://localhost",
         "http://n",
-        "http://n${t}`",
+        "http://n${t",
         "https://nextjs.org",
         "https://react.dev"
       ]
@@ -957,7 +943,7 @@
       "origins": [
         "http://localhost",
         "http://n",
-        "http://n${t}`",
+        "http://n${t",
         "https://nextjs.org",
         "https://react.dev"
       ]
@@ -1172,8 +1158,6 @@
     {
       "path": "build/standalone/node_modules/next/dist/lib/load-custom-routes.js",
       "origins": [
-        "http://`",
-        "https://`",
         "https://nextjs.org"
       ]
     },
@@ -1231,31 +1215,31 @@
       "path": "build/standalone/node_modules/next/dist/next-devtools/server/attach-nodejs-debugger-middleware.js",
       "origins": [
         "http://${inspectorurl.host}",
-        "http://n${req.url}`"
+        "http://n${req.url"
       ]
     },
     {
       "path": "build/standalone/node_modules/next/dist/next-devtools/server/dev-indicator-middleware.js",
       "origins": [
-        "http://n${req.url}`"
+        "http://n${req.url"
       ]
     },
     {
       "path": "build/standalone/node_modules/next/dist/next-devtools/server/devtools-config-middleware.js",
       "origins": [
-        "http://n${req.url}`"
+        "http://n${req.url"
       ]
     },
     {
       "path": "build/standalone/node_modules/next/dist/next-devtools/server/font/get-dev-overlay-font-middleware.js",
       "origins": [
-        "http://n${req.url}`"
+        "http://n${req.url"
       ]
     },
     {
       "path": "build/standalone/node_modules/next/dist/next-devtools/server/get-next-error-feedback-middleware.js",
       "origins": [
-        "http://n${req.url}`"
+        "http://n${req.url"
       ]
     },
     {
@@ -1267,7 +1251,7 @@
     {
       "path": "build/standalone/node_modules/next/dist/next-devtools/server/restart-dev-server-middleware.js",
       "origins": [
-        "http://n${req.url}`"
+        "http://n${req.url"
       ]
     },
     {
@@ -1288,7 +1272,7 @@
       "origins": [
         "http://localhost",
         "http://n",
-        "http://n${base}`",
+        "http://n${base",
         "https://nextjs.org"
       ]
     },
@@ -1421,7 +1405,7 @@
     {
       "path": "build/standalone/node_modules/next/dist/server/dev/middleware-webpack.js",
       "origins": [
-        "http://n${req.url}`"
+        "http://n${req.url"
       ]
     },
     {
