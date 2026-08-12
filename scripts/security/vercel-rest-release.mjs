@@ -47,6 +47,14 @@ const REVIEWED_REF = "refs/heads/main";
 const REVIEWED_PROMOTION_WORKFLOW = ".github/workflows/vercel-production-release.yml";
 const REVIEWED_PROMOTION_ENVIRONMENT = "frontend-production-promotion";
 const REVIEWED_STAGED_PROVIDER_ALIASES = Object.freeze({
+  "prj_dbAIzvnFWLzxkt2dpphAWbserIG7": Object.freeze({
+    teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
+    projectName: "lester-labs",
+    aliases: Object.freeze([
+      "lester-labs-jh005479-8603-lester-labs.vercel.app",
+      "lester-labs-lester-labs.vercel.app",
+    ]),
+  }),
   "prj_sUhxc4VDzA9cWn2rv7gr1cwJOo6K": Object.freeze({
     teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
     projectName: "lester-labs-release-canary",
