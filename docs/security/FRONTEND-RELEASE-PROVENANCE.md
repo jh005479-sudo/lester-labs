@@ -15,6 +15,15 @@ protected `main`. It builds twice on x64 Linux with the digest-pinned image
 tests and builds, build networking is disabled, the Git worktree must remain
 clean, and every tracked source file is hashed.
 
+Next.js otherwise generates a fresh Server Actions encryption key on each
+build, including applications that define no Server Actions. The release
+workflow derives a deterministic, non-secret build-only value from the reviewed
+source commit. The attester accepts that value only while both the Node and Edge
+maps in both generated `server-reference-manifest.json` copies are exactly empty;
+any generated action or mismatched key fails the release. This value must never
+be reused as a secret if Server Actions are introduced: that change requires a
+new threat model and release design.
+
 The pinned `npm run build` command selects Next's bundled webpack path
 explicitly. A clean script-disabled install showed the default Turbopack path
 attempting to resolve an undeclared `@vercel/turbopack/postcss` module; the

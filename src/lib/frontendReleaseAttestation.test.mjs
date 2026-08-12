@@ -7,10 +7,12 @@ import { describe, it } from 'node:test'
 
 import {
   compareFrontendArtifactInventories,
+  compareFileInventories,
   approveFrontendReleaseCandidate,
   createFrontendApprovalEnvelope,
   createFrontendArtifactInventory,
   createFrontendReleaseAttestation,
+  deriveNoServerActionsBuildKey,
   packageFrontendDeployment,
   REVIEWED_FRONTEND_BUILDER_IMAGE,
   validateFrontendReleaseAttestation,
@@ -50,6 +52,22 @@ function trackedSourceReviewSha256(root) {
     const bytes = readFileSync(join(root, path))
     return { path, bytes: bytes.length, sha256: sha256Bytes(bytes) }
   }))
+}
+
+function writeBuildIdentity(root, sourceCommit) {
+  writeFixtureFile(root, '.next/BUILD_ID', `${sourceCommit}\n`)
+  writeFixtureFile(root, '.next/standalone/.next/BUILD_ID', `${sourceCommit}\n`)
+  const serverReferenceManifest = canonicalJson({
+    node: {},
+    edge: {},
+    encryptionKey: deriveNoServerActionsBuildKey(sourceCommit),
+  })
+  writeFixtureFile(root, '.next/server/server-reference-manifest.json', serverReferenceManifest)
+  writeFixtureFile(
+    root,
+    '.next/standalone/.next/server/server-reference-manifest.json',
+    serverReferenceManifest,
+  )
 }
 
 function makeFixture() {
@@ -111,8 +129,7 @@ function makeFixture() {
     },
   )
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
-  writeFixtureFile(root, '.next/BUILD_ID', `${sourceCommit}\n`)
-  writeFixtureFile(root, '.next/standalone/.next/BUILD_ID', `${sourceCommit}\n`)
+  writeBuildIdentity(root, sourceCommit)
   const deploymentPayloadFiles = [{ path: 'server.js', bytes: 17, sha256: 'a'.repeat(64) }]
   writeFixtureFile(root, 'deployment-payload.inventory.json', canonicalJson({
     sha256: sha256Canonical(deploymentPayloadFiles),
@@ -409,6 +426,19 @@ describe('frontend release artifact attestation', () => {
       assert.ok(deployable.files.some(({ path }) => path === 'server.js'))
       assert.ok(deployable.files.some(({ path }) => path === '.next/static/chunks/app.js'))
       assert.ok(deployable.files.some(({ path }) => path === 'public/robots.txt'))
+      assert.deepEqual(compareFileInventories(deployable, structuredClone(deployable)), {
+        reproducible: true,
+        sha256: deployable.sha256,
+        fileCount: deployable.fileCount,
+        totalBytes: deployable.totalBytes,
+      })
+      const changedDeployable = structuredClone(deployable)
+      changedDeployable.files[0].sha256 = 'b'.repeat(64)
+      changedDeployable.sha256 = sha256Canonical(changedDeployable.files)
+      assert.throws(
+        () => compareFileInventories(deployable, changedDeployable),
+        /deployable payloads differ at/i,
+      )
 
       writeFixtureFile(second.root, '.next/server/app/page.js', 'export default 2\n')
       const changed = createFrontendArtifactInventory(second)
@@ -488,8 +518,7 @@ describe('frontend release artifact attestation', () => {
         },
       )
       fixture.sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: fixture.root, encoding: 'utf8' }).trim()
-      writeFixtureFile(fixture.root, '.next/BUILD_ID', `${fixture.sourceCommit}\n`)
-      writeFixtureFile(fixture.root, '.next/standalone/.next/BUILD_ID', `${fixture.sourceCommit}\n`)
+      writeBuildIdentity(fixture.root, fixture.sourceCommit)
       const inventory = createFrontendArtifactInventory(fixture)
       assert.ok(
         inventory.artifactEmbeddedOrigins.some(
@@ -536,8 +565,7 @@ describe('frontend release artifact attestation', () => {
         ['rev-parse', 'HEAD'],
         { cwd: fixture.root, encoding: 'utf8' },
       ).trim()
-      writeFixtureFile(fixture.root, '.next/BUILD_ID', `${fixture.sourceCommit}\n`)
-      writeFixtureFile(fixture.root, '.next/standalone/.next/BUILD_ID', `${fixture.sourceCommit}\n`)
+      writeBuildIdentity(fixture.root, fixture.sourceCommit)
       assert.throws(
         () => createFrontendArtifactInventory(fixture),
         /exact tracked source tree/i,
@@ -566,8 +594,7 @@ describe('frontend release artifact attestation', () => {
         },
       )
       fixture.sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: fixture.root, encoding: 'utf8' }).trim()
-      writeFixtureFile(fixture.root, '.next/BUILD_ID', `${fixture.sourceCommit}\n`)
-      writeFixtureFile(fixture.root, '.next/standalone/.next/BUILD_ID', `${fixture.sourceCommit}\n`)
+      writeBuildIdentity(fixture.root, fixture.sourceCommit)
       assert.throws(
         () => createFrontendArtifactInventory(fixture),
         /unsupported Next server actions.*src\/actions\.ts/i,
@@ -591,6 +618,42 @@ describe('frontend release artifact attestation', () => {
       assert.throws(
         () => createFrontendArtifactInventory(fixture),
         /expected source commit/i,
+      )
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it('requires empty generated server-action maps and a commit-bound deterministic build key', () => {
+    const fixture = makeFixture()
+    try {
+      const manifestPath = join(fixture.root, '.next/server/server-reference-manifest.json')
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+      manifest.node = { unreviewedAction: { workers: {} } }
+      writeFixtureFile(fixture.root, '.next/server/server-reference-manifest.json', canonicalJson(manifest))
+      assert.throws(
+        () => createFrontendArtifactInventory(fixture),
+        /node server-action map must be empty/i,
+      )
+
+      writeBuildIdentity(fixture.root, fixture.sourceCommit)
+      const wrongKey = JSON.parse(readFileSync(manifestPath, 'utf8'))
+      wrongKey.encryptionKey = deriveNoServerActionsBuildKey('b'.repeat(40))
+      writeFixtureFile(fixture.root, '.next/server/server-reference-manifest.json', canonicalJson(wrongKey))
+      assert.throws(
+        () => createFrontendArtifactInventory(fixture),
+        /build key is not bound to the reviewed source commit/i,
+      )
+
+      writeBuildIdentity(fixture.root, fixture.sourceCommit)
+      rmSync(manifestPath)
+      symlinkSync(
+        join(fixture.root, '.next/standalone/.next/server/server-reference-manifest.json'),
+        manifestPath,
+      )
+      assert.throws(
+        () => createFrontendArtifactInventory(fixture),
+        /(?:regular non-symlink file|refuses symbolic link)/i,
       )
     } finally {
       rmSync(fixture.root, { recursive: true, force: true })
