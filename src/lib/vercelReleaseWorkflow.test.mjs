@@ -147,14 +147,12 @@ describe('Vercel release orchestration', () => {
     let verificationBlocks = 0
     for (const name of files) {
       for (const block of shellRunBlocks(workflow(name))) {
-        if (!block.includes('verify-gh-attestation-with-retry.sh')) continue
+        if (!block.includes('verify-gh-attestation-with-retry.sh') && !block.includes('gh attestation verify')) continue
         verificationBlocks += 1
         assert.match(block, /gh version \| head -n 1 \| cut -d' ' -f3\)" = "2\.96\.0"/)
       }
     }
     assert.ok(verificationBlocks >= 10)
-    const combined = files.map(workflow).join('\n')
-    assert.doesNotMatch(combined, /(?<!verify-)gh attestation verify/)
   })
 
   it('uses run-attempt-qualified release artifacts and has one EU and one US vantage job', () => {
@@ -198,6 +196,7 @@ describe('Vercel release orchestration', () => {
   })
 
   it('bounds transient attestation verification retries without weakening verifier arguments', () => {
+    const release = workflow('vercel-production-release.yml')
     const wrapper = readFileSync(
       new URL('../../scripts/security/verify-gh-attestation-with-retry.sh', import.meta.url),
       'utf8',
@@ -206,6 +205,9 @@ describe('Vercel release orchestration', () => {
     assert.match(wrapper, /gh attestation verify "\$@"/)
     assert.match(wrapper, /sleep "\$\(\(attempt \* 5\)\)"/)
     assert.match(wrapper, /failed after three bounded attempts/)
+    assert.ok((release.match(/for attempt in 1 2 3/g) ?? []).length >= 6)
+    assert.ok((release.match(/sleep "\$\(\(attempt \* 5\)\)"/g) ?? []).length >= 6)
+    assert.match(release, /Exact release-input attestation verification failed after three bounded attempts/)
   })
 
   it('prints each release evidence digest once', () => {
