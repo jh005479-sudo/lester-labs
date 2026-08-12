@@ -38,7 +38,10 @@ import { assertReleaseProfile } from "./release-profiles.mjs";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const defaultPolicyPath = join(repositoryRoot, "src/config/frontendReleasePolicy.json");
 const EMBEDDED_ORIGIN_NOISE_PATH = "src/config/reviewedEmbeddedOriginNoise.json";
-const BUILD_EXCLUSIONS = ["cache", "diagnostics", "trace", "types"];
+// Next emits `trace` and `trace-build` as timing diagnostics containing
+// per-process timestamps, durations, and trace IDs. Neither belongs to the
+// standalone runtime payload, which is inventoried and compared separately.
+const BUILD_EXCLUSIONS = ["cache", "diagnostics", "trace", "trace-build", "types"];
 const MAXIMUM_INVENTORY_FILES = 50_000;
 const MAXIMUM_INVENTORY_FILE_BYTES = 256 * 1024 * 1024;
 const MAXIMUM_INVENTORY_TOTAL_BYTES = 2 * 1024 * 1024 * 1024;
