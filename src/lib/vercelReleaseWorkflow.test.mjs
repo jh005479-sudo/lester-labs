@@ -52,6 +52,10 @@ describe('Vercel release orchestration', () => {
     assert.match(release, /vercel-promotion-compensation\/recovery-evidence\.json/)
     assert.match(release, /vercel-rest-release\.mjs cleanup-stage/)
     assert.match(release, /VERCEL_STAGE_CLEANUP_TOKEN/)
+    assert.match(release, /cleanup-unpromoted-stage:/)
+    assert.match(release, /needs\.staged-parity\.result != 'success'/)
+    assert.match(release, /needs\.promotion-approval\.result != 'success'/)
+    assert.match(release, /name: Delete only the signed noncurrent staged deployment/)
     assert.match(release, /rollback-on-parity-failure:\n[\s\S]*?environment: frontend-vercel-automatic-rollback/)
     assert.match(release, /needs\.frontend-production-parity\.result != 'success'/)
     assert.match(release, /needs\.emergency-production-parity\.result != 'success'/)
@@ -118,7 +122,7 @@ describe('Vercel release orchestration', () => {
     assert.doesNotMatch(combined, /\bvercel\s+(?:deploy|promote|rollback|build|pull)\b/)
     assert.doesNotMatch(combined, /(?:echo|printf)[^\n]*VERCEL_(?:CANARY|STAGING|PROMOTION(?:_COMPENSATION)?|AUTOMATIC_ROLLBACK|ROLLBACK)_TOKEN/)
     const tokenSelections = combined.split('\n').filter((line) => line.includes('VERCEL_TOKEN: ${{'))
-    assert.equal(tokenSelections.length, 7)
+    assert.equal(tokenSelections.length, 8)
     assert.equal(tokenSelections.every((line) => (
       /secrets\.VERCEL_(?:CANARY|STAGING|STAGE_CLEANUP|PROMOTION|PROMOTION_COMPENSATION|AUTOMATIC_ROLLBACK|ROLLBACK)_TOKEN/u.test(line)
     )), true)
@@ -179,6 +183,23 @@ describe('Vercel release orchestration', () => {
     assert.equal((frontendParity.match(/^  vantage-us:/gmu) ?? []).length, 1)
     assert.equal((emergencyParity.match(/^  vantage-eu:/gmu) ?? []).length, 1)
     assert.equal((emergencyParity.match(/^  vantage-us:/gmu) ?? []).length, 1)
+  })
+
+  it('passes immutable artifact IDs between release jobs so failed-job retries cannot drift attempts', () => {
+    const release = workflow('vercel-production-release.yml')
+    assert.match(release, /stage_artifact_id: \$\{\{ steps\.upload-stage-evidence\.outputs\.artifact-id \}\}/)
+    assert.match(release, /parity_artifact_id: \$\{\{ steps\.upload-staged-parity\.outputs\.artifact-id \}\}/)
+    assert.match(release, /approval_artifact_id: \$\{\{ steps\.upload-promotion-approval\.outputs\.artifact-id \}\}/)
+    assert.match(release, /artifact-ids: \$\{\{ needs\.stage\.outputs\.stage_artifact_id \}\},\$\{\{ needs\.staged-parity\.outputs\.parity_artifact_id \}\}/)
+    assert.match(release, /artifact-ids: \$\{\{ needs\.stage\.outputs\.stage_artifact_id \}\},\$\{\{ needs\.staged-parity\.outputs\.parity_artifact_id \}\},\$\{\{ needs\.promotion-approval\.outputs\.approval_artifact_id \}\}/)
+    assert.doesNotMatch(release, /pattern: vercel-(?:stage|\*)/)
+  })
+
+  it('bounds transient protected-approval attestation verification retries', () => {
+    const release = workflow('vercel-production-release.yml')
+    assert.match(release, /Exact \$label attestation verification failed after three bounded attempts/)
+    assert.match(release, /for attempt in 1 2 3/)
+    assert.match(release, /sleep "\$\(\(attempt \* 5\)\)"/)
   })
 
   it('prints each release evidence digest once', () => {
