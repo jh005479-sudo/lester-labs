@@ -75,6 +75,8 @@ describe('shared UI regression contracts', () => {
     assert.match(swap, /setInputToken\(initialCreatePoolToken0\)/)
     assert.match(swap, /setOutputToken\(initialCreatePoolToken1\)/)
     assert.match(swap, /source-pinned replacement DEX quote on chain 4441/)
+    assert.match(swap, /Source-pinned Replacement Reserve Quote/)
+    assert.doesNotMatch(swap, />Legacy Reserve Quote</)
   })
 
   it('loads Ledger history from a bounded validated index instead of an unbounded block-one RPC scan', async () => {
