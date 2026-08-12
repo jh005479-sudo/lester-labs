@@ -269,7 +269,7 @@ function collectArtifactInventory(buildDirectory, publicDirectory, root) {
     const relativePath = file.path.slice("build/static/".length);
     publicArtifacts.push({
       sourcePath: file.path,
-      urlPath: `/_next/static/${relativePath}`,
+      urlPath: publicUrlPath(`_next/static/${relativePath}`),
       bytes: file.bytes,
       sha256: file.sha256,
     });

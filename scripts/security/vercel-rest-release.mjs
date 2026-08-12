@@ -17,6 +17,8 @@ import {
 } from "./frontend-release-common.mjs";
 import {
   assertReleaseProfile,
+  promotedApiAliasesForReleaseProfile,
+  PUBLIC_TESTNET_VERCEL_TARGET,
   releaseProfileForVerification,
   vantageIdsForVerification,
   verificationProfileForRelease,
@@ -34,7 +36,6 @@ const DEFAULT_POLL_INTERVAL_MS = 5_000;
 const MAXIMUM_POLL_ATTEMPTS = 360;
 const MAXIMUM_APPROVAL_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const MAXIMUM_PROVIDER_CANARY_AGE_MS = 6 * 60 * 60 * 1000;
-const PRODUCTION_DOMAINS = Object.freeze(["lester-labs.com", "www.lester-labs.com"]);
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/u;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const SHA1_PATTERN = /^[0-9a-f]{40}$/u;
@@ -47,14 +48,11 @@ const REVIEWED_REF = "refs/heads/main";
 const REVIEWED_PROMOTION_WORKFLOW = ".github/workflows/vercel-production-release.yml";
 const REVIEWED_PROMOTION_ENVIRONMENT = "frontend-production-promotion";
 const REVIEWED_STAGED_PROVIDER_ALIASES = Object.freeze({
-  "prj_dbAIzvnFWLzxkt2dpphAWbserIG7": Object.freeze({
-    teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
-    projectName: "lester-labs",
+  [PUBLIC_TESTNET_VERCEL_TARGET.projectId]: Object.freeze({
+    teamId: PUBLIC_TESTNET_VERCEL_TARGET.teamId,
+    projectName: PUBLIC_TESTNET_VERCEL_TARGET.projectName,
     allowExactReadyStagedAssignmentForReleaseProfile: "public-testnet-immutable",
-    aliases: Object.freeze([
-      "lester-labs-jh005479-8603-lester-labs.vercel.app",
-      "lester-labs-lester-labs.vercel.app",
-    ]),
+    aliases: PUBLIC_TESTNET_VERCEL_TARGET.promotedApiAliases,
   }),
   "prj_sUhxc4VDzA9cWn2rv7gr1cwJOo6K": Object.freeze({
     teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
@@ -63,17 +61,6 @@ const REVIEWED_STAGED_PROVIDER_ALIASES = Object.freeze({
     aliases: Object.freeze([
       "lester-labs-release-canary-jh005479-8603-lester-labs.vercel.app",
       "lester-labs-release-canary-lester-labs.vercel.app",
-    ]),
-  }),
-});
-const REVIEWED_PROMOTED_PROVIDER_ALIASES = Object.freeze({
-  "prj_dbAIzvnFWLzxkt2dpphAWbserIG7": Object.freeze({
-    teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
-    projectName: "lester-labs",
-    releaseProfile: "public-testnet-immutable",
-    aliases: Object.freeze([
-      "lester-labs-jh005479-8603-lester-labs.vercel.app",
-      "lester-labs-lester-labs.vercel.app",
     ]),
   }),
 });
@@ -965,14 +952,11 @@ function assertNoProductionAliases(deployment, target) {
 }
 
 function promotedAliasesForTarget(target) {
-  const reviewed = REVIEWED_PROMOTED_PROVIDER_ALIASES[target.projectId];
-  if (!reviewed) return PRODUCTION_DOMAINS;
-  if (
-    reviewed.teamId === target.teamId &&
-    reviewed.projectName === target.projectName &&
-    reviewed.releaseProfile === target.releaseProfile
-  ) return reviewed.aliases;
-  return PRODUCTION_DOMAINS;
+  return promotedApiAliasesForReleaseProfile(target.releaseProfile, {
+    teamId: target.teamId,
+    projectId: target.projectId,
+    name: target.projectName,
+  });
 }
 
 function assertCurrentProductionDeployment(deployment, target) {
@@ -2702,6 +2686,7 @@ export async function rollbackVercelRelease({
     teamId: promotion.project.teamId,
     projectId: promotion.project.projectId,
     projectName: promotion.project.name,
+    releaseProfile: promotion.releaseProfile,
   };
   const api = makeApi({ token, fetchImpl, requestTimeoutMs });
   await preflight(api, target, { expectedCurrentDeploymentId: promotion.deployment.id });

@@ -494,6 +494,36 @@ describe('frontend release artifact attestation', () => {
     }
   })
 
+  it('uses browser-canonical URL encoding for dynamic-segment static chunks', async () => {
+    const fixture = makeFixture()
+    try {
+      const dynamicChunkPath = '.next/static/chunks/app/analytics/token/[address]/page.js'
+      const dynamicChunkUrl = '/_next/static/chunks/app/analytics/token/%5Baddress%5D/page.js'
+      writeFixtureFile(fixture.root, dynamicChunkPath, 'globalThis.__dynamicChunk=true;\n')
+      const inventory = createFrontendArtifactInventory(fixture)
+      assert.equal(
+        inventory.publicArtifacts.files.some(({ urlPath }) => urlPath === dynamicChunkUrl),
+        true,
+      )
+      const policy = validateFrontendReleasePolicy(JSON.parse(readFileSync(fixture.policyPath, 'utf8')))
+      const candidate = await createFrontendReleaseAttestation({
+        ...fixture,
+        localOrigin: 'http://127.0.0.1:3100',
+        fetchImpl: async () => routeResponse(
+          policy,
+          `${ROUTE_BODY}<script src="${dynamicChunkUrl}"></script>`,
+        ),
+      })
+      assert.equal(
+        candidate.routeSnapshots.every(({ referencedActiveResourcePaths }) =>
+          referencedActiveResourcePaths.includes(dynamicChunkUrl)),
+        true,
+      )
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
   it('binds the claimed source commit to a clean Git HEAD and every tracked file', () => {
     const fixture = makeFixture()
     try {

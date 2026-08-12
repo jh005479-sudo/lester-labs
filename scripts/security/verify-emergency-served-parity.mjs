@@ -17,6 +17,7 @@ import {
   assertReleaseProfile,
   assertVerificationProfile,
   assertVantageId,
+  promotedApiAliasesForReleaseProfile,
   releaseProfileForVerification,
   vantageIdsForVerification,
 } from "./release-profiles.mjs";
@@ -32,10 +33,6 @@ const MAXIMUM_VANTAGE_SKEW_MS = 30 * 60 * 1000;
 const PRODUCTION_ORIGINS = Object.freeze([
   "https://lester-labs.com",
   "https://www.lester-labs.com",
-]);
-const PRODUCTION_DOMAINS = Object.freeze([
-  "lester-labs.com",
-  "www.lester-labs.com",
 ]);
 const EMERGENCY_RESULT_FIELDS = Object.freeze([
   "artifactBytesMatch",
@@ -645,7 +642,9 @@ function validateEmergencyPromotionEvidence(value, expectedSourceCommit) {
     value.deployment.readySubstate !== "PROMOTED" ||
     value.deployment.aliasAssigned !== true ||
     !Array.isArray(value.deployment.aliases) ||
-    canonicalJson(value.deployment.aliases) !== canonicalJson(PRODUCTION_DOMAINS)
+    canonicalJson(value.deployment.aliases) !== canonicalJson(
+      promotedApiAliasesForReleaseProfile(value.releaseProfile, value.project),
+    )
   ) throw new Error("Emergency promotion evidence does not bind both current production aliases.");
   if (!/^dpl_[A-Za-z0-9]{8,96}$/u.test(value.priorDeploymentId) || value.priorDeploymentId === value.deployment.id) {
     throw new Error("Emergency promotion prior deployment identity is invalid.");

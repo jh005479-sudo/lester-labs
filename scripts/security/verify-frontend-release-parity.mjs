@@ -26,6 +26,7 @@ import {
   assertReleaseProfile,
   assertVerificationProfile,
   assertVantageId,
+  promotedApiAliasesForReleaseProfile,
   releaseProfileForVerification,
   vantageIdsForVerification,
 } from "./release-profiles.mjs";
@@ -47,10 +48,6 @@ const MAXIMUM_PROMOTION_EVIDENCE_BYTES = 1024 * 1024;
 const MAXIMUM_PROMOTION_PROVENANCE_BYTES = 16 * 1024 * 1024;
 const MAXIMUM_PROMOTION_VERIFICATION_BYTES = 32 * 1024 * 1024;
 const MAXIMUM_PRODUCTION_PARITY_DELAY_MS = 30 * 60 * 1000;
-const PRODUCTION_DOMAINS = Object.freeze([
-  "lester-labs.com",
-  "www.lester-labs.com",
-]);
 const REVIEWED_REPOSITORY = "jh005479-sudo/lester-labs";
 const REVIEWED_SOURCE_REF = "refs/heads/main";
 const REVIEWED_PROMOTION_WORKFLOW = ".github/workflows/vercel-production-release.yml";
@@ -308,7 +305,9 @@ function validateFrontendPromotionEvidence(value, {
     value.deployment.readyState !== "READY" ||
     value.deployment.readySubstate !== "PROMOTED" ||
     value.deployment.aliasAssigned !== true ||
-    canonicalJson(value.deployment.aliases) !== canonicalJson(PRODUCTION_DOMAINS)
+    canonicalJson(value.deployment.aliases) !== canonicalJson(
+      promotedApiAliasesForReleaseProfile(value.releaseProfile, value.project),
+    )
   ) throw new Error("Frontend promotion does not bind the exact current production aliases.");
   if (
     !/^dpl_[A-Za-z0-9]{8,96}$/u.test(value.priorDeploymentId ?? "") ||

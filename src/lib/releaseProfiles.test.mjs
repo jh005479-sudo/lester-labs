@@ -3,8 +3,10 @@ import { describe, it } from 'node:test'
 
 import {
   RELEASE_PROFILES,
+  PUBLIC_TESTNET_VERCEL_TARGET,
   VERIFICATION_PROFILES,
   assertVantageId,
+  promotedApiAliasesForReleaseProfile,
   releaseProfileForVerification,
   vantageIdsForVerification,
   verificationProfileForRelease,
@@ -45,6 +47,29 @@ describe('explicit release and parity profiles', () => {
     assert.throws(
       () => assertVantageId(VERIFICATION_PROFILES.PUBLIC_TESTNET, 'protected-eu-network'),
       /not approved/i,
+    )
+  })
+
+  it('binds promoted provider aliases to the exact release profile and Vercel target', () => {
+    assert.deepEqual(
+      promotedApiAliasesForReleaseProfile(RELEASE_PROFILES.PRODUCTION, {}),
+      ['lester-labs.com', 'www.lester-labs.com'],
+    )
+    const publicTestnetProject = {
+      teamId: PUBLIC_TESTNET_VERCEL_TARGET.teamId,
+      projectId: PUBLIC_TESTNET_VERCEL_TARGET.projectId,
+      name: PUBLIC_TESTNET_VERCEL_TARGET.projectName,
+    }
+    assert.deepEqual(
+      promotedApiAliasesForReleaseProfile(RELEASE_PROFILES.PUBLIC_TESTNET, publicTestnetProject),
+      PUBLIC_TESTNET_VERCEL_TARGET.promotedApiAliases,
+    )
+    assert.throws(
+      () => promotedApiAliasesForReleaseProfile(RELEASE_PROFILES.PUBLIC_TESTNET, {
+        ...publicTestnetProject,
+        projectId: 'prj_unreviewed',
+      }),
+      /different Vercel target/i,
     )
   })
 })
