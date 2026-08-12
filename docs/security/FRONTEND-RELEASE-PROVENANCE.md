@@ -107,6 +107,15 @@ origins. A new embedded origin fails the build until explicitly reviewed in the
 policy. This is a lexical defense and does not replace manual source review or
 runtime network monitoring.
 
+Framework and dependency artifacts can also contain inert documentation,
+standards, example, or source-map URLs that are not network destinations used by
+the application. Those strings are not granted a package-wide or hostname-wide
+exception. `src/config/reviewedEmbeddedOriginNoise.json` binds each reviewed
+observation to one exact artifact path, the complete file SHA-256, and the exact
+sorted origin set. A byte change, path change, or new origin therefore fails the
+release. The review file is itself source material in the signed candidate and
+must be regenerated and manually reviewed after any build or dependency change.
+
 ## Independent post-promotion evidence
 
 `frontend-served-parity.yml` requires two separately administered, protected,

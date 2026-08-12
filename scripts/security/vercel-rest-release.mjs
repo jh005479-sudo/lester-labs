@@ -71,12 +71,9 @@ const REVIEWED_PROMOTED_PROVIDER_ALIASES = Object.freeze({
     teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
     projectName: "lester-labs",
     releaseProfile: "public-testnet-immutable",
-    allowImmutableDeploymentHostAlias: true,
     aliases: Object.freeze([
       "lester-labs-jh005479-8603-lester-labs.vercel.app",
       "lester-labs-lester-labs.vercel.app",
-      "lester-labs-psi.vercel.app",
-      "www.lester-labs.com",
     ]),
   }),
 });
@@ -984,28 +981,14 @@ function assertCurrentProductionDeployment(deployment, target) {
   }
   const aliases = normalizeAliases(deployment);
   const expectedAliases = promotedAliasesForTarget(target);
-  const reviewed = REVIEWED_PROMOTED_PROVIDER_ALIASES[target.projectId];
-  const allowImmutableDeploymentHostAlias = (
-    reviewed?.allowImmutableDeploymentHostAlias === true &&
-    reviewed.teamId === target.teamId &&
-    reviewed.projectName === target.projectName &&
-    reviewed.releaseProfile === "public-testnet-immutable" &&
-    target.releaseProfile === "public-testnet-immutable"
-  );
-  const immutableDeploymentHost = new URL(deploymentUrl(deployment)).hostname;
-  const allowedAliases = allowImmutableDeploymentHostAlias
-    ? new Set([...expectedAliases, immutableDeploymentHost])
-    : new Set(expectedAliases);
   if (
-    expectedAliases.some((alias) => !aliases.includes(alias)) ||
-    aliases.some((alias) => !allowedAliases.has(alias)) ||
-    aliases.length > expectedAliases.length + (allowImmutableDeploymentHostAlias ? 1 : 0)
+    aliases.length !== expectedAliases.length ||
+    aliases.some((alias, index) => alias !== expectedAliases[index])
   ) {
     throw new Error(
       `The current deployment aliases differ from the exact reviewed production set: ${canonicalJson({
         aliases,
         expectedAliases,
-        immutableDeploymentHost: allowImmutableDeploymentHostAlias ? immutableDeploymentHost : null,
       }).trim()}`,
     );
   }
