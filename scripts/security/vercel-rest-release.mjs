@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 31486)
-Total output lines: 3009
-
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
@@ -1489,7 +1486,187 @@ export async function stageVercelRelease({
       throw new Error("The reviewed provider canary is dated after the staged deployment.");
     }
     if (Date.parse(stagedAt) - Date.parse(prepared.providerBoundary.checkedAt) > MAXIMUM_PROVIDER_CANARY_AGE_MS) {
-      throw new Er…1486 tokens truncated…          })),
+      throw new Error("The reviewed provider canary is older than the six-hour staging limit.");
+    }
+    const payload = stageEvidencePayload(
+      prepared,
+      target,
+      priorDeploymentId,
+      rollbackDisposition,
+      deployment,
+      aliases,
+      stagedAt,
+      workflow,
+    );
+    return { ...payload, evidenceSha256: sha256Canonical(payload) };
+  } catch (operationError) {
+    if (createdDeploymentId) {
+      try {
+        await deleteExactNoncurrentDeployment(api, target, createdDeploymentId, priorDeploymentId);
+      } catch (cleanupError) {
+        throw new Error(
+          "Production staging failed and exact staged-deployment cleanup could not be confirmed.",
+          { cause: new AggregateError([operationError, cleanupError]) },
+        );
+      }
+    }
+    throw operationError;
+  }
+}
+
+export async function stageEmergencyRelease(options = {}) {
+  return stageVercelRelease({
+    ...options,
+    prepared: prepareEmergencyRelease(options),
+  });
+}
+
+export async function stageNextContainerRelease(options = {}) {
+  return stageVercelRelease({
+    ...options,
+    prepared: prepareNextContainerRelease(options),
+  });
+}
+
+async function cleanupStagedValue({
+  stageEvidence,
+  stageEvidenceSha256,
+  stageProvenanceSha256,
+  token,
+  fetchImpl = globalThis.fetch,
+  now = () => new Date().toISOString(),
+  requestTimeoutMs,
+}) {
+  const stage = validateStageEvidence(structuredClone(stageEvidence));
+  const target = {
+    teamId: stage.project.teamId,
+    projectId: stage.project.projectId,
+    projectName: stage.project.name,
+    releaseProfile: stage.source.releaseProfile,
+  };
+  const api = makeApi({ token, fetchImpl, requestTimeoutMs });
+  await deleteExactNoncurrentDeployment(
+    api,
+    target,
+    stage.deployment.id,
+    stage.priorDeploymentId,
+  );
+  const payload = {
+    kind: "lester-labs-vercel-stage-cleanup",
+    schemaVersion: 1,
+    status: "DELETED",
+    deletedAt: assertCanonicalTimestamp(now(), "Stage cleanup timestamp"),
+    stageEvidenceSha256,
+    stageProvenanceSha256,
+    sourceCommit: stage.source.commit,
+    artifactKind: stage.artifactKind,
+    project: stage.project,
+    deletedDeploymentId: stage.deployment.id,
+    currentDeploymentId: stage.priorDeploymentId,
+  };
+  return { ...payload, evidenceSha256: sha256Canonical(payload) };
+}
+
+export async function cleanupStagedVercelRelease({
+  stageEvidencePath,
+  stageProvenancePath,
+  ...options
+} = {}) {
+  const stageRecord = readCanonicalJsonFile(stageEvidencePath, "Vercel stage evidence");
+  const stageProvenance = stageProvenancePath
+    ? provenanceRecord(stageProvenancePath, "vercel-stage-sigstore")
+    : null;
+  return cleanupStagedValue({
+    ...options,
+    stageEvidence: stageRecord.value,
+    stageEvidenceSha256: stageRecord.value.evidenceSha256,
+    stageProvenanceSha256: stageProvenance?.sha256 ?? null,
+  });
+}
+
+async function fetchCanaryProbe(origin, probe, fetchImpl, trustedProbeHeaders) {
+  const url = new URL(probe.path, `${origin}/`);
+  if (url.origin !== origin || !probe.path.startsWith("/") || probe.path.startsWith("//")) {
+    throw new Error("A provider-canary probe path is unsafe.");
+  }
+  let response;
+  try {
+    response = await fetchImpl(url, {
+      method: "GET",
+      redirect: "error",
+      signal: AbortSignal.timeout(30_000),
+      headers: {
+        accept: "text/html,application/json,text/plain;q=0.9,*/*;q=0.1",
+        "user-agent": "Lester-Labs-Provider-Canary/1",
+        ...trustedProbeHeaders,
+      },
+    });
+  } catch {
+    throw new Error(`The provider-canary HTTP probe for ${probe.path} did not complete.`);
+  }
+  const bytes = await readResponseBounded(response, 16 * 1024 * 1024);
+  if (response.status !== probe.status) {
+    throw new Error(
+      `The provider-canary HTTP probe for ${probe.path} returned status ${response.status}; expected ${probe.status}.`,
+    );
+  }
+  if (probe.bytes && !bytes.equals(probe.bytes)) {
+    throw new Error(`The provider-canary HTTP probe for ${probe.path} returned different bytes.`);
+  }
+  if (probe.bodySha256 && sha256Bytes(bytes) !== probe.bodySha256) {
+    throw new Error(`The provider-canary HTTP probe for ${probe.path} returned a different digest.`);
+  }
+  for (const [name, expected] of Object.entries(probe.headers)) {
+    if (response.headers.get(name) !== expected) {
+      throw new Error(`The provider-canary HTTP probe for ${probe.path} differs at header ${name}.`);
+    }
+  }
+  return {
+    path: probe.path,
+    status: response.status,
+    bytes: bytes.length,
+    sha256: sha256Bytes(bytes),
+  };
+}
+
+async function verifyCanaryHttp(deployment, prepared, fetchImpl, trustedProbeHeaders) {
+  const origin = deploymentUrl(deployment);
+  const observations = [];
+  for (const probe of prepared.canaryProbes) {
+    observations.push(await fetchCanaryProbe(origin, probe, fetchImpl, trustedProbeHeaders));
+  }
+  return sha256Canonical(observations);
+}
+
+async function createProviderDeployment(api, target, prepared, workflow, controls) {
+  const metadata = {
+    lesterArtifactKind: prepared.artifactKind,
+    lesterArtifactSha256: prepared.artifact.sha256,
+    lesterManifestSha256: prepared.source.manifestSha256,
+    lesterOperation: "provider-canary",
+    lesterReleaseRunAttempt: String(workflow.runAttempt),
+    lesterReleaseRunId: workflow.runId,
+    lesterSourceCommit: prepared.source.commit,
+    lesterSourceReviewSha256: prepared.source.sourceReviewSha256,
+  };
+  let created;
+  try {
+    created = await api.request(
+      "POST",
+      "/v13/deployments?forceNew=1&skipAutoDetectionConfirmation=1",
+      {
+        teamId: target.teamId,
+        body: canonicalJson({
+          name: target.projectName,
+          project: target.projectId,
+          target: "production",
+          version: 2,
+          autoAssignCustomDomains: false,
+          files: prepared.uploadFiles.map((file) => ({
+            file: file.path,
+            sha: file.providerSha1,
+            size: file.bytes.length,
+          })),
           projectSettings: prepared.projectSettings,
           meta: metadata,
         }),
