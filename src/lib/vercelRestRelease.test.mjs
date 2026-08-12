@@ -252,6 +252,7 @@ function makeVercelMock({
   creationResponseAliases = createdAliases,
   creationResponseAliasAssigned = false,
   stagedAliasAssigned = false,
+  promotionSubstateLagReads = 0,
   emptyDeploymentListsAfterCreate = 0,
   failDeploymentListOnce = false,
 } = {}) {
@@ -268,6 +269,7 @@ function makeVercelMock({
     promotionSuperseded: false,
     stageCreateResponseFailed: false,
     rollbackResponseFailed: false,
+    promotionDeploymentReads: 0,
     deploymentListReads: 0,
     deploymentListFailed: false,
   }
@@ -286,14 +288,16 @@ function makeVercelMock({
     }
     assert.equal(id, NEW_DEPLOYMENT_ID)
     const promoted = state.currentDeploymentId === id
+    if (promoted) state.promotionDeploymentReads += 1
+    const promotionSettled = promoted && state.promotionDeploymentReads > promotionSubstateLagReads
     return {
       id,
       projectId,
       target: 'production',
       readyState: 'READY',
-      readySubstate: promoted ? 'PROMOTED' : 'STAGED',
-      aliasAssigned: promoted || stagedAliasAssigned,
-      alias: promoted ? productionAliases : createdAliases,
+      readySubstate: promotionSettled ? 'PROMOTED' : 'STAGED',
+      aliasAssigned: promotionSettled || stagedAliasAssigned,
+      alias: promotionSettled ? productionAliases : createdAliases,
       url: `new-${projectName}.vercel.app`,
       meta: state.createBody?.meta,
     }
@@ -891,6 +895,41 @@ describe('dependency-free Vercel REST release adapter', () => {
       )
       assert.equal(canaryMock.state.deleted, true)
       assert.equal(canaryMock.state.currentDeploymentId, OLD_DEPLOYMENT_ID)
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it('waits for the exact promoted substate after the canary project target switches', async () => {
+    const fixture = createEmergencyPackage()
+    try {
+      const canaryMock = makeVercelMock({
+        projectId: CANARY_PROJECT_ID,
+        projectName: 'canary-project',
+        publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
+        promotionSubstateLagReads: 2,
+      })
+      const canary = await runProviderCanary({
+        ...CANARY_WORKFLOW_IDENTITY,
+        artifactKind: 'emergency-static',
+        releaseDirectory: fixture.releaseDirectory,
+        sourceDirectory: fixture.sourceDirectory,
+        sourceCommit: SOURCE_COMMIT,
+        maximumUploadBytes: 128_000,
+        token: TOKEN,
+        teamId: TEAM_ID,
+        projectId: CANARY_PROJECT_ID,
+        projectName: 'canary-project',
+        productionProjectId: PRODUCTION_PROJECT_ID,
+        fetchImpl: canaryMock.fetchImpl,
+        delay: async () => {},
+        maxPollAttempts: 5,
+        pollIntervalMs: 0,
+      })
+      assert.equal(canary.status, 'PASSED')
+      assert.equal(canaryMock.state.promotionDeploymentReads, 3)
+      assert.equal(canaryMock.state.currentDeploymentId, OLD_DEPLOYMENT_ID)
+      assert.equal(canaryMock.state.deleted, true)
     } finally {
       rmSync(fixture.root, { recursive: true, force: true })
     }
