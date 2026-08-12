@@ -500,6 +500,7 @@ describe('frontend release artifact attestation', () => {
         fetchImpl: async () => routeResponse(policy),
       })
       assert.equal(candidate.status, 'CANDIDATE')
+      assert.equal(candidate.runtime.npm, '11.16.0')
       assert.equal(candidate.routeSnapshots.length, policy.routes.length)
       assert.deepEqual(candidate.routeSnapshots[0].thirdPartyOrigins, [
         'https://liteforge.explorer.caldera.xyz',
