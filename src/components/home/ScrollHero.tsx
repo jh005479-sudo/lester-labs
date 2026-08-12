@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import Link from 'next/link'
-import { ArrowRight, LayoutGrid } from 'lucide-react'
+import { LayoutGrid } from 'lucide-react'
 import { PlatformStats } from './PlatformStats'
 import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
@@ -182,33 +181,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
             </span>
           </div>
 
-          <Link
-            href="/security"
-            prefetch={false}
-            style={{
-              display: 'block',
-              maxWidth: 680,
-              marginTop: 24,
-              padding: '12px 16px',
-              borderRadius: 12,
-              border: '1px solid rgba(251,191,36,.34)',
-              background: 'rgba(120,53,15,.34)',
-              color: 'rgba(254,243,199,.95)',
-              fontSize: 13,
-              lineHeight: 1.55,
-              textAlign: 'center',
-              textDecoration: 'none',
-              backdropFilter: 'blur(12px)',
-            }}
-          >
-            <strong>{PUBLIC_RELEASE_STATUS.homepage.heroHeading}</strong>{' '}
-            {PUBLIC_RELEASE_STATUS.homepage.heroDetail}
-          </Link>
-
           <div className="scroll-hero-actions hero-cta-group" style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 36 }}>
-            <Link className="hero-btn-primary" href="/security" prefetch={false}>
-              Review Security Status <ArrowRight size={15} aria-hidden="true" />
-            </Link>
             <button
               className="hero-btn-ghost"
               onClick={() => {
@@ -226,28 +199,6 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
 
           <div className="scroll-hero-stats" style={{ marginTop: 18 }}>
             <PlatformStats />
-          </div>
-        </div>
-
-        <div
-          className="scroll-hero-indicator"
-          style={{
-            position: 'absolute',
-            bottom: 28,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 15,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 6,
-            opacity: 1,
-            pointerEvents: 'none',
-          }}
-        >
-          <div style={{ fontSize: 9, letterSpacing: '.25em', textTransform: 'uppercase', color: 'rgba(255,255,255,.16)' }}>Scroll</div>
-          <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,.06)', position: 'relative', overflow: 'hidden' }}>
-            <div className="hero-si-dot" />
           </div>
         </div>
       </div>
