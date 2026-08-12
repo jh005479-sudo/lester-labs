@@ -1650,12 +1650,18 @@ async function pollCanaryCurrent(api, target, fromDeploymentId, toDeploymentId, 
     if (current === toDeploymentId) {
       const deployment = await getDeployment(api, target, current);
       validateDeploymentIdentity(deployment, { projectId: target.projectId, deploymentId: current });
-      if (deployment.readyState !== "READY") throw new Error("The provider-canary current deployment is not READY.");
-      return deployment;
+      if (["ERROR", "CANCELED"].includes(deployment.readyState)) {
+        throw new Error(`The provider-canary current deployment entered terminal state ${deployment.readyState}.`);
+      }
+      if (deployment.readyState === "READY" && deployment.readySubstate === "PROMOTED") {
+        return deployment;
+      }
     }
     if (attempt + 1 < controls.maxPollAttempts) await controls.delay(controls.pollIntervalMs);
   }
-  throw new Error("The provider canary did not switch to the exact deployment ID within the bounded poll window.");
+  throw new Error(
+    "The provider canary did not switch to the exact READY/PROMOTED deployment within the bounded poll window.",
+  );
 }
 
 async function routeCanaryProject(api, target, endpoint, fromDeploymentId, toDeploymentId, controls) {
