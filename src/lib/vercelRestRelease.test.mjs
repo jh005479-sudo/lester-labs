@@ -23,6 +23,7 @@ import {
   runProviderCanary,
   stageEmergencyRelease,
   stageNextContainerRelease,
+  validateStageEvidence,
   validateStagedParityEvidence,
 } from '../../scripts/security/vercel-rest-release.mjs'
 import {
@@ -984,7 +985,7 @@ describe('dependency-free Vercel REST release adapter', () => {
     }
   })
 
-  it('runs the emergency provider canary, stages and promotes, but refuses the unsafe pre-containment rollback', async () => {
+  it('accepts the exact public-testnet READY/STAGED production system-hostname assignment, records raw state, promotes, and refuses the unsafe pre-containment rollback', async () => {
     const fixture = createEmergencyPackage()
     try {
       const canaryMock = makeVercelMock({
@@ -995,6 +996,7 @@ describe('dependency-free Vercel REST release adapter', () => {
       })
       const canary = await runProviderCanary({
         ...CANARY_WORKFLOW_IDENTITY,
+        releaseProfile: 'public-testnet-immutable',
         artifactKind: 'emergency-static',
         releaseDirectory: fixture.releaseDirectory,
         sourceDirectory: fixture.sourceDirectory,
@@ -1041,9 +1043,11 @@ describe('dependency-free Vercel REST release adapter', () => {
         publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
         productionAliases: ['lester-labs.com', 'www.lester-labs.com'],
         createdAliases: REVIEWED_PRODUCTION_PROVIDER_ALIASES,
+        stagedAliasAssigned: true,
       })
       const stage = await stageEmergencyRelease({
         ...STAGE_WORKFLOW_IDENTITY,
+        releaseProfile: 'public-testnet-immutable',
         releaseDirectory: fixture.releaseDirectory,
         sourceDirectory: fixture.sourceDirectory,
         sourceCommit: SOURCE_COMMIT,
@@ -1064,8 +1068,25 @@ describe('dependency-free Vercel REST release adapter', () => {
       assert.equal(stage.priorDeploymentId, OLD_DEPLOYMENT_ID)
       assert.equal(stage.rollbackDisposition.mode, 'HOLD_PROMOTED')
       assert.equal(stage.rollbackDisposition.priorClassification, 'UNSAFE_PRECONTAINMENT')
-      assert.equal(stage.deployment.aliasAssigned, false)
-      assert.deepEqual(stage.deployment.aliases, [])
+      assert.equal(stage.schemaVersion, 4)
+      assert.equal(stage.deployment.aliasAssigned, true)
+      assert.deepEqual(stage.deployment.aliases, REVIEWED_PRODUCTION_PROVIDER_ALIASES)
+      const apexAssigned = structuredClone(stage)
+      apexAssigned.deployment.aliases.push('lester-labs.com')
+      const { evidenceSha256: ignoredEvidenceSha256, ...apexAssignedPayload } = apexAssigned
+      apexAssigned.evidenceSha256 = sha256Canonical(apexAssignedPayload)
+      assert.throws(
+        () => validateStageEvidence(apexAssigned),
+        /assigned an unexpected alias/i,
+      )
+      const realProductionProfile = structuredClone(stage)
+      realProductionProfile.source.releaseProfile = 'production-separated-authority'
+      const { evidenceSha256: ignoredProfileSha256, ...realProductionPayload } = realProductionProfile
+      realProductionProfile.evidenceSha256 = sha256Canonical(realProductionPayload)
+      assert.throws(
+        () => validateStageEvidence(realProductionProfile),
+        /unexpectedly has aliases assigned/i,
+      )
       assert.equal(stage.sourceUpload.files.every(({ securitySha256 }) => /^[0-9a-f]{64}$/u.test(securitySha256)), true)
       assert.equal(stage.sourceUpload.files.every(({ providerSha1 }) => /^[0-9a-f]{40}$/u.test(providerSha1)), true)
 
