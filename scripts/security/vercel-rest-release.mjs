@@ -2306,11 +2306,12 @@ async function pollPromoted(api, target, stage, {
       throw new Error(`The promotion target entered terminal state ${deployment.readyState}.`);
     }
     if (current === stage.deployment.id) {
-      if (deployment.readyState !== "READY" || deployment.readySubstate !== "PROMOTED") {
-        throw new Error("The exact current deployment is not READY/PROMOTED.");
+      if (deployment.readyState === "READY" && deployment.readySubstate === "PROMOTED") {
+        const aliases = assertCurrentProductionDeployment(deployment, target);
+        return { deployment, aliases };
       }
-      const aliases = assertCurrentProductionDeployment(deployment, target);
-      return { deployment, aliases };
+      if (attempt + 1 < maxPollAttempts) await delay(pollIntervalMs);
+      continue;
     }
     if (attempt + 1 < maxPollAttempts) await delay(pollIntervalMs);
   }
@@ -2399,15 +2400,7 @@ async function recoverIncompletePromotion(api, target, stage, controls) {
   }
 
   if (stage.rollbackDisposition.mode === "HOLD_PROMOTED") {
-    const deployment = await getDeployment(api, target, stage.deployment.id);
-    validateDeploymentIdentity(deployment, {
-      projectId: target.projectId,
-      deploymentId: stage.deployment.id,
-    });
-    if (deployment.readyState !== "READY" || deployment.readySubstate !== "PROMOTED") {
-      throw new Error("The held emergency containment deployment is not READY/PROMOTED.");
-    }
-    const aliases = assertCurrentProductionDeployment(deployment, target);
+    const { deployment, aliases } = await pollPromoted(api, target, stage, controls);
     return { state: "PROMOTED_CURRENT", deployment, aliases };
   }
 
