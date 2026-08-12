@@ -385,11 +385,11 @@ function collectArtifactEmbeddedOrigins(buildDirectory, publicDirectory, policy,
       const artifactPath = `${rootLabel}/${file.relativePath}`;
       const reviewed = reviewedByPath.get(embeddedOriginReviewPath(artifactPath));
       for (const origin of observeEmbeddedNetworkOrigins(text)) {
-        origins.add(origin);
-        if (
-          !allowed.has(origin) &&
-          !reviewed?.origins.some((reviewedOrigin) => reviewedOrigin === origin)
-        ) unexpected.push({ origin, path: artifactPath, sha256: file.sha256 });
+        if (allowed.has(origin)) {
+          origins.add(origin);
+        } else if (!reviewed?.origins.some((reviewedOrigin) => reviewedOrigin === origin)) {
+          unexpected.push({ origin, path: artifactPath, sha256: file.sha256 });
+        }
       }
     }
   }
