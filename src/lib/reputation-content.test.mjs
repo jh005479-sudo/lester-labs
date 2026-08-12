@@ -80,6 +80,16 @@ describe('reputation-sensitive metadata and indexing', () => {
     assert.doesNotMatch(sitemap, /lastModified:\s*new Date\(\)/)
   })
 
+  it('ships the local LitVM tutorial diagram without executable SVG surfaces', () => {
+    const tutorials = read('./tutorials-content.ts')
+    const diagram = read('../../public/images/tutorials/litvm-diagram.svg')
+    assert.match(tutorials, /src: '\/images\/tutorials\/litvm-diagram\.svg'/)
+    assert.match(diagram, /<title[^>]*>LitVM validity-rollup architecture<\/title>/)
+    assert.doesNotMatch(diagram, /<(?:script|foreignObject|animate|set)\b/i)
+    assert.doesNotMatch(diagram, /\son[a-z]+\s*=/i)
+    assert.doesNotMatch(diagram, /(?:href|src)\s*=\s*["'](?:https?:|\/\/|data:|javascript:)/i)
+  })
+
   it('never labels the retired governance token canonical', () => {
     const indexer = read('./token-indexer-utils.ts')
     assert.match(indexer, /not canonical/i)

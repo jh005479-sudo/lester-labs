@@ -71,7 +71,7 @@ Then run the exact provider path in order:
 3. dispatch `vercel-production-release.yml` with both exact run IDs.
 
 For that dispatch, set `safe_rollback_commit=none` and
-`safe_rollback_run_id=none`. The signed stage disposition must be
+`safe_rollback_run_id=none`, and `safe_rollback_parity_run_id=none`. The signed stage disposition must be
 `HOLD_PROMOTED`; any other disposition is an incident.
 
 The production workflow stages the signed static package through the reviewed
