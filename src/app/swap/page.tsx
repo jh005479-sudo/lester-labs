@@ -2198,7 +2198,7 @@ function SwapPageInner() {
                         <div className="text-[2rem] font-semibold text-white">
                           {quotedAmountOutText || '0.0'}
                         </div>
-                        <p className="mt-2 text-sm text-white/40">Legacy Reserve Quote</p>
+                        <p className="mt-2 text-sm text-white/40">Source-pinned Replacement Reserve Quote</p>
                       </div>
                       <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/50">
                         Direct route
