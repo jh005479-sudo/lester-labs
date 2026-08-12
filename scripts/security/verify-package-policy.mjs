@@ -37,6 +37,51 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
+function validateWorkflowHeredocs(name, workflow) {
+  const lines = workflow.split(/\r?\n/u);
+  for (let index = 0; index < lines.length; index += 1) {
+    const run = /^(\s*)run:\s*\|[-+]?\s*$/u.exec(lines[index]);
+    if (!run) continue;
+    const runIndent = run[1].length;
+    const block = [];
+    let cursor = index + 1;
+    for (; cursor < lines.length; cursor += 1) {
+      const line = lines[cursor];
+      if (line.trim() === "") {
+        block.push(line);
+        continue;
+      }
+      const indent = /^ */u.exec(line)[0].length;
+      if (indent <= runIndent) break;
+      block.push(line);
+    }
+    const contentIndents = block
+      .filter((line) => line.trim() !== "")
+      .map((line) => /^ */u.exec(line)[0].length);
+    if (contentIndents.length === 0) continue;
+    const contentIndent = Math.min(...contentIndents);
+    const shellLines = block.map((line) => line.slice(Math.min(contentIndent, line.length)));
+    for (let shellIndex = 0; shellIndex < shellLines.length; shellIndex += 1) {
+      for (const match of shellLines[shellIndex].matchAll(/<<'([A-Za-z_][A-Za-z0-9_]*)'/gu)) {
+        const delimiter = match[1];
+        let terminator = shellIndex + 1;
+        while (terminator < shellLines.length && shellLines[terminator].trim() !== delimiter) {
+          terminator += 1;
+        }
+        if (terminator === shellLines.length) {
+          errors.push(`${name}: run block has no ${delimiter} heredoc terminator`);
+          continue;
+        }
+        if (shellLines[terminator] !== delimiter) {
+          errors.push(`${name}: ${delimiter} heredoc terminator must start at shell column zero`);
+        }
+        shellIndex = terminator;
+      }
+    }
+    index = cursor - 1;
+  }
+}
+
 function parseNpmConfig(path) {
   const config = new Map();
 
@@ -196,6 +241,7 @@ for (const entry of readdirSync(workflowDirectory, { withFileTypes: true })) {
   if (!entry.isFile() || !/\.ya?ml$/u.test(entry.name)) continue;
   const workflowPath = join(workflowDirectory, entry.name);
   const workflow = readFileSync(workflowPath, "utf8");
+  validateWorkflowHeredocs(entry.name, workflow);
   if (/^\s*pull_request_target\s*:/mu.test(workflow)) {
     errors.push(`${entry.name}: pull_request_target is prohibited for this repository`);
   }

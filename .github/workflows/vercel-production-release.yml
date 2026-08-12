@@ -177,18 +177,18 @@ jobs:
           if test "$RELEASE_KIND" = "next-standalone-container"; then
             safe_rollback_run_attempt="$(node --input-type=module - \
               "$RUNNER_TEMP/safe-rollback-run.json" "$SAFE_ROLLBACK_COMMIT" <<'NODE'
-            import { readFileSync } from "node:fs";
-            const [path, commit] = process.argv.slice(2);
-            const run = JSON.parse(readFileSync(path, "utf8"));
-            if (
-              run.head_sha !== commit || run.head_branch !== "main" ||
-              run.event !== "workflow_dispatch" || run.status !== "completed" ||
-              run.conclusion !== "success" ||
-              run.path !== ".github/workflows/vercel-production-release.yml" ||
-              !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1
-            ) throw new Error("Safe rollback run is not the exact successful emergency production workflow.");
-            process.stdout.write(String(run.run_attempt));
-            NODE
+          import { readFileSync } from "node:fs";
+          const [path, commit] = process.argv.slice(2);
+          const run = JSON.parse(readFileSync(path, "utf8"));
+          if (
+            run.head_sha !== commit || run.head_branch !== "main" ||
+            run.event !== "workflow_dispatch" || run.status !== "completed" ||
+            run.conclusion !== "success" ||
+            run.path !== ".github/workflows/vercel-production-release.yml" ||
+            !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1
+          ) throw new Error("Safe rollback run is not the exact successful emergency production workflow.");
+          process.stdout.write(String(run.run_attempt));
+          NODE
             )"
             [[ "$safe_rollback_run_attempt" =~ ^[1-9][0-9]{0,5}$ ]]
             safe_rollback_promotion_artifact_name="vercel-promotion-emergency-static-$SAFE_ROLLBACK_COMMIT-$SAFE_ROLLBACK_RUN_ID-$safe_rollback_run_attempt"
