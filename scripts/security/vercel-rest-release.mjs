@@ -50,6 +50,7 @@ const REVIEWED_STAGED_PROVIDER_ALIASES = Object.freeze({
   "prj_dbAIzvnFWLzxkt2dpphAWbserIG7": Object.freeze({
     teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
     projectName: "lester-labs",
+    allowExactReadyStagedAssignmentForReleaseProfile: "public-testnet-immutable",
     aliases: Object.freeze([
       "lester-labs-jh005479-8603-lester-labs.vercel.app",
       "lester-labs-lester-labs.vercel.app",
@@ -926,7 +927,13 @@ function assertNoProductionAliases(deployment, target) {
     );
   }
   const exactReviewedAssignment = (
-    reviewed?.allowExactReadyStagedAssignment === true &&
+    (
+      reviewed?.allowExactReadyStagedAssignment === true ||
+      (
+        typeof reviewed?.allowExactReadyStagedAssignmentForReleaseProfile === "string" &&
+        reviewed.allowExactReadyStagedAssignmentForReleaseProfile === target.releaseProfile
+      )
+    ) &&
     deployment.aliasAssigned === true &&
     deployment.readyState === "READY" &&
     deployment.readySubstate === "STAGED" &&
@@ -943,7 +950,7 @@ function assertNoProductionAliases(deployment, target) {
       }).trim()}`,
     );
   }
-  return [];
+  return aliases;
 }
 
 function assertCurrentProductionDeployment(deployment) {
@@ -1204,7 +1211,7 @@ function stageEvidencePayload(
 ) {
   return {
     kind: "lester-labs-vercel-stage-evidence",
-    schemaVersion: 3,
+    schemaVersion: 4,
     status: "STAGED",
     artifactKind: prepared.artifactKind,
     stagedAt,
@@ -1227,7 +1234,7 @@ function stageEvidencePayload(
       target: "production",
       readyState: "READY",
       readySubstate: "STAGED",
-      aliasAssigned: false,
+      aliasAssigned: deployment.aliasAssigned,
       aliases,
     },
     priorDeploymentId,
@@ -1317,10 +1324,12 @@ export async function stageVercelRelease({
   requestTimeoutMs,
 } = {}) {
   validatePolling(maxPollAttempts, pollIntervalMs);
+  assertReleaseProfile(releaseProfile);
   const target = {
     teamId: assertIdentifier(teamId, TEAM_ID_PATTERN, "Vercel team ID"),
     projectId: assertIdentifier(projectId, PROJECT_ID_PATTERN, "Vercel project ID"),
     projectName: assertIdentifier(projectName, PROJECT_NAME_PATTERN, "Vercel project name"),
+    releaseProfile,
   };
   const workflow = {
     repository: REVIEWED_REPOSITORY,
@@ -1344,7 +1353,6 @@ export async function stageVercelRelease({
   if (!prepared || !Array.isArray(prepared.uploadFiles) || prepared.uploadFiles.length === 0) {
     throw new Error("A locally validated release package is required.");
   }
-  assertReleaseProfile(releaseProfile);
   if (prepared.source.releaseProfile !== releaseProfile) {
     throw new Error("The staged release package differs from the selected release profile.");
   }
@@ -1434,8 +1442,10 @@ export async function stageVercelRelease({
     // The create response can contain Vercel's generated deployment URL in its
     // alias fields even when no routing mutation occurred. Treat the subsequent
     // deployment read as authoritative: pollStagedDeployment requires
-    // aliasAssigned=false, READY/STAGED, and no hostname outside the immutable
-    // deployment URL plus an exact project-bound provider-metadata allow-list.
+    // READY/STAGED and no hostname outside the immutable deployment URL plus an
+    // exact project-bound provider-metadata allow-list. Vercel can report
+    // aliasAssigned=true for those system hostnames even though
+    // autoAssignCustomDomains=false and neither reviewed custom domain is routed.
     const { deployment, aliases } = await pollStagedDeployment(
       api,
       target,
@@ -1805,8 +1815,8 @@ export async function runProviderCanary({
       throw new Error("Vercel created a deployment outside the reviewed canary project or target.");
     }
     // Creation responses may describe the immutable per-deployment URL as an
-    // alias. The authoritative deployment read below still rejects any routed
-    // alias or aliasAssigned=true state before a canary probe can run.
+    // alias. The authoritative deployment read below accepts only the exact
+    // reviewed READY/STAGED provider-system-hostname state before probing.
     const { deployment: staged } = await pollStagedDeployment(api, target, stagedDeploymentId, controls);
     await preflight(api, target, { expectedCurrentDeploymentId: rollbackDeploymentId });
     stagedHttpSha256 = await verifyCanaryHttp(staged, prepared, publicFetchImpl, trustedProbeHeaders);
@@ -1923,7 +1933,7 @@ export function validateStageEvidence(value) {
   ], "Vercel stage evidence");
   if (
     value.kind !== "lester-labs-vercel-stage-evidence" ||
-    value.schemaVersion !== 3 ||
+    value.schemaVersion !== 4 ||
     value.status !== "STAGED" ||
     !["emergency-static", "next-standalone-container"].includes(value.artifactKind)
   ) throw new Error("The Vercel stage evidence kind, schema, status, or artifact kind is unsupported.");
@@ -2044,14 +2054,20 @@ export function validateStageEvidence(value) {
   ], "Stage deployment");
   assertIdentifier(value.deployment.id, DEPLOYMENT_ID_PATTERN, "Stage deployment ID");
   deploymentUrl(value.deployment);
+  const stagedTarget = {
+    teamId: value.project.teamId,
+    projectId: value.project.projectId,
+    projectName: value.project.name,
+    releaseProfile: value.source.releaseProfile,
+  };
   if (
     value.deployment.target !== "production" ||
     value.deployment.readyState !== "READY" ||
     value.deployment.readySubstate !== "STAGED" ||
-    value.deployment.aliasAssigned !== false ||
-    !Array.isArray(value.deployment.aliases) ||
-    value.deployment.aliases.length !== 0
-  ) throw new Error("Stage deployment is not a domain-free READY/STAGED production build.");
+    typeof value.deployment.aliasAssigned !== "boolean" ||
+    !Array.isArray(value.deployment.aliases)
+  ) throw new Error("Stage deployment is not a custom-domain-free READY/STAGED production build.");
+  assertNoProductionAliases(value.deployment, stagedTarget);
   assertIdentifier(value.priorDeploymentId, DEPLOYMENT_ID_PATTERN, "Stage prior deployment ID");
   if (value.priorDeploymentId === value.deployment.id) {
     throw new Error("The staged and prior deployment IDs must differ.");
@@ -2451,6 +2467,7 @@ export async function promoteVercelRelease({
     teamId: stage.project.teamId,
     projectId: stage.project.projectId,
     projectName: stage.project.name,
+    releaseProfile: stage.source.releaseProfile,
   };
   const api = makeApi({ token, fetchImpl, requestTimeoutMs });
   await preflight(api, target, { expectedCurrentDeploymentId: stage.priorDeploymentId });
