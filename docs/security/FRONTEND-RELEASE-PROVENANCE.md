@@ -24,6 +24,16 @@ any generated action or mismatched key fails the release. This value must never
 be reused as a secret if Server Actions are introduced: that change requires a
 new threat model and release design.
 
+Next.js also generates random preview/draft-mode properties even though this
+application exposes no preview or draft feature. The release rejects preview and
+draft API tokens in executable source, replaces only those three inactive values
+with commit-derived non-secret values, and canonicalizes the key order of the two
+generated route-map manifests. It requires exact root/standalone agreement before
+and after normalization and revalidates the generated schemas and canonical
+bytes during inventory creation. Any future preview or draft feature requires a
+new threat model with secret runtime keys and removal of this disabled-feature
+normalization.
+
 The pinned `npm run build` command selects Next's bundled webpack path
 explicitly. A clean script-disabled install showed the default Turbopack path
 attempting to resolve an undeclared `@vercel/turbopack/postcss` module; the

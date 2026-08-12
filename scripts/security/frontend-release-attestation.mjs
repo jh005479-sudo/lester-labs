@@ -6,11 +6,13 @@ import {
   copyFileSync,
   existsSync,
   fstatSync,
+  ftruncateSync,
   lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
   readdirSync,
+  writeSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
@@ -66,6 +68,12 @@ const EMBEDDED_ORIGIN_TEXT_EXTENSIONS = /\.(?:cjs|css|html|js|json|mjs|txt|webma
 const STATIC_CONTENT_HASH_PATH = /-[0-9a-f]{16}(\.(?:css|js))$/u;
 const STATIC_REVIEW_HASH_MARKER_PATH = /-\{content-hash\}(\.(?:css|js))$/u;
 const NO_SERVER_ACTIONS_BUILD_KEY_DOMAIN = "lester-labs/no-server-actions-build-key/v1\0";
+const DISABLED_PREVIEW_BUILD_KEY_DOMAIN = "lester-labs/disabled-preview-build-key/v1\0";
+const NORMALIZED_BUILD_MANIFEST_PATHS = Object.freeze([
+  "app-path-routes-manifest.json",
+  "prerender-manifest.json",
+  "server/app-paths-manifest.json",
+]);
 export const REVIEWED_FRONTEND_BUILDER_IMAGE =
   "docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5";
 
@@ -446,26 +454,167 @@ export function deriveNoServerActionsBuildKey(sourceCommit) {
   return Buffer.from(digest, "hex").toString("base64");
 }
 
-function readServerReferenceManifest(path, sourceCommit) {
+function readRegularNonSymlinkFile(path, label) {
   let descriptor;
-  let contents;
   try {
     descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
     if (!fstatSync(descriptor).isFile()) {
       throw new Error("not a regular file");
     }
-    contents = readFileSync(descriptor, "utf8");
+    return readFileSync(descriptor);
   } catch {
-    throw new Error(`The Next.js server-reference manifest cannot be opened as a regular non-symlink file: ${path}.`);
+    throw new Error(`${label} cannot be opened as a regular non-symlink file: ${path}.`);
   } finally {
     if (descriptor !== undefined) closeSync(descriptor);
   }
+}
+
+function readRegularJson(path, label) {
+  const contents = readRegularNonSymlinkFile(path, label);
   let manifest;
   try {
     manifest = JSON.parse(contents);
   } catch {
-    throw new Error(`The Next.js server-reference manifest is not valid JSON: ${path}.`);
+    throw new Error(`${label} is not valid JSON: ${path}.`);
   }
+  return { contents, manifest };
+}
+
+function writeCanonicalJsonThroughDescriptor(path, value, label) {
+  const bytes = Buffer.from(canonicalJson(value));
+  let descriptor;
+  try {
+    descriptor = openSync(path, constants.O_RDWR | constants.O_NOFOLLOW);
+    if (!fstatSync(descriptor).isFile()) throw new Error("not a regular file");
+    ftruncateSync(descriptor, 0);
+    const written = writeSync(descriptor, bytes, 0, bytes.length, 0);
+    if (written !== bytes.length) throw new Error("short write");
+  } catch {
+    throw new Error(`${label} cannot be rewritten through a regular non-symlink file descriptor: ${path}.`);
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
+function assertSourceCommit(sourceCommit, label) {
+  if (!COMMIT_PATTERN.test(sourceCommit ?? "")) {
+    throw new Error(`${label} requires a lowercase 40-character source commit.`);
+  }
+}
+
+export function deriveDisabledPreviewModeProperties(sourceCommit) {
+  assertSourceCommit(sourceCommit, "Disabled preview-mode properties");
+  const derive = (purpose) => sha256Bytes(
+    `${DISABLED_PREVIEW_BUILD_KEY_DOMAIN}${purpose}\0${sourceCommit}`,
+  );
+  return {
+    previewModeId: derive("id").slice(0, 32),
+    previewModeSigningKey: derive("signing"),
+    previewModeEncryptionKey: derive("encryption"),
+  };
+}
+
+function validatePreviewManifest(manifest, path, { requireDeterministic, sourceCommit }) {
+  assertExactKeys(
+    manifest,
+    ["version", "routes", "dynamicRoutes", "notFoundRoutes", "preview"],
+    `Prerender manifest ${path}`,
+  );
+  assertExactKeys(
+    manifest.preview,
+    ["previewModeId", "previewModeSigningKey", "previewModeEncryptionKey"],
+    `Prerender preview properties ${path}`,
+  );
+  const shapes = {
+    previewModeId: /^[0-9a-f]{32}$/u,
+    previewModeSigningKey: /^[0-9a-f]{64}$/u,
+    previewModeEncryptionKey: /^[0-9a-f]{64}$/u,
+  };
+  for (const [name, pattern] of Object.entries(shapes)) {
+    if (!pattern.test(manifest.preview[name] ?? "")) {
+      throw new Error(`Prerender preview property ${name} is malformed in ${path}.`);
+    }
+  }
+  if (
+    requireDeterministic &&
+    canonicalJson(manifest.preview) !== canonicalJson(deriveDisabledPreviewModeProperties(sourceCommit))
+  ) throw new Error(`Disabled preview properties are not bound to the reviewed source commit in ${path}.`);
+}
+
+function validateRouteMapManifest(manifest, path) {
+  if (
+    !manifest ||
+    typeof manifest !== "object" ||
+    Array.isArray(manifest) ||
+    Object.values(manifest).some((value) => typeof value !== "string")
+  ) throw new Error(`Route-map manifest ${path} must contain only string path mappings.`);
+}
+
+function validateNormalizedBuildManifest(relativePath, manifest, path, options) {
+  if (relativePath === "prerender-manifest.json") {
+    validatePreviewManifest(manifest, path, options);
+  } else {
+    validateRouteMapManifest(manifest, path);
+  }
+}
+
+export function normalizeFrontendBuild(buildDirectory, sourceCommit) {
+  assertSourceCommit(sourceCommit, "Frontend build normalization");
+  for (const relativePath of NORMALIZED_BUILD_MANIFEST_PATHS) {
+    const paths = [
+      join(buildDirectory, relativePath),
+      join(buildDirectory, "standalone", ".next", relativePath),
+    ];
+    const parsed = paths.map((path) => {
+      const { manifest } = readRegularJson(path, "Next.js generated build manifest");
+      validateNormalizedBuildManifest(relativePath, manifest, path, {
+        requireDeterministic: false,
+        sourceCommit,
+      });
+      return manifest;
+    });
+    if (canonicalJson(parsed[0]) !== canonicalJson(parsed[1])) {
+      throw new Error(`Next.js root and standalone manifests disagree before normalization: ${relativePath}.`);
+    }
+    if (relativePath === "prerender-manifest.json") {
+      parsed[0].preview = deriveDisabledPreviewModeProperties(sourceCommit);
+      parsed[1].preview = deriveDisabledPreviewModeProperties(sourceCommit);
+    }
+    for (let index = 0; index < paths.length; index += 1) {
+      writeCanonicalJsonThroughDescriptor(
+        paths[index],
+        parsed[index],
+        "Next.js generated build manifest",
+      );
+    }
+  }
+}
+
+function assertNormalizedFrontendBuild(buildDirectory, sourceCommit) {
+  for (const relativePath of NORMALIZED_BUILD_MANIFEST_PATHS) {
+    const paths = [
+      join(buildDirectory, relativePath),
+      join(buildDirectory, "standalone", ".next", relativePath),
+    ];
+    const parsed = paths.map((path) => {
+      const { contents, manifest } = readRegularJson(path, "Next.js normalized build manifest");
+      validateNormalizedBuildManifest(relativePath, manifest, path, {
+        requireDeterministic: true,
+        sourceCommit,
+      });
+      if (!contents.equals(Buffer.from(canonicalJson(manifest)))) {
+        throw new Error(`Next.js build manifest is not in canonical byte form: ${path}.`);
+      }
+      return manifest;
+    });
+    if (canonicalJson(parsed[0]) !== canonicalJson(parsed[1])) {
+      throw new Error(`Next.js normalized root and standalone manifests disagree: ${relativePath}.`);
+    }
+  }
+}
+
+function readServerReferenceManifest(path, sourceCommit) {
+  const { manifest } = readRegularJson(path, "The Next.js server-reference manifest");
   assertExactKeys(manifest, ["node", "edge", "encryptionKey"], `Server-reference manifest ${path}`);
   for (const runtime of ["node", "edge"]) {
     const entries = manifest[runtime];
@@ -491,6 +640,16 @@ function assertNoServerActions(root, sourceTree, buildDirectory, sourceCommit) {
   if (serverActionSources.length > 0) {
     throw new Error(
       `Frontend release contains unsupported Next server actions: ${serverActionSources.join(", ")}.`,
+    );
+  }
+  const previewSourcePattern = /\b(?:draftMode|setPreviewData|clearPreviewData|previewData)\b/u;
+  const previewSources = sourceTree.files
+    .filter(({ path }) => sourcePattern.test(path))
+    .filter(({ path }) => previewSourcePattern.test(readFileSync(join(root, path), "utf8")))
+    .map(({ path }) => path);
+  if (previewSources.length > 0) {
+    throw new Error(
+      `Frontend release contains unsupported preview or draft-mode APIs: ${previewSources.join(", ")}.`,
     );
   }
   readServerReferenceManifest(join(buildDirectory, "server", "server-reference-manifest.json"), sourceCommit);
@@ -540,6 +699,7 @@ export function createFrontendArtifactInventory({
     sourceTree.files.map(({ path }) => path),
   );
   assertNoServerActions(root, sourceTree, buildDirectory, sourceCommit);
+  assertNormalizedFrontendBuild(buildDirectory, sourceCommit);
   const inventory = {
     kind: "lester-labs-frontend-artifact-inventory",
     schemaVersion: 1,
@@ -1316,6 +1476,17 @@ async function main() {
     console.log(deriveNoServerActionsBuildKey(argumentsList[0]));
     return;
   }
+  if (command === "normalize-build") {
+    const options = parseOptions(argumentsList);
+    const allowed = new Set(["--build-dir", "--source-commit"]);
+    for (const name of options.keys()) if (!allowed.has(name)) throw new Error(`Unknown option ${name}.`);
+    normalizeFrontendBuild(
+      resolve(requireOption(options, "--build-dir")),
+      requireOption(options, "--source-commit"),
+    );
+    console.log("Normalized exact reviewed Next.js build manifests.");
+    return;
+  }
   if (command === "compare-file-inventories") {
     if (argumentsList.length !== 2) {
       throw new Error("Usage: frontend-release-attestation.mjs compare-file-inventories LEFT RIGHT");
@@ -1420,7 +1591,7 @@ async function main() {
     return;
   }
   if (command !== "inventory" && command !== "attest") {
-    throw new Error("Usage: frontend-release-attestation.mjs <inventory|attest|capture|compare|compare-file-inventories|no-server-actions-build-key|package|deployable|approval-envelope|approve> ...");
+    throw new Error("Usage: frontend-release-attestation.mjs <inventory|attest|capture|compare|compare-file-inventories|no-server-actions-build-key|normalize-build|package|deployable|approval-envelope|approve> ...");
   }
   const options = parseOptions(argumentsList);
   const root = resolve(options.get("--root") ?? repositoryRoot);

@@ -213,10 +213,22 @@ jobs:
               -v "$output_root:/source/.next:rw" \
               -w /source "$RELEASE_IMAGE" npm run build
           }
+          normalize_build() {
+            output_root="$1"
+            docker run --rm --platform linux/amd64 --network none \
+              --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
+              --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m --pids-limit 64 \
+              -v "$GITHUB_WORKSPACE:/source:ro" \
+              -v "$output_root:/build:rw" -w /source \
+              "$RELEASE_IMAGE" node scripts/security/frontend-release-attestation.mjs \
+                normalize-build --build-dir /build --source-commit "$GITHUB_SHA"
+          }
           run_build "$RUNNER_TEMP/install-one" "$RUNNER_TEMP/pass-one" \
             2>&1 | tee "$RUNNER_TEMP/frontend-build-package/logs/build-one.txt"
+          normalize_build "$RUNNER_TEMP/pass-one"
           run_build "$RUNNER_TEMP/install-two" "$RUNNER_TEMP/pass-two" \
             2>&1 | tee "$RUNNER_TEMP/frontend-build-package/logs/build-two.txt"
+          normalize_build "$RUNNER_TEMP/pass-two"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
 

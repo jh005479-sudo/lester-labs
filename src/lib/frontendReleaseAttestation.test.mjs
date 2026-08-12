@@ -13,6 +13,8 @@ import {
   createFrontendArtifactInventory,
   createFrontendReleaseAttestation,
   deriveNoServerActionsBuildKey,
+  deriveDisabledPreviewModeProperties,
+  normalizeFrontendBuild,
   packageFrontendDeployment,
   REVIEWED_FRONTEND_BUILDER_IMAGE,
   validateFrontendReleaseAttestation,
@@ -68,6 +70,19 @@ function writeBuildIdentity(root, sourceCommit) {
     '.next/standalone/.next/server/server-reference-manifest.json',
     serverReferenceManifest,
   )
+  const routeMap = canonicalJson({ '/page': 'app/page.js' })
+  const previewManifest = canonicalJson({
+    version: 4,
+    routes: {},
+    dynamicRoutes: {},
+    notFoundRoutes: [],
+    preview: deriveDisabledPreviewModeProperties(sourceCommit),
+  })
+  for (const prefix of ['.next', '.next/standalone/.next']) {
+    writeFixtureFile(root, `${prefix}/app-path-routes-manifest.json`, routeMap)
+    writeFixtureFile(root, `${prefix}/server/app-paths-manifest.json`, routeMap)
+    writeFixtureFile(root, `${prefix}/prerender-manifest.json`, previewManifest)
+  }
 }
 
 function makeFixture() {
@@ -394,6 +409,21 @@ function recomputeFrontendVantage(value) {
 }
 
 describe('frontend release artifact attestation', () => {
+  it('normalizes both isolated build outputs before any inventory or payload comparison', () => {
+    const workflow = readFileSync(
+      new URL('../../.github/workflows/frontend-release-attestation.yml', import.meta.url),
+      'utf8',
+    )
+    assert.match(workflow, /normalize-build --build-dir \/build --source-commit "\$GITHUB_SHA"/)
+    assert.deepEqual(
+      workflow.match(/^\s+normalize_build "\$RUNNER_TEMP\/pass-(?:one|two)"$/gmu),
+      [
+        '          normalize_build "$RUNNER_TEMP/pass-one"',
+        '          normalize_build "$RUNNER_TEMP/pass-two"',
+      ],
+    )
+  })
+
   it('creates identical inventories for identical builds and excludes build-only ephemera', () => {
     const first = makeFixture()
     const second = makeFixture()
@@ -654,6 +684,66 @@ describe('frontend release artifact attestation', () => {
       assert.throws(
         () => createFrontendArtifactInventory(fixture),
         /(?:regular non-symlink file|refuses symbolic link)/i,
+      )
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it('normalizes only reviewed route-map ordering and disabled preview properties', () => {
+    const fixture = makeFixture()
+    try {
+      const unorderedRouteMap = '{"/z":"app/z.js","/a":"app/a.js"}'
+      const randomPreview = JSON.stringify({
+        version: 4,
+        routes: {},
+        dynamicRoutes: {},
+        notFoundRoutes: [],
+        preview: {
+          previewModeId: '1'.repeat(32),
+          previewModeSigningKey: '2'.repeat(64),
+          previewModeEncryptionKey: '3'.repeat(64),
+        },
+      })
+      for (const prefix of ['.next', '.next/standalone/.next']) {
+        writeFixtureFile(fixture.root, `${prefix}/app-path-routes-manifest.json`, unorderedRouteMap)
+        writeFixtureFile(fixture.root, `${prefix}/server/app-paths-manifest.json`, unorderedRouteMap)
+        writeFixtureFile(fixture.root, `${prefix}/prerender-manifest.json`, randomPreview)
+      }
+      normalizeFrontendBuild(fixture.buildDirectory, fixture.sourceCommit)
+      assert.equal(
+        readFileSync(join(fixture.root, '.next/app-path-routes-manifest.json'), 'utf8'),
+        canonicalJson({ '/z': 'app/z.js', '/a': 'app/a.js' }),
+      )
+      assert.deepEqual(
+        JSON.parse(readFileSync(join(fixture.root, '.next/prerender-manifest.json'), 'utf8')).preview,
+        deriveDisabledPreviewModeProperties(fixture.sourceCommit),
+      )
+      assert.ok(createFrontendArtifactInventory(fixture))
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects draft-mode source when deterministic disabled-preview properties are used', () => {
+    const fixture = makeFixture()
+    try {
+      const draftSource = [
+        'export async function enable() { return draft',
+        'Mode() }\n',
+      ].join('')
+      writeFixtureFile(fixture.root, 'src/draft.ts', draftSource)
+      execFileSync('git', ['add', 'src/draft.ts'], { cwd: fixture.root })
+      execFileSync(
+        'git',
+        ['-c', 'user.name=Release Fixture', '-c', 'user.email=fixture@invalid.example', 'commit', '--quiet', '-m', 'draft mode'],
+        { cwd: fixture.root },
+      )
+      fixture.sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: fixture.root, encoding: 'utf8' }).trim()
+      writeBuildIdentity(fixture.root, fixture.sourceCommit)
+      assert.throws(
+        () => createFrontendArtifactInventory(fixture),
+        /unsupported preview or draft-mode APIs.*src\/draft\.ts/i,
       )
     } finally {
       rmSync(fixture.root, { recursive: true, force: true })
