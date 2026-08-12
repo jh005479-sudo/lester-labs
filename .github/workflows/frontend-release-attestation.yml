@@ -638,7 +638,7 @@ jobs:
           verify_subject() {
             subject="$1"
             bundle="$2"
-            gh attestation verify "$subject" \
+            bash scripts/security/verify-gh-attestation-with-retry.sh "$subject" \
               --repo jh005479-sudo/lester-labs --bundle "$bundle" \
               --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/frontend-release-attestation.yml \
               --source-ref refs/heads/main --source-digest "$GITHUB_SHA" \
@@ -686,7 +686,7 @@ jobs:
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
           test -f "$OPERATIONS_PROVENANCE_BUNDLE"
           cp -- "$OPERATIONS_PROVENANCE_BUNDLE" release-approval/release-operations-approval.provenance.jsonl
-          gh attestation verify release-approval/release-operations-approval.json \
+          bash scripts/security/verify-gh-attestation-with-retry.sh release-approval/release-operations-approval.json \
             --repo jh005479-sudo/lester-labs \
             --bundle release-approval/release-operations-approval.provenance.jsonl \
             --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/frontend-release-attestation.yml \
