@@ -66,6 +66,17 @@ const REVIEWED_STAGED_PROVIDER_ALIASES = Object.freeze({
     ]),
   }),
 });
+const REVIEWED_PROMOTED_PROVIDER_ALIASES = Object.freeze({
+  "prj_dbAIzvnFWLzxkt2dpphAWbserIG7": Object.freeze({
+    teamId: "team_vnMG4DPuSLlOs9bEi7QcRjhx",
+    projectName: "lester-labs",
+    releaseProfile: "public-testnet-immutable",
+    aliases: Object.freeze([
+      "lester-labs-psi.vercel.app",
+      "www.lester-labs.com",
+    ]),
+  }),
+});
 const PROVIDER_CANARY_BOOTSTRAP = Symbol("provider-canary-bootstrap");
 const NEXT_ARCHIVE_NAME = "frontend-standalone.tar";
 const NEXT_INVENTORY_NAME = "deployment-payload.inventory.json";
@@ -953,16 +964,28 @@ function assertNoProductionAliases(deployment, target) {
   return aliases;
 }
 
-function assertCurrentProductionDeployment(deployment) {
+function promotedAliasesForTarget(target) {
+  const reviewed = REVIEWED_PROMOTED_PROVIDER_ALIASES[target.projectId];
+  if (!reviewed) return PRODUCTION_DOMAINS;
+  if (
+    reviewed.teamId === target.teamId &&
+    reviewed.projectName === target.projectName &&
+    reviewed.releaseProfile === target.releaseProfile
+  ) return reviewed.aliases;
+  return PRODUCTION_DOMAINS;
+}
+
+function assertCurrentProductionDeployment(deployment, target) {
   if (deployment.aliasAssigned !== true) {
     throw new Error("The promoted deployment is not marked as alias-assigned.");
   }
   const aliases = normalizeAliases(deployment);
+  const expectedAliases = promotedAliasesForTarget(target);
   if (
-    aliases.length !== PRODUCTION_DOMAINS.length ||
-    aliases.some((alias, index) => alias !== PRODUCTION_DOMAINS[index])
+    aliases.length !== expectedAliases.length ||
+    aliases.some((alias, index) => alias !== expectedAliases[index])
   ) {
-    throw new Error("The current deployment aliases differ from the exact reviewed apex and www set.");
+    throw new Error("The current deployment aliases differ from the exact reviewed production set.");
   }
   return aliases;
 }
@@ -2280,7 +2303,7 @@ async function pollPromoted(api, target, stage, {
       if (deployment.readyState !== "READY" || deployment.readySubstate !== "PROMOTED") {
         throw new Error("The exact current deployment is not READY/PROMOTED.");
       }
-      const aliases = assertCurrentProductionDeployment(deployment);
+      const aliases = assertCurrentProductionDeployment(deployment, target);
       return { deployment, aliases };
     }
     if (attempt + 1 < maxPollAttempts) await delay(pollIntervalMs);
@@ -2353,7 +2376,7 @@ async function confirmPromotionRecoveryTarget(api, target, stage, controls) {
     if (deployment.readyState !== "READY") {
       throw new Error("The exact promotion recovery deployment is not READY.");
     }
-    assertCurrentProductionDeployment(deployment);
+    assertCurrentProductionDeployment(deployment, target);
     return;
   }
   throw new Error(
@@ -2378,7 +2401,7 @@ async function recoverIncompletePromotion(api, target, stage, controls) {
     if (deployment.readyState !== "READY" || deployment.readySubstate !== "PROMOTED") {
       throw new Error("The held emergency containment deployment is not READY/PROMOTED.");
     }
-    const aliases = assertCurrentProductionDeployment(deployment);
+    const aliases = assertCurrentProductionDeployment(deployment, target);
     return { state: "PROMOTED_CURRENT", deployment, aliases };
   }
 
@@ -2642,7 +2665,12 @@ function validatePromotionEvidence(value) {
     value.deployment.readyState !== "READY" ||
     value.deployment.readySubstate !== "PROMOTED" ||
     value.deployment.aliasAssigned !== true ||
-    canonicalJson(normalizeAliases(value.deployment)) !== canonicalJson(PRODUCTION_DOMAINS)
+    canonicalJson(normalizeAliases(value.deployment)) !== canonicalJson(promotedAliasesForTarget({
+      teamId: value.project.teamId,
+      projectId: value.project.projectId,
+      projectName: value.project.name,
+      releaseProfile: value.releaseProfile,
+    }))
   ) throw new Error("Promotion evidence does not identify the current production aliases.");
   deploymentUrl(value.deployment);
   assertIdentifier(value.priorDeploymentId, DEPLOYMENT_ID_PATTERN, "Prior deployment ID");
@@ -2722,7 +2750,7 @@ export async function rollbackVercelRelease({
       currentDeployment = await getDeployment(api, target, current);
       validateDeploymentIdentity(currentDeployment, { projectId: target.projectId, deploymentId: current });
       if (currentDeployment.readyState !== "READY") throw new Error("The exact rollback target is no longer READY.");
-      aliases = assertCurrentProductionDeployment(currentDeployment);
+      aliases = assertCurrentProductionDeployment(currentDeployment, target);
       break;
     }
     if (rollbackRequestError && rollbackRequestAttempts < Math.min(3, maxPollAttempts)) {
