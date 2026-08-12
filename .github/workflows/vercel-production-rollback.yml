@@ -15,6 +15,13 @@ on:
         description: Exact Vercel production workflow run containing promotion evidence
         required: true
         type: string
+      release_profile:
+        description: Release trust profile recorded by the signed promotion
+        required: true
+        type: choice
+        options:
+          - production-separated-authority
+          - public-testnet-immutable
       release_kind:
         description: Artifact kind recorded by the signed promotion
         required: true
@@ -47,6 +54,7 @@ jobs:
       promotion_source_commit: ${{ steps.validate.outputs.promotion_source_commit }}
       release_run_id: ${{ steps.validate.outputs.release_run_id }}
       release_run_attempt: ${{ steps.validate.outputs.release_run_attempt }}
+      release_profile: ${{ steps.validate.outputs.release_profile }}
       release_kind: ${{ steps.validate.outputs.release_kind }}
       promoted_deployment_id: ${{ steps.validate.outputs.promoted_deployment_id }}
     steps:
@@ -58,6 +66,7 @@ jobs:
           ADAPTER_COMMIT: ${{ inputs.adapter_commit }}
           PROMOTION_SOURCE_COMMIT: ${{ inputs.promotion_source_commit }}
           RELEASE_RUN_ID: ${{ inputs.production_release_run_id }}
+          RELEASE_PROFILE: ${{ inputs.release_profile }}
           RELEASE_KIND: ${{ inputs.release_kind }}
           PROMOTED_DEPLOYMENT_ID: ${{ inputs.expected_promoted_deployment_id }}
           PROTECTED_REF: ${{ github.ref_protected }}
@@ -70,6 +79,7 @@ jobs:
           [[ "$PROMOTION_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
           [[ "$RELEASE_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
           [[ "$PROMOTED_DEPLOYMENT_ID" =~ ^dpl_[A-Za-z0-9]{8,96}$ ]]
+          case "$RELEASE_PROFILE" in production-separated-authority|public-testnet-immutable) ;; *) exit 1 ;; esac
           case "$RELEASE_KIND" in emergency-static|next-standalone-container) ;; *) exit 1 ;; esac
           gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
             > "$RUNNER_TEMP/production-run.json"
@@ -94,6 +104,7 @@ jobs:
             printf 'promotion_source_commit=%s\n' "$PROMOTION_SOURCE_COMMIT"
             printf 'release_run_id=%s\n' "$RELEASE_RUN_ID"
             printf 'release_run_attempt=%s\n' "$release_run_attempt"
+            printf 'release_profile=%s\n' "$RELEASE_PROFILE"
             printf 'release_kind=%s\n' "$RELEASE_KIND"
             printf 'promoted_deployment_id=%s\n' "$PROMOTED_DEPLOYMENT_ID"
           } >> "$GITHUB_OUTPUT"
@@ -138,6 +149,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ADAPTER_COMMIT: ${{ needs.validate-inputs.outputs.adapter_commit }}
           PROMOTION_SOURCE_COMMIT: ${{ needs.validate-inputs.outputs.promotion_source_commit }}
+          RELEASE_PROFILE: ${{ needs.validate-inputs.outputs.release_profile }}
           RELEASE_KIND: ${{ needs.validate-inputs.outputs.release_kind }}
           PROMOTED_DEPLOYMENT_ID: ${{ needs.validate-inputs.outputs.promoted_deployment_id }}
           PROTECTED_REF: ${{ github.ref_protected }}
@@ -157,14 +169,15 @@ jobs:
             --signer-digest "$PROMOTION_SOURCE_COMMIT" --deny-self-hosted-runners \
             --format json >/dev/null
           node --input-type=module - "$RUNNER_TEMP/promotion/promotion-evidence.json" \
-            "$PROMOTION_SOURCE_COMMIT" "$RELEASE_KIND" "$PROMOTED_DEPLOYMENT_ID" <<'NODE'
+            "$PROMOTION_SOURCE_COMMIT" "$RELEASE_PROFILE" "$RELEASE_KIND" "$PROMOTED_DEPLOYMENT_ID" <<'NODE'
           import { readFileSync } from "node:fs";
-          const [path, commit, kind, deploymentId] = process.argv.slice(2);
+          const [path, commit, releaseProfile, kind, deploymentId] = process.argv.slice(2);
           const value = JSON.parse(readFileSync(path, "utf8"));
           if (
             value.kind !== "lester-labs-vercel-promotion-evidence" ||
             value.status !== "CURRENT" ||
             value.sourceCommit !== commit ||
+            value.releaseProfile !== releaseProfile ||
             value.artifactKind !== kind ||
             value.deployment?.id !== deploymentId ||
             value.schemaVersion !== 3 ||
@@ -178,7 +191,7 @@ jobs:
       - name: Roll back only the exact signed promotion to its exact prior ID
         shell: bash
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_ROLLBACK_TOKEN }}
+          VERCEL_TOKEN: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && secrets.VERCEL_TOKEN || secrets.VERCEL_ROLLBACK_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/vercel-manual-rollback-evidence"

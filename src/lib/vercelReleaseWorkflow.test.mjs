@@ -72,6 +72,7 @@ describe('Vercel release orchestration', () => {
     assert.match(rollback, /expected_promoted_deployment_id:/)
     assert.match(rollback, /adapter_commit:/)
     assert.match(rollback, /promotion_source_commit:/)
+    assert.match(rollback, /release_profile:/)
     assert.match(rollback, /environment: frontend-vercel-rollback/)
     assert.match(rollback, /value\.deployment\?\.id !== deploymentId/)
     assert.match(rollback, /value\.schemaVersion !== 3/)
@@ -125,6 +126,7 @@ describe('Vercel release orchestration', () => {
   })
 
   it('keeps Vercel tokens step-scoped and performs no dependency install or provider CLI execution', () => {
+    const rollback = workflow('vercel-production-rollback.yml')
     const files = [
       'vercel-provider-canary.yml',
       'vercel-production-release.yml',
@@ -142,6 +144,7 @@ describe('Vercel release orchestration', () => {
       /secrets\.VERCEL_(?:CANARY|STAGING|STAGE_CLEANUP|PROMOTION|PROMOTION_COMPENSATION|AUTOMATIC_ROLLBACK|ROLLBACK)_TOKEN/u.test(line)
     )), true)
     assert.match(combined, /release_profile == 'public-testnet-immutable' && secrets\.VERCEL_TOKEN/)
+    assert.match(rollback, /release_profile == 'public-testnet-immutable' && secrets\.VERCEL_TOKEN \|\| secrets\.VERCEL_ROLLBACK_TOKEN/)
     assert.match(combined, /secrets\.VERCEL_CANARY_TOKEN/)
     assert.match(combined, /secrets\.VERCEL_STAGING_TOKEN/)
     assert.match(combined, /secrets\.VERCEL_PROMOTION_TOKEN/)
