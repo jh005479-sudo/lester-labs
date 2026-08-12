@@ -1,54 +1,48 @@
-# Token Vesting — Immutable Replacement and Legacy Release
+# Token Vesting
 
-> **Legacy deployment status:** the Vesting Factory at
-> `0x6EE07118D39e9330Ef0658FFA797EeDD2CB823Cf` is a compromised legacy
-> deployment. New schedules, deployment fees, and token approvals to the
-> factory are disabled. Releases from source-authenticated historical vesting
-> wallets remain available when tokens have vested.
+The Vesting Factory creates token schedules with a start time, cliff, and
+linear release period.
 
-New schedules use only the approved immutable factory at
-`0x1808852Ce3EBbD2242174Eea672498a384108E2d` and its attested child runtime,
-after chain-`4441`, target, spender, fee, and runtime checks pass.
+## Contract
 
-## Historical behavior
+| Parameter | Value |
+|---|---|
+| Vesting Factory | `0x1808852Ce3EBbD2242174Eea672498a384108E2d` |
+| Schedule fee | `0.03 zkLTC` |
 
-The factory created OpenZeppelin-style VestingWallet children with a start
-time, cliff, duration, initial beneficiary/owner, and funded ERC-20 allocation.
-Vested tokens are released with `release(token)` to the vesting wallet's
-current owner. Anyone may trigger that release.
+## Create a schedule
 
-The schedule has no factory-owner clawback, but the VestingWallet owner can
-transfer ownership. “No clawback” therefore does not mean the recipient is
-immutable. Replacing the factory does not migrate, cancel, or change an
-existing child wallet.
+1. Select an ERC-20 token and beneficiary.
+2. Enter the total token amount.
+3. Choose the start time, cliff duration, and vesting duration.
+4. Approve the factory for the total token amount.
+5. Submit the schedule transaction with the displayed fee.
 
-## Existing-schedule recovery
+The factory deploys a dedicated vesting contract and transfers the approved
+tokens into it. Vesting begins after the configured start and cliff, then
+progresses linearly for the remaining duration.
 
-1. Use only a child discovered through a source-pinned legacy factory and a
-   reviewed child-runtime hash.
-2. Read the current VestingWallet owner, schedule, token balance, released
-   amount, and `releasable(token)` value.
-3. Confirm the expected beneficiary controls the current owner address.
-4. Review a zero-value `release(token)` call to the exact child wallet.
-5. Verify the resulting token transfer independently after confirmation.
+## Factory functions
 
-Do not approve tokens or create a schedule through the legacy factory. A
-wallet that merely resembles OpenZeppelin VestingWallet is not sufficient
-provenance.
+| Function | Description |
+|---|---|
+| `createVestingSchedule(token, beneficiary, totalAmount, startTime, cliffDuration, vestingDuration, revocable)` | Creates and funds a schedule |
+| `vestingFee()` | Returns the current schedule fee |
+| `scheduleCount()` | Returns the number of schedules created by the factory |
 
-## Historical fee
+The current vesting implementation is non-revocable. The `revocable` argument
+is accepted for interface compatibility but does not change on-chain behavior.
 
-The legacy schedule-creation fee was `0.03 zkLTC`; never send it to the legacy
-factory. The replacement uses the same amount as valueless testnet protocol fee.
+## Vesting contract functions
 
-## Approved replacement
+| Function | Description |
+|---|---|
+| `start()` | Returns the vesting start timestamp, including the cliff offset |
+| `duration()` | Returns the linear vesting duration after the cliff |
+| `vestedAmount(token, timestamp)` | Returns the amount vested at a timestamp |
+| `releasable(token)` | Returns the token amount currently available |
+| `released(token)` | Returns the token amount already released |
+| `release(token)` | Transfers the currently releasable amount to the beneficiary |
 
-The replacement freezes administrative ownership at the no-key `0x…01`
-precompile and forwards schedule-creation fees directly to the disclosed
-valueless test treasury, which has no admin role. The frontend requires exact
-factory and child runtime hashes plus explicit chain/target/function/value/
-spender checks. Existing children keep their own transferable beneficiary-owner
-semantics.
-
-Upstream OpenZeppelin review does not constitute an audit of the Lester factory,
-its child configuration, or the deployment process.
+The factory emits `VestingCreated(vestingId, vestingWallet, beneficiary)` when
+a schedule is created.

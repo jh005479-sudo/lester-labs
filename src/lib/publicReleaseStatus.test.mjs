@@ -52,7 +52,7 @@ describe('public release status', () => {
     assert.equal(status, PUBLIC_RELEASE_STATUS)
     assert.equal(status.mode, 'approved-public-testnet')
     assert.equal(status.ordinaryWritesEnabled, true)
-    assert.match(status.banner, /chain 4441 guard|public testnet replacement active/i)
+    assert.match(status.banner, /live on LitVM LiteForge testnet.*chain 4441/i)
     assert.match(status.security.gateADetail, /production multisig and independent-reviewer requirements remain reserved/i)
     assert.equal(status.security.rows.find((row) => row.area === 'Governance writes')?.status, 'Disabled')
   })

@@ -35,7 +35,18 @@ describe('shared UI regression contracts', () => {
 
     assert.doesNotMatch(page, /Immutable public-testnet replacements are active|Read the security status|href="\/security"/)
     assert.doesNotMatch(hero, /heroHeading|heroDetail|Review Security Status|>Scroll</)
+    assert.match(hero, /A LitVM native DeFi suite/)
+    assert.doesNotMatch(hero, /Independent LitVM Testnet Software/)
     assert.doesNotMatch(stats, /getPlatformStatsDisclosure|coverage\.|Provenance and baseline breakdown/)
+  })
+
+  it('renders documentation tables without adding a markdown plugin dependency', async () => {
+    const docsClient = await source('src/app/docs/DocsClient.tsx')
+    const packageJson = await source('package.json')
+
+    assert.match(docsClient, /function parseDocBlocks/)
+    assert.match(docsClient, /<table key=/)
+    assert.doesNotMatch(packageJson, /remark-gfm/)
   })
 
   it('uses a responsive launch rail instead of a fixed 880px surface', async () => {
