@@ -454,7 +454,7 @@ describe('wallet-free emergency served parity', () => {
     }]
     const stagePayload = {
       kind: 'lester-labs-vercel-stage-evidence',
-      schemaVersion: 3,
+      schemaVersion: 4,
       status: 'STAGED',
       artifactKind: 'emergency-static',
       stagedAt: '2026-08-11T01:00:00.000Z',
