@@ -32,6 +32,7 @@ import {
 import {
   HTTP_USER_AGENT_PROFILES,
   compareFrontendVantageEvidence,
+  isSafeFrontendSourcePath,
   verifyFrontendReleaseParity,
 } from '../../scripts/security/verify-frontend-release-parity.mjs'
 
@@ -505,6 +506,16 @@ describe('frontend release artifact attestation', () => {
         inventory.publicArtifacts.files.some(({ urlPath }) => urlPath === dynamicChunkUrl),
         true,
       )
+      assert.equal(
+        isSafeFrontendSourcePath('build/static/chunks/app/analytics/token/[address]/page.js'),
+        true,
+      )
+      for (const unsafePath of [
+        'build/static/chunks/app/[address]/../page.js',
+        'build/static/chunks/app/%5Baddress%5D/page.js',
+        'build/static/chunks/app/{address}/page.js',
+        'build\\static\\chunks\\app\\[address]\\page.js',
+      ]) assert.equal(isSafeFrontendSourcePath(unsafePath), false)
       const policy = validateFrontendReleasePolicy(JSON.parse(readFileSync(fixture.policyPath, 'utf8')))
       const candidate = await createFrontendReleaseAttestation({
         ...fixture,
