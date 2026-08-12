@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "sourceTreeSha256": "fa39db0c6c3b80e6923df054402a95277d16e596a1bddfdadf25b477f008c4e5",
+  "sourceTreeSha256": "e81a5144c6630b319ee54156bc246ab04cb82b44a3b76d9e2efa6933cf84a64e",
   "observations": [
     {
       "path": "build/server/app/api/platform-stats/route.js",
