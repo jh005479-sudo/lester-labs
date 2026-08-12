@@ -1539,6 +1539,7 @@ async function cleanupStagedValue({
     teamId: stage.project.teamId,
     projectId: stage.project.projectId,
     projectName: stage.project.name,
+    releaseProfile: stage.source.releaseProfile,
   };
   const api = makeApi({ token, fetchImpl, requestTimeoutMs });
   await deleteExactNoncurrentDeployment(
@@ -2595,6 +2596,7 @@ export async function recoverVercelPromotion({
     teamId: stage.project.teamId,
     projectId: stage.project.projectId,
     projectName: stage.project.name,
+    releaseProfile: stage.source.releaseProfile,
   };
   const api = makeApi({ token, fetchImpl, requestTimeoutMs });
   const controls = { maxPollAttempts, pollIntervalMs, delay };
