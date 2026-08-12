@@ -634,7 +634,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           verify_subject() {
             subject="$1"
             bundle="$2"
@@ -683,7 +683,7 @@ jobs:
           OPERATIONS_PROVENANCE_BUNDLE: ${{ steps.operations-approval-provenance.outputs.bundle-path }}
         run: |
           set -euo pipefail
-          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          source scripts/security/use-reviewed-gh.sh
           test -f "$OPERATIONS_PROVENANCE_BUNDLE"
           cp -- "$OPERATIONS_PROVENANCE_BUNDLE" release-approval/release-operations-approval.provenance.jsonl
           bash scripts/security/verify-gh-attestation-with-retry.sh release-approval/release-operations-approval.json \
