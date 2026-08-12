@@ -585,8 +585,9 @@ describe('frontend release artifact attestation', () => {
       fixture.sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: fixture.root, encoding: 'utf8' }).trim()
       writeBuildIdentity(fixture.root, fixture.sourceCommit)
       const inventory = createFrontendArtifactInventory(fixture)
-      assert.equal(inventory.artifactEmbeddedOrigins.includes('https://docs.example.invalid'), false)
-      assert.equal(inventory.artifactEmbeddedOrigins.includes('https://static-docs.example.invalid'), false)
+      const aggregatedOrigins = new Set(inventory.artifactEmbeddedOrigins)
+      assert.equal(aggregatedOrigins.has('https://docs.example.invalid'), false)
+      assert.equal(aggregatedOrigins.has('https://static-docs.example.invalid'), false)
 
       writeFixtureFile(
         fixture.root,
