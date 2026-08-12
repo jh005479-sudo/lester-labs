@@ -228,6 +228,7 @@ jobs:
       deployment_id: ${{ steps.stage-identity.outputs.deployment_id }}
       deployment_url: ${{ steps.stage-identity.outputs.deployment_url }}
       prior_deployment_id: ${{ steps.stage-identity.outputs.prior_deployment_id }}
+      stage_artifact_id: ${{ steps.upload-stage-evidence.outputs.artifact-id }}
     steps:
       - name: Check out the exact reviewed adapter
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -519,6 +520,8 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+    outputs:
+      parity_artifact_id: ${{ steps.upload-staged-parity.outputs.artifact-id }}
     steps:
       - name: Check out the exact reviewed parity verifier
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -559,7 +562,7 @@ jobs:
       - name: Download this run's signed stage identity
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
-          name: vercel-stage-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.stage.outputs.stage_artifact_id }}
           path: ${{ runner.temp }}/stage
 
       - name: Verify exact signed stage identity
@@ -633,7 +636,8 @@ jobs:
           test -f "$PROVENANCE_BUNDLE"
           cp -- "$PROVENANCE_BUNDLE" vercel-staged-parity/staged-parity.provenance.jsonl
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - id: upload-staged-parity
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: vercel-staged-parity-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: vercel-staged-parity/
@@ -654,6 +658,8 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+    outputs:
+      approval_artifact_id: ${{ steps.upload-promotion-approval.outputs.artifact-id }}
     steps:
       - name: Check out the exact reviewed approval generator
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -671,7 +677,7 @@ jobs:
       - name: Download signed stage and parity evidence
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
-          pattern: vercel-stage*-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.stage.outputs.stage_artifact_id }},${{ needs.staged-parity.outputs.parity_artifact_id }}
           path: ${{ runner.temp }}/reviewed-stage
           merge-multiple: true
 
@@ -692,16 +698,29 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
           verify_subject() {
-            gh attestation verify "$1" --repo jh005479-sudo/lester-labs --bundle "$2" \
-              --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
-              --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
-              --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
-              --format json >/dev/null
+            subject="$1"
+            bundle="$2"
+            label="$3"
+            for attempt in 1 2 3; do
+              if gh attestation verify "$subject" --repo jh005479-sudo/lester-labs --bundle "$bundle" \
+                --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+                --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
+                --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
+                --format json >/dev/null; then
+                return 0
+              fi
+              if test "$attempt" -eq 3; then
+                echo "::error::Exact $label attestation verification failed after three bounded attempts." >&2
+                return 1
+              fi
+              echo "::warning::Exact $label attestation verification attempt $attempt failed; retrying." >&2
+              sleep "$((attempt * 5))"
+            done
           }
           verify_subject "$RUNNER_TEMP/reviewed-stage/stage-evidence.json" \
-            "$RUNNER_TEMP/reviewed-stage/stage-evidence.provenance.jsonl"
+            "$RUNNER_TEMP/reviewed-stage/stage-evidence.provenance.jsonl" stage
           verify_subject "$RUNNER_TEMP/reviewed-stage/staged-parity.json" \
-            "$RUNNER_TEMP/reviewed-stage/staged-parity.provenance.jsonl"
+            "$RUNNER_TEMP/reviewed-stage/staged-parity.provenance.jsonl" staged-parity
           node --input-type=module - "$RUNNER_TEMP/reviewed-stage/stage-evidence.json" \
             "$STAGE_DEPLOYMENT_ID" "$STAGE_DEPLOYMENT_URL" "$PRIOR_DEPLOYMENT_ID" <<'NODE'
           import { readFileSync } from "node:fs";
@@ -747,12 +766,115 @@ jobs:
           test -f "$PROVENANCE_BUNDLE"
           cp -- "$PROVENANCE_BUNDLE" vercel-promotion-approval/promotion-approval.provenance.jsonl
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - id: upload-promotion-approval
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: vercel-promotion-approval-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: vercel-promotion-approval/
           if-no-files-found: error
           retention-days: 30
+          compression-level: 0
+
+  cleanup-unpromoted-stage:
+    name: Delete the exact staged ID when a pre-promotion gate fails
+    if: >-
+      ${{ always() && needs.stage.result == 'success' &&
+          (needs.staged-parity.result != 'success' ||
+           needs.promotion-approval.result != 'success') }}
+    needs: [validate-inputs, stage, staged-parity, promotion-approval]
+    runs-on: ubuntu-24.04
+    environment: frontend-vercel-staging
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the exact reviewed cleanup adapter
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Use the exact reviewed Node runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          check-latest: false
+          package-manager-cache: false
+
+      - name: Download only the immutable stage artifact created by the stage job
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          artifact-ids: ${{ needs.stage.outputs.stage_artifact_id }}
+          path: ${{ runner.temp }}/failed-pre-promotion-stage
+
+      - name: Verify the exact stage signature before cleanup token use
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_COMMIT: ${{ needs.validate-inputs.outputs.reviewed_commit }}
+          PROTECTED_REF: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$PROTECTED_REF" = "true"
+          test "$GITHUB_SHA" = "$REVIEWED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(gh version | head -n 1 | cut -d' ' -f3)" = "2.96.0"
+          for attempt in 1 2 3; do
+            if gh attestation verify "$RUNNER_TEMP/failed-pre-promotion-stage/stage-evidence.json" \
+              --repo jh005479-sudo/lester-labs \
+              --bundle "$RUNNER_TEMP/failed-pre-promotion-stage/stage-evidence.provenance.jsonl" \
+              --signer-workflow github.com/jh005479-sudo/lester-labs/.github/workflows/vercel-production-release.yml \
+              --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
+              --signer-digest "$REVIEWED_COMMIT" --deny-self-hosted-runners \
+              --format json >/dev/null; then
+              break
+            fi
+            if test "$attempt" -eq 3; then
+              echo "::error::Exact stage attestation verification failed after three bounded cleanup attempts." >&2
+              exit 1
+            fi
+            echo "::warning::Exact stage attestation verification attempt $attempt failed; retrying cleanup verification." >&2
+            sleep "$((attempt * 5))"
+          done
+
+      - name: Delete only the signed noncurrent staged deployment
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ needs.validate-inputs.outputs.release_profile == 'public-testnet-immutable' && secrets.VERCEL_TOKEN || secrets.VERCEL_STAGE_CLEANUP_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/vercel-pre-promotion-cleanup"
+          node scripts/security/vercel-rest-release.mjs cleanup-stage \
+            --stage-evidence "$RUNNER_TEMP/failed-pre-promotion-stage/stage-evidence.json" \
+            --stage-provenance "$RUNNER_TEMP/failed-pre-promotion-stage/stage-evidence.provenance.jsonl" \
+            --output "$GITHUB_WORKSPACE/vercel-pre-promotion-cleanup/stage-cleanup-evidence.json"
+
+      - name: Sign pre-promotion cleanup evidence
+        id: pre-promotion-cleanup-provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: vercel-pre-promotion-cleanup/stage-cleanup-evidence.json
+
+      - name: Preserve pre-promotion cleanup provenance
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.pre-promotion-cleanup-provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp -- "$PROVENANCE_BUNDLE" vercel-pre-promotion-cleanup/stage-cleanup-evidence.provenance.jsonl
+
+      - name: Preserve pre-promotion cleanup result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vercel-pre-promotion-cleanup-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: vercel-pre-promotion-cleanup/
+          if-no-files-found: error
+          retention-days: 90
           compression-level: 0
 
   promote:
@@ -766,6 +888,8 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+    outputs:
+      promotion_artifact_id: ${{ steps.upload-promotion-evidence.outputs.artifact-id }}
     steps:
       - name: Check out the exact reviewed promotion adapter
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -783,7 +907,7 @@ jobs:
       - name: Download exact signed stage, parity, and approval packages
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
-          pattern: vercel-*-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.stage.outputs.stage_artifact_id }},${{ needs.staged-parity.outputs.parity_artifact_id }},${{ needs.promotion-approval.outputs.approval_artifact_id }}
           path: ${{ runner.temp }}/promotion-input
           merge-multiple: true
 
@@ -976,7 +1100,7 @@ jobs:
       - name: Download exact signed stage evidence
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
-          name: vercel-stage-${{ needs.validate-inputs.outputs.release_kind }}-${{ needs.validate-inputs.outputs.reviewed_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.stage.outputs.stage_artifact_id }}
           path: ${{ runner.temp }}/failed-stage
 
       - name: Verify stage identity before reconciliation token use
