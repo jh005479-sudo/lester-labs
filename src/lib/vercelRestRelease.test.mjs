@@ -45,6 +45,12 @@ const REVIEWED_CANARY_PROVIDER_ALIASES = [
   'lester-labs-release-canary-jh005479-8603-lester-labs.vercel.app',
   'lester-labs-release-canary-lester-labs.vercel.app',
 ]
+const REVIEWED_PRODUCTION_TEAM_ID = 'team_vnMG4DPuSLlOs9bEi7QcRjhx'
+const REVIEWED_PRODUCTION_PROJECT_ID = 'prj_dbAIzvnFWLzxkt2dpphAWbserIG7'
+const REVIEWED_PRODUCTION_PROVIDER_ALIASES = [
+  'lester-labs-jh005479-8603-lester-labs.vercel.app',
+  'lester-labs-lester-labs.vercel.app',
+]
 const OLD_DEPLOYMENT_ID = 'dpl_old000001'
 const NEW_DEPLOYMENT_ID = 'dpl_new000001'
 const THIRD_DEPLOYMENT_ID = 'dpl_third00001'
@@ -1029,10 +1035,12 @@ describe('dependency-free Vercel REST release adapter', () => {
       })
       const canaryPackage = writeCanaryPackage(fixture.root, canary)
       const productionMock = makeVercelMock({
-        projectId: PRODUCTION_PROJECT_ID,
+        teamId: REVIEWED_PRODUCTION_TEAM_ID,
+        projectId: REVIEWED_PRODUCTION_PROJECT_ID,
         projectName: 'lester-labs',
         publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
         productionAliases: ['lester-labs.com', 'www.lester-labs.com'],
+        createdAliases: REVIEWED_PRODUCTION_PROVIDER_ALIASES,
       })
       const stage = await stageEmergencyRelease({
         ...STAGE_WORKFLOW_IDENTITY,
@@ -1043,8 +1051,8 @@ describe('dependency-free Vercel REST release adapter', () => {
         providerCanaryEvidencePath: canaryPackage.evidencePath,
         providerCanaryProvenancePath: canaryPackage.provenancePath,
         token: TOKEN,
-        teamId: TEAM_ID,
-        projectId: PRODUCTION_PROJECT_ID,
+        teamId: REVIEWED_PRODUCTION_TEAM_ID,
+        projectId: REVIEWED_PRODUCTION_PROJECT_ID,
         projectName: 'lester-labs',
         fetchImpl: productionMock.fetchImpl,
         now: () => '2026-08-11T01:00:00.000Z',
@@ -1057,6 +1065,7 @@ describe('dependency-free Vercel REST release adapter', () => {
       assert.equal(stage.rollbackDisposition.mode, 'HOLD_PROMOTED')
       assert.equal(stage.rollbackDisposition.priorClassification, 'UNSAFE_PRECONTAINMENT')
       assert.equal(stage.deployment.aliasAssigned, false)
+      assert.deepEqual(stage.deployment.aliases, [])
       assert.equal(stage.sourceUpload.files.every(({ securitySha256 }) => /^[0-9a-f]{64}$/u.test(securitySha256)), true)
       assert.equal(stage.sourceUpload.files.every(({ providerSha1 }) => /^[0-9a-f]{40}$/u.test(providerSha1)), true)
 
