@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react'
 import { PLATFORM_ACTIVITY_BASELINE } from '@/config/platformActivity'
 import type { PlatformStatsSnapshot } from '@/lib/platformStats'
 import {
-  getPlatformStatsDisclosure,
   getPlatformStatsSessionCacheKey,
   matchesCompiledPlatformActivityBaseline,
 } from '@/lib/platformStatsDisclosure'
@@ -135,17 +134,6 @@ export function PlatformStats() {
     }
   }, [])
 
-  const breakdownRows = snapshot
-    ? [
-        { label: 'Token contracts created', value: snapshot.breakdown.tokensMinted },
-        { label: 'Airdrop recipient entries', value: snapshot.breakdown.walletsAirdropped },
-        { label: 'Pre-sales created', value: snapshot.breakdown.presalesCreated },
-        { label: 'Swaps completed', value: snapshot.breakdown.swapsCompleted },
-        { label: 'On-chain messages', value: snapshot.breakdown.onChainMessages },
-      ]
-    : []
-  const disclosure = getPlatformStatsDisclosure(snapshot?.baseline.snapshotKind)
-
   return (
     <div style={{ marginTop: 20 }}>
       <div style={{
@@ -181,94 +169,6 @@ export function PlatformStats() {
         />
       </div>
 
-      <div style={{
-        maxWidth: 900,
-        margin: '12px auto 0',
-        padding: '10px 12px',
-        border: '1px solid rgba(245,166,35,0.24)',
-        borderRadius: 10,
-        background: 'rgba(245,166,35,0.055)',
-        color: 'rgba(255,255,255,0.68)',
-        fontSize: 11,
-        lineHeight: 1.55,
-        textAlign: 'center',
-      }}>
-        <strong style={{ color: 'rgba(255,255,255,0.86)' }}>
-          {disclosure.headline}
-        </strong>{' '}{disclosure.summary}
-      </div>
-
-      {snapshot && (
-        <div style={{
-          maxWidth: 900,
-          margin: '8px auto 0',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 6,
-        }}>
-          {([
-            ['Token contracts', snapshot.coverage.tokensMinted],
-            ['Airdrop entries', snapshot.coverage.walletsAirdropped],
-            ['Pre-sales', snapshot.coverage.presalesCreated],
-            ['Router swap actions', snapshot.coverage.swapsCompleted],
-            ['On-chain messages', snapshot.coverage.onChainMessages],
-          ] as const).map(([label, coverage]) => (
-            <div key={label} style={{
-              padding: '7px 9px',
-              border: '1px solid rgba(255,255,255,0.07)',
-              borderRadius: 8,
-              background: 'rgba(255,255,255,0.02)',
-              color: 'rgba(255,255,255,0.48)',
-              fontSize: 10,
-              lineHeight: 1.45,
-            }}>
-              <span style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{label}</span>
-              {' · '}{coverage.status}: {coverage.note}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {snapshot && (
-        <details style={{
-          maxWidth: 760,
-          margin: '12px auto 0',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 10,
-          background: 'rgba(255,255,255,0.025)',
-          color: 'rgba(255,255,255,0.52)',
-          fontSize: 11,
-          lineHeight: 1.6,
-        }}>
-          <summary style={{ cursor: 'pointer', padding: '9px 12px', textAlign: 'center' }}>
-            Provenance and baseline breakdown · LitVM block {formatCount(snapshot.baseline.throughBlock)}
-          </summary>
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '10px 12px' }}>
-            <p style={{ margin: 0 }}>
-              Production API values observed at {snapshot.baseline.provenance.productionSnapshotObservedAt}; contemporaneous
-              LitVM block <code>{snapshot.baseline.blockHash}</code> at {snapshot.baseline.blockTimestamp}.{' '}
-              {snapshot.baseline.provenance.disclaimer}
-            </p>
-            <div style={{ display: 'grid', gap: 4, marginTop: 8 }}>
-              {breakdownRows.map((row) => (
-                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-                  <span>{row.label}</span>
-                  <span style={{ fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
-                    {formatCount(row.value.baseline)} baseline + {formatCount(row.value.postCutover)} post-cutover = {formatCount(row.value.total)}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <p style={{ margin: '8px 0 0' }}>
-              These are historical on-chain action/address counters, not unique users. Airdrop addresses may repeat,
-              and every metric may include automated, bot, or spam-heavy activity.
-            </p>
-            <p style={{ margin: '6px 0 0' }}>
-              {disclosure.detail}
-            </p>
-          </div>
-        </details>
-      )}
     </div>
   )
 }

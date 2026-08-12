@@ -28,6 +28,14 @@ describe('shared UI regression contracts', () => {
     assert.match(css, /\.scroll-hero-spacer\s*\{[^}]*84svh/s)
   })
 
+  it('keeps the retired security, activity-disclosure, and scroll copy off the homepage', async () => {
+    const hero = await source('src/components/home/ScrollHero.tsx')
+    const stats = await source('src/components/home/PlatformStats.tsx')
+
+    assert.doesNotMatch(hero, /heroHeading|heroDetail|Review Security Status|>Scroll</)
+    assert.doesNotMatch(stats, /getPlatformStatsDisclosure|coverage\.|Provenance and baseline breakdown/)
+  })
+
   it('uses a responsive launch rail instead of a fixed 880px surface', async () => {
     const rail = await source('src/components/shared/LaunchFlowRail.tsx')
 
