@@ -58,6 +58,10 @@ const REVIEWED_PRODUCTION_PROMOTED_ALIASES = [
   'lester-labs-psi.vercel.app',
   'www.lester-labs.com',
 ]
+const REVIEWED_PRODUCTION_PROMOTED_API_ALIASES = [
+  ...REVIEWED_PRODUCTION_PROMOTED_ALIASES,
+  'new-lester-labs.vercel.app',
+].sort()
 const OLD_DEPLOYMENT_ID = 'dpl_old000001'
 const NEW_DEPLOYMENT_ID = 'dpl_new000001'
 const THIRD_DEPLOYMENT_ID = 'dpl_third00001'
@@ -1047,7 +1051,7 @@ describe('dependency-free Vercel REST release adapter', () => {
         projectId: REVIEWED_PRODUCTION_PROJECT_ID,
         projectName: 'lester-labs',
         publicRoutes: emergencyPublicRoutes(fixture.sourceDirectory),
-        productionAliases: REVIEWED_PRODUCTION_PROMOTED_ALIASES,
+        productionAliases: REVIEWED_PRODUCTION_PROMOTED_API_ALIASES,
         createdAliases: REVIEWED_PRODUCTION_PROVIDER_ALIASES,
         stagedAliasAssigned: true,
       })
@@ -1125,7 +1129,7 @@ describe('dependency-free Vercel REST release adapter', () => {
         pollIntervalMs: 0,
       })
       assert.equal(promotion.deployment.id, NEW_DEPLOYMENT_ID)
-      assert.deepEqual(promotion.deployment.aliases, REVIEWED_PRODUCTION_PROMOTED_ALIASES)
+      assert.deepEqual(promotion.deployment.aliases, REVIEWED_PRODUCTION_PROMOTED_API_ALIASES)
       const recovery = await recoverVercelPromotion({
         stageEvidencePath: releaseEvidence.stageEvidencePath,
         stageProvenancePath: releaseEvidence.stageProvenancePath,
