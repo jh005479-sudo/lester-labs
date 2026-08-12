@@ -167,7 +167,7 @@ jobs:
             value.sourceCommit !== commit ||
             value.artifactKind !== kind ||
             value.deployment?.id !== deploymentId ||
-            value.schemaVersion !== 2 ||
+            value.schemaVersion !== 3 ||
             value.priorDeploymentId === deploymentId ||
             value.rollbackDisposition?.mode !== "ROLLBACK_TO_SAFE_CONTAINMENT" ||
             value.rollbackDisposition?.priorClassification !== "SAFE_CONTAINMENT" ||
