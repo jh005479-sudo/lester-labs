@@ -1,10 +1,14 @@
 import { execFileSync } from "node:child_process";
 import { Buffer } from "node:buffer";
 import {
+  closeSync,
+  constants,
   copyFileSync,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readdirSync,
   writeFileSync,
@@ -443,16 +447,22 @@ export function deriveNoServerActionsBuildKey(sourceCommit) {
 }
 
 function readServerReferenceManifest(path, sourceCommit) {
-  if (!existsSync(path)) {
-    throw new Error(`The Next.js build omits the required server-reference manifest ${path}.`);
-  }
-  const metadata = lstatSync(path);
-  if (metadata.isSymbolicLink() || !metadata.isFile()) {
-    throw new Error(`The Next.js server-reference manifest is not a regular file: ${path}.`);
+  let descriptor;
+  let contents;
+  try {
+    descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    if (!fstatSync(descriptor).isFile()) {
+      throw new Error("not a regular file");
+    }
+    contents = readFileSync(descriptor, "utf8");
+  } catch {
+    throw new Error(`The Next.js server-reference manifest cannot be opened as a regular non-symlink file: ${path}.`);
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
   }
   let manifest;
   try {
-    manifest = JSON.parse(readFileSync(path, "utf8"));
+    manifest = JSON.parse(contents);
   } catch {
     throw new Error(`The Next.js server-reference manifest is not valid JSON: ${path}.`);
   }

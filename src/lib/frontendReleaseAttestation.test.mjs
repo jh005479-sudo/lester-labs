@@ -644,6 +644,17 @@ describe('frontend release artifact attestation', () => {
         () => createFrontendArtifactInventory(fixture),
         /build key is not bound to the reviewed source commit/i,
       )
+
+      writeBuildIdentity(fixture.root, fixture.sourceCommit)
+      rmSync(manifestPath)
+      symlinkSync(
+        join(fixture.root, '.next/standalone/.next/server/server-reference-manifest.json'),
+        manifestPath,
+      )
+      assert.throws(
+        () => createFrontendArtifactInventory(fixture),
+        /(?:regular non-symlink file|refuses symbolic link)/i,
+      )
     } finally {
       rmSync(fixture.root, { recursive: true, force: true })
     }
