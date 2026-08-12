@@ -871,6 +871,12 @@ describe('credential-free served frontend parity', () => {
       observeEmbeddedNetworkOrigins('`https://liteforge.rpc.caldera.xyz/http` https://${host}`'),
       ['https://${host', 'https://liteforge.rpc.caldera.xyz'],
     )
+    assert.deepEqual(
+      observeEmbeddedNetworkOrigins(
+        '`Docs: https://abitype.dev${suffix}` `https://www.lester-labs.com${route}`',
+      ),
+      ['https://abitype.dev${suffix', 'https://www.lester-labs.com${route'],
+    )
     assert.deepEqual(observeEmbeddedNetworkOrigins(
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>',
     ), [])

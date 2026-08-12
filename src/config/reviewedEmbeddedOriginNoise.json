@@ -1,11 +1,12 @@
 {
   "schemaVersion": 2,
-  "sourceTreeSha256": "b7e61ad1b7863c49448ea7c3fb45de4ae875c1aec9aea15a0024086664319e85",
+  "sourceTreeSha256": "a8cb402247c47cfce775479306484154d0200ebbe2062c1baa43353d4f284626",
   "observations": [
     {
       "path": "build/server/app/api/platform-stats/route.js",
       "origins": [
         "https://4byte.sourcify.dev",
+        "https://abitype.dev${e",
         "https://arweave.net",
         "https://docs.soliditylang.org",
         "https://ipfs.io",
@@ -28,7 +29,8 @@
     {
       "path": "build/server/app/sitemap.xml/route.js",
       "origins": [
-        "http://www.google.com"
+        "http://www.google.com",
+        "https://www.lester-labs.com${b"
       ]
     },
     {
@@ -125,6 +127,7 @@
       "path": "build/server/chunks/8676.js",
       "origins": [
         "https://4byte.sourcify.dev",
+        "https://abitype.dev${e",
         "https://docs.soliditylang.org",
         "https://oxlib.sh"
       ]
@@ -154,6 +157,7 @@
       "path": "build/standalone/.next/server/app/api/platform-stats/route.js",
       "origins": [
         "https://4byte.sourcify.dev",
+        "https://abitype.dev${e",
         "https://arweave.net",
         "https://docs.soliditylang.org",
         "https://ipfs.io",
@@ -176,7 +180,8 @@
     {
       "path": "build/standalone/.next/server/app/sitemap.xml/route.js",
       "origins": [
-        "http://www.google.com"
+        "http://www.google.com",
+        "https://www.lester-labs.com${b"
       ]
     },
     {
@@ -273,6 +278,7 @@
       "path": "build/standalone/.next/server/chunks/8676.js",
       "origins": [
         "https://4byte.sourcify.dev",
+        "https://abitype.dev${e",
         "https://docs.soliditylang.org",
         "https://oxlib.sh"
       ]
@@ -2052,6 +2058,7 @@
       "path": "build/static/chunks/5018-{content-hash}.js",
       "origins": [
         "https://4byte.sourcify.dev",
+        "https://abitype.dev${n",
         "https://docs.soliditylang.org",
         "https://oxlib.sh"
       ]
