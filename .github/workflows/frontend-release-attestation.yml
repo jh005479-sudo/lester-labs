@@ -192,6 +192,11 @@ jobs:
         run: |
           set -euo pipefail
           release_epoch="$(git show -s --format=%ct "$GITHUB_SHA")"
+          server_actions_disabled_build_key="$(
+            node scripts/security/frontend-release-attestation.mjs \
+              no-server-actions-build-key "$GITHUB_SHA"
+          )"
+          test -n "$server_actions_disabled_build_key"
           mkdir -p "$RUNNER_TEMP/pass-one" "$RUNNER_TEMP/pass-two"
           run_build() {
             install_root="$1"
@@ -202,6 +207,7 @@ jobs:
               -e CI=true -e NEXT_TELEMETRY_DISABLED=1 -e NPM_CONFIG_CACHE=/tmp/npm-cache \
               -e NPM_CONFIG_IGNORE_SCRIPTS=true -e TZ=UTC -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 \
               -e LESTER_RELEASE_BUILD_ID="$GITHUB_SHA" -e SOURCE_DATE_EPOCH="$release_epoch" \
+              -e NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$server_actions_disabled_build_key" \
               -v "$GITHUB_WORKSPACE:/source:ro" \
               -v "$install_root/node_modules:/source/node_modules:ro" \
               -v "$output_root:/source/.next:rw" \
@@ -277,7 +283,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/deployable-one" "$RUNNER_TEMP/deployable-two"
           create_payload build-one "$RUNNER_TEMP/deployable-one" deployment-one.inventory.json deployment-one.tar
           create_payload build-two "$RUNNER_TEMP/deployable-two" deployment-two.inventory.json deployment-two.tar
-          cmp -- "$RUNNER_TEMP/frontend-build-package/deployment-one.inventory.json" \
+          node scripts/security/frontend-release-attestation.mjs compare-file-inventories \
+            "$RUNNER_TEMP/frontend-build-package/deployment-one.inventory.json" \
             "$RUNNER_TEMP/frontend-build-package/deployment-two.inventory.json"
           cmp -- "$RUNNER_TEMP/frontend-build-package/deployment-one.tar" \
             "$RUNNER_TEMP/frontend-build-package/deployment-two.tar"

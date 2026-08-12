@@ -57,6 +57,8 @@ describe('Vercel release orchestration', () => {
     assert.match(release, /needs\.promotion-approval\.result != 'success'/)
     assert.match(release, /name: Delete only the signed noncurrent staged deployment/)
     assert.match(release, /rollback-on-parity-failure:\n[\s\S]*?environment: frontend-vercel-automatic-rollback/)
+    assert.match(release, /rollback-on-parity-failure:\n[\s\S]*?needs:\n(?:\s+- [^\n]+\n)*\s+- stage\n/)
+    assert.match(release, /rollback-on-parity-failure:\n[\s\S]*?artifact-ids: \$\{\{ needs\.stage\.outputs\.stage_artifact_id \}\}/)
     assert.match(release, /needs\.frontend-production-parity\.result != 'success'/)
     assert.match(release, /needs\.emergency-production-parity\.result != 'success'/)
     assert.match(release, /uses: \.\/\.github\/workflows\/frontend-served-parity\.yml/)

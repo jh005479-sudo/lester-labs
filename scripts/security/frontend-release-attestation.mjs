@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { Buffer } from "node:buffer";
 import {
   copyFileSync,
   existsSync,
@@ -60,6 +61,7 @@ const APP_METADATA_PUBLIC_ARTIFACTS = Object.freeze([
 const EMBEDDED_ORIGIN_TEXT_EXTENSIONS = /\.(?:cjs|css|html|js|json|mjs|txt|webmanifest|xml)$/iu;
 const STATIC_CONTENT_HASH_PATH = /-[0-9a-f]{16}(\.(?:css|js))$/u;
 const STATIC_REVIEW_HASH_MARKER_PATH = /-\{content-hash\}(\.(?:css|js))$/u;
+const NO_SERVER_ACTIONS_BUILD_KEY_DOMAIN = "lester-labs/no-server-actions-build-key/v1\0";
 export const REVIEWED_FRONTEND_BUILDER_IMAGE =
   "docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5";
 
@@ -432,7 +434,41 @@ function collectTrackedSource(root, sourceCommit) {
   return summarizeFiles(files);
 }
 
-function assertNoServerActions(root, sourceTree) {
+export function deriveNoServerActionsBuildKey(sourceCommit) {
+  if (!COMMIT_PATTERN.test(sourceCommit ?? "")) {
+    throw new Error("The no-server-actions build key requires a lowercase 40-character source commit.");
+  }
+  const digest = sha256Bytes(`${NO_SERVER_ACTIONS_BUILD_KEY_DOMAIN}${sourceCommit}`);
+  return Buffer.from(digest, "hex").toString("base64");
+}
+
+function readServerReferenceManifest(path, sourceCommit) {
+  if (!existsSync(path)) {
+    throw new Error(`The Next.js build omits the required server-reference manifest ${path}.`);
+  }
+  const metadata = lstatSync(path);
+  if (metadata.isSymbolicLink() || !metadata.isFile()) {
+    throw new Error(`The Next.js server-reference manifest is not a regular file: ${path}.`);
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    throw new Error(`The Next.js server-reference manifest is not valid JSON: ${path}.`);
+  }
+  assertExactKeys(manifest, ["node", "edge", "encryptionKey"], `Server-reference manifest ${path}`);
+  for (const runtime of ["node", "edge"]) {
+    const entries = manifest[runtime];
+    if (!entries || typeof entries !== "object" || Array.isArray(entries) || Object.keys(entries).length !== 0) {
+      throw new Error(`The Next.js ${runtime} server-action map must be empty in ${path}.`);
+    }
+  }
+  if (manifest.encryptionKey !== deriveNoServerActionsBuildKey(sourceCommit)) {
+    throw new Error(`The Next.js no-server-actions build key is not bound to the reviewed source commit in ${path}.`);
+  }
+}
+
+function assertNoServerActions(root, sourceTree, buildDirectory, sourceCommit) {
   const sourcePattern = /^src\/.*\.(?:js|jsx|mjs|ts|tsx)$/u;
   // Deliberately reject the directive string anywhere in executable source.
   // This is broader than JavaScript directive-prologue parsing, so comments or
@@ -447,6 +483,11 @@ function assertNoServerActions(root, sourceTree) {
       `Frontend release contains unsupported Next server actions: ${serverActionSources.join(", ")}.`,
     );
   }
+  readServerReferenceManifest(join(buildDirectory, "server", "server-reference-manifest.json"), sourceCommit);
+  readServerReferenceManifest(
+    join(buildDirectory, "standalone", ".next", "server", "server-reference-manifest.json"),
+    sourceCommit,
+  );
 }
 
 function readBuildId(buildDirectory, sourceCommit) {
@@ -488,7 +529,7 @@ export function createFrontendArtifactInventory({
     policy,
     sourceTree.files.map(({ path }) => path),
   );
-  assertNoServerActions(root, sourceTree);
+  assertNoServerActions(root, sourceTree, buildDirectory, sourceCommit);
   const inventory = {
     kind: "lester-labs-frontend-artifact-inventory",
     schemaVersion: 1,
@@ -629,6 +670,27 @@ export function compareFrontendArtifactInventories(left, right) {
     artifactInventorySha256: left.artifactInventory.sha256,
     publicArtifactsSha256: left.publicArtifacts.sha256,
     fileCount: left.artifactInventory.fileCount,
+  };
+}
+
+export function compareFileInventories(left, right) {
+  validateInventorySummary(left, FILE_KEYS, "First file inventory", "path");
+  validateInventorySummary(right, FILE_KEYS, "Second file inventory", "path");
+  if (canonicalJson(left) !== canonicalJson(right)) {
+    const leftFiles = new Map(left.files.map((file) => [file.path, file]));
+    const rightFiles = new Map(right.files.map((file) => [file.path, file]));
+    const differences = [...new Set([...leftFiles.keys(), ...rightFiles.keys()])]
+      .sort()
+      .filter((path) => JSON.stringify(leftFiles.get(path)) !== JSON.stringify(rightFiles.get(path)));
+    throw new Error(
+      `Repeated deployable payloads differ${differences.length ? ` at ${differences.slice(0, 20).join(", ")}` : " in inventory metadata"}.`,
+    );
+  }
+  return {
+    reproducible: true,
+    sha256: left.sha256,
+    fileCount: left.fileCount,
+    totalBytes: left.totalBytes,
   };
 }
 
@@ -1237,6 +1299,20 @@ function writeJson(path, value) {
 
 async function main() {
   const [command, ...argumentsList] = process.argv.slice(2);
+  if (command === "no-server-actions-build-key") {
+    if (argumentsList.length !== 1) {
+      throw new Error("Usage: frontend-release-attestation.mjs no-server-actions-build-key SOURCE_COMMIT");
+    }
+    console.log(deriveNoServerActionsBuildKey(argumentsList[0]));
+    return;
+  }
+  if (command === "compare-file-inventories") {
+    if (argumentsList.length !== 2) {
+      throw new Error("Usage: frontend-release-attestation.mjs compare-file-inventories LEFT RIGHT");
+    }
+    console.log(canonicalJson(compareFileInventories(readJson(argumentsList[0]), readJson(argumentsList[1]))).trimEnd());
+    return;
+  }
   if (command === "compare") {
     if (argumentsList.length !== 2) throw new Error("Usage: frontend-release-attestation.mjs compare LEFT RIGHT");
     const result = compareFrontendArtifactInventories(readJson(argumentsList[0]), readJson(argumentsList[1]));
@@ -1334,7 +1410,7 @@ async function main() {
     return;
   }
   if (command !== "inventory" && command !== "attest") {
-    throw new Error("Usage: frontend-release-attestation.mjs <inventory|attest|capture|compare|package|deployable|approval-envelope|approve> ...");
+    throw new Error("Usage: frontend-release-attestation.mjs <inventory|attest|capture|compare|compare-file-inventories|no-server-actions-build-key|package|deployable|approval-envelope|approve> ...");
   }
   const options = parseOptions(argumentsList);
   const root = resolve(options.get("--root") ?? repositoryRoot);

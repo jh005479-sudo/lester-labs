@@ -1098,6 +1098,7 @@ jobs:
             needs.emergency-production-parity.result != 'success')) }}
     needs:
       - validate-inputs
+      - stage
       - promote
       - frontend-production-parity
       - emergency-production-parity
