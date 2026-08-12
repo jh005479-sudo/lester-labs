@@ -210,7 +210,7 @@ jobs:
             subject="$1"
             bundle="$2"
             signer="$3"
-            gh attestation verify "$subject" \
+            bash scripts/security/verify-gh-attestation-with-retry.sh "$subject" \
               --repo jh005479-sudo/lester-labs --bundle "$bundle" \
               --signer-workflow "github.com/jh005479-sudo/lester-labs/$signer" \
               --source-ref refs/heads/main --source-digest "$REVIEWED_COMMIT" \
