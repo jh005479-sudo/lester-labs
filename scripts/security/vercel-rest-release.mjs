@@ -72,6 +72,8 @@ const REVIEWED_PROMOTED_PROVIDER_ALIASES = Object.freeze({
     projectName: "lester-labs",
     releaseProfile: "public-testnet-immutable",
     aliases: Object.freeze([
+      "lester-labs-jh005479-8603-lester-labs.vercel.app",
+      "lester-labs-lester-labs.vercel.app",
       "lester-labs-psi.vercel.app",
       "www.lester-labs.com",
     ]),
