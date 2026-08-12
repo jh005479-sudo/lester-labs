@@ -117,6 +117,20 @@ function createTar(entries) {
   return Buffer.concat(blocks)
 }
 
+it('uses canonical code-unit path ordering when inventorying a release tar', () => {
+  const entries = [
+    { path: '.next/app-path-routes-manifest.json', bytes: Buffer.from('routes') },
+    { path: '.next/BUILD_ID', bytes: Buffer.from('build') },
+    { path: '.next/server/app/page_client-reference-manifest.js', bytes: Buffer.from('client') },
+    { path: '.next/server/app/page.js.nft.json', bytes: Buffer.from('nft') },
+    { path: '.next/server/app/page.js', bytes: Buffer.from('page') },
+  ]
+  const expected = [...entries]
+    .sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
+    .map(({ path, bytes }) => ({ path, bytes: bytes.length, sha256: sha256Bytes(bytes) }))
+  assert.deepEqual(inspectTarArchive(createTar(entries)), expected)
+})
+
 function createEmergencyPackage() {
   const root = mkdtempSync(join(tmpdir(), 'lester-vercel-emergency-'))
   const sourceDirectory = join(root, 'source')

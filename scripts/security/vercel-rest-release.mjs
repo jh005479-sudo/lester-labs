@@ -67,6 +67,10 @@ const REVIEWED_STAGED_PROVIDER_ALIASES = Object.freeze({
 const PROVIDER_CANARY_BOOTSTRAP = Symbol("provider-canary-bootstrap");
 const NEXT_ARCHIVE_NAME = "frontend-standalone.tar";
 const NEXT_INVENTORY_NAME = "deployment-payload.inventory.json";
+
+function compareCanonicalText(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
 const NEXT_BASE_IMAGE =
   "docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5";
 
@@ -319,7 +323,7 @@ export function inspectTarArchive(archiveBytes, { maximumBytes = HARD_UPLOAD_BYT
     offset = nextOffset;
   }
   if (zeroBlocks < 2) throw new Error("The release tar omits its two-block end marker.");
-  return files.sort((left, right) => left.path.localeCompare(right.path));
+  return files.sort((left, right) => compareCanonicalText(left.path, right.path));
 }
 
 function validateInventory(value, label) {
@@ -367,7 +371,7 @@ function uploadFile(path, bytes) {
 
 function summarizeUploadFiles(files, maximumUploadBytes) {
   assertUploadLimit(maximumUploadBytes);
-  const sorted = [...files].sort((left, right) => left.path.localeCompare(right.path));
+  const sorted = [...files].sort((left, right) => compareCanonicalText(left.path, right.path));
   const seen = new Set();
   let totalBytes = 0;
   for (const file of sorted) {
@@ -556,7 +560,7 @@ function preparedRelease({
     providerBoundary: providerCanary.providerBoundary,
     providerMode,
     canaryProbes,
-    uploadFiles: [...uploadFiles].sort((left, right) => left.path.localeCompare(right.path)),
+    uploadFiles: [...uploadFiles].sort((left, right) => compareCanonicalText(left.path, right.path)),
   };
 }
 
