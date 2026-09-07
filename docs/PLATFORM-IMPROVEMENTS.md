@@ -30,10 +30,11 @@ ordinary language; technical provenance remains available where decisions need i
 ## Verification
 
 - Production compilation and TypeScript checks pass locally.
-- 281 unit tests pass, including archive validation, same-quote ranking, exact
+- 282 unit tests pass, including archive validation, same-quote ranking, exact
   LP math, draft parsing, receipt reconciliation, reorg/mismatch handling,
   duplicate prevention, project recovery, and metrics retention/deduplication.
-- Browser runner passes nine journey groups, including five mobile routes.
+- Browser runner passes ten journey groups, including setup return destinations
+  and five mobile routes. It uses private process pipes and passes test values as data.
 - In-app browser review confirmed desktop workspace hierarchy, mobile setup,
   draft restoration, 50 live archive records, and forward/back pagination.
 - ESLint: no errors and 59 warnings, mainly existing React effect and typing warnings.

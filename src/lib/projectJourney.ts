@@ -26,10 +26,9 @@ export function readAddressParameter(key = 'token'): string {
 }
 
 export function safeReturnPath(value: unknown): string {
-  if (typeof value !== 'string' || value.length > 500) return '/projects'
-  if (!/^\/(?:projects|launch|launchpad|swap|pool|locker|vesting|airdrop|portfolio|ledger)(?:[/?]|$)/.test(value)) return '/projects'
-  if (/[\\\r\n]/.test(value)) return '/projects'
-  return value
+  // Setup links return to a known tool; never pass a supplied URL to navigation.
+  const destinations = ['/projects', '/launch', '/launchpad', '/swap', '/pool', '/locker', '/vesting', '/airdrop', '/portfolio', '/ledger']
+  return destinations.find(destination => destination === value) ?? '/projects'
 }
 
 export function lockVerificationLink(locker: string, id: string): string {

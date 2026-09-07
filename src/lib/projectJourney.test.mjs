@@ -10,6 +10,14 @@ test('project handoffs carry one valid asset and cannot select external destinat
   assert.throws(() => projectLinks('bad'))
   for (const value of ['//example.com', '/swap\\evil', 'https://example.com', '/unknown']) assert.equal(safeReturnPath(value), '/projects')
 })
+test('setup returns only to exact known pages', () => {
+  for (const path of ['/projects', '/launch', '/launchpad', '/swap', '/pool', '/locker', '/vesting', '/airdrop', '/portfolio', '/ledger']) {
+    assert.equal(safeReturnPath(path), path)
+  }
+  for (const value of [null, {}, '/swap/../', '/swap//unknown', '/swap?next=unknown', '/swap#other', '/swap\n', '/swap%2fmore']) {
+    assert.equal(safeReturnPath(value), '/projects')
+  }
+})
 test('certificate identity includes the chain, locker and bounded integer ID', () => {
   assert.equal(lockVerificationLink(address, '0'), `/locker/verify?chain=4441&contract=${address}&id=0`)
   for (const id of ['-1', '1e2', '01', (2n ** 256n).toString()]) assert.throws(() => lockVerificationLink(address, id))

@@ -7,7 +7,8 @@ No third-party dependencies were added, removed, or updated.
 - **Lifecycle scripts:** the existing lockfiles flag `unrs-resolver@1.12.2`
   (application), `esbuild@0.28.1`, and `fsevents@2.3.3` (contracts).
   No dependency install or lifecycle scripts were executed. Existing installed
-  build and test tools were used; no install, `npx`, or `dlx` was run.
+  build and test tools were used locally; no local install, `npx`, or `dlx` was run.
+  Protected CI installed application and contract dependencies with `npm ci --ignore-scripts`.
 - **Lockfiles:** unchanged. `.npmrc`, exact dependency pins, and runtime pins are unchanged.
 - **Registry verification:** application `npm audit signatures` verified registry
   signatures for 549 packages and attestations for 105 packages.
@@ -21,7 +22,9 @@ No third-party dependencies were added, removed, or updated.
   data never grants write authority. Public verification checks live contract
   code and lock state. Metrics is off by default, bounded, schema-validated,
   same-origin, and forwarded only to an explicitly configured server-side sink.
-- **Checks:** build/types, 281 unit tests, browser journeys, secret scanning,
+  Setup return links select only known internal pages. The browser runner uses
+  private process pipes and passes values as protocol arguments, not generated code.
+- **Checks:** build/types, 282 unit tests, ten browser journeys, secret scanning,
   package policy, and public replacement manifest pass locally. ESLint: zero errors, 59 warnings.
   Existing warnings remain, largely legacy React effect/typing warnings.
 
@@ -31,6 +34,10 @@ The unchanged application lockfile reports **one high and one moderate advisory*
 No advisory has been suppressed, no exploit has been reproduced, and no exception
 is approved. A separate dependency update must perform the full review and obtain
 any required approval before changing the lockfile.
+
+PR #93's protected CI verified the exact runtime pins and immutable installs, then
+failed at the application vulnerability audit. Its later signature, test, and build
+steps were skipped. The local signature and test results above are separate evidence.
 
 | Installed dependency and path | Advisory | Candidate patch for separate review |
 | --- | --- | --- |
@@ -47,7 +54,7 @@ tarball, transitive-tree, lifecycle, ownership, and test review.
 
 ## Remaining operational reviews
 
-- Run protected CI with the repository's exact Node 24.18.0 / npm 11.16.0 pins.
+- Complete protected CI with the repository's exact Node 24.18.0 / npm 11.16.0 pins.
   Local checks used installed Node 24.19.0 / npm 11.18.0; no pins were changed.
 - Re-audit and verify signatures for release, including contract dependencies;
   this feature change does not modify contracts or their dependency graph.
