@@ -1,6 +1,7 @@
 # Implementation security report — 7 September 2026
 
-No third-party dependencies were added, removed, or updated.
+No third-party dependencies were added, removed, or updated by the feature PR.
+The subsequent dependency fixes were reviewed and merged separately, as recorded below.
 
 - **Versions / release age:** all dependency and package-manager pins remain unchanged.
   No new release was selected, so no seven-day hold exception was needed.
@@ -28,14 +29,42 @@ No third-party dependencies were added, removed, or updated.
   package policy, and public replacement manifest pass locally. ESLint: zero errors, 59 warnings.
   Existing warnings remain, largely legacy React effect/typing warnings.
 
-## Audit findings: release remains blocked
+## Dependency review follow-up — 8 September 2026
 
-The unchanged application lockfile reports **one high and one moderate advisory**.
+The initial findings were resolved in dedicated [PR #94](https://github.com/jh005479-sudo/lester-labs/pull/94)
+and [PR #95](https://github.com/jh005479-sudo/lester-labs/pull/95). Both passed every
+required protected check before merge. Their exact changes are:
+
+- `nanoid`: `3.3.17` → `3.3.18`.
+- `@humanfs/node`: `0.16.7` → `0.16.8`.
+- `@humanfs/core`: `0.19.1` → `0.19.2`, required by the node patch.
+- New transitive development dependency `@humanfs/types@0.15.0`, required for
+  the humanfs type declarations. No direct dependency was added or removed.
+
+All selected releases exceed the seven-day hold. Full tarball, source, ownership,
+dependency, license, lifecycle, and signature reviews are in
+[`NANOID-3.3.18-REVIEW.md`](security/NANOID-3.3.18-REVIEW.md) and
+[`HUMANFS-0.16.8-REVIEW.md`](security/HUMANFS-0.16.8-REVIEW.md).
+The resulting application and contract audits report zero vulnerabilities.
+Local application verification passed for 550 registry signatures and 105
+attestations, and both graphs passed signature verification in protected CI.
+Humanfs publishes no provenance attestation; its verified registry signatures and
+source review are recorded without claiming an attestation exists.
+
+The root lock changed only through npm's reviewed resolution; its final SHA-256 is
+`fbcdde38c1c1c563c82fba4b059da16334426517e9c3c62b5a70d074f70ab655`.
+The contract lock is unchanged. Humanfs preparation hooks are present but
+unnecessary for installation and were not executed. No dependency lifecycle
+script ran, no advisory was suppressed, and no security exception was used.
+The feature PR must pass protected CI again against the integrated dependency graph.
+
+## Initial audit findings — resolved by the follow-up
+
+The original application lockfile reported **one high and one moderate advisory**.
 No advisory has been suppressed, no exploit has been reproduced, and no exception
-is approved. A separate dependency update must perform the full review and obtain
-any required approval before changing the lockfile.
+was used. The user authorized the subsequent dependency review and merges.
 
-PR #93's protected CI verified the exact runtime pins and immutable installs, then
+PR #93's initial protected CI verified the exact runtime pins and immutable installs, then
 failed at the application vulnerability audit. Its later signature, test, and build
 steps were skipped. The local signature and test results above are separate evidence.
 
@@ -49,13 +78,14 @@ custom-generator path described by the advisory. No affected application call
 site was found in this review. This limited observation is not a waiver or proof
 of safety. The humanfs advisory affects recursive copying; the dependency is
 used by development tooling that runs in CI. Keep untrusted build inputs and
-credentials isolated. Both candidate patch versions still need complete package,
-tarball, transitive-tree, lifecycle, ownership, and test review.
+credentials isolated. Both patch reviews and their validation are now recorded
+in the dedicated dependency review documents linked above.
 
 ## Remaining operational reviews
 
-- Complete protected CI with the repository's exact Node 24.18.0 / npm 11.16.0 pins.
-  Local checks used installed Node 24.19.0 / npm 11.18.0; no pins were changed.
+- Require protected CI with the repository's exact Node 24.18.0 / npm 11.16.0 pins.
+  Initial feature checks used installed Node 24.19.0 / npm 11.18.0; the dependency
+  review and protected checks used the exact repository pins. No pin was changed.
 - Re-audit and verify signatures for release, including contract dependencies;
   this feature change does not modify contracts or their dependency graph.
 - Validate wallet rejection, chain/account changes during preflight, and real

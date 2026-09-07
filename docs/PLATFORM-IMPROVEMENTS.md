@@ -17,7 +17,7 @@ controls remain in force.
 | Useful portfolio | Any valid address can be viewed without connecting. Recent locks and available vesting claims have next actions; upcoming locks offer calendar downloads. LP positions use same-block reads, integer ownership math, actual token decimals, and pagination. | Recent activity coverage is explicitly bounded. Legacy recovery remains accessible through existing tools. Reminders are calendar files, not a notification service. |
 | Opt-in usage measurement | A strict address-free event schema and optional authenticated ingest endpoint measure tool starts, wallet connection, submissions, outcomes, and return visits. A dependency-free Node/SQLite service deduplicates, aggregates, excludes development events, and expires records after 30 days. | Disabled until durable storage is configured. See `METRICS-OPERATIONS.md`. These are client-reported browser signals, not unique people or verified adoption. Existing legacy counters are unchanged. |
 | Comparable market information | Liquidity ranking compares pools sharing the same quote asset. Missing token decimals no longer become assumed 18-decimal amounts. History uses archive events and never invents points. LP balance calculations were corrected. | Reserve ratios are not oracle valuations. Markets cover at most the newest 72 pairs. |
-| Browser regression coverage | `npm run test:browser` runs with an installed Chromium in a disposable profile. Covers validation, draft reloads, handoffs, certificates, address-only portfolios, pending persistence, unavailable data, privacy defaults, and five mobile routes. Added to existing security CI. | No browser package download or wallet signing. The runner must supply a reviewed Chromium binary. CI still stops on dependency audit failures. |
+| Browser regression coverage | `npm run test:browser` runs with an installed Chromium in a disposable profile. Covers validation, draft reloads, handoffs, certificates, address-only portfolios, pending persistence, unavailable data, privacy defaults, and five mobile routes. Added to existing security CI. | No browser package download or wallet signing. The runner must supply a reviewed Chromium binary. Dependency audit gates remain required. |
 
 ## Visual and copy changes
 
@@ -45,8 +45,10 @@ ordinary language; technical provenance remains available where decisions need i
 
 ## Release status
 
-Do not promote this change until the separate dependency review resolves the
-existing audit findings and protected CI passes. The high advisory remains an
-active audit failure; no exception or suppression was added.
+The dependency findings were resolved through separately reviewed PRs #94 and #95,
+which passed protected CI before merge. Application and contract audits now report
+zero vulnerabilities. The integrated feature PR must pass protected checks before
+merge, and existing production promotion controls remain in force. No exception
+or advisory suppression was added.
 
 See `PLATFORM-SECURITY-REPORT.md` for exact packages, advisories, and verification.
