@@ -1,4 +1,6 @@
 'use client'
+import { useTokenHandoff } from '@/hooks/useTokenHandoff'
+import { HASH_PATTERN } from '@/lib/projectJourney'
 
 import { useEffect, useMemo, useState } from 'react'
 import { getTransactionReceipt } from 'wagmi/actions'
@@ -73,6 +75,9 @@ export function MySchedules() {
   const [walletInput, setWalletInput] = useState('')
   const [tokenInput, setTokenInput] = useState('')
   const [creationTxInput, setCreationTxInput] = useState('')
+  useTokenHandoff(setWalletInput, true, 'vestingWallet')
+  useTokenHandoff(setTokenInput)
+  useEffect(() => { const hash = new URLSearchParams(window.location.search).get('creationTx'); if (hash && HASH_PATTERN.test(hash)) queueMicrotask(() => setCreationTxInput(hash)) }, [])
   const [targetId, setTargetId] = useState(VESTING_RECOVERY_TARGETS[0].id)
   const [lookup, setLookup] = useState<ScheduleLookup | null>(null)
   const [lookupError, setLookupError] = useState<string | null>(null)

@@ -8,12 +8,11 @@ import { appGroups, isActivePath } from '@/lib/product-flow'
 import { InjectedWalletButton } from '@/components/shared/InjectedWalletButton'
 
 const directLinks = [
-  { href: '/ledger', label: 'Ledger' },
-  { href: '/explorer', label: 'Explorer' },
-  { href: '/analytics', label: 'Analytics' },
-  { href: '/charts', label: 'Charts' },
+  { href: '/projects', label: 'Projects' },
+  { href: '/swap', label: 'Swap' },
+  { href: '/charts', label: 'Markets' },
   { href: '/portfolio', label: 'Portfolio' },
-  { href: '/tutorials', label: 'Tutorials' },
+  { href: '/transactions', label: 'Activity' },
   { href: '/docs', label: 'Docs' },
 ]
 

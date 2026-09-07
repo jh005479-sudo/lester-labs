@@ -2033,7 +2033,7 @@ function SwapPageInner() {
         title="Lester"
         titleHighlight="Swap"
         subtitle={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-          ? 'Use the source-pinned replacement DEX and review bounded reserve quotes or authenticated legacy recovery.'
+          ? 'Swap tokens, add liquidity, or manage your existing pools.'
           : 'Read legacy reserve quotes and review recovery status. New swaps, wrapping, pool creation, and liquidity additions are disabled during post-compromise replacement.'}
         color={ACCENT}
         image="/images/carousel/swap.png"
@@ -2198,7 +2198,7 @@ function SwapPageInner() {
                         <div className="text-[2rem] font-semibold text-white">
                           {quotedAmountOutText || '0.0'}
                         </div>
-                        <p className="mt-2 text-sm text-white/40">Source-pinned Replacement Reserve Quote</p>
+                        <p className="mt-2 text-sm text-white/40">Estimated amount received</p>
                       </div>
                       <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.12em] text-white/50">
                         Direct route
@@ -2213,10 +2213,10 @@ function SwapPageInner() {
                     <Loader2 size={14} className="animate-spin shrink-0" />
                     <span>
                       {/429|rate\s*limit|too\s*many\s*requests/i.test(`${pairAddressRead.error?.message ?? ''} ${quoteRead.error?.message ?? ''}`)
-                        ? 'RPC rate limited — retrying…'
+                        ? 'The network is busy. Trying again…'
                         : /network|fetch|conn|offline|timeout/i.test(`${pairAddressRead.error?.message ?? ''} ${quoteRead.error?.message ?? ''}`)
                           ? 'Network error — check your connection.'
-                          : 'RPC error — retrying…'}
+                          : 'We couldn’t refresh the quote. Trying again…'}
                     </span>
                   </div>
                 )}

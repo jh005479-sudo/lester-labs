@@ -75,16 +75,16 @@ const ecosystemStages: EcosystemStage[] = [
     eyebrow: releaseVariant('Replacement readiness', 'Reviewed creation'),
     description: releaseVariant(
       'Review historical deployments and the controls required before replacement creation flows can be activated.',
-      'Create with the source-pinned replacement contracts or inspect authenticated legacy deployments.',
+      'Create a token, plan a launch, and distribute it to your community.',
     ),
     href: '/launch',
-    cta: 'Review factory status',
+    cta: 'Create a token',
     color: '#6B4FFF',
     icon: Rocket,
     products: [
       { name: 'Minter', href: '/launch', note: releaseVariant('creation disabled', 'reviewed replacement') },
       { name: 'Launchpad', href: '/launchpad', note: releaseVariant('historical recovery', 'launch and recover') },
-      { name: 'Airdrop', href: '/airdrop', note: 'local list review' },
+      { name: 'Airdrop', href: '/airdrop', note: 'send to your community' },
     ],
   },
   {
@@ -93,10 +93,10 @@ const ecosystemStages: EcosystemStage[] = [
     eyebrow: releaseVariant('DEX containment', 'Reviewed DEX'),
     description: releaseVariant(
       'Inspect legacy pairs and recover existing positions while new swaps and liquidity writes remain disabled.',
-      'Use the source-pinned replacement DEX or inspect and recover eligible legacy positions.',
+      'Swap tokens and manage your liquidity on LitVM testnet.',
     ),
     href: '/swap',
-    cta: 'Review DEX status',
+    cta: 'Open swap',
     color: '#E44FB5',
     icon: Droplets,
     products: [
@@ -108,28 +108,28 @@ const ecosystemStages: EcosystemStage[] = [
   {
     key: 'protect',
     title: 'Protect',
-    eyebrow: 'Position recovery',
-    description: 'Inspect historical locks and vesting wallets; only authenticated matured withdrawals and releases remain available.',
+    eyebrow: 'Locks and vesting',
+    description: releaseVariant('Inspect existing locks and vesting schedules.', 'Create liquidity locks, schedule token releases, and manage existing positions.'),
     href: '/locker',
-    cta: 'Review recovery paths',
+    cta: 'Manage locks',
     color: '#2DCE89',
     icon: ShieldCheck,
     products: [
       { name: 'Locker', href: '/locker', note: 'withdraw matured locks' },
       { name: 'Vesting', href: '/vesting', note: 'release vested tokens' },
-      { name: 'Portfolio', href: '/portfolio', note: 'wallet objects' },
+      { name: 'Portfolio', href: '/portfolio', note: 'your tokens and positions' },
     ],
   },
   {
     key: 'publish',
     title: 'Publish',
-    eyebrow: 'Historical records',
+    eyebrow: 'Community',
     description: releaseVariant(
       'Read sampled on-chain messages and review governance and deployment documentation without submitting paid writes.',
-      'Read sampled on-chain messages, use reviewed replacement posting and governance, and inspect deployment evidence.',
+      'Share an on-chain message or explore governance guides. Voting is currently paused.',
     ),
     href: '/ledger',
-    cta: 'Read historical records',
+    cta: 'Open the Ledger',
     color: '#F5A623',
     icon: MessageSquareText,
     products: [
@@ -164,8 +164,8 @@ const ecosystemDirectory: DirectoryTool[] = [
   { name: 'Airdrop', href: '/airdrop', note: releaseVariant('Review recipient lists locally; distribution writes are disabled.', 'Review recipient lists and submit bounded replacement batches.'), group: 'Create', icon: Gift },
   { name: 'Swap', href: '/swap', note: releaseVariant('Inspect quotes and recovery status; new swaps are disabled.', 'Review source-pinned replacement quotes and legacy recovery.'), group: 'Trade', icon: Sparkles },
   { name: 'Pool', href: '/pool', note: 'Inspect positions and authenticated legacy LP recovery.', group: 'Trade', icon: Droplets },
-  { name: 'Locker', href: '/locker', note: 'Inspect locks and withdraw matured legacy positions.', group: 'Protect', icon: Lock },
-  { name: 'Vesting', href: '/vesting', note: 'Inspect schedules and release vested legacy positions.', group: 'Protect', icon: Landmark },
+  { name: 'Locker', href: '/locker', note: releaseVariant('Inspect existing locks.', 'Create locks and manage unlocks.'), group: 'Protect', icon: Lock },
+  { name: 'Vesting', href: '/vesting', note: releaseVariant('Inspect and claim eligible vested tokens.', 'Schedule releases and claim vested tokens.'), group: 'Protect', icon: Landmark },
   { name: 'Ledger', href: '/ledger', note: releaseVariant('Read historical messages; paid posting is disabled.', 'Read history or post through the source-pinned replacement.'), group: 'Publish', icon: MessageSquareText },
   { name: 'Governance', href: '/governance', note: 'Review process guidance; legacy governance is retired.', group: 'Publish', icon: BarChart3 },
   { name: 'Portfolio', href: '/portfolio', note: 'Bounded wallet views and recovery links.', group: 'Return', icon: Wallet },
@@ -183,7 +183,7 @@ function EcosystemSuite() {
         </div>
         <div className="section-label">The Suite</div>
         <h2 className="suite-title title-reveal">
-          <span className="word">A connected</span>&nbsp;
+          <span className="word">A fully integrated</span>&nbsp;
           <span className="word highlight">DeFi suite</span>
         </h2>
         <p className="suite-sub sub-reveal">
@@ -200,7 +200,7 @@ function EcosystemSuite() {
             <p>Native LitVM loop</p>
             <strong>{releaseVariant(
               'Every surface must disclose whether it is read-only, recovery-only, or pending replacement.',
-              'Every surface must disclose whether it uses an active replacement, a bounded read, or legacy recovery.',
+              'Everything you need to build and manage your project.',
             )}</strong>
           </div>
         </div>

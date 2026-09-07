@@ -3,6 +3,8 @@
 import { useState, useCallback } from 'react'
 import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import { CheckCircle2, Copy, ExternalLink, Lock, Share2 } from 'lucide-react'
+import { LIQUIDITY_LOCKER_ADDRESS } from '@/config/contracts'
+import { lockVerificationLink } from '@/lib/projectJourney'
 
 export interface LockCertificateData {
   lockId: string
@@ -33,7 +35,7 @@ interface LockCertificateProps {
 export function LockCertificate({ data, onReset }: LockCertificateProps) {
   const [copied, setCopied] = useState(false)
 
-  const shareUrl = `lester-labs.com/locker/verify?id=${data.lockId}`
+  const shareUrl = `https://www.lester-labs.com${lockVerificationLink(LIQUIDITY_LOCKER_ADDRESS, data.lockId)}`
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(shareUrl)
@@ -122,6 +124,7 @@ export function LockCertificate({ data, onReset }: LockCertificateProps) {
         <p className="text-xs text-white/30 text-center">
           Anyone can verify this lock without connecting a wallet
         </p>
+        <a href={shareUrl} className="workspace-button secondary">View public certificate <ExternalLink size={16} /></a>
       </div>
 
       {/* New lock */}
@@ -151,4 +154,3 @@ function CertRow({
     </div>
   )
 }
-

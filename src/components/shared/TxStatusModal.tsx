@@ -76,9 +76,9 @@ export function TxStatusModal({
             {status === 'error'   && <XCircle    size={44} style={{ color: 'var(--error)' }} />}
 
             <Dialog.Title className="text-lg font-semibold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-              {status === 'pending' && 'Submitting…'}
+              {status === 'pending' && (txHash ? 'Confirming transaction' : 'Check your wallet')}
               {status === 'success' && 'Success'}
-              {status === 'error'   && 'Failed'}
+              {status === 'error'   && 'Transaction needs attention'}
             </Dialog.Title>
 
             {message && <p className="text-sm" style={{ color: 'var(--foreground-dim)' }}>{message}</p>}
@@ -152,13 +152,14 @@ export function TxStatusModal({
             )}
 
             <div className="flex gap-3 w-full pt-3">
-              {status === 'error' && onRetry && (
+              {status === 'error' && onRetry && !txHash && (
                 <button onClick={onRetry} className="cin-btn cin-btn-ghost flex-1 text-sm">Retry</button>
               )}
               <button onClick={onClose} className="cin-btn flex-1 text-sm">
                 {status === 'pending' ? 'Close' : 'Done'}
               </button>
             </div>
+            <a href="/transactions" className="text-sm text-violet-300 underline underline-offset-4">View transaction history</a>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

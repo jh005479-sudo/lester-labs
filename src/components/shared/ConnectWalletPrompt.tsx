@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { ArrowUpRight, CheckCircle2, FileSearch, Wallet } from 'lucide-react'
 import { walletConnectConfigured } from '@/config/wagmi'
 import { InjectedWalletButton } from '@/components/shared/InjectedWalletButton'
-import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 type PreviewItem = {
   label: string
@@ -33,7 +32,7 @@ const defaultPreviewItems: PreviewItem[] = [
 
 export function ConnectWalletPrompt({
   title = 'Connect your wallet',
-  body = 'Connect to continue using this utility.',
+  body = 'Connect when you’re ready to continue.',
   previewTitle = 'What unlocks after connection',
   previewItems = defaultPreviewItems,
   nextActions = [
@@ -61,17 +60,12 @@ export function ConnectWalletPrompt({
         </div>
         {!walletConnectConfigured && (
           <p className="mt-4 text-[12px] leading-5" style={{ color: 'var(--foreground-muted)' }}>
-            WalletConnect is intentionally disabled for malicious-flag remediation. This connection control is
-            separate from contract-authority recovery;{' '}
-            {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
-              ? 'reviewed writes still require the injected-wallet chain, target, runtime, and calldata gates.'
-              : 'paid writes remain disabled until replacement activation.'}{' '}
-            Use a locally installed wallet extension and inspect every transaction before signing.
+            Use a browser wallet on LitVM testnet. On mobile, open this site in your wallet’s browser.
           </p>
         )}
         <p className="mt-6 text-[12px]" style={{ color: 'var(--foreground-muted)' }}>
-          Need testnet zkLTC? Locate the current faucet from LitVM&apos;s official site. Lester Labs will never
-          ask you to send LTC, reveal a private key, or enter a recovery phrase.
+          <Link href="/setup" className="text-violet-300 underline underline-offset-4">Need help getting set up?</Link>{' '}
+          Keep your recovery phrase private. Test tokens have no monetary value.
         </p>
       </div>
 

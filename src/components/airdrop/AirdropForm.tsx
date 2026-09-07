@@ -1,4 +1,5 @@
 'use client'
+import { useTokenHandoff } from '@/hooks/useTokenHandoff'
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useAccount, useBytecode, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
@@ -169,6 +170,7 @@ export function AirdropForm() {
 
   const [mode, setMode] = useState<Mode>('token')
   const [tokenAddress, setTokenAddress] = useState('')
+  useTokenHandoff((token) => { setTokenAddress(token); setMode('token') })
   const [recipients, setRecipients] = useState<Recipient[]>([])
 
   const [modalOpen, setModalOpen] = useState(false)

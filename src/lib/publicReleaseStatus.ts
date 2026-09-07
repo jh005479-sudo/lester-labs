@@ -198,7 +198,7 @@ const APPROVED_PUBLIC_TESTNET_STATUS: PublicReleaseStatus = Object.freeze({
     heroTagline: 'Live on Testnet',
     heroHeading: 'Replacement testnet stack active.',
     heroDetail: 'Writes target the source-pinned immutable replacement contracts on LitVM chain 4441. The controller is permanently frozen; the disclosed treasury can receive only valueless test assets.',
-    suiteSummary: 'Chain-guarded replacement actions sit alongside bounded analytics and authenticated legacy recovery.',
+    suiteSummary: 'Mint, launch, lock, airdrop, vest, swap and more, exclusively on LitVM',
     gettingStarted: 'Confirm LitVM chain 4441, review the exact contract target and transaction preview, and use only disposable testnet wallets and valueless test assets.',
     trustLabel: 'An independent testnet project publishing exact source, deployment, runtime, cutover, and served-build evidence for public review.',
     ctaDetail: 'Verify chain 4441, the source-pinned target, function, recipient, and value before connecting a disposable testnet wallet.',

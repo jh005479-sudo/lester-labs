@@ -218,7 +218,12 @@ describe('LitVM transaction target integrity', () => {
       if (/\b(?:useSwitchChain|switchChainAsync)\b/u.test(source)) switchSites.push(projectPath)
     }
 
-    assert.deepEqual(simulationSites, [])
+    assert.deepEqual(simulationSites, ['hooks/useSafeWriteContract.ts'])
+    const simulationSource = readFileSync(new URL('../hooks/useSafeWriteContract.ts', import.meta.url), 'utf8')
+    assert.match(simulationSource, /createPublicClient\(\{ chain: litvm, transport: http\(litvm\.rpcUrls\.default\.http\[0\]/)
+    assert.equal(simulationSource.match(/await simulate\(variables, entry\)/gu)?.length, 2)
+    assert.match(simulationSource, /await attestStandardWriteProvenance[\s\S]*await simulate\(variables, entry\)[\s\S]*prompt: \(\) => write\.writeContractAsync/)
+    assert.match(simulationSource, /await attestRecoveryWriteProvenance[\s\S]*await simulate\(variables, entry\)[\s\S]*prompt: \(\) => write\.writeContractAsync/)
     assert.deepEqual(connectionSites, ['components/shared/InjectedWalletButton.tsx'])
     assert.deepEqual(switchSites, ['hooks/useLitvmNetwork.ts'])
 
@@ -239,7 +244,7 @@ describe('LitVM transaction target integrity', () => {
     const policySource = readFileSync(new URL('./litvmChainPolicy.ts', import.meta.url), 'utf8')
     assert.equal(hookSource.match(/runGuardedLitvmWalletPrompt\(\{/gu)?.length, 2)
     assert.equal(hookSource.match(/chainId: litvm\.id/gu)?.length, 2)
-    assert.equal(hookSource.match(/account: connectedAddress/gu)?.length, 2)
+    assert.equal(hookSource.match(/account: connectedAddress,\s*chainId: litvm\.id/gu)?.length, 2)
     assert.doesNotMatch(hookSource, /\.\.\.write/)
     assert.doesNotMatch(hookSource, /const writeContract:/)
     assert.match(policySource, /await attestWalletChain\(\)[\s\S]*await preflight\(\)[\s\S]*await attestWalletChain\(\)[\s\S]*return prompt\(\)/)

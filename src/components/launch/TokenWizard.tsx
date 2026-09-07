@@ -23,11 +23,13 @@ import {
 import { litvm } from '@/config/chains'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import { projectLinks } from '@/lib/projectJourney'
 
 const STEPS = [
   { id: 1, label: 'Token Basics' },
   { id: 2, label: 'Features' },
-  { id: 3, label: 'Review Status' },
+  { id: 3, label: 'Review' },
 ]
 
 import { setTokenImageUrl } from '@/lib/tokenImageStore'
@@ -104,10 +106,12 @@ function SuccessPanel({ result }: { result: SuccessState }) {
     setTimeout(() => setCopied(false), 2000)
   }, [result.tokenAddress])
 
+  const links = projectLinks(result.tokenAddress)
   const nextSteps = [
-    { label: 'Lock Liquidity', icon: <Lock size={18} />, href: '/locker' },
-    { label: 'Set Up Vesting', icon: <Calendar size={18} />, href: '/vesting' },
-    { label: 'Airdrop Tokens', icon: <Send size={18} />, href: '/airdrop' },
+    { label: 'Continue your project', icon: <ArrowRight size={18} />, href: links.project },
+    { label: 'Add liquidity', icon: <Lock size={18} />, href: links.pool },
+    { label: 'Set up vesting', icon: <Calendar size={18} />, href: links.vesting },
+    { label: 'Send tokens', icon: <Send size={18} />, href: links.airdrop },
   ]
 
   return (
@@ -161,7 +165,7 @@ function SuccessPanel({ result }: { result: SuccessState }) {
       {/* Next steps */}
       <div className="pt-2">
         <p className="mb-3 text-sm font-medium text-white/60">What&apos;s next?</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {nextSteps.map((step) => (
             <Link
               key={step.href}
@@ -187,8 +191,8 @@ interface TokenWizardProps {
 
 export function TokenWizard({ onStateChange }: TokenWizardProps) {
   const [step, setStep] = useState(1)
-  const [basics, setBasics] = useState<TokenBasics>(DEFAULT_BASICS)
-  const [features, setFeatures] = useState<TokenFeatures>(DEFAULT_FEATURES)
+  const [basics, setBasics, basicsReady, basicsSaved] = useFormDraft<TokenBasics>('token-basics', DEFAULT_BASICS)
+  const [features, setFeatures, featuresReady, featuresSaved] = useFormDraft<TokenFeatures>('token-features', DEFAULT_FEATURES)
 
   // Sync wizard state up to parent (for navbar preview, etc.)
   useEffect(() => {
@@ -252,6 +256,13 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
   })
 
   const applyReceiptSuccess = useEffectEvent(async (hash: `0x${string}`, contractAddress: string) => {
+    try {
+      const key = 'lester:projects:v1'
+      const stored = localStorage.getItem(key)
+      const previous = stored && stored.length <= 20_000 ? JSON.parse(stored) : []
+      const projects = Array.isArray(previous) ? previous.filter((item) => item?.token !== contractAddress.toLowerCase()).slice(0, 19) : []
+      localStorage.setItem(key, JSON.stringify([{ token: contractAddress.toLowerCase(), name: basics.name, hash, createdAt: Date.now() }, ...projects]))
+    } catch { /* Project remains available by its public token address. */ }
     if (basics.logoUrl) {
       await setTokenImageUrl(contractAddress, basics.logoUrl)
     }
@@ -396,6 +407,7 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
   return (
     <div>
       <StepIndicator current={step} />
+      <p className="workspace-note mb-4">{!basicsReady || !featuresReady ? 'Loading your draft…' : basicsSaved && featuresSaved ? 'Your draft is saved on this device.' : 'Draft saving is unavailable. Keep this page open.'}</p>
 
       <div className="tool-form-card">
         <div className="tool-form-card-line" style={{ background: 'linear-gradient(90deg,transparent,rgba(107,79,255,.15),transparent)' }} />

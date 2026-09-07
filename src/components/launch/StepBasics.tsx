@@ -29,7 +29,7 @@ export function StepBasics({ values, onChange }: StepBasicsProps) {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-white">Token Basics</h2>
-        <p className="mt-1 text-sm text-white/50">Define the core parameters of your token.</p>
+        <p className="mt-1 text-sm text-white/50">Give your token a name and choose its starting supply.</p>
       </div>
 
       {/* Token Name */}
@@ -46,7 +46,7 @@ export function StepBasics({ values, onChange }: StepBasicsProps) {
           onChange={(e) => set('name', e.target.value)}
           className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] transition-colors"
         />
-        <p className="text-xs text-white/40">Max 50 characters — this is what users will see in their wallet</p>
+        <p className="text-xs text-white/40">Up to 50 characters. Shown in wallets.</p>
       </div>
 
       {/* Token Symbol */}
@@ -63,7 +63,7 @@ export function StepBasics({ values, onChange }: StepBasicsProps) {
           onChange={(e) => set('symbol', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
           className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white font-mono placeholder:text-white/30 focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] transition-colors"
         />
-        <p className="text-xs text-white/40">e.g. MAT — will appear on DEXes</p>
+        <p className="text-xs text-white/40">A short label for your token, like MAT.</p>
       </div>
 
       {/* Total Supply */}
@@ -81,7 +81,7 @@ export function StepBasics({ values, onChange }: StepBasicsProps) {
           onChange={(e) => set('totalSupply', e.target.value)}
           className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] transition-colors"
         />
-        <p className="text-xs text-white/40">Total tokens to mint on creation</p>
+        <p className="text-xs text-white/40">The number of tokens to create.</p>
       </div>
 
       {/* Decimals */}

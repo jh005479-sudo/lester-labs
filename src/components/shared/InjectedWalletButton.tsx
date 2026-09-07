@@ -7,6 +7,7 @@ import { litvm } from '@/config/chains'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
 import { attestLitvmWalletChain } from '@/lib/litvmChainGuard'
 import { assertLitvmChainId } from '@/lib/litvmChainPolicy'
+import { recordUsage } from '@/lib/usageMetrics'
 
 interface InjectedWalletButtonProps {
   className?: string
@@ -53,13 +54,14 @@ export function InjectedWalletButton({
       }
 
       if (!injectedConnector) {
-        setLocalError('No configured injected wallet connector is available. Enable a trusted browser wallet extension and reload.')
+        setLocalError('Enable your browser wallet, then reload this page.')
         return
       }
 
       const connection = await connectAsync({ connector: injectedConnector, chainId: litvm.id })
       assertLitvmChainId(connection.chainId)
       await attestLitvmWalletChain({ expectedAddress: connection.accounts[0] })
+      recordUsage('wallet_connected')
     } catch (error) {
       // Some connectors expose accounts before rejecting the required chain.
       // Clear partial connection state so an unknown/wrong chain fails closed.
@@ -67,7 +69,7 @@ export function InjectedWalletButton({
       const message = getWalletErrorMessage(error, 'The injected wallet connection could not be completed.')
       setLocalError(
         /provider not found|connector not found/i.test(message)
-          ? 'No injected wallet was detected. Enable a trusted browser wallet extension and reload.'
+          ? 'We couldn’t find a browser wallet. Enable yours, then reload.'
           : message,
       )
     }

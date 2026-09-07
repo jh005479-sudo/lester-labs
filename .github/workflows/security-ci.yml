@@ -95,6 +95,25 @@ jobs:
           [[ "$LESTER_RELEASE_BUILD_ID" =~ ^[0-9a-f]{40}$ ]]
           npm run build
 
+      - name: Test browser journeys with the runner's installed Chromium
+        env:
+          LESTER_RELEASE_BUILD_ID: ${{ github.sha }}
+          BROWSER_TEST_URL: http://127.0.0.1:3100
+          CHROMIUM_PATH: /usr/bin/google-chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x "$CHROMIUM_PATH"
+          "$CHROMIUM_PATH" --version
+          npm run start -- --hostname 127.0.0.1 --port 3100 > /tmp/lester-browser-server.log 2>&1 &
+          lester_server_pid=$!
+          trap 'kill "$lester_server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3100/projects > /dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:browser
+
       - name: Run contract tests
         working-directory: contracts
         run: npm test

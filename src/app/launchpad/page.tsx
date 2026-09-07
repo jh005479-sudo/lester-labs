@@ -1,4 +1,6 @@
 'use client'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import { useTokenHandoff } from '@/hooks/useTokenHandoff'
 
 import { useCallback, useEffect, useState } from 'react'
 import { waitForTransactionReceipt } from 'wagmi/actions'
@@ -283,7 +285,7 @@ function CreatePresaleForm() {
     isPending: isSubmitting,
   } = useSafeWriteContract()
 
-  const [form, setForm] = useState({
+  const [form, setForm, draftReady] = useFormDraft('presale', {
     tokenAddress: '',
     softCap: '',
     hardCap: '',
@@ -295,6 +297,7 @@ function CreatePresaleForm() {
     whitelist: false,
     logoUrl: '',
   })
+  useTokenHandoff((tokenAddress) => setForm((current) => ({ ...current, tokenAddress })), draftReady)
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [modalOpen, setModalOpen] = useState(false)

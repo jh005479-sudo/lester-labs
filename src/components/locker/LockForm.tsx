@@ -21,6 +21,7 @@ import {
 import { litvm } from '@/config/chains'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
+import { useTokenHandoff } from '@/hooks/useTokenHandoff'
 
 // ABI for fetching token decimals (F-009)
 const ERC20_DECIMALS_ABI = [
@@ -158,6 +159,7 @@ export function LockForm() {
 
   // Form state
   const [lpToken, setLpToken] = useState('')
+  useTokenHandoff(setLpToken, true, 'lpToken')
   const [amount, setAmount] = useState('')
   const [duration, setDuration] = useState<DurationOption>('1y')
   const [customDate, setCustomDate] = useState('')

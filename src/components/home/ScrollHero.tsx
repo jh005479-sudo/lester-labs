@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { LayoutGrid } from 'lucide-react'
 import { PlatformStats } from './PlatformStats'
 import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
+import Link from 'next/link'
 
 export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () => void }) {
   const bgImgRef = useRef<HTMLImageElement>(null)
@@ -147,7 +148,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
             style={{
               fontFamily: 'var(--font-heading)',
               fontWeight: 800,
-              fontSize: 120,
+              fontSize: 'clamp(48px, 8vw, 96px)',
               lineHeight: 0.92,
               textAlign: 'center',
               color: '#8B74FF',
@@ -182,8 +183,10 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
           </div>
 
           <div className="scroll-hero-actions hero-cta-group" style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 36 }}>
+            <Link className="workspace-button" href="/projects">Launch a project</Link>
+            <Link className="workspace-button secondary" href="/swap">Swap tokens</Link>
             <button
-              className="hero-btn-ghost"
+              className="workspace-button secondary"
               onClick={() => {
                 const suiteSection = document.getElementById('suite-section')
                 if (suiteSection) {
@@ -193,7 +196,7 @@ export default function ScrollHero({ onIntroComplete }: { onIntroComplete?: () =
                 }
               }}
             >
-              <LayoutGrid size={15} aria-hidden="true" /> Explore Suite
+              <LayoutGrid size={15} aria-hidden="true" /> All tools
             </button>
           </div>
 
