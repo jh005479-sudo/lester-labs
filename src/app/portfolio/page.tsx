@@ -1,14 +1,20 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
+import { validAddress } from '@/lib/projectJourney'
+import { PortfolioActions } from '@/components/portfolio/PortfolioActions'
 import { useAccount, useReadContract as useWagmiReadContract, useReadContracts, useBalance } from 'wagmi'
-import { decodeEventLog, decodeFunctionResult, encodeFunctionData } from 'viem'
+import { decodeEventLog, createPublicClient, http, erc20Abi, formatUnits } from 'viem'
+import type { ActivityLog, ActivityPage } from '@/lib/activityIndex'
+import { TOKEN_FACTORY_ABI } from '@/lib/contracts/tokenFactory'
 import { Copy, Check, ExternalLink } from 'lucide-react'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
-import { LiveActivityRail } from '@/components/shared/LiveActivityRail'
 import { ResumeDashboard } from '@/components/shared/ResumeDashboard'
 import {
   LITVM_LEGACY_ILO_FACTORIES,
+  APPROVED_ILO_CREATION_FACTORY_ADDRESS,
   TOKEN_FACTORY_ADDRESS,
   VESTING_FACTORY_ADDRESS,
   LIQUIDITY_LOCKER_ADDRESS,
@@ -16,7 +22,6 @@ import {
 import { ILO_FACTORY_ABI, ILO_ABI, ERC20_ABI } from '@/config/abis'
 import { LPPanel } from '@/components/portfolio/LPPanel'
 import { SwapHistoryPanel } from '@/components/portfolio/SwapHistoryPanel'
-import { RPC_URL } from '@/lib/rpcClient'
 import { litvm } from '@/config/chains'
 import { LIQUIDITY_LOCKER_ABI } from '@/lib/contracts/liquidityLocker'
 
@@ -62,41 +67,21 @@ function useCopyToClipboard(label: string) {
 // ── Event log fetcher ────────────────────────────────────────────────────
 
 async function fetchLogs(
-  address: string,
+  contract: string,
   eventSignature: string,
   indexedAddress?: string,
   indexedPosition: 1 | 2 | 3 = 2,
-): Promise<any[]> {
-  try {
-    const topics: Array<string | null> = [eventSignature]
-    if (indexedAddress) {
-      while (topics.length <= indexedPosition) topics.push(null)
-      topics[indexedPosition] = `0x${indexedAddress.slice(2).padStart(64, '0')}`
-    }
-
-    const resp = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getLogs',
-        params: [
-          {
-            address,
-            topics,
-            fromBlock: '0x1',
-            toBlock: 'latest',
-          },
-        ],
-        id: 1,
-      }),
-      signal: AbortSignal.timeout(8_000),
-    })
-    const json = await resp.json()
-    return Array.isArray(json.result) ? json.result : []
-  } catch {
-    return []
-  }
+): Promise<ActivityLog[]> {
+  const source = contract.toLowerCase() === TOKEN_FACTORY_ADDRESS.toLowerCase() ? 'tokens'
+    : contract.toLowerCase() === VESTING_FACTORY_ADDRESS.toLowerCase() ? 'vesting'
+    : contract.toLowerCase() === LIQUIDITY_LOCKER_ADDRESS.toLowerCase() ? 'locks' : undefined
+  if (!source) throw new Error('This activity source is unavailable.')
+  const response = await fetch(`/api/activity?source=${source}`)
+  if (!response.ok) throw new Error('We couldn’t load this activity. Please try again.')
+  const page = await response.json() as ActivityPage
+  if (!Array.isArray(page.logs)) throw new Error('Activity could not be checked.')
+  return page.logs.filter((log) => log.topics[0]?.toLowerCase() === eventSignature.toLowerCase() &&
+    (!indexedAddress || log.topics[indexedPosition]?.toLowerCase() === `0x${indexedAddress.slice(2).toLowerCase().padStart(64, '0')}`))
 }
 
 // Solidity keccak256 event signatures — verified against on-chain data
@@ -108,82 +93,25 @@ const LOCK_EVENT_SIG    = '0xc841d5bbfd6bbee5b5afbcdd70a52778ca1aaa260339f7307f2
 
 // ── Token creator scan (creator is topic 2 for TokenCreated) ────────────────
 async function fetchTokensByCreator(creator: string): Promise<{ address: string; name: string; symbol: string }[]> {
-  try {
-    const resp = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getLogs',
-        params: [{
-          address: TOKEN_FACTORY_ADDRESS,
-          topics: [TOKEN_EVENT_SIG, null, `0x${creator.slice(2).padStart(64, '0')}`],
-          fromBlock: '0x1',
-          toBlock: 'latest',
-        },],
-        id: 1,
-      }),
-      signal: AbortSignal.timeout(8_000),
-    })
-    const json = await resp.json()
-    if (!Array.isArray(json.result)) return []
-    return json.result.map((l: any) => {
-      const address = `0x${l.topics[1].slice(26)}`
-      const { name, symbol } = decodeTokenEventData(l.data || '0x')
-      return { address, name, symbol }
-    })
-  } catch {
-    return []
-  }
-}
-
-// Decode name/symbol from TokenCreated event data field
-// Verified layout (192 bytes, token address is indexed in topics[1]):
-//   bytes 0-63:   offset table (nameOffset=64, symOffset=128)
-//   bytes 64-95:  name length [uint256, 5 chars of name]
-//   bytes 96-127: name string content
-//   bytes 128-159: symbol length [uint256, 2-5 chars of symbol]
-//   bytes 160-191: symbol string content
-function decodeTokenEventData(dataHex: string): { name: string; symbol: string } {
-  try {
-    const data = dataHex.slice(2)
-    if (data.length < 384) return { name: '—', symbol: '—' }
-
-    const readStr = (lenOffset: number): string => {
-      const len = parseInt('0x' + data.slice(lenOffset * 2, lenOffset * 2 + 64), 16)
-      if (!len || len > 256) return '—'
-      const strHex = data.slice((lenOffset + 32) * 2, (lenOffset + 32) * 2 + len * 2)
-      return Buffer.from(strHex, 'hex').toString('utf8').replace(/\0+$/, '') || '—'
-    }
-
-    return { name: readStr(64), symbol: readStr(128) }
-  } catch {
-    return { name: '—', symbol: '—' }
-  }
+  const logs = await fetchLogs(TOKEN_FACTORY_ADDRESS, TOKEN_EVENT_SIG, creator, 2)
+  return logs.map((log) => {
+    const { args } = decodeEventLog({ abi: TOKEN_FACTORY_ABI, eventName: 'TokenCreated', data: log.data, topics: log.topics as [`0x${string}`, ...`0x${string}`[]] })
+    return { address: args.tokenAddress, name: args.name.slice(0, 80), symbol: args.symbol.slice(0, 20) }
+  })
 }
 
 // Fetch canonical TokenFactory deployments created by this wallet.
 function useTokenAddresses(address: string | undefined) {
-  const [tokens, setTokens] = useState<{ address: string; name: string; symbol: string }[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!address) return
-    fetchTokensByCreator(address).then((fromFactory) => {
-      setTokens(fromFactory)
-      setLoading(false)
-    })
-  }, [address])
-
-  return { tokens, loading }
+  const query = useQuery({ queryKey: ['portfolio-tokens', address], enabled: Boolean(address), staleTime: 30_000,
+    queryFn: () => fetchTokensByCreator(address!), retry: 1 })
+  return { tokens: query.data ?? [], loading: query.isPending, error: query.error }
 }
 
-// Fetch recovery-visible ILOs from every source-pinned legacy factory. New
-// creation remains disabled; this aggregation is read-only discovery.
+// Read current and legacy presales without granting write authority.
 function useILOAddresses(address: string | undefined) {
-  const { data, isLoading } = useReadContracts({
-    contracts: LITVM_LEGACY_ILO_FACTORIES.map((deployment) => ({
-      address: deployment.address,
+  const { data, isLoading, error } = useReadContracts({
+    contracts: Array.from(new Set([APPROVED_ILO_CREATION_FACTORY_ADDRESS, ...LITVM_LEGACY_ILO_FACTORIES.map((deployment) => deployment.address)].filter(Boolean))).map((factory) => ({
+      address: factory,
       abi: ILO_FACTORY_ABI,
       functionName: 'getOwnerILOs' as const,
       args: [address as `0x${string}`] as const,
@@ -196,124 +124,50 @@ function useILOAddresses(address: string | undefined) {
       result.status === 'success' ? result.result as `0x${string}`[] : []
     )),
   ))
-  return { addresses, loading: isLoading }
+  return { addresses, loading: isLoading, error: error ?? ((data ?? []).some((result) => result.status !== 'success') ? new Error('Some presales could not be loaded.') : null) }
 }
 
 // usePresales — returns ILO count for Overview (uses wagmi for addresses, no metadata fetch)
 function usePresales(address: string | undefined) {
-  const { addresses, loading } = useILOAddresses(address)
-  return { presales: addresses, loading }
+  const { addresses, loading, error } = useILOAddresses(address)
+  return { presales: addresses, loading, error }
 }
 
 // useTokens — returns token count for Overview
 function useTokens(address: string | undefined) {
-  const { tokens, loading } = useTokenAddresses(address)
-  return { tokens, loading }
+  const { tokens, loading, error } = useTokenAddresses(address)
+  return { tokens, loading, error }
 }
 
 function useVesting(address: string | undefined) {
-  const [vestings, setVestings] = useState<VestingEntry[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!address) return
-    fetchLogs(VESTING_FACTORY_ADDRESS, VESTING_EVENT_SIG, address, 3).then((logs) => {
-      const entries: VestingEntry[] = logs.map((log: any) => ({
-        vestingId: BigInt(log.topics[1] || '0x0').toString(),
-        vestingWallet: `0x${(log.topics[2] || '').slice(26)}`,
-        beneficiary: `0x${(log.topics[3] || '').slice(26)}`,
-      }))
-      setVestings(entries)
-      setLoading(false)
-    })
-  }, [address])
-
-  return { vestings, loading }
+  const query = useQuery({ queryKey: ['portfolio-vesting', address], enabled: Boolean(address), staleTime: 30_000, retry: 1,
+    queryFn: async (): Promise<VestingEntry[]> => {
+      const logs = await fetchLogs(VESTING_FACTORY_ADDRESS, VESTING_EVENT_SIG, address, 3)
+      return logs.map((log) => ({ vestingId: BigInt(log.topics[1]).toString(), vestingWallet: `0x${log.topics[2].slice(26)}`, beneficiary: `0x${log.topics[3].slice(26)}` }))
+    } })
+  return { vestings: query.data ?? [], loading: query.isPending, error: query.error }
 }
 
+const portfolioClient = createPublicClient({ chain: litvm, transport: http(litvm.rpcUrls.default.http[0], { timeout: 6_000, retryCount: 0 }) })
 function useLocks(address: string | undefined) {
-  const [locks, setLocks] = useState<LockEntry[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!address) return
-    fetchLogs(LIQUIDITY_LOCKER_ADDRESS, LOCK_EVENT_SIG).then(async (logs) => {
-      // Fetch withdrawn status for each lock via getLock
-      const entries: (LockEntry & { lpToken: string })[] = await Promise.all(
-        logs.flatMap((log: any) => {
-          try {
-            const decoded = decodeEventLog({
-              abi: LIQUIDITY_LOCKER_ABI,
-              eventName: 'LockCreated',
-              data: log.data,
-              topics: log.topics,
-              strict: true,
-            })
-            if (decoded.args.withdrawer.toLowerCase() !== address.toLowerCase()) return []
-            return [{
-              lockId: decoded.args.lockId.toString(),
-              lpToken: decoded.args.lpToken,
-              amount: decoded.args.amount,
-              unlockTime: Number(decoded.args.unlockTime),
-            }]
-          } catch {
-            return []
-          }
-        }).map(async ({ lockId, lpToken, amount, unlockTime }) => {
-
-          // Fetch getLock(lockId) to get withdrawn status
-          let withdrawn = false
-          try {
-            const resp = await fetch(RPC_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0', method: 'eth_call',
-                params: [{
-                  to: LIQUIDITY_LOCKER_ADDRESS,
-                  data: encodeFunctionData({
-                    abi: LIQUIDITY_LOCKER_ABI,
-                    functionName: 'getLock',
-                    args: [BigInt(lockId)],
-                  }),
-                }, 'latest'],
-                id: 1,
-              }),
-              signal: AbortSignal.timeout(8_000),
-            })
-            const json = await resp.json()
-            if (json.result && json.result !== '0x') {
-              const result = decodeFunctionResult({
-                abi: LIQUIDITY_LOCKER_ABI,
-                functionName: 'getLock',
-                data: json.result,
-              })
-              withdrawn = result[4]
-            }
-          } catch { /* keep withdrawn = false */ }
-
-          return {
-            lockId,
-            lpToken,
-            amount: formatUnits(amount, 18),
-            unlockTime: new Date(unlockTime * 1000).toLocaleDateString(),
-            withdrawn,
-          }
-        })
-      )
-      setLocks(entries)
-      setLoading(false)
-    })
-  }, [address])
-
-  return { locks, loading }
-}
-
-function formatUnits(val: bigint, decimals: number) {
-  const str = val.toString().padStart(decimals + 1, '0')
-  const int = str.slice(0, -decimals) || '0'
-  const dec = str.slice(-decimals).slice(0, 4)
-  return dec.length > 0 ? `${int}.${dec}` : int
+  const query = useQuery({
+    queryKey: ['portfolio-locks', address], enabled: Boolean(address), staleTime: 30_000, retry: 1,
+    queryFn: async (): Promise<LockEntry[]> => {
+      const logs = await fetchLogs(LIQUIDITY_LOCKER_ADDRESS, LOCK_EVENT_SIG)
+      const entries: LockEntry[] = []
+      const blockNumber = await portfolioClient.getBlockNumber()
+      for (const log of logs) {
+        const { args } = decodeEventLog({ abi: LIQUIDITY_LOCKER_ABI, eventName: 'LockCreated', data: log.data, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], strict: true })
+        if (args.withdrawer.toLowerCase() !== address!.toLowerCase()) continue
+        const lock = await portfolioClient.readContract({ address: LIQUIDITY_LOCKER_ADDRESS, abi: LIQUIDITY_LOCKER_ABI, functionName: 'getLock', args: [args.lockId], blockNumber })
+        if (lock[3].toLowerCase() !== address!.toLowerCase() || lock[1] === 0n) continue
+        const decimals = await portfolioClient.readContract({ address: lock[0], abi: erc20Abi, functionName: 'decimals', blockNumber })
+        entries.push({ lockId: args.lockId.toString(), lpToken: lock[0], amount: decimals <= 36 ? formatUnits(lock[1], decimals) : `${lock[1]} base units`, unlockTime: lock[2] <= 8_640_000_000_000n ? new Date(Number(lock[2]) * 1000).toLocaleDateString() : 'Date unavailable', withdrawn: lock[4] })
+      }
+      return entries
+    },
+  })
+  return { locks: query.data ?? [], loading: query.isPending, error: query.error }
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────
@@ -444,15 +298,15 @@ function OverviewPanel({ address, onSelectTab }: { address: string; onSelectTab:
   const addr = address as `0x${string}`
   const { data: ethBalance, isLoading: ethLoading } = useBalance({ address: addr, chainId: litvm.id })
 
-  const { tokens,    loading: tLoading } = useTokens(address)
-  const { presales,  loading: pLoading } = usePresales(address)
-  const { vestings, loading: vLoading } = useVesting(address)
-  const { locks,    loading: lLoading } = useLocks(address)
+  const { tokens,    loading: tLoading, error: tError } = useTokens(address)
+  const { presales,  loading: pLoading, error: pError } = usePresales(address)
+  const { vestings, loading: vLoading, error: vError } = useVesting(address)
+  const { locks,    loading: lLoading, error: lError } = useLocks(address)
 
   const totalPositions = tokens.length + presales.length + vestings.length + locks.length
 
   const fmtEth = (val: bigint | undefined) => {
-    if (!val) return '—'
+    if (val === undefined) return '—'
     const eth = Number(val) / 1e18
     if (eth === 0) return '0 zkLTC'
     return `${eth.toLocaleString(undefined, { maximumFractionDigits: 6 })} zkLTC`
@@ -474,7 +328,7 @@ function OverviewPanel({ address, onSelectTab }: { address: string; onSelectTab:
           {ethLoading ? <span style={{ opacity: 0.4 }}>Loading…</span> : fmtEth(ethBalance?.value)}
         </div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
-          LitVM — USD conversion requires price oracle
+          LitVM testnet · Test tokens have no monetary value
         </div>
       </div>
 
@@ -483,12 +337,12 @@ function OverviewPanel({ address, onSelectTab }: { address: string; onSelectTab:
         <div style={{ fontSize: 11, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', marginBottom: 12, textTransform: 'uppercase' }}>
           Lester Labs Positions
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: 'Tokens',    count: tokens.length,    loading: tLoading, tab: 'tokens'    as Tab },
-            { label: 'Presales',  count: presales.length,  loading: pLoading, tab: 'presales'  as Tab },
-            { label: 'Vesting',   count: vestings.length,  loading: vLoading, tab: 'vesting'   as Tab },
-            { label: 'Locks',     count: locks.length,     loading: lLoading, tab: 'locks'     as Tab },
+            { label: 'Tokens',    count: tokens.length,    loading: tLoading || Boolean(tError), tab: 'tokens'    as Tab },
+            { label: 'Presales',  count: presales.length,  loading: pLoading || Boolean(pError), tab: 'presales'  as Tab },
+            { label: 'Vesting',   count: vestings.length,  loading: vLoading || Boolean(vError), tab: 'vesting'   as Tab },
+            { label: 'Locks',     count: locks.length,     loading: lLoading || Boolean(lError), tab: 'locks'     as Tab },
           ].map(({ label, count, loading, tab }) => (
             <button
               key={tab}
@@ -522,10 +376,10 @@ function OverviewPanel({ address, onSelectTab }: { address: string; onSelectTab:
         alignItems: 'center',
         justifyContent: 'space-between',
       }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>Total Portfolio Value</div>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>Positions found</div>
         <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
-          {totalPositions === 0 && !tLoading ? 'No positions' : `${totalPositions} position${totalPositions !== 1 ? 's' : ''} across LL`}
-          <span style={{ marginLeft: 8, fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>· USD requires oracle</span>
+          {tError || pError || vError || lError ? 'Some positions could not be checked' : tLoading || pLoading || vLoading || lLoading ? 'Checking…' : `${totalPositions} in the activity checked`}
+          <span style={{ marginLeft: 8, fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>· Recent activity only</span>
         </div>
       </div>
     </div>
@@ -533,9 +387,10 @@ function OverviewPanel({ address, onSelectTab }: { address: string; onSelectTab:
 }
 
 function TokensPanel({ address }: { address: string }) {
-  const { tokens, loading } = useTokenAddresses(address)
+  const { tokens, loading, error } = useTokenAddresses(address)
+  if (error) return <p role="alert" className="workspace-notice">{error.message}</p>
   if (loading) return <LoadingSkeleton />
-  if (tokens.length === 0) return <EmptyState message="No tokens created by this wallet" />
+  if (tokens.length === 0) return <EmptyState message="No tokens found in this activity page" />
   return (
     <div className="space-y-3">
       {tokens.map((t) => <TokenRow key={t.address} address={t.address} name={t.name} symbol={t.symbol} />)}
@@ -544,7 +399,8 @@ function TokensPanel({ address }: { address: string }) {
 }
 
 function PresalesPanel({ address }: { address: string }) {
-  const { addresses, loading } = useILOAddresses(address)
+  const { addresses, loading, error } = useILOAddresses(address)
+  if (error) return <p role="alert" className="workspace-notice">{error.message}</p>
   if (loading) return <LoadingSkeleton />
   if (addresses.length === 0) return <EmptyState message="No presales launched by this wallet" />
   return (
@@ -555,9 +411,10 @@ function PresalesPanel({ address }: { address: string }) {
 }
 
 function VestingPanel({ address }: { address: string }) {
-  const { vestings, loading } = useVesting(address)
+  const { vestings, loading, error } = useVesting(address)
+  if (error) return <p role="alert" className="workspace-notice">{error.message}</p>
   if (loading) return <LoadingSkeleton />
-  if (vestings.length === 0) return <EmptyState message="No vesting positions for this wallet" />
+  if (vestings.length === 0) return <EmptyState message="No vesting schedules found in this activity page" />
   return (
     <div className="space-y-3">
       {vestings.map((v) => (
@@ -587,7 +444,8 @@ function VestingPanel({ address }: { address: string }) {
 }
 
 function LocksPanel({ address }: { address: string }) {
-  const { locks, loading } = useLocks(address)
+  const { locks, loading, error } = useLocks(address)
+  if (error) return <p role="alert" className="workspace-notice">{error.message}</p>
   if (loading) return <LoadingSkeleton />
   if (locks.length === 0) return <EmptyState message="No liquidity locks for this wallet" />
   return (
@@ -634,14 +492,20 @@ const TABS: { key: Tab; label: string }[] = [
 ]
 
 export default function PortfolioPage() {
-  const { address, isConnected } = useAccount()
+  const { address: connectedAddress } = useAccount()
+  const [viewedAddress, setViewedAddress] = useState('')
+  const [addressInput, setAddressInput] = useState('')
+  const [addressError, setAddressError] = useState('')
+  useEffect(() => { queueMicrotask(() => { const value = new URLSearchParams(window.location.search).get('address'); if (validAddress(value)) { setViewedAddress(value); setAddressInput(value) } }) }, [])
+  const address = validAddress(viewedAddress) ? viewedAddress : connectedAddress
+  const addressForm = <form className="workspace-form workspace-panel mb-6" onSubmit={(event) => { event.preventDefault(); if (!validAddress(addressInput.trim())) { setAddressError('Enter a valid wallet address.'); return }; setAddressError(''); setViewedAddress(addressInput.trim()); window.history.replaceState(null, '', `/portfolio?address=${addressInput.trim()}`) }}><label>Wallet address<input value={addressInput} onChange={(event) => setAddressInput(event.target.value)} maxLength={42} placeholder="0x…" /></label><button className="workspace-button secondary">View portfolio</button>{addressError && <p role="alert">{addressError}</p>}</form>
   const [activeTab, setActiveTab] = useState<Tab>('overview')
 
-  if (!isConnected) {
+  if (!address) {
     return (
       <main className="min-h-screen bg-[var(--background)] text-white">
         <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
-          <div className="flex min-h-[40vh] items-center justify-center">
+          <header className="workspace-heading"><div><h1>Your portfolio</h1><p>Enter an address to explore, or connect your wallet.</p></div></header>{addressForm}<div className="flex min-h-[40vh] items-center justify-center">
             <ConnectWalletPrompt
               body="Connect to view your tokens, presales, LP positions, locks, vesting schedules, and swap history across Lester Labs."
               previewTitle="Portfolio preview"
@@ -668,7 +532,7 @@ export default function PortfolioPage() {
         <div className="mb-6 flex items-end justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Portfolio</h1>
-            <p className="text-white/50 text-sm mt-1">Your on-chain footprint across Lester Labs</p>
+            <p className="text-white/50 text-sm mt-1">Your tokens, positions, and next steps.</p>
           </div>
           <div className="flex items-center gap-2" style={{ fontFamily: 'monospace', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
             <span>{truncate(address!, 6)}</span>
@@ -676,7 +540,7 @@ export default function PortfolioPage() {
           </div>
         </div>
 
-        <LiveActivityRail surface="portfolio" />
+        {addressForm}<PortfolioActions key={address} address={address} /><details className="workspace-details mb-6"><summary>About your activity</summary><p>Current-contract history uses the latest archive page; older records may be missing. Missing data is not a zero balance.</p><Link href="/locker">Check legacy locks</Link> · <Link href="/vesting">Check legacy vesting</Link></details>
 
         <div className="mb-8">
           <ResumeDashboard />
@@ -708,8 +572,8 @@ export default function PortfolioPage() {
         {activeTab === 'presales' && <PresalesPanel address={address!} />}
         {activeTab === 'vesting'  && <VestingPanel  address={address!} />}
         {activeTab === 'locks'    && <LocksPanel     address={address!} />}
-        {activeTab === 'lp'       && <LPPanel />}
-        {activeTab === 'swaps'    && <SwapHistoryPanel />}
+        {activeTab === 'lp'       && <LPPanel viewedAddress={address} />}
+        {activeTab === 'swaps'    && <SwapHistoryPanel viewedAddress={address} />}
       </div>
     </main>
   )

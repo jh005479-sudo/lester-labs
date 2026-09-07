@@ -96,7 +96,7 @@ describe('shared UI regression contracts', () => {
     assert.match(swap, /setInputToken\(initialCreatePoolToken0\)/)
     assert.match(swap, /setOutputToken\(initialCreatePoolToken1\)/)
     assert.match(swap, /source-pinned replacement DEX quote on chain 4441/)
-    assert.match(swap, /Source-pinned Replacement Reserve Quote/)
+    assert.match(swap, /Estimated amount received/)
     assert.doesNotMatch(swap, new RegExp(`>${['Legacy', 'Reserve', 'Quote'].join(' ')}<`))
   })
 

@@ -38,7 +38,7 @@ export function GasAnalyticsPanel() {
       } catch {
         if (!cancelled) {
           setSnapshot(null)
-          setError('The source-pinned LitVM RPC did not return a valid current gas snapshot.')
+          setError('We couldn’t load the current gas price. Try again shortly.')
         }
       }
     }
@@ -50,30 +50,29 @@ export function GasAnalyticsPanel() {
     <section className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6">
       <div className="mb-5 flex items-center gap-3">
         <Fuel className="h-5 w-5 text-[var(--accent)]" />
-        <h2 className="text-xl font-bold text-white">Current gas snapshot</h2>
+        <h2 className="text-xl font-bold text-white">Current gas price</h2>
       </div>
       {snapshot ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
-            <p className="text-xs uppercase tracking-wider text-white/40">Current gas price</p>
+            <p className="text-xs uppercase tracking-wider text-white/60">Current gas price</p>
             <p className="mt-2 font-mono text-2xl font-bold text-white">{snapshot.gasPriceGwei} Gwei</p>
           </div>
           <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
-            <p className="text-xs uppercase tracking-wider text-white/40">Observed block</p>
+            <p className="text-xs uppercase tracking-wider text-white/60">Observed block</p>
             <p className="mt-2 font-mono text-2xl font-bold text-white">{snapshot.blockNumber.toLocaleString()}</p>
           </div>
         </div>
       ) : (
         <div className="flex items-start gap-3 rounded-lg border border-amber-400/20 bg-amber-400/5 p-4">
           <Activity className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-          <p className="text-sm text-amber-100/70">{error ?? 'Loading a live RPC snapshot…'}</p>
+          <p className="text-sm text-amber-100/70">{error ?? 'Loading gas price…'}</p>
         </div>
       )}
       <div className="mt-5 flex items-start gap-3 rounded-lg border border-emerald-400/20 bg-emerald-400/5 p-4">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
         <p className="text-xs leading-5 text-emerald-100/70">
-          Values above are direct RPC quantities. Lester Labs does not invent historical trends, utilization,
-          confirmation times, or fallback values when the RPC is unavailable.
+          Gas is the network fee for a transaction. Your wallet shows the final estimate before you sign.
         </p>
       </div>
     </section>

@@ -72,34 +72,33 @@ export function HealthPanel() {
     <section className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-6">
       <div className="mb-5 flex items-center gap-3">
         <Activity className="h-5 w-5 text-[var(--accent)]" />
-        <h2 className="text-xl font-bold text-white">Latest RPC block sample</h2>
+        <h2 className="text-xl font-bold text-white">Latest block</h2>
       </div>
       {snapshot ? (
         <dl className="grid gap-4 sm:grid-cols-2">
           {[
             ['Block', snapshot.blockNumber.toLocaleString()],
             ['Block timestamp', snapshot.blockTimestamp],
-            ['Transaction entries in this block', snapshot.transactionEntries.toLocaleString()],
+            ['Transactions', snapshot.transactionEntries.toLocaleString()],
             ['Gas used / limit', `${snapshot.gasUsed.toLocaleString()} / ${snapshot.gasLimit.toLocaleString()}`],
             ['Block hash', snapshot.blockHash],
-            ['Observed by this browser', snapshot.observedAt],
+            ['Last checked', snapshot.observedAt],
           ].map(([label, value]) => (
             <div key={label} className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
-              <dt className="text-xs uppercase tracking-wider text-white/35">{label}</dt>
+              <dt className="text-xs uppercase tracking-wider text-white/60">{label}</dt>
               <dd className="mt-2 break-all font-mono text-sm text-white/75">{value}</dd>
             </div>
           ))}
         </dl>
       ) : (
         <p className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-100/70">
-          {failed ? 'The source-pinned RPC did not return a valid latest block.' : 'Loading the latest block…'}
+          {failed ? 'We couldn’t load the latest block. Try again shortly.' : 'Loading the latest block…'}
         </p>
       )}
       <div className="mt-5 flex items-start gap-3 rounded-lg border border-emerald-400/20 bg-emerald-400/5 p-4">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
         <p className="text-xs leading-5 text-emerald-100/70">
-          This is one current RPC response, not uptime, active-address, TPS, daily-volume, finality, or independent
-          node-health evidence. No missing value is replaced with synthetic data.
+          A snapshot from LitVM, updated when you open this page. It does not measure network uptime or daily activity.
         </p>
       </div>
     </section>

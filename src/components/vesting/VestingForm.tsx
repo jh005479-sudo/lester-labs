@@ -23,6 +23,8 @@ import {
 import { litvm } from '@/config/chains'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
 import { getWalletErrorMessage } from '@/lib/walletErrors'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import { useTokenHandoff } from '@/hooks/useTokenHandoff'
 
 // ABI for fetching token decimals (F-009)
 const ERC20_DECIMALS_ABI = [
@@ -297,7 +299,8 @@ const DEFAULT_FORM: FormState = {
 }
 
 export function VestingForm() {
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM)
+  const [form, setForm, draftReady] = useFormDraft<FormState>('vesting', DEFAULT_FORM)
+  useTokenHandoff((tokenAddress) => setForm((current) => ({ ...current, tokenAddress })), draftReady)
   const [step, setStep] = useState<'form' | 'review'>('form')
   const [txPhase, setTxPhase] = useState<'approve' | 'create'>('approve')
   const [modalOpen, setModalOpen] = useState(false)

@@ -22,8 +22,8 @@ body {
   --background: #0a0818;
   --background-deep: #070513;
   --foreground: #F0EEF5;
-  --foreground-dim: rgba(240, 238, 245, 0.45);
-  --foreground-muted: rgba(240, 238, 245, 0.22);
+  --foreground-dim: #b3afc5;
+  --foreground-muted: #9791ad;
 
   /* Accent — singular, selective use */
   --accent: #6B4FFF;
@@ -32,10 +32,10 @@ body {
   --accent-glow: rgba(107, 79, 255, 0.25);
 
   /* Surfaces — barely visible layers */
-  --surface-1: rgba(255, 255, 255, 0.025);
-  --surface-2: rgba(255, 255, 255, 0.04);
-  --surface-3: rgba(255, 255, 255, 0.06);
-  --surface-border: rgba(255, 255, 255, 0.06);
+  --surface-1: #121020;
+  --surface-2: #1a172c;
+  --surface-3: #242038;
+  --surface-border: rgba(201, 189, 255, 0.14);
   --surface-border-hover: rgba(255, 255, 255, 0.12);
 
   /* Status */
@@ -934,3 +934,56 @@ input, textarea, select, button { max-width: 100%; }
   .title-reveal .word,
   .sub-reveal { opacity: 1 !important; transform: none !important; }
 }
+
+
+/* Shared working surfaces: readable, compact and consistent across tools. */
+.workspace-page { width: min(1120px, calc(100% - 48px)); margin-inline: auto; padding-top: 136px; padding-bottom: 88px; }
+.workspace-page.narrow { max-width: 780px; }
+.workspace-heading { display:flex; justify-content:space-between; align-items:center; gap:24px; margin-bottom:32px; }
+.workspace-heading h1 { font-size:clamp(28px,4vw,42px); font-weight:700; line-height:1.12; letter-spacing:-.035em; margin:8px 0 12px; }
+.workspace-heading p:not(.workspace-eyebrow) { color:var(--foreground-dim); font-size:16px; line-height:1.6; max-width:620px; }
+.workspace-eyebrow { color:#b7a8ff; font-size:12px; font-weight:650; letter-spacing:.12em; text-transform:uppercase; }
+.workspace-panel { border:1px solid var(--surface-border); border-radius:20px; background:var(--surface-1); padding:28px; box-shadow:0 12px 40px #05040e26; }
+.workspace-panel h2 { font-size:20px; font-weight:650; letter-spacing:-.02em; }
+.workspace-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+.workspace-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 18px; border:1px solid transparent; border-radius:12px; background:#6b4fff; color:#fff; font-size:14px; font-weight:600; line-height:1.4; text-decoration:none; cursor:pointer; transition:background .15s,border-color .15s; }
+.workspace-button:hover { background:#795fff; }
+.workspace-button.secondary { background:#ffffff06; border-color:var(--surface-border); color:var(--foreground); }
+.workspace-button.secondary:hover { background:var(--surface-2); border-color:#8b74ff80; }
+.workspace-button:disabled { opacity:.5; cursor:not-allowed; }
+.workspace-note { font-size:13px; line-height:1.6; color:var(--foreground-muted); }
+.workspace-form { display:flex; flex-wrap:wrap; gap:16px; align-items:end; }
+.workspace-form label { display:flex; flex:1; min-width:160px; flex-direction:column; gap:8px; font-size:14px; font-weight:550; color:var(--foreground-dim); }
+.workspace-form input,.workspace-form select { min-height:46px; width:100%; border:1px solid var(--surface-border); border-radius:10px; padding:10px 12px; background:#0a0818; color:var(--foreground); font-size:16px; }
+.workspace-notice { margin-top:18px; padding:16px 20px; border:1px solid #fbbf2440; border-radius:12px; background:#fbbf2408; color:#fde4a5; font-size:14px; line-height:1.6; }
+.workspace-facts { display:grid; gap:0; margin-block:24px; }
+.workspace-facts > div { display:grid; grid-template-columns:160px minmax(0,1fr); gap:16px; padding:15px 0; border-bottom:1px solid var(--surface-border); font-size:14px; }
+.workspace-facts dt { color:var(--foreground-muted); }
+.workspace-facts dd { overflow-wrap:anywhere; }
+.workspace-facts a { color:#b9aaff; text-decoration:underline; text-underline-offset:4px; }
+.workspace-details { border-top:1px solid var(--surface-border); margin-top:20px; padding-top:16px; font-size:13px; line-height:1.8; color:var(--foreground-dim); overflow-wrap:anywhere; }
+.workspace-details summary { cursor:pointer; min-height:40px; font-size:14px; color:var(--foreground); }
+.workspace-empty { display:flex; flex-direction:column; align-items:center; text-align:center; gap:14px; padding:48px 12px; }
+.workspace-empty p { max-width:400px; color:var(--foreground-dim); font-size:15px; }
+.workspace-list { list-style:none; margin:8px 0 0; padding:0; }
+.workspace-list > li { display:flex; align-items:center; gap:18px; padding:22px 0; border-bottom:1px solid var(--surface-border); }
+.workspace-list > li:last-child { border-bottom:0; }
+.workspace-list h2 { font-size:16px; margin-bottom:6px; }
+.workspace-list p { overflow-wrap:anywhere; color:var(--foreground-muted); font-size:13px; line-height:1.6; }
+.workspace-step { display:flex; flex-direction:column; gap:12px; min-height:210px; }
+.workspace-step .workspace-button { align-self:start; margin-top:auto; }
+.workspace-step > p { color:var(--foreground-dim); font-size:14px; line-height:1.6; }
+.workspace-status { display:inline-flex; width:fit-content; align-items:center; gap:6px; border:1px solid #b7a8ff30; background:#8b74ff0a; color:#c9bdff; font-size:12px; padding:5px 9px; border-radius:999px; }
+@media (max-width:760px) {
+  .workspace-page { width:calc(100% - 32px); padding-top:112px; padding-bottom:56px; }
+  .workspace-heading { align-items:flex-start; flex-direction:column; gap:16px; margin-bottom:24px; }
+  .workspace-grid { grid-template-columns:1fr; }
+  .workspace-panel { padding:20px; border-radius:16px; }
+  .workspace-facts > div { grid-template-columns:1fr; gap:6px; }
+  .workspace-list > li { flex-wrap:wrap; gap:12px; }
+  .workspace-step { min-height:180px; }
+}
+
+.workspace-badge { display: inline-flex; align-items: center; min-height: 36px; padding: 7px 12px; border: 1px solid rgba(167,139,250,.3); border-radius: 8px; color: #ddd6fe; background: rgba(139,92,246,.08); font-size: 13px; }
+.workspace-panel h2, .workspace-panel h3 { overflow-wrap: anywhere; }
+.tool-hero-subtitle { color: var(--foreground-muted) !important; }

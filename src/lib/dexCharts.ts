@@ -65,6 +65,13 @@ export function getPairDisplaySymbol(baseSymbol: string, quoteSymbol: string): s
   return `${baseSymbol} / ${quoteSymbol}`
 }
 
+/** Reserve quantities are comparable only when they share the same quote asset. */
+export function rankWithinQuote<T extends { quote: { address: string } }>(markets: readonly T[], quoteAddress: string, liquidity: (market: T) => number): T[] {
+  return markets.filter((market) => market.quote.address.toLowerCase() === quoteAddress.toLowerCase())
+    .filter((market) => Number.isFinite(liquidity(market)) && liquidity(market) > 0)
+    .sort((a, b) => liquidity(b) - liquidity(a))
+}
+
 export function formatCompactUsd(value: number): string {
   if (!Number.isFinite(value)) return '$0'
   if (value === 0) return '$0'
@@ -73,4 +80,10 @@ export function formatCompactUsd(value: number): string {
   if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`
   if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(2)}K`
   return `$${value.toLocaleString(undefined, { maximumFractionDigits: 4 })}`
+}
+
+/** Keep integer precision until token decimals are applied for display. */
+export function underlyingLPAmount(balance: bigint, reserve: bigint, supply: bigint): bigint {
+  if (balance < 0n || reserve < 0n || supply <= 0n || balance > supply) throw new Error('Invalid pool balance.')
+  return balance * reserve / supply
 }

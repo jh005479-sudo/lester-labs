@@ -83,6 +83,15 @@ export function MyLocks() {
   const [txStatus, setTxStatus] = useState<'pending' | 'success' | 'error'>('pending')
   const [txMessage, setTxMessage] = useState<string | undefined>()
   const unixTimeSeconds = useUnixTimeSeconds()
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search)
+    const requested = LOCKER_RECOVERY_TARGETS.find((entry) => entry.address.toLowerCase() === query.get('contract')?.toLowerCase())
+    const id = query.get('id')
+    if (requested && id && /^(0|[1-9][0-9]{0,77})$/.test(id) && BigInt(id) < 2n ** 256n) {
+      queueMicrotask(() => { setTargetId(requested.id); setLockIdInput(id); setLookupId(BigInt(id)) })
+    }
+  }, [])
+
 
   const target = useMemo(
     () => LOCKER_RECOVERY_TARGETS.find((candidate) => candidate.id === targetId) ?? LOCKER_RECOVERY_TARGETS[0],

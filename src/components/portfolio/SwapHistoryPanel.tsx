@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAccount } from 'wagmi'
-import { ExternalLink, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { ExternalLink, ChevronDown, Loader2 } from 'lucide-react'
 import { UNISWAP_V2_ROUTER_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { rpc } from '@/lib/rpcClient'
 
@@ -39,7 +39,6 @@ function formatTimeAgo(timestamp: number): string {
 const SWAP_SIG = '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822'
 
 // Transfer event signature
-const TRANSFER_SIG = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 
 async function fetchSwapHistory(
   wallet: `0x${string}`,
@@ -232,8 +231,9 @@ function SwapRow({ swap }: { swap: SwapRecord }) {
 
 // ── Main Component ────────────────────────────────────────────────────────
 
-export function SwapHistoryPanel() {
-  const { address } = useAccount()
+export function SwapHistoryPanel({ viewedAddress }: { viewedAddress?: `0x${string}` } = {}) {
+  const { address: connectedAddress } = useAccount()
+  const address = viewedAddress ?? connectedAddress
   const [swaps, setSwaps] = useState<SwapRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -317,7 +317,7 @@ export function SwapHistoryPanel() {
               padding: '8px 16px',
             }}
           >
-            {['Time', 'In', 'Out', 'Tx'].map((h, i) => (
+            {['Time', 'In', 'Out', 'Tx'].map((h) => (
               <p key={h} style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.25)' }}>
                 {h}
               </p>

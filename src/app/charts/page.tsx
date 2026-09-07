@@ -11,15 +11,15 @@ import { useLocalEngagement } from '@/hooks/useLocalEngagement'
 import { ERC20_ABI, UNISWAP_V2_FACTORY_ABI, UNISWAP_V2_PAIR_ABI } from '@/config/abis'
 import { litvm } from '@/config/chains'
 import { UNISWAP_V2_FACTORY_ADDRESS, WRAPPED_ZKLTC_ADDRESS, isValidContractAddress } from '@/config/contracts'
-import { LITVM_EXPLORER_URL, rpc, hexToNumber } from '@/lib/explorerRpc'
+import { LITVM_EXPLORER_URL } from '@/lib/explorerRpc'
 import {
   calculateTokenPriceInQuote,
+  rankWithinQuote,
   formatCompactUsd,
   getNextPairScanCount,
   getPairDisplaySymbol,
   parseEvmAddress,
   parsePairReserves,
-  UNISWAP_V2_SYNC_TOPIC,
   type PriceHistoryPoint,
 } from '@/lib/dexCharts'
 import { getRecentPoolIndices } from '@/lib/poolDisplay'
@@ -28,10 +28,6 @@ import { buildTokenMetadataRequest, sanitizeTokenMetadataText } from '@/lib/toke
 const INITIAL_PAIR_SCAN = 18
 const PAIR_SCAN_PAGE_SIZE = 18
 const MAX_PAIR_SCAN = 72
-const HISTORY_BLOCK_LOOKBACK = 30_000
-const HISTORY_BLOCK_BATCH = 5_000
-const HISTORY_LOG_LIMIT = 500
-const HISTORY_POINT_LIMIT = 80
 
 type TokenMeta = {
   address: `0x${string}`
@@ -49,11 +45,6 @@ type PairMarket = {
   base: TokenMeta
   quote: TokenMeta
   price: number | null
-}
-
-type SyncLog = {
-  blockNumber: string
-  data: string
 }
 
 function shortAddress(address: string) {
@@ -83,77 +74,20 @@ function decodeSyncReserves(data: string): [bigint, bigint] | null {
   ]
 }
 
-async function fetchBlockTime(blockHex: string) {
-  const block = await rpc<{ timestamp?: string }>(
-    'eth_getBlockByNumber',
-    [blockHex, false],
-    { cacheKey: `chart-block:${blockHex}`, cacheTtl: 5 * 60_000 },
-  )
-  const timestamp = hexToNumber(block.timestamp)
-  return timestamp > 0
-    ? new Date(timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : `#${hexToNumber(blockHex).toLocaleString()}`
-}
-
 async function fetchSyncHistory(market: PairMarket): Promise<PriceHistoryPoint[]> {
-  const latestHex = await rpc<string>('eth_blockNumber', [], {
-    cacheKey: 'charts-latest-block',
-    cacheTtl: 10_000,
+  const response = await fetch(`/api/market-history?pair=${market.pairAddress}`)
+  if (!response.ok) throw new Error('We couldn’t load pool history. Try again shortly.')
+  const page = await response.json() as { logs: Array<{ data: string; timestamp?: number; blockNumber: number; logIndex: number }> }
+  if (!Array.isArray(page.logs)) throw new Error('Pool history could not be checked.')
+  const points = page.logs.slice(0, 100).sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex).flatMap((log) => {
+    const reserves = decodeSyncReserves(log.data)
+    if (!reserves) return []
+    const price = calculateTokenPriceInQuote({ baseTokenAddress: market.base.address, token0Address: market.token0.address,
+      token1Address: market.token1.address, reserve0: reserves[0], reserve1: reserves[1],
+      token0Decimals: market.token0.decimals, token1Decimals: market.token1.decimals })
+    if (price === null || !Number.isFinite(price)) return []
+    return [{ time: log.timestamp ? new Date(log.timestamp * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : `#${log.blockNumber}`, price }]
   })
-  const latest = hexToNumber(latestHex)
-  const from = Math.max(0, latest - HISTORY_BLOCK_LOOKBACK + 1)
-  let logs: SyncLog[] = []
-  let cursorEnd = latest
-
-  while (cursorEnd >= from && logs.length < HISTORY_LOG_LIMIT) {
-    const batchStart = Math.max(from, cursorEnd - HISTORY_BLOCK_BATCH + 1)
-    const batch = await rpc<SyncLog[]>(
-      'eth_getLogs',
-      [{
-        address: market.pairAddress,
-        topics: [UNISWAP_V2_SYNC_TOPIC],
-        fromBlock: `0x${batchStart.toString(16)}`,
-        toBlock: `0x${cursorEnd.toString(16)}`,
-      }],
-      { cacheKey: `sync:${market.pairAddress}:${batchStart}:${cursorEnd}`, cacheTtl: 30_000 },
-    )
-    const remaining = HISTORY_LOG_LIMIT - logs.length
-    logs = batch.slice(-remaining).concat(logs)
-    cursorEnd = batchStart - 1
-  }
-
-  const sampled = logs.slice(-HISTORY_POINT_LIMIT)
-  if (sampled.length < 2) return []
-
-  const timeByBlock = new Map<string, string>()
-  const blockNumbers = Array.from(new Set(sampled.map((log) => log.blockNumber)))
-  for (let index = 0; index < blockNumbers.length; index += 8) {
-    await Promise.all(blockNumbers.slice(index, index + 8).map(async (blockNumber) => {
-      timeByBlock.set(blockNumber, await fetchBlockTime(blockNumber))
-    }))
-  }
-
-  const points = sampled
-    .map((log) => {
-      const reserves = decodeSyncReserves(log.data)
-      if (!reserves) return null
-      const price = calculateTokenPriceInQuote({
-        baseTokenAddress: market.base.address,
-        token0Address: market.token0.address,
-        token1Address: market.token1.address,
-        reserve0: reserves[0],
-        reserve1: reserves[1],
-        token0Decimals: market.token0.decimals,
-        token1Decimals: market.token1.decimals,
-      })
-      if (price === null) return null
-      return {
-        time: timeByBlock.get(log.blockNumber) ?? `#${hexToNumber(log.blockNumber).toLocaleString()}`,
-        price: Number(price.toFixed(price < 0.01 ? 8 : 6)),
-      }
-    })
-    .filter((point): point is PriceHistoryPoint => point !== null)
-
   return points.length >= 2 ? points : []
 }
 
@@ -316,18 +250,9 @@ function ChartsContent() {
         const reserves = reservesResult?.status === 'success' ? parsePairReserves(reservesResult.result) : null
 
         if (!token0Address || !token1Address || !reserves) return null
-        const token0 = tokenMetaMap.get(token0Address.toLowerCase()) ?? {
-          address: token0Address,
-          name: shortAddress(token0Address),
-          symbol: 'TOKEN',
-          decimals: 18,
-        }
-        const token1 = tokenMetaMap.get(token1Address.toLowerCase()) ?? {
-          address: token1Address,
-          name: shortAddress(token1Address),
-          symbol: 'TOKEN',
-          decimals: 18,
-        }
+        const token0 = tokenMetaMap.get(token0Address.toLowerCase())
+        const token1 = tokenMetaMap.get(token1Address.toLowerCase())
+        if (!token0 || !token1) return null
         const { base: baseToken, quote } = pickBaseQuote(token0, token1)
         const price = calculateTokenPriceInQuote({
           baseTokenAddress: baseToken.address,
@@ -358,11 +283,9 @@ function ChartsContent() {
     if (!query) return true
     return marketSearchText(market).includes(query)
   }), [markets, search])
-  const activeMarkets = useMemo(() => (
-    [...markets]
-      .sort((a, b) => getMarketQuoteLiquidity(b) - getMarketQuoteLiquidity(a))
-      .slice(0, 3)
-  ), [markets])
+  const [rankingQuote, setRankingQuote] = useState<string>(WRAPPED_ZKLTC_ADDRESS)
+  const quoteOptions = Array.from(new Map(markets.map((market) => [market.quote.address.toLowerCase(), market.quote])).values())
+  const activeMarkets = useMemo(() => rankWithinQuote(markets, rankingQuote, getMarketQuoteLiquidity).slice(0, 3), [markets, rankingQuote])
 
   useEffect(() => {
     if (queryParam) setSearch(queryParam)
@@ -492,9 +415,9 @@ function ChartsContent() {
               <BarChart3 size={14} />
               LitVM Charts
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Bounded Reserve-Ratio Charts</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Explore markets</h1>
             <p className="mt-1 text-sm text-white/50">
-              Search up to 72 newest Lester factory pairs. Ratios are testnet reserve observations, not oracle prices, USD values, TVL, or a complete market index.
+              Browse the latest 72 pools. Figures show testnet token reserves, not cash values.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-white/40">
@@ -517,11 +440,12 @@ function ChartsContent() {
 
         <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <aside className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] p-4">
+            {quoteOptions.length > 0 && <label className="mb-4 block text-sm text-white/70">Compare pools in<select aria-label="Pool comparison asset" value={rankingQuote} onChange={(event) => setRankingQuote(event.target.value)} className="mt-2 min-h-11 w-full rounded-lg border border-white/15 bg-[#121020] px-3 text-white">{!quoteOptions.some((quote) => quote.address.toLowerCase() === rankingQuote.toLowerCase()) && <option value={WRAPPED_ZKLTC_ADDRESS}>zkLTC</option>}{quoteOptions.map((quote) => <option key={quote.address} value={quote.address}>{quote.symbol} · {quote.address.slice(0, 8)}</option>)}</select></label>}
             {activeMarkets.length > 0 && (
               <div className="mb-4 rounded-lg border border-white/8 bg-white/[0.025] p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-200/65">Loaded-pair sample</p>
-                  <span className="text-[11px] text-white/35">top 3 by 2× quote reserve</span>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-200/80">Largest reserves</p>
+                  <span className="text-xs text-white/60">Within this quote asset</span>
                 </div>
                 <div className="space-y-2">
                   {activeMarkets.map((market) => (
@@ -642,7 +566,7 @@ function ChartsContent() {
                   >
                     {loadingMarkets ? <Loader2 size={14} className="animate-spin" /> : null}
                     {loadingMarkets
-                      ? loadingPairRecords ? 'Loading requested pairs...' : 'Hydrating metadata...'
+                      ? loadingPairRecords ? 'Loading pairs…' : 'Loading token details…'
                       : `Load ${Math.min(PAIR_SCAN_PAGE_SIZE, Math.min(totalPairs, MAX_PAIR_SCAN) - displayedCount)} more newest pairs`}
                   </button>
                 ) : (
@@ -688,7 +612,7 @@ function ChartsContent() {
                       className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200/45"
                     >
                       <Droplets size={15} />
-                      DEX status
+                      Swap this pair
                     </Link>
                     <a
                       href={`${LITVM_EXPLORER_URL}/address/${selectedMarket.pairAddress}`}
@@ -737,7 +661,7 @@ function ChartsContent() {
                 </div>
               </div>
               <p className="mt-3 text-xs leading-relaxed text-white/35">
-                “2× quote reserve” assumes both sides are valued at the current pool ratio and is not TVL. “Ratio × total supply” is denominated in the displayed quote token; it is not USD FDV, independently priced market value, or a liquidity-adjusted valuation.
+                Values use the pool’s current exchange ratio. They are estimates in the quote token, not TVL or USD valuations. Pool ratios are not oracle prices.
               </p>
             </div>
 
@@ -746,7 +670,7 @@ function ChartsContent() {
                 <div>
                   <h2 className="text-lg font-semibold text-white">Reserve-ratio history</h2>
                   <p className="mt-1 text-sm text-white/45">
-                    Up to 80 latest Sync events returned within a 30,000-block lookback (scanning at most 500 logs). No synthetic points are added; older events may be omitted.
+                    Recent reserve updates from the LiteForge archive. Older activity may be missing; no points are estimated.
                   </p>
                 </div>
                 <button
@@ -755,9 +679,10 @@ function ChartsContent() {
                     if (!selectedMarket) return
                     setHistory([])
                     setHistoryLoading(true)
+                    setHistoryError(null)
                     fetchSyncHistory(selectedMarket)
                       .then(setHistory)
-                      .catch(() => setHistory([]))
+                      .catch(() => { setHistory([]); setHistoryError('We couldn’t load pool history. Try again shortly.') })
                       .finally(() => setHistoryLoading(false))
                   }}
                   disabled={!selectedMarket || historyLoading}

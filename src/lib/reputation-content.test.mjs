@@ -53,10 +53,11 @@ describe('bounded and factual public analytics', () => {
 
   it('labels pair history and reserve metrics as bounded non-valuations', () => {
     const charts = read('../app/charts/page.tsx')
-    assert.match(charts, /up to 72 newest/i)
+    assert.match(charts, /const MAX_PAIR_SCAN = 72/)
+    assert.match(charts, /older pairs are outside this bounded view/i)
     assert.match(charts, /not oracle prices/i)
     assert.match(charts, /not TVL/i)
-    assert.match(charts, /No synthetic points are added/i)
+    assert.match(charts, /no points are estimated/i)
   })
 
   it('does not present an incorrect impermanent-loss or profit calculator', () => {

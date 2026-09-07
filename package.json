@@ -13,7 +13,8 @@
     "security:secrets": "node scripts/security/scan-secrets.mjs",
     "security:public-manifest": "node scripts/security/verify-approved-public-replacement.mjs",
     "security:emergency-containment": "node scripts/security/verify-emergency-containment.mjs",
-    "security:capture-activity": "node scripts/security/capture-platform-activity-cutover.mjs"
+    "security:capture-activity": "node scripts/security/capture-platform-activity-cutover.mjs",
+    "test:browser": "node scripts/tests/browser-journeys.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.15",
