@@ -100,7 +100,7 @@ function makeFixture() {
   })
   const policyValue = JSON.parse(policyContents)
   for (const [path, contents] of [
-    ['package.json', '{"name":"fixture","packageManager":"npm@11.16.0"}\n'],
+    ['package.json', '{"name":"fixture","packageManager":"npm@11.19.1"}\n'],
     ['package-lock.json', '{"name":"fixture","lockfileVersion":3,"packages":{}}\n'],
     ['next.config.ts', 'export default {}\n'],
     ['vercel.json', '{"framework":"nextjs"}\n'],
@@ -212,7 +212,7 @@ function platformStatsFixture() {
 }
 
 function approve(candidate, fixture) {
-  candidate.runtime = { node: 'v24.18.0', npm: '11.16.0', os: 'linux', arch: 'x64' }
+  candidate.runtime = { node: 'v24.22.1', npm: '11.19.1', os: 'linux', arch: 'x64' }
   const candidateBase = { ...candidate }
   delete candidateBase.status
   delete candidateBase.reviewPayloadSha256
@@ -789,6 +789,40 @@ describe('frontend release artifact attestation', () => {
     }
   })
 
+  it('requires the October fixed runtime and rejects old Node, npm, platform, and image pins', async () => {
+    const fixture = makeFixture()
+    try {
+      const policy = validateFrontendReleasePolicy(JSON.parse(readFileSync(fixture.policyPath, 'utf8')))
+      const candidate = await createFrontendReleaseAttestation({
+        ...fixture,
+        localOrigin: 'http://127.0.0.1:3100',
+        fetchImpl: async () => routeResponse(policy),
+      })
+      const rehash = (value) => {
+        const payload = { ...value }
+        delete payload.status
+        delete payload.reviewPayloadSha256
+        delete payload.approvalEnvelopes
+        value.reviewPayloadSha256 = sha256Canonical(payload)
+        return value
+      }
+      candidate.runtime = { node: 'v24.22.1', npm: '11.19.1', os: 'linux', arch: 'x64' }
+      rehash(candidate)
+      assert.doesNotThrow(() => validateFrontendReleaseAttestation(candidate, { requireReleaseRuntime: true }))
+      for (const runtime of [
+        { node: 'v24.18.0' }, { node: 'v24.22.0' },
+        { npm: '11.16.0' }, { os: 'darwin' }, { arch: 'arm64' },
+      ]) {
+        const changed = rehash({ ...candidate, runtime: { ...candidate.runtime, ...runtime } })
+        assert.throws(() => validateFrontendReleaseAttestation(changed, { requireReleaseRuntime: true }), /reviewed x64 Linux Node\/npm runtime/)
+      }
+      const changed = rehash({ ...candidate, builderImage: candidate.builderImage.replace(/sha256:.+$/, `sha256:${'0'.repeat(64)}`) })
+      assert.throws(() => validateFrontendReleaseAttestation(changed, { requireReleaseRuntime: true }), /unreviewed builder image/)
+    } finally {
+      rmSync(fixture.root, { recursive: true, force: true })
+    }
+  })
+
   it('binds local route bodies, security headers, third-party origins, chunks, and the SBOM', async () => {
     const fixture = makeFixture()
     try {
@@ -815,7 +849,7 @@ describe('frontend release artifact attestation', () => {
         fetchImpl: async () => routeResponse(policy),
       })
       assert.equal(candidate.status, 'CANDIDATE')
-      assert.equal(candidate.runtime.npm, '11.16.0')
+      assert.equal(candidate.runtime.npm, '11.19.1')
       assert.equal(candidate.routeSnapshots.length, policy.routes.length)
       assert.deepEqual(candidate.routeSnapshots[0].thirdPartyOrigins, [
         'https://liteforge.explorer.caldera.xyz',

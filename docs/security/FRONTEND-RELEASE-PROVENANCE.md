@@ -9,8 +9,8 @@ have been configured and evidenced by the account owner.
 
 `frontend-release-attestation.yml` accepts only an exact lowercase commit from
 protected `main`. It builds twice on x64 Linux with the digest-pinned image
-`docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5`
-(Node 24.18.0, npm 11.16.0). Each build has an independently created
+`docker.io/library/node:24.22.1-bookworm@sha256:5630d96570d4ca4a8523fda3d169d0114554d0f48293e1ae3db6be7c79b42a17`
+(Node 24.22.1, npm 11.19.1). Each build has an independently created
 `npm ci --ignore-scripts` tree. Source and dependencies are read-only during
 tests and builds, build networking is disabled, the Git worktree must remain
 clean, and every tracked source file is hashed.
@@ -160,7 +160,7 @@ ephemeral x64 Linux runners with these fixed labels:
 - `lester-vantage-us`
 
 They must be hosted in different accounts or trust domains and use different
-egress networks. Each runner needs only Docker, GitHub CLI, and Node 24.18.0; it
+egress networks. Each runner needs only Docker, GitHub CLI, and Node 24.22.1; it
 must contain no wallet, registrar, DNS, hosting, deployment, or production
 credentials. Each job downloads the approved release by exact workflow run,
 cryptographically verifies the candidate, approvals, final manifest, and
@@ -203,7 +203,7 @@ deployment is disabled is not sufficient.
 
 The signed `frontend-standalone.tar` is a complete Node standalone payload. A
 compatible container/runtime can extract it into a new empty directory and run
-`node server.js` with Node 24.18.0, without installing dependencies or rebuilding.
+`node server.js` with Node 24.22.1, without installing dependencies or rebuilding.
 The archive SHA-256 in `approved-manifest.json` is the deployment identity.
 
 The current production host is Vercel. A Next standalone tar is not, by itself,

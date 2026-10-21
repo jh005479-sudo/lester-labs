@@ -15,7 +15,7 @@ Solidity smart contracts for the Lester-Labs DeFi toolkit, built with Hardhat + 
 
 ## Prerequisites
 
-- **Node.js** `24.18.0` and **npm** `11.16.0`
+- **Node.js** `24.22.1` and **npm** `11.19.1`
 - A funded wallet with **Arbitrum Sepolia ETH** for gas
   - Faucet: https://www.alchemy.com/faucets/arbitrum-sepolia
 - (Optional) A funded wallet with **LitVM** native token for LitVM deployment
