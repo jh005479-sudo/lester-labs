@@ -72,7 +72,7 @@ function compareCanonicalText(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 const NEXT_BASE_IMAGE =
-  "docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5";
+  "docker.io/library/node:24.22.1-bookworm@sha256:5630d96570d4ca4a8523fda3d169d0114554d0f48293e1ae3db6be7c79b42a17";
 
 export const REVIEWED_CONTAINER_DOCKERFILE = `FROM ${NEXT_BASE_IMAGE}\nENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1\nWORKDIR /app\nADD --chown=node:node ${NEXT_ARCHIVE_NAME} /app/\nUSER node\nCMD ["node", "server.js"]\n`;
 

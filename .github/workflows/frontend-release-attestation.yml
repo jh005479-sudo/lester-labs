@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RELEASE_IMAGE: docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5
+  RELEASE_IMAGE: docker.io/library/node:24.22.1-bookworm@sha256:5630d96570d4ca4a8523fda3d169d0114554d0f48293e1ae3db6be7c79b42a17
 
 jobs:
   build:
@@ -61,13 +61,13 @@ jobs:
           test "$(uname -m)" = "x86_64"
           docker pull --platform linux/amd64 "$RELEASE_IMAGE"
           docker image inspect "$RELEASE_IMAGE" --format '{{json .RepoDigests}}' \
-            | grep -F 'sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5'
+            | grep -F 'sha256:5630d96570d4ca4a8523fda3d169d0114554d0f48293e1ae3db6be7c79b42a17'
           docker run --rm --platform linux/amd64 --network none \
             --user "$(id -u):$(id -g)" --cap-drop ALL --security-opt no-new-privileges:true \
             --read-only --tmpfs /tmp:rw,nosuid,nodev,size=128m \
             "$RELEASE_IMAGE" sh -eu -c '
-              test "$(node --version)" = "v24.18.0"
-              test "$(npm --version)" = "11.16.0"
+              test "$(node --version)" = "v24.22.1"
+              test "$(npm --version)" = "11.19.1"
               test "$(node -p process.platform)" = "linux"
               test "$(node -p process.arch)" = "x64"
             '

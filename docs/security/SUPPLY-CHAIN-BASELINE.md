@@ -2,7 +2,16 @@
 
 This record documents the security controls introduced during the August 2026 post-compromise review. It is not a claim that the current dependency graph or deployment is vulnerability-free. Refresh it in a dependency-only pull request whenever a package manager, dependency, action, lockfile, or build tool changes.
 
-## Package-manager pin
+## Current emergency runtime baseline — 21 October 2026
+
+The current exact pair is Node.js `24.22.1` and bundled npm `11.19.1`.
+The owner explicitly authorized immediate remediation without the normal waiting
+period for the newly released Node security fix. This is a scoped runtime
+exception, not a global change to dependency-age, audit, signature, lifecycle,
+protected approval, or deployment controls. See
+[`NODE-OCTOBER-2026-REMEDIATION.md`](NODE-OCTOBER-2026-REMEDIATION.md).
+
+## Historical package-manager pin (August review; superseded)
 
 | Field | Reviewed value |
 | --- | --- |

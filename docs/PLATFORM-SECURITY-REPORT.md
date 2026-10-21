@@ -83,9 +83,11 @@ in the dedicated dependency review documents linked above.
 
 ## Remaining operational reviews
 
-- Require protected CI with the repository's exact Node 24.18.0 / npm 11.16.0 pins.
+- Require protected CI with the repository's exact Node 24.22.1 / npm 11.19.1 pins.
   Initial feature checks used installed Node 24.19.0 / npm 11.18.0; the dependency
-  review and protected checks used the exact repository pins. No pin was changed.
+  review and protected checks used the then-current repository pins. Those historical
+  checks did not change pins; the October emergency runtime update is recorded in
+  `security/NODE-OCTOBER-2026-REMEDIATION.md`.
 - Re-audit and verify signatures for release, including contract dependencies;
   this feature change does not modify contracts or their dependency graph.
 - Validate wallet rejection, chain/account changes during preflight, and real

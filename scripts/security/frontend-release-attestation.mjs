@@ -78,7 +78,7 @@ const NORMALIZED_BUILD_MANIFEST_PATHS = Object.freeze([
   "server/app-paths-manifest.json",
 ]);
 export const REVIEWED_FRONTEND_BUILDER_IMAGE =
-  "docker.io/library/node:24.18.0-bookworm@sha256:4e9cb555d708e0829c9d93e5eeae9dfab0617b832ca436a690680e0fca735ef5";
+  "docker.io/library/node:24.22.1-bookworm@sha256:5630d96570d4ca4a8523fda3d169d0114554d0f48293e1ae3db6be7c79b42a17";
 
 function toPortablePath(path) {
   return path.split(sep).join("/");
@@ -986,8 +986,8 @@ function routeSnapshotsFromCapture(capture, policy, publicArtifacts) {
 
 function reviewedNpmVersion(root) {
   const packageManager = readJson(join(root, "package.json"))?.packageManager;
-  if (packageManager !== "npm@11.16.0") {
-    throw new Error("The release source must pin the exact reviewed npm@11.16.0 package manager.");
+  if (packageManager !== "npm@11.19.1") {
+    throw new Error("The release source must pin the exact reviewed npm@11.19.1 package manager.");
   }
   return packageManager.slice("npm@".length);
 }
@@ -1244,8 +1244,8 @@ export function validateFrontendReleaseAttestation(
   }
   if (
     requireReleaseRuntime &&
-    (value.runtime.node !== "v24.18.0" ||
-      value.runtime.npm !== "11.16.0" ||
+    (value.runtime.node !== "v24.22.1" ||
+      value.runtime.npm !== "11.19.1" ||
       value.runtime.os !== "linux" ||
       value.runtime.arch !== "x64")
   ) throw new Error("The approved frontend was not built with the reviewed x64 Linux Node/npm runtime.");

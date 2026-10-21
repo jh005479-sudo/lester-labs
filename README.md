@@ -60,7 +60,7 @@ Run the frontend locally from the repo root:
 npm run dev
 ```
 
-The repository pins Node.js `24.18.0` in CI and npm `11.16.0` in both
+The repository pins Node.js `24.22.1` in CI and npm `11.19.1` in both
 `package.json` files. Do not use `npm install`, unreviewed `npx`, or dependency
 lifecycle scripts to bypass the immutable lockfiles.
 

@@ -1,0 +1,407 @@
+[
+  {
+    "name": "@img/sharp-darwin-arm64",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:45:21.388Z",
+    "age_days": 24.32,
+    "integrity": "sha512-QRUlFQ0WxvdWyqqG/WtI3iupfD5rBzmCHXSdPsY91sAtVtTo7Q4cb6zOccZ3gqEqkr0f1As1ehLqmEpDsRf+lg==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-darwin-x64",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:47:07.861Z",
+    "age_days": 24.32,
+    "integrity": "sha512-+BR255RhDlpygUpOc/Jdt1nT6DQ3XG/ERo5wbcdOf5Q320dKtPCKPLR1LJs9VGXRaMa8l1uUa0tkCNOXiAxZUw==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-freebsd-wasm32",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:45:49.555Z",
+    "age_days": 24.32,
+    "integrity": "sha512-Y/z91nEZ4uIBX5X3nfTovjU9lHNKFYbL2lpHCLVNmXQK03VIZvXBBt0KxbPGp2SdGSF+2mQU4e+hQaWOt86iAw==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-libvips-darwin-arm64",
+    "version": "1.3.4",
+    "published": "2026-09-27T12:10:42.328Z",
+    "age_days": 24.38,
+    "integrity": "sha512-5R89nBYiRdUlSWJxPhO+GVtaXzXSxKnRu/xqMn3KTA3L9EB9Oy/P+Nn2f2vlhPuUdy/Zusb2DarbyTpGCfEDuw==",
+    "signatures_present": true,
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-libvips-darwin-x64",
+    "version": "1.3.4",
+    "published": "2026-09-27T12:10:37.715Z",
+    "age_days": 24.38,
+    "integrity": "sha512-iR2OKH80yi0U+dUplyh3/xdpFvps6YkCwsXenIJxqxR1v9o+xtKTGbS9H7cps+2Vxjc8B1j96p75NmTGjIhtpQ==",
+    "signatures_present": true,
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-libvips-linux-arm",
+    "version": "1.3.4",
+    "published": "2026-09-27T12:10:47.428Z",
+    "age_days": 24.38,
+    "integrity": "sha512-LmRtTsOHuvM2+wlO2Db37dx5MiZhB0FvSunciw48YjdOkZz9KAiRbm8ujeMOA1INqmei5NapFxYEK1D1ZSidmw==",
+    "signatures_present": true,
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-libvips-linux-arm64",
+    "version": "1.3.4",
+    "published": "2026-09-27T12:10:53.588Z",
+    "age_days": 24.38,
+    "integrity": "sha512-Y3dgX/6lE2QhQb+Gxy0WZxfg9MEm/JBjamZpS2IklP7xIQoKN4hzAm7KcMVGtaVDt3neE9OKBC7vAfonA/Lr1A==",
+    "signatures_present": true,
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-libvips-linux-ppc64",
+    "version": "1.3.4",
+    "published": "2026-09-27T12:11:07.582Z",
+    "age_days": 24.38,
+    "integrity": "sha512-Le6boB8Tai0Nis+gIxIpKx68UDVVIqdR8Tin5Yf1z2LJJQLDJvCDRqRu+jC2qCoD+eIomonmOwB4smBRxfVpYQ==",
+    "signatures_present": true,
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-libvips-linux-riscv64",
+    "version": "1.3.4",
+    "published": "2026-09-27T12:11:13.523Z",
+    "age_days": 24.38,
+    "integrity": "sha512-aHkkIEHPRdQEegJN20MLmGtxYD9R2wQr3Cwpddnu5+YKMt6Uzax7S9h5gpZTo8wyrGuZSlfQ63OevL5mTyOC7Q==",
+    "signatures_present": true,
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-libvips-linux-s390x",
+    "version": "1.3.4",
+    "published": "2026-09-27T12:11:18.421Z",
+    "age_days": 24.38,
+    "integrity": "sha512-ra/mB6MikESDUO7Yg+Mi95bFBb9GsObURuhnOv3OqknjGe9sZrG8tCe9q0xSIGrtLgvgw0gKnFWcK4blSgQOuQ==",
+    "signatures_present": true,
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-libvips-linux-x64",
+    "version": "1.3.4",
+    "published": "2026-09-27T12:11:24.775Z",
+    "age_days": 24.38,
+    "integrity": "sha512-GJ//SSXbnwSDes02umB3nDJLFcQzw8a18V8fyhqr6tV515tOEMdImjjxj1AoafMRz56F3PHgftnj1QEKSU1zkw==",
+    "signatures_present": true,
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-libvips-linuxmusl-arm64",
+    "version": "1.3.4",
+    "published": "2026-09-27T12:10:57.585Z",
+    "age_days": 24.38,
+    "integrity": "sha512-hvulFwtjUcagsis6BBxHwGFwWoNZjgYmULGVrZcyfNbjA8hKILbRxGg15/7w5HDyXHXUos/j6baAWqnCyQ2DWA==",
+    "signatures_present": true,
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-libvips-linuxmusl-x64",
+    "version": "1.3.4",
+    "published": "2026-09-27T12:11:03.153Z",
+    "age_days": 24.38,
+    "integrity": "sha512-6zXKeE/p39I1AmA3cJG35eyBGNqNddLnUXjhwBnsGjFPWqf5VKkDBEqaEkPDoTEtkxwi2vv8Tcr2mDyP4So7Fg==",
+    "signatures_present": true,
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-linux-arm",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:47:45.455Z",
+    "age_days": 24.32,
+    "integrity": "sha512-LEaXK2WdXVK5ykcw0buWyPMsmLLL2vpHLD6yrNSW+JGEL3BZPA4tpKN6iaMc4AxTTAoaX/sU1rOL51lcIz48ZQ==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-linux-arm64",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:45:56.196Z",
+    "age_days": 24.32,
+    "integrity": "sha512-LYVx5JTsOM2CBzmxreh+nl64/3H6Xb09iSLknqH47z2T2DFFxDeFLP5y4dJwe6H7uGQlHPyEEtIqyo3DYsRwdQ==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-linux-ppc64",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:45:59.613Z",
+    "age_days": 24.32,
+    "integrity": "sha512-QVxAAq8evVRI9ia2vqgwrmWucn5Dfv+JdWzj75pD8omHLPSP7f8p20O8jxzjCcuCEQEOtYOZUmX1hkiZ0kdevA==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-linux-riscv64",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:45:42.118Z",
+    "age_days": 24.32,
+    "integrity": "sha512-LtdreXguaavKODPIfzJ4kffx7UNt1omwtK0rch4EBbbSTXPnxWmYSayXdLJw0fJzQ97kHt1gL/yh4tvU+nCyRQ==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-linux-s390x",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:46:05.751Z",
+    "age_days": 24.32,
+    "integrity": "sha512-UZasTOFiYzotTsGOCu42BfUzP6Tu6Do/947iRm1RsLKvlllxwGcn4RN27LibGWceix4Y+Pmw3jsnTcCQIgWjqA==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-linux-x64",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:45:49.001Z",
+    "age_days": 24.32,
+    "integrity": "sha512-SxFtLTeJInhAA9Q836kux2vZNeOBQEx658qvbboZScr0wIARym3IcGmW7KpVD5sbVg0Ojy+udFQdayYIZyoNog==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-linuxmusl-arm64",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:47:04.679Z",
+    "age_days": 24.32,
+    "integrity": "sha512-9HbMclmI1zlNkFRs3z9/eBtDjfD0sGlrX1z6b1qwmiFY5ElDLh4BC0LPBdVp7z1DXFiKlIcznf+ZlsuZzLxQqg==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-linuxmusl-x64",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:46:37.431Z",
+    "age_days": 24.32,
+    "integrity": "sha512-4KOphqB035HrVdqLZfCgMzzERrQkkzOwRhl4OAkRO1YCldbaFjySXMaK534Mo0V+LndnlJk+sbUyLeU0ULyD1A==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-wasm32",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:46:20.726Z",
+    "age_days": 24.32,
+    "integrity": "sha512-Ptsga1su4tQx+LLF1ECS9U6nz5kmrXKo6XVbtR48Ke3ZRxxgaWBu7IDtEe1quo8hiupwm6WFqxVlXaSf7IINGQ==",
+    "signatures_present": true,
+    "license": "Apache-2.0 AND LGPL-3.0-or-later AND MIT"
+  },
+  {
+    "name": "@img/sharp-webcontainers-wasm32",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:45:43.110Z",
+    "age_days": 24.32,
+    "integrity": "sha512-hfhF/FmoQyTUkA0bIKFOtw536BQSeBMe6BF6QyWlrPxT754+TFLaZ7sKKTfvvM0yJgKgaYTwnFCIZ/GuDw5SUA==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "@img/sharp-win32-arm64",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:46:30.234Z",
+    "age_days": 24.32,
+    "integrity": "sha512-X4t7g+7ZA5DKblCBEXGjUqqemj4vczING/5viFwAL8h4N3qYeyjwdCvRLHi4EdOUI+2Z7UFlp1VM+p/AuEtm6Q==",
+    "signatures_present": true,
+    "license": "Apache-2.0 AND LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-win32-ia32",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:46:35.530Z",
+    "age_days": 24.32,
+    "integrity": "sha512-5Zm82LoBc43nhwNybZlG7Y1KO//Zhsn306fQl29ZOuStHLGTo3BWL83q3cznX0poxSAMuYL1On/BHBxkBeKr6A==",
+    "signatures_present": true,
+    "license": "Apache-2.0 AND LGPL-3.0-or-later"
+  },
+  {
+    "name": "@img/sharp-win32-x64",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:47:32.335Z",
+    "age_days": 24.32,
+    "integrity": "sha512-x76eH0vEiHlcMQu8Y8IenntaACtddpT6W0wmXtWrnKcnKI7ME5DdgqhAD6SEWOEl1v2zDvkZDhFA9KnURwpfqg==",
+    "signatures_present": true,
+    "license": "Apache-2.0 AND LGPL-3.0-or-later"
+  },
+  {
+    "name": "@next/env",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:56:43.745Z",
+    "age_days": 21.23,
+    "integrity": "sha512-Al9zqHVV7TJv0eFuOU4U7Lvv74PTih4Ch63sk2xCIpSTkE3udFnaOcnzP2lQVymiL7yS9Cj2iClUXlR3EQ5sEw==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "@next/eslint-plugin-next",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:56:48.503Z",
+    "age_days": 21.23,
+    "integrity": "sha512-eCR9RcLTZrVS+K3+VOhi0xMdUUGNuriCHHhU1ZoABC/QQ/Gp0OWbLKQxV2/9DkmihYdYRcQWFmZXW8M1AMUXYw==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "@next/swc-darwin-arm64",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:56:35.278Z",
+    "age_days": 21.23,
+    "integrity": "sha512-2JPRMh2nmQG5CiL7cXGL9AGwnPWJQ//cTtAUCT+w511QHk79SYz3LGv/pc5X643B/WEO0rvu3Yww0hqwt3kgeA==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "@next/swc-darwin-x64",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:57:12.290Z",
+    "age_days": 21.23,
+    "integrity": "sha512-GZtCCOBKJ4leVIT/Th0llWKhD1ca92lzbQiS5R5ON9QkoiFnilFsebDae1JU2a3HWoKMEmEZWGs1AGLavVM72Q==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "@next/swc-linux-arm64-gnu",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:57:23.310Z",
+    "age_days": 21.23,
+    "integrity": "sha512-O659ygeQYqneJ1fBKMpFxIFqYkYswu8IAS1OCKK/4f3ZgJJm1dRz4fVJZRi/kLLWjnBKnebOePA4WNv+sV1pVA==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "@next/swc-linux-arm64-musl",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:56:41.148Z",
+    "age_days": 21.23,
+    "integrity": "sha512-dSjKSyWpzxoO1d3DIZZcP4XJcNaKeLmxQMFOiYl5vuBRMmweIqnAhty8tAmRsvTss779cK1FtYnDMj40e4TQlg==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "@next/swc-linux-x64-gnu",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:57:37.276Z",
+    "age_days": 21.23,
+    "integrity": "sha512-lbqOuz3RPRcv+o9msNsJw5x4+Y1ZwPTs6vmL6DCf7i0fZfvng/F59wyeDwqHIvV0mK//RBy/jJkZ+nCKsSMXjQ==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "@next/swc-linux-x64-musl",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:57:19.346Z",
+    "age_days": 21.23,
+    "integrity": "sha512-+316WswI8ScVgZeUd+1KGaXkHhaYQzCjvH/05TZSpJ8zBizb1a4G7DtO7F12jcBIqMOtsz9ji1t48fmKtzqsGA==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "@next/swc-win32-arm64-msvc",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:59:57.117Z",
+    "age_days": 21.22,
+    "integrity": "sha512-ji0gd4kMYUxO+1fJBIbiBVRCjzG/lloiyCccnlebvb1ZJ5qXCPZqYg4Jl1DrrixnWNMKylzgpmMWx0yNDYXlzw==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "@next/swc-win32-x64-msvc",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:58:21.647Z",
+    "age_days": 21.23,
+    "integrity": "sha512-WcTlaKt/TWkh5kUjdJcUmB1XgZ+1c6fz4Y9fDHL73YNSdGaUWjceeWrrlwF0nv19iABYWC4iAq1oX1w4Bn0vfg==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "@swc/helpers",
+    "version": "0.5.23",
+    "published": "2026-05-27T06:48:57.046Z",
+    "age_days": 147.61,
+    "integrity": "sha512-5lSsMOTXURePglDfvuAQUqkGek9Hg2kksOYay2m0+XR++b2NWYL/4sWyuvVBIs8oKnJaxkdi9whaL/sqN13afw==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "brace-expansion",
+    "version": "1.1.21",
+    "published": "2026-09-14T21:59:28.332Z",
+    "age_days": 36.97,
+    "integrity": "sha512-9zeA+KLZNNzglF2TPKRQEDyx6Yby7daAkuy8MiPzpXPsYDWi/DRM8jmwUDxokQjYqBpv5DgPiwD4h4ZZSy1Ujw==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "brace-expansion",
+    "version": "5.0.12",
+    "published": "2026-09-14T21:59:00.288Z",
+    "age_days": 36.97,
+    "integrity": "sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "eslint-config-next",
+    "version": "16.3.8",
+    "published": "2026-09-30T15:59:39.390Z",
+    "age_days": 21.22,
+    "integrity": "sha512-81vovwMe6NGnoFsl0KUJWzlS+y239i3fdsxs49gSEX3pDQW2cuKy+fxUPXNkQqqx6OCPheYPtBlSufc9aZ0k+w==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "fastq",
+    "version": "1.20.3",
+    "published": "2026-08-29T06:32:00.667Z",
+    "age_days": 53.62,
+    "integrity": "sha512-XKv5nnLs6nLF71NgiKJLIZFLkPyIEuOselLG7ujZnGrRfQK8HpvY+WqKhAJUAdLomwVHErVS4LfxFlPq0/FTAw==",
+    "signatures_present": true,
+    "license": "ISC"
+  },
+  {
+    "name": "js-yaml",
+    "version": "4.3.2",
+    "published": "2026-08-26T20:42:48.747Z",
+    "age_days": 56.03,
+    "integrity": "sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "next",
+    "version": "16.3.8",
+    "published": "2026-09-30T16:07:21.198Z",
+    "age_days": 21.22,
+    "integrity": "sha512-U7QEZaTini6wKrb8A8hqLLqYQyCetegKjCpJOyxk642vWoMoU1x5PyZCJFvgYgiptA8xc5j/9xYlZFO7w9Sjmw==",
+    "signatures_present": true,
+    "license": "MIT"
+  },
+  {
+    "name": "sharp",
+    "version": "0.35.5",
+    "published": "2026-09-27T13:46:24.509Z",
+    "age_days": 24.32,
+    "integrity": "sha512-Ywn4OnzGukp7CDMrp08RQ50YKmuwG47brZgIVPTvBaaAfQlRlygrRqSrxdCiL9M+LlzLBiJ68IR1QqvzHyjC7g==",
+    "signatures_present": true,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "source-map-js",
+    "version": "1.2.2",
+    "published": "2026-09-30T14:08:09.382Z",
+    "age_days": 21.3,
+    "integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==",
+    "signatures_present": true,
+    "license": "BSD-3-Clause"
+  }
+]

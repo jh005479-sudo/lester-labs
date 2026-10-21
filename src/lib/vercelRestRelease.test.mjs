@@ -192,7 +192,7 @@ function createNextPackage() {
     sourceCommit: SOURCE_COMMIT,
     buildId: SOURCE_COMMIT,
     builderImage: REVIEWED_FRONTEND_BUILDER_IMAGE,
-    runtime: { node: 'v24.18.0', npm: '11.16.0', os: 'linux', arch: 'x64' },
+    runtime: { node: 'v24.22.1', npm: '11.19.1', os: 'linux', arch: 'x64' },
     policySha256: '4'.repeat(64),
     sourceMaterials,
     sourceTree,
