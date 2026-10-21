@@ -3,7 +3,10 @@
 The owner explicitly authorized immediate remediation despite the normal waiting
 policy. The exception applies to the newly released Node security update only;
 `.npmrc` retains the seven-day application/contract dependency hold and disabled
-lifecycle scripts. No dependency versions or historical signed evidence change.
+lifecycle scripts. The Node-only commit changed no application/contract dependency
+versions or historical signed evidence. The subsequent dependency remediation is
+recorded separately in `OCTOBER-APPLICATION-DEPENDENCIES.md` and
+`OCTOBER-CONTRACT-DEPENDENCIES.md`.
 
 ## Exact replacement
 
