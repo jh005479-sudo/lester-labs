@@ -233,7 +233,7 @@ recipient and no generic native-token sweep.
 **Message Feed:**
 - Newest-first, paginated (load 50 at a time, "Load more" at bottom)
 - Each card: truncated sender address (0x1234...abcd), relative timestamp ("2s ago"), message text, "View tx →" link
-- When WebSocket fires a new event: prepend to feed with a subtle highlight animation (border flash, then settle)
+- When polling returns a new event: prepend to feed with a subtle highlight animation (border flash, then settle)
 - Empty state: "Be the first to leave a mark on LitVM's history."
 
 **Real-time feed implementation:**
@@ -338,8 +338,8 @@ When the build is complete, run the following tests and fix any issues found:
 - Post with wallet connected but form empty — button should be disabled
 - Post with text exceeding 500 chars — character counter should turn red, button disabled
 - Message appears in feed after confirmation — within 5 seconds of tx confirm
-- Reload page — existing messages load from historical log, WebSocket reconnects
-- WebSocket disconnect — polling fallback activates without duplicating messages
+- Reload page — existing messages load from historical log, polling resumes
+- RPC interruption — polling resumes without duplicating messages
 - Rapid-fire posts (3 in a row) — messages appear in correct order, no duplicates
 - Long message (500 chars) — renders correctly without overflow or truncation
 - TX fails — error state shown, user can retry, no ghost message in feed
@@ -351,7 +351,7 @@ When the build is complete, run the following tests and fix any issues found:
 - Empty state — "Be the first to leave a mark..." message shown when no posts exist
 
 **Edge cases:**
-- Browser tab hidden for 10 minutes, WebSocket drops — reconnect works, no duplicate messages in feed, missed messages loaded via polling
+- Browser tab hidden for 10 minutes, polling interrupted — refresh resumes, no duplicate messages in feed, missed messages loaded via polling
 - User pastes a very long string (1000+ chars) — truncated at 500 chars in preview, submission blocked
 - RPC rate-limited — show user-friendly error, allow retry
 - Message contains only whitespace — should be rejected (empty after trim)

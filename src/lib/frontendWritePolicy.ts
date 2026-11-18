@@ -415,7 +415,7 @@ export function evaluateStandardFrontendWrite(
   }
 
   if (matches(target, contracts.liquidityLocker) && functionName === 'lockLiquidity') {
-    if (hashes.liquidityLocker === UNCHECKED_LOCKER_RUNTIME_HASH) throw new Error('Deposits to this locker generation are paused.')
+    if (hashes.liquidityLocker.toLowerCase() === UNCHECKED_LOCKER_RUNTIME_HASH) throw new Error('Deposits to this locker generation are paused.')
     requireProtocolFeeValue(intent.value)
     if (args.length !== 4) throw new Error('Liquidity lock arguments do not match the reviewed capability.')
     const lpToken = requireAddress(args[0], 'LP token')
@@ -474,7 +474,7 @@ export function evaluateStandardFrontendWrite(
     requireNoNativeValue(intent.value)
     if (args.length !== 2) throw new Error('Approval arguments do not match the reviewed capability.')
     const spender = requireAddress(args[0], 'Approval spender')
-    if (matches(spender, contracts.liquidityLocker) && hashes.liquidityLocker === UNCHECKED_LOCKER_RUNTIME_HASH) {
+    if (matches(spender, contracts.liquidityLocker) && hashes.liquidityLocker.toLowerCase() === UNCHECKED_LOCKER_RUNTIME_HASH) {
       throw new Error('Token approvals for this locker generation are paused.')
     }
     requireAmount(args[1], 'Approval amount')

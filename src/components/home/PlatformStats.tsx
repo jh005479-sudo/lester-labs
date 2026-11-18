@@ -152,14 +152,14 @@ export function PlatformStats() {
           const status = snapshot?.coverage[key].status
           const historical = status === 'fallback' || status === 'historical-baseline'
           const coverage = historical ? `Snapshot · ${PLATFORM_ACTIVITY_BASELINE.blockTimestamp.slice(0, 10)}`
-            : status === 'bounded' ? 'Partial count' : status === 'live' ? 'Chain count' : undefined
+            : status === 'bounded' ? 'Baseline + partial activity' : status === 'live' ? 'Baseline + live activity' : undefined
           return <StatChip key={key} label={label} accent={accent} coverage={coverage}
             value={loading || !snapshot ? '—' : formatCount(snapshot[key])} />
         })}
       </div>
       <p className="mt-2 text-center text-xs text-[var(--foreground-dim)]">
         {refreshFailed ? 'Refresh unavailable. ' : ''}
-        {snapshot ? `Last response ${new Date(snapshot.fetchedAt).toLocaleString('en-GB', { timeZone: 'UTC' })} UTC`
+        {snapshot ? `Baseline ${PLATFORM_ACTIVITY_BASELINE.blockTimestamp.slice(0, 10)} · Last response ${new Date(snapshot.fetchedAt).toLocaleString('en-GB', { timeZone: 'UTC' })} UTC`
           : loading ? 'Loading activity…' : 'Activity unavailable'}
       </p>
     </div>
