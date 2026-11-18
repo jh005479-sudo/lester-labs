@@ -216,15 +216,27 @@ try {
     await send('Emulation.setDeviceMetricsOverride', {width,height:844,deviceScaleFactor:1,mobile:true})
     await navigate('/', 'LESTER LABS')
     await waitFor('document.querySelector(".scroll-hero-stats")?.innerText.includes("Snapshot")')
+    let originalCounterSize
     for (const scale of [100, 150]) {
       await callFunction('function(scale) { document.documentElement.style.fontSize = scale + "%"; }', [scale])
       const layout = await evaluate(`(() => {
         const stats = document.querySelector('.scroll-hero-stats')
         const next = document.querySelector('.scroll-hero-spacer').nextElementSibling
         const cards = [...stats.querySelectorAll('small')].filter(el => el.textContent.includes('Snapshot'))
-        return { cards: cards.length, bottom: stats.getBoundingClientRect().bottom, next: next.getBoundingClientRect().top }
+        const fits = cards.every(label => {
+          const card = label.parentElement.getBoundingClientRect()
+          return [...label.parentElement.children].every(child => {
+            const box = child.getBoundingClientRect()
+            return box.left >= card.left - 1 && box.right <= card.right + 1
+          })
+        })
+        const size = parseFloat(getComputedStyle(cards[0].parentElement.firstElementChild).fontSize)
+        return { cards: cards.length, bottom: stats.getBoundingClientRect().bottom, next: next.getBoundingClientRect().top, fits, size }
       })()`)
       assert.equal(layout.cards, 5)
+      assert.ok(layout.fits, `Counter text escapes its card at ${width}px and ${scale}%`)
+      if (scale === 100) originalCounterSize = layout.size
+      else assert.ok(layout.size >= originalCounterSize * 1.49, 'Counter type must follow the requested font size')
       assert.ok(layout.bottom <= layout.next + 1, `Hero overlaps at ${width}px and ${scale}% font size`)
       await noOverflow()
     }

@@ -34,7 +34,7 @@ function StatChip({ label, value, accent, coverage }: { label: string; value: st
     }}>
       <span style={{
         fontFamily: "'Sora', sans-serif",
-        fontSize: 22,
+        fontSize: '1.375rem',
         fontWeight: 700,
         color: accent,
         lineHeight: 1,
@@ -43,7 +43,7 @@ function StatChip({ label, value, accent, coverage }: { label: string; value: st
         {value}
       </span>
       <span style={{
-        fontSize: 10,
+        fontSize: '0.75rem',
         color: 'var(--foreground-dim)',
         fontFamily: "'Inter', sans-serif",
         letterSpacing: '0.08em',
