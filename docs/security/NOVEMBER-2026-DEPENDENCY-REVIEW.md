@@ -4,25 +4,27 @@ Reviewed 18 November 2026 on Node 24.18.0 and npm 11.16.0. This candidate update
 
 | Lockfile | Before, critical / high / moderate / low | After, critical / high / moderate / low | After, production only |
 | --- | --- | --- | --- |
-| Application | 1 / 14 / 6 / 0 | 0 / 9 / 6 / 0 | 0 |
+| Application | 1 / 14 / 6 / 0 | 0 / 14 / 0 / 0 | 0 |
 | Contracts | 0 / 11 / 3 / 1 | 0 / 7 / 0 / 0 | 0 |
 
 Next.js and its ESLint configuration move together to 16.4.6. The framework update includes matching SWC binaries. Sharp 0.35.5 and its optional platform packages update the SVG image processing path. Runtime overrides also cover source map processing and validation. No new direct dependency is required. [Next release](https://github.com/vercel/next.js/releases/tag/v16.4.6) · [Sharp advisory](https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw)
 
 The contract test environment updates archive handling, glob matching, serialization, HTTP parsing and YAML parsing. Glob 14 uses minimatch 11 and adds one transitive package, `@isaacs/nonrecursive-glob-match@1.1.0`. The matcher changes pattern semantics, is pure JavaScript and has zero runtime dependencies. Its archive contains 36 files and 426,992 unpacked bytes. npm identifies isaacs as publisher and includes a registry signature. The package metadata omits a repository URL and provenance attestation. The maintainer's minimatch repository documents the dependency. Its prepare script is `tshy && bash scripts/build.sh`. The packaged distribution works with lifecycle scripts disabled. [Maintainer's changelog](https://github.com/isaacs/minimatch/blob/main/changelog.md)
 
-The two direct pins already existed. Next runs application, filesystem, network and build code. Its ESLint configuration loads lint plugins in CI. Neither needs credentials during installation or testing. These updates avoid replacing the framework or contract test runner. The source-map-js and YAML overrides use patched point releases. The application retains TypeScript ESLint's supported minimatch line because minimatch 11 removes public APIs.
+The two direct pins already existed. Next runs application, filesystem, network and build code. Its ESLint configuration loads lint plugins in CI. Neither needs credentials during installation or testing. These updates avoid replacing the framework or contract test runner. The source-map-js and YAML overrides use patched point releases. The application pins minimatch 11.0.8 only for TypeScript ESLint’s typescript-estree 8.66.0. Its one runtime call uses the retained minimatch function to match default-project files. The scope excludes other ESLint consumers, which retain minimatch 3.1.5.
 
 ### Verification
 
 All selected releases cleared seven full days. The newest selected release was minimatch 11.0.8, published 11 November at 09:50 UTC. npm generated both locks from the official registry. Each changed tarball's SHA-512 matched its lock entry. Archive members, package identity, native-file counts and declared install and prepare hooks were inspected. Existing licenses stayed the same. The new matcher is BlueOak-1.0.0. Version metadata lists one fewer maintainer for @swc/helpers and replaces owlstronaut with martinrrm in semver's existing npm team.
 
-Clean immutable installs used `npm ci --ignore-scripts` in both workspaces without credentials. No dependency lifecycle scripts ran. The locks flag install hooks for unrs-resolver 1.12.2, esbuild 0.28.1 and fsevents 2.3.3. Published prepare hooks remain inert during these installs. Both production-only audits returned zero. Signature verification validated 550 application packages and 106 attestations, plus 141 contract packages and 53 attestations on macOS ARM64. The application production build and 282 application tests passed on the dependency branch, as did 50 contract tests. The release workflow must repeat these checks on its Linux platform.
+Clean immutable installs used `npm ci --ignore-scripts` in both workspaces without credentials. No dependency lifecycle scripts ran. The locks flag install hooks for unrs-resolver 1.12.2, esbuild 0.28.1 and fsevents 2.3.3. Published prepare hooks remain inert during these installs. Both production-only audits returned zero. Signature verification validated 551 application packages and 107 attestations, plus 141 contract packages and 53 attestations on macOS ARM64. The application production build and 282 application tests passed on the dependency branch, as did 50 contract tests. The release workflow must repeat these checks on its Linux platform.
+
+The scoped minimatch override crosses the parser’s declared major range. On clean installs, minimatch 10.2.6 and 11.0.8 both passed the TypeScript project-service tests for an included file, an explicitly allowed dotfile, and an excluded file. Full ESLint output covered 285 paths with identical diagnostics after normalizing checkout paths. The new application transitive matcher and minimatch release have the same SHA-512 integrity and registry origin as the previously reviewed contracts graph. npm resolved no other new package name. [Upstream API changes](https://github.com/isaacs/minimatch/blob/main/changelog.md)
 
 ### Open advisories
 
-- Frontend development tooling still resolves picomatch through fast-glob, micromatch, fdir and tinyglobby. The registry lists no patched release. TypeScript ESLint also retains the affected minimatch 10 line. Lint and build inputs in CI remain relevant. [picomatch advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) · [minimatch advisory](https://github.com/advisories/GHSA-g3hv-75wg-m249)
-- Hardhat, its ethers and Mocha plugins, and its Zod utility still declare Zod 3. The advisory names 4.6.6 as the first patch. An incompatible transitive override would break the supported schema interface. [Zod advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)
+- Frontend development tooling still resolves picomatch through fast-glob, micromatch, fdir and tinyglobby. The registry lists no patched release. The minimatch advisory was removed from the application. npm now attributes 14 entries to the remaining high picomatch advisory. The preceding lock reported nine high and six moderate entries across two underlying advisories. Lint and build inputs in CI remain relevant. [picomatch advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) · [minimatch advisory](https://github.com/advisories/GHSA-g3hv-75wg-m249)
+- Hardhat, its ethers and Mocha plugins, and its Zod utility still declare Zod 3. The advisory names 4.6.6 as the first patch. Hardhat 3.21.2, the newest version past the seven-day hold at review time, still declares Zod ^3.23.8. Its installed validation helper uses error.errors.map. A benign invalid field confirmed that Zod 3.25.76 returns that array and Zod 4.6.7 omits the property. [Zod advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)
 
 Accept these updates for review. Promotion remains blocked on applicable high findings. No advisories were suppressed and no release-age or lifecycle exception was applied. The dependency branch changes no GitHub Action or workflow.
 
@@ -35,6 +37,8 @@ The tables include optional packages for other platforms. A dash in the old-vers
 
 | Package | Old | New | Published UTC | License | Native files | Provenance |
 | --- | --- | --- | --- | --- | ---: | --- |
+| @isaacs/nonrecursive-glob-match | — | 1.1.0 | 2026-11-05 | BlueOak-1.0.0 | 0 | unavailable |
+| minimatch (typescript-estree only) | 10.2.6 | 11.0.8 | 2026-11-11 | BlueOak-1.0.0 | 0 | yes |
 | @img/sharp-darwin-arm64 | 0.35.3 | 0.35.5 | 2026-09-27 | Apache-2.0 | 1 | yes |
 | @img/sharp-darwin-x64 | 0.35.3 | 0.35.5 | 2026-09-27 | Apache-2.0 | 1 | yes |
 | @img/sharp-freebsd-wasm32 | 0.35.3 | 0.35.5 | 2026-09-27 | Apache-2.0 | 0 | yes |
