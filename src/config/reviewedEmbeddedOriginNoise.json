@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "sourceTreeSha256": "0b779abe74706aa7ddb66e36b688ab561d7807812cea3b0a46398fe284cebdda",
+  "sourceTreeSha256": "0d5de4f99b1bec28dee087cc92f7c1719fd821ad217a2bc23a69c257efd95845",
   "observations": [
     {
       "path": "build/server/app/api/platform-stats/route.js",
@@ -2107,7 +2107,7 @@
       ]
     },
     {
-      "path": "build/static/css/f43456c248dd3ac7.css",
+      "path": "build/static/css/46356c1eeab934d8.css",
       "origins": [
         "https://tailwindcss.com"
       ]
