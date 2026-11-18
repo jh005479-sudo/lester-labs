@@ -845,7 +845,15 @@ export const LITVM_LEGACY_VESTING_FACTORIES: readonly LegacyVestingFactoryRecove
     ] satisfies readonly RuntimeCodeHash[]),
   },
 ])
-export const LITVM_LEGACY_LIQUIDITY_LOCKERS: readonly LegacyFactoryRecoveryDeployment[] = Object.freeze([
+// This public generation records the requested amount without checking the balance received.
+export const AUGUST_TESTNET_LOCKER = Object.freeze({
+  id: 'public-testnet-2026-08',
+  label: 'August 2026 public testnet locker',
+  address: '0xEfE43FB51a3219B35Ffc30e508e14003752fc18f',
+  runtimeCodeHash: '0xfdc7fd0b58f639d13cfcd85e2a9016a2868e34f7e0b838a7041da74655684f2e',
+} as const)
+type LockerRecoveryDeployment = Omit<LegacyFactoryRecoveryDeployment, 'retiredAtBlock'> & { retiredAtBlock?: bigint }
+export const LITVM_LEGACY_LIQUIDITY_LOCKERS: readonly LockerRecoveryDeployment[] = Object.freeze([
   {
     id: 'pre-containment-2026-08-04',
     label: 'Pre-containment LiquidityLocker',
@@ -853,6 +861,9 @@ export const LITVM_LEGACY_LIQUIDITY_LOCKERS: readonly LegacyFactoryRecoveryDeplo
     retiredAtBlock: 36_723_038n,
     runtimeCodeHash: '0xfa5c90c1aee9f3f2606cf1a04b3a4a742ac2950dbf09e0d2e67412d311786c8a',
   },
+  // Keep old certificate links and authenticated withdrawals working after a replacement is approved.
+  ...(LITVM_CURRENT_CONTRACTS.liquidityLocker.toLowerCase() === AUGUST_TESTNET_LOCKER.address.toLowerCase()
+    ? [] : [AUGUST_TESTNET_LOCKER]),
 ])
 export const LITVM_LEGACY_DEX_RECOVERY_DEPLOYMENTS: readonly LegacyDexRecoveryDeployment[] = Object.freeze([
   {
@@ -967,9 +978,7 @@ export const WRAPPED_ZKLTC_ADDRESS = LITVM_CURRENT_CONTRACTS.wrappedZkLtc
 export const DISPERSE_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.disperse
 export const VESTING_FACTORY_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.vestingFactory
 export const LIQUIDITY_LOCKER_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.liquidityLocker
-// This deployed generation records the requested amount without checking receipts.
-export const UNCHECKED_LOCKER_RUNTIME_HASH = '0xfdc7fd0b58f639d13cfcd85e2a9016a2868e34f7e0b838a7041da74655684f2e'
-export const LOCKER_DEPOSITS_PAUSED = LIQUIDITY_LOCKER_RUNTIME_CODE_HASH.toLowerCase() === UNCHECKED_LOCKER_RUNTIME_HASH
+export const LOCKER_DEPOSITS_PAUSED = LIQUIDITY_LOCKER_RUNTIME_CODE_HASH.toLowerCase() === AUGUST_TESTNET_LOCKER.runtimeCodeHash
 
 export const TOKEN_FACTORY_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.tokenFactory
 export const LEDGER_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.ledger
