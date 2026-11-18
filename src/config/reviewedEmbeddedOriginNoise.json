@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "sourceTreeSha256": "0d5de4f99b1bec28dee087cc92f7c1719fd821ad217a2bc23a69c257efd95845",
+  "sourceTreeSha256": "ecd16b4716dc333d601df02f85b9ce781f030922d9750a49fc738d0a3f93a24c",
   "observations": [
     {
       "path": "build/server/app/api/platform-stats/route.js",
@@ -131,7 +131,7 @@
       ]
     },
     {
-      "path": "build/server/chunks/5111.js",
+      "path": "build/server/chunks/7803.js",
       "origins": [
         "https://rpc.lite-node.com"
       ]
@@ -277,7 +277,7 @@
       ]
     },
     {
-      "path": "build/standalone/.next/server/chunks/5111.js",
+      "path": "build/standalone/.next/server/chunks/7803.js",
       "origins": [
         "https://rpc.lite-node.com"
       ]
