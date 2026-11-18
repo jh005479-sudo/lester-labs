@@ -237,6 +237,7 @@ export function MyLocks() {
             type="number"
             min="0"
             step="1"
+            aria-label="Lock ID"
             value={lockIdInput}
             onChange={(event) => { setLockIdInput(event.target.value); setLookupId(undefined) }}
             onKeyDown={(event) => { if (event.key === 'Enter') handleLookup() }}

@@ -93,20 +93,22 @@ function formatDate(dateStr: string): string {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function Label({ children, helper }: { children: React.ReactNode; helper?: string }) {
+function Label({ children, helper, htmlFor }: { children: React.ReactNode; helper?: string; htmlFor: string }) {
   return (
     <div className="mb-1.5">
-      <label className="block text-sm font-medium text-white">{children}</label>
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-white">{children}</label>
       {helper && <p className="text-xs text-white/40 mt-0.5">{helper}</p>}
     </div>
   )
 }
 
 function AddressInput({
+  id,
   value,
   onChange,
   placeholder,
 }: {
+  id: string
   value: string
   onChange: (v: string) => void
   placeholder?: string
@@ -114,6 +116,7 @@ function AddressInput({
   const invalid = value.length > 0 && !isValidAddress(value)
   return (
     <input
+      id={id}
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -604,8 +607,9 @@ export function VestingForm() {
             <h2 className="text-base font-semibold text-white">Token & Beneficiary</h2>
 
             <div>
-              <Label helper="The token to be vested">Token Address</Label>
+              <Label htmlFor="vesting-token-address" helper="The token to be vested">Token Address</Label>
               <AddressInput
+                id="vesting-token-address"
                 value={form.tokenAddress}
                 onChange={(v) => set('tokenAddress', v)}
                 placeholder="0x… token contract"
@@ -622,8 +626,9 @@ export function VestingForm() {
             </div>
 
             <div>
-              <Label helper="Who receives the vested tokens">Beneficiary Address</Label>
+              <Label htmlFor="vesting-beneficiary-address" helper="Who receives the vested tokens">Beneficiary Address</Label>
               <AddressInput
+                id="vesting-beneficiary-address"
                 value={form.beneficiary}
                 onChange={(v) => set('beneficiary', v)}
                 placeholder="0x… beneficiary wallet"
@@ -631,8 +636,9 @@ export function VestingForm() {
             </div>
 
             <div>
-              <Label helper="Total tokens to vest">Total Amount</Label>
+              <Label htmlFor="vesting-total-amount" helper="Total tokens to vest">Total Amount</Label>
               <input
+                id="vesting-total-amount"
                 type="number"
                 min="0"
                 step="any"
@@ -696,8 +702,9 @@ export function VestingForm() {
             {form.vestingType === 'linear' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label>Start Date</Label>
+                  <Label htmlFor="linear-start-date">Start Date</Label>
                   <input
+                    id="linear-start-date"
                     type="date"
                     min={today}
                     value={form.startDate}
@@ -706,8 +713,9 @@ export function VestingForm() {
                   />
                 </div>
                 <div>
-                  <Label>End Date</Label>
+                  <Label htmlFor="linear-end-date">End Date</Label>
                   <input
+                    id="linear-end-date"
                     type="date"
                     min={form.startDate || today}
                     value={form.endDate}
@@ -722,8 +730,9 @@ export function VestingForm() {
             {form.vestingType === 'cliff_linear' && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <Label>Start Date</Label>
+                  <Label htmlFor="cliff-linear-start-date">Start Date</Label>
                   <input
+                    id="cliff-linear-start-date"
                     type="date"
                     min={today}
                     value={form.startDate}
@@ -732,8 +741,9 @@ export function VestingForm() {
                   />
                 </div>
                 <div>
-                  <Label helper="No tokens unlock before this date">Cliff Date</Label>
+                  <Label htmlFor="cliff-linear-cliff-date" helper="No tokens unlock before this date">Cliff Date</Label>
                   <input
+                    id="cliff-linear-cliff-date"
                     type="date"
                     min={form.startDate || today}
                     value={form.cliffDate}
@@ -742,8 +752,9 @@ export function VestingForm() {
                   />
                 </div>
                 <div>
-                  <Label>End Date</Label>
+                  <Label htmlFor="cliff-linear-end-date">End Date</Label>
                   <input
+                    id="cliff-linear-end-date"
                     type="date"
                     min={form.cliffDate || form.startDate || today}
                     value={form.endDate}

@@ -61,7 +61,13 @@ contract LiquidityLocker is Ownable, ReentrancyGuard {
         require(amount > 0, "Amount must be > 0");
         require(withdrawer != address(0), "Invalid withdrawer"); // F-012
 
-        IERC20(lpToken).safeTransferFrom(msg.sender, address(this), amount);
+        require(lpToken.code.length > 0, "Invalid LP token");
+
+        IERC20 token = IERC20(lpToken);
+        uint256 balanceBefore = token.balanceOf(address(this));
+        token.safeTransferFrom(msg.sender, address(this), amount);
+        uint256 balanceAfter = token.balanceOf(address(this));
+        require(balanceAfter >= balanceBefore && balanceAfter - balanceBefore == amount, "Transfer amount mismatch");
 
         lockId = lockCount++;
         locks[lockId] = Lock(lpToken, amount, unlockTime, withdrawer, false);

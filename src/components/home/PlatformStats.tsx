@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { PLATFORM_ACTIVITY_BASELINE } from '@/config/platformActivity'
-import type { PlatformStatsSnapshot } from '@/lib/platformStats'
+import type { PlatformMetricName, PlatformStatsSnapshot } from '@/lib/platformStats'
 import {
   getPlatformStatsSessionCacheKey,
   matchesCompiledPlatformActivityBaseline,
@@ -11,7 +11,15 @@ import {
 const POLL_INTERVAL_MS = 60_000
 const SESSION_CACHE_KEY = getPlatformStatsSessionCacheKey(PLATFORM_ACTIVITY_BASELINE)
 
-function StatChip({ label, value, accent }: { label: string; value: string; accent: string }) {
+const metrics = [
+  ['tokensMinted', 'Token Contracts Created', '#6B4FFF'],
+  ['walletsAirdropped', 'Airdrop Entries', '#36D1DC'],
+  ['presalesCreated', 'Pre-sales Created', '#5E6AD2'],
+  ['swapsCompleted', 'Swaps Completed', '#E44FB5'],
+  ['onChainMessages', 'On-chain Messages', '#F5A623'],
+] as const satisfies ReadonlyArray<readonly [PlatformMetricName, string, string]>
+
+function StatChip({ label, value, accent, coverage }: { label: string; value: string; accent: string; coverage?: string }) {
   return (
     <div style={{
       display: 'flex',
@@ -36,7 +44,7 @@ function StatChip({ label, value, accent }: { label: string; value: string; acce
       </span>
       <span style={{
         fontSize: 10,
-        color: 'rgba(255,255,255,0.4)',
+        color: 'var(--foreground-dim)',
         fontFamily: "'Inter', sans-serif",
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
@@ -44,6 +52,7 @@ function StatChip({ label, value, accent }: { label: string; value: string; acce
       }}>
         {label}
       </span>
+      {coverage && <small className="text-xs text-[var(--foreground-dim)]">{coverage}</small>}
     </div>
   )
 }
@@ -57,12 +66,9 @@ function isValidSnapshot(value: unknown): value is PlatformStatsSnapshot {
 
   const candidate = value as Partial<PlatformStatsSnapshot>
   return (
-    typeof candidate.tokensMinted === 'number' &&
-    typeof candidate.walletsAirdropped === 'number' &&
-    typeof candidate.presalesCreated === 'number' &&
-    typeof candidate.swapsCompleted === 'number' &&
-    typeof candidate.onChainMessages === 'number' &&
-    typeof candidate.fetchedAt === 'string' &&
+    metrics.every(([key]) => Number.isSafeInteger(candidate[key]) && (candidate[key] ?? -1) >= 0 &&
+      ['live', 'bounded', 'fallback', 'historical-baseline'].includes(candidate.coverage?.[key]?.status ?? '')) &&
+    typeof candidate.fetchedAt === 'string' && Number.isFinite(Date.parse(candidate.fetchedAt)) &&
     matchesCompiledPlatformActivityBaseline(candidate.baseline, PLATFORM_ACTIVITY_BASELINE) &&
     Boolean(candidate.breakdown && typeof candidate.breakdown.tokensMinted?.baseline === 'number') &&
     Boolean(candidate.breakdown && typeof candidate.breakdown.tokensMinted?.postCutover === 'number')
@@ -72,8 +78,8 @@ function isValidSnapshot(value: unknown): value is PlatformStatsSnapshot {
 export function PlatformStats() {
   const [snapshot, setSnapshot] = useState<PlatformStatsSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshFailed, setRefreshFailed] = useState(false)
   const mountedRef = useRef(true)
-  const hasSnapshotRef = useRef(false)
 
   useEffect(() => {
     mountedRef.current = true
@@ -94,7 +100,6 @@ export function PlatformStats() {
       if (isValidSnapshot(parsed)) {
         setSnapshot(parsed)
         setLoading(false)
-        hasSnapshotRef.current = true
       }
     } catch {
       setLoading(true)
@@ -114,13 +119,14 @@ export function PlatformStats() {
 
         if (!mountedRef.current) return
 
+        setRefreshFailed(false)
         setSnapshot(payload)
         setLoading(false)
-        hasSnapshotRef.current = true
-        sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(payload))
+        try { sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(payload)) } catch { /* Storage is optional. */ }
       } catch {
         if (!mountedRef.current) return
-        setLoading((current) => current && !hasSnapshotRef.current)
+        setRefreshFailed(true)
+        setLoading(false)
       }
     }
 
@@ -142,33 +148,20 @@ export function PlatformStats() {
         justifyContent: 'center',
         flexWrap: 'wrap',
       }}>
-        <StatChip
-          label="Token Contracts Created"
-          value={loading || snapshot === null ? '—' : formatCount(snapshot.tokensMinted)}
-          accent="#6B4FFF"
-        />
-        <StatChip
-          label="Airdrop Entries"
-          value={loading || snapshot === null ? '—' : formatCount(snapshot.walletsAirdropped)}
-          accent="#36D1DC"
-        />
-        <StatChip
-          label="Pre-sales Created"
-          value={loading || snapshot === null ? '—' : formatCount(snapshot.presalesCreated)}
-          accent="#5E6AD2"
-        />
-        <StatChip
-          label="Swaps Completed"
-          value={loading || snapshot === null ? '—' : formatCount(snapshot.swapsCompleted)}
-          accent="#E44FB5"
-        />
-        <StatChip
-          label="On-chain Messages"
-          value={loading || snapshot === null ? '—' : formatCount(snapshot.onChainMessages)}
-          accent="#F5A623"
-        />
+        {metrics.map(([key, label, accent]) => {
+          const status = snapshot?.coverage[key].status
+          const historical = status === 'fallback' || status === 'historical-baseline'
+          const coverage = historical ? `Snapshot · ${PLATFORM_ACTIVITY_BASELINE.blockTimestamp.slice(0, 10)}`
+            : status === 'bounded' ? 'Partial count' : status === 'live' ? 'Chain count' : undefined
+          return <StatChip key={key} label={label} accent={accent} coverage={coverage}
+            value={loading || !snapshot ? '—' : formatCount(snapshot[key])} />
+        })}
       </div>
-
+      <p className="mt-2 text-center text-xs text-[var(--foreground-dim)]">
+        {refreshFailed ? 'Refresh unavailable. ' : ''}
+        {snapshot ? `Last response ${new Date(snapshot.fetchedAt).toLocaleString('en-GB', { timeZone: 'UTC' })} UTC`
+          : loading ? 'Loading activity…' : 'Activity unavailable'}
+      </p>
     </div>
   )
 }

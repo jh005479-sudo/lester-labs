@@ -33,26 +33,26 @@ export function SiteFooter() {
         </div>
         <div className="footer-cols">
           <div className="footer-col">
-            <h4>Tools</h4>
+            <h2>Tools</h2>
             {toolLinks.map(({ href, label }) => (
               <Link key={href} href={href} prefetch={false}>{label}</Link>
             ))}
           </div>
           <div className="footer-col">
-            <h4>Explore</h4>
+            <h2>Explore</h2>
             {exploreLinks.map(({ href, label }) => (
               <Link key={href} href={href} prefetch={false}>{label}</Link>
             ))}
           </div>
           <div className="footer-col">
-            <h4>Developers</h4>
+            <h2>Developers</h2>
             <Link href="/docs" prefetch={false}>Docs</Link>
             <Link href="/tutorials" prefetch={false}>Tutorials</Link>
             <Link href="/governance" prefetch={false}>Governance</Link>
             <a href="https://www.litvm.com/" target="_blank" rel="noopener noreferrer">LitVM website</a>
           </div>
           <div className="footer-col">
-            <h4>Community</h4>
+            <h2>Community</h2>
             <a href="https://x.com/lesterlabshq" target="_blank" rel="noopener noreferrer">X</a>
           </div>
         </div>

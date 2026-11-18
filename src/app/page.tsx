@@ -426,7 +426,7 @@ export default function HomePage() {
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
             <div className='section-label'>Getting Started</div>
             <h2 className="getting-started-title">Explore the LitVM ecosystem</h2>
-            <p style={{ fontSize: '16px', color: 'rgba(240,238,245,0.45)', maxWidth: 560, margin: '0 auto' }}>{PUBLIC_RELEASE_STATUS.homepage.gettingStarted}</p>
+            <p style={{ fontSize: '16px', color: 'var(--foreground-muted)', maxWidth: 560, margin: '0 auto' }}>{PUBLIC_RELEASE_STATUS.homepage.gettingStarted}</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
             {[

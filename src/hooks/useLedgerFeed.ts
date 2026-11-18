@@ -11,8 +11,6 @@ import {
   LEDGER_MESSAGE_POSTED_TOPIC,
   LEDGER_PAGE_SIZE,
   LEDGER_POLL_INTERVAL_MS,
-  LEDGER_RECONNECT_DELAY_MS,
-  LEDGER_WS_URL,
   padAddressTopic,
   type LedgerMessage,
   type LedgerRpcLog,
@@ -22,7 +20,7 @@ import {
   type LedgerHistoryCursor,
 } from '@/lib/contracts/ledgerHistory'
 
-type ConnectionMode = 'connecting' | 'websocket' | 'polling'
+type ConnectionMode = 'connecting' | 'polling'
 
 interface UseLedgerFeedOptions {
   address: Address
@@ -352,7 +350,7 @@ export function useLedgerFeed({
 
       upsertMessages(ledgerLogs, true, sessionRef.current)
     } catch {
-      // Receipt-driven feed insertion is best-effort. The WebSocket/polling path will still recover.
+      // Receipt-driven feed insertion is best-effort. The polling path will still recover.
     }
   }
 
@@ -445,12 +443,8 @@ export function useLedgerFeed({
     setHasMore(totalMessageCount ? totalMessageCount > 0n : false)
     setConnectionMode('connecting')
 
-    let socket: WebSocket | null = null
-    let reconnectTimeout: number | null = null
     let pollingInterval: number | null = null
-    let subscriptionId: string | null = null
     let disposed = false
-    let wsRequestId = 0
 
     const stopPolling = () => {
       if (pollingInterval) {
@@ -469,114 +463,6 @@ export function useLedgerFeed({
       }, LEDGER_POLL_INTERVAL_MS)
     }
 
-    const disconnectSocket = () => {
-      if (!socket) return
-
-      if (socket.readyState === WebSocket.OPEN && subscriptionId) {
-        socket.send(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: ++wsRequestId,
-            method: 'eth_unsubscribe',
-            params: [subscriptionId],
-          }),
-        )
-      }
-
-      socket.close()
-      socket = null
-      subscriptionId = null
-    }
-
-    const scheduleReconnect = () => {
-      if (disposed || reconnectTimeout) return
-
-      reconnectTimeout = window.setTimeout(() => {
-        reconnectTimeout = null
-        connectWebSocket()
-      }, LEDGER_RECONNECT_DELAY_MS)
-    }
-
-    const connectWebSocket = () => {
-      if (disposed) return
-
-      try {
-        setConnectionMode('connecting')
-        socket = new WebSocket(LEDGER_WS_URL)
-
-        socket.onopen = () => {
-          if (disposed || !socket) return
-
-          stopPolling()
-          setConnectionMode('websocket')
-          socket.send(
-            JSON.stringify({
-              jsonrpc: '2.0',
-              id: ++wsRequestId,
-              method: 'eth_subscribe',
-              params: [
-                'logs',
-                {
-                  address,
-                  topics: [LEDGER_MESSAGE_POSTED_TOPIC],
-                },
-              ],
-            }),
-          )
-        }
-
-        socket.onmessage = (event) => {
-          if (disposed) return
-
-          try {
-            const message = JSON.parse(event.data) as {
-              id?: number
-              error?: { message?: string }
-              params?: { result?: LedgerRpcLog }
-              result?: string
-            }
-
-            if (typeof message.result === 'string' && message.id) {
-              subscriptionId = message.result
-              return
-            }
-
-            if (message.error?.message) {
-              setError(message.error.message)
-              return
-            }
-
-            if (!message.params?.result) return
-
-            const decoded = decodeLedgerLog(message.params.result)
-            if (!decoded) return
-
-            upsertMessages([decoded], true, session)
-          } catch {
-            setError('Received an unreadable live update from the node.')
-          }
-        }
-
-        socket.onerror = () => {
-          setError('WebSocket connection dropped. Polling fallback is active.')
-        }
-
-        socket.onclose = () => {
-          socket = null
-          subscriptionId = null
-
-          if (disposed) return
-
-          startPolling()
-          scheduleReconnect()
-        }
-      } catch (connectionError) {
-        setError(normalizeError(connectionError, 'Unable to connect to the live feed.'))
-        startPolling()
-        scheduleReconnect()
-      }
-    }
-
     void (async () => {
       try {
         latestSeenBlockRef.current = await getLatestBlockNumber()
@@ -585,14 +471,13 @@ export function useLedgerFeed({
         await loadMore()
         if (disposed || session !== sessionRef.current) return
 
-        connectWebSocket()
+        startPolling()
       } catch (bootError) {
         if (disposed || session !== sessionRef.current) return
 
         setError(normalizeError(bootError, 'Unable to initialize The Ledger feed.'))
         setIsLoadingInitial(false)
         startPolling()
-        scheduleReconnect()
       }
     })()
 
@@ -600,12 +485,8 @@ export function useLedgerFeed({
       disposed = true
       initializedAddressRef.current = null
       stopPolling()
-      disconnectSocket()
       clearHighlights()
 
-      if (reconnectTimeout) {
-        window.clearTimeout(reconnectTimeout)
-      }
     }
   // The transport lifecycle is keyed to the contract address and readiness gate.
   // Deliberately excluding the helper functions prevents reconnect loops on every render.

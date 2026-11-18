@@ -17,10 +17,12 @@ This repository contains two main workspaces:
 |---|---|
 | Network | LitVM Testnet (Liteforge) |
 | Chain ID | `4441` |
-| RPC URL | `https://liteforge.rpc.caldera.xyz/http` |
-| Explorer | `https://liteforge.explorer.caldera.xyz` |
+| RPC URL | `https://rpc.testnet.liteforge.zeeve.net/` |
+| Explorer | `https://explorer.testnet.liteforge.zeeve.net` |
 | Native Asset | `zkLTC` |
 | Treasury/controller status | **Containment incomplete — no durable replacement is currently approved** |
+
+If your wallet already has chain 4441, update its saved RPC and explorer URLs to match the table, then reconnect.
 
 Repository history and configuration contain legacy and test-only authority
 addresses. One proposed treasury address is derived from a private key

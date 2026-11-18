@@ -967,6 +967,10 @@ export const WRAPPED_ZKLTC_ADDRESS = LITVM_CURRENT_CONTRACTS.wrappedZkLtc
 export const DISPERSE_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.disperse
 export const VESTING_FACTORY_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.vestingFactory
 export const LIQUIDITY_LOCKER_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.liquidityLocker
+// This deployed generation records the requested amount without checking receipts.
+export const UNCHECKED_LOCKER_RUNTIME_HASH = '0xfdc7fd0b58f639d13cfcd85e2a9016a2868e34f7e0b838a7041da74655684f2e'
+export const LOCKER_DEPOSITS_PAUSED = LIQUIDITY_LOCKER_RUNTIME_CODE_HASH === UNCHECKED_LOCKER_RUNTIME_HASH
+
 export const TOKEN_FACTORY_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.tokenFactory
 export const LEDGER_RUNTIME_CODE_HASH = LITVM_CURRENT_RUNTIME_CODE_HASHES.ledger
 
@@ -1329,7 +1333,7 @@ export function assertCanonicalContractConfiguration(): void {
     if (
       secondRpcUrl.protocol !== 'https:' ||
       secondRpcUrl.username || secondRpcUrl.password || secondRpcUrl.search || secondRpcUrl.hash ||
-      secondRpcUrl.origin === 'https://liteforge.rpc.caldera.xyz'
+      secondRpcUrl.origin === 'https://rpc.testnet.liteforge.zeeve.net'
     ) {
       throw new Error('The approved activity cutover must use a distinct credential-free HTTPS second-RPC URL.')
     }

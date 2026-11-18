@@ -727,7 +727,7 @@ function assertApprovedProductionSemantics(value) {
   }
   if (
     rpcUrl.protocol !== 'https:' || rpcUrl.username || rpcUrl.password || rpcUrl.search || rpcUrl.hash ||
-    rpcUrl.origin === 'https://liteforge.rpc.caldera.xyz'
+    rpcUrl.origin === 'https://rpc.testnet.liteforge.zeeve.net'
   ) throw new Error('The cutover proof must identify a distinct credential-free HTTPS RPC URL.')
   if (Object.values(cutover.replacementCountersAtCutover).some((counter) => counter !== 0)) {
     throw new Error('Every replacement activity counter must be exactly zero at the cutover block.')

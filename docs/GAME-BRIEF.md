@@ -33,8 +33,8 @@ This was a proposed greenfield page. It must not use the retired Ledger or an in
 
 ### Chain & Network
 - **Chain:** LitVM LiteForge testnet (Chain ID: `4441`)
-- **RPC:** `https://liteforge.rpc.caldera.xyz/http`
-- **WebSocket:** `wss://liteforge.rpc.caldera.xyz/ws`
+- **RPC:** `https://rpc.testnet.liteforge.zeeve.net/`
+- Use HTTP polling for chain updates.
 - **Explorer:** `https://lester-labs.com/explorer`
 - **Native Currency:** zkLTC (testnet, no real value)
 
@@ -366,7 +366,7 @@ const LEDGER_ABI = [
 
 **RPC for event reading:**
 ```
-https://liteforge.rpc.caldera.xyz/http
+https://rpc.testnet.liteforge.zeeve.net/
 ```
 
 **Contract address:** `0xa37fF4bAb59A5F861B48527A946C433dc1Ee8079`
@@ -536,8 +536,7 @@ export const litvm = defineChain({
   nativeCurrency: { name: 'zkLTC', symbol: 'zkLTC', decimals: 18 },
   rpcUrls: {
     default: {
-      http: ['https://liteforge.rpc.caldera.xyz/http'],
-      webSocket: ['wss://liteforge.rpc.caldera.xyz/ws'],
+      http: ['https://rpc.testnet.liteforge.zeeve.net/'],
     },
   },
   blockExplorers: {

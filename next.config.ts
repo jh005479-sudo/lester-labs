@@ -202,6 +202,7 @@ const productionHeaders = Object.entries(frontendReleasePolicy.criticalResponseH
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  poweredByHeader: false,
   ...(releaseBuildId ? { generateBuildId: async () => releaseBuildId } : {}),
   async headers() {
     return [

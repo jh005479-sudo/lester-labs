@@ -12,7 +12,7 @@ import { requirePlatformActivityApiCoverage } from './platform-activity-coverage
  * Review its JSON output and commit the selected values separately.
  */
 
-export const LITVM_RPC_URL = 'https://liteforge.rpc.caldera.xyz/http'
+export const LITVM_RPC_URL = 'https://rpc.testnet.liteforge.zeeve.net/'
 const PRODUCTION_STATS_URL = 'https://www.lester-labs.com/api/platform-stats'
 export const EXPECTED_CHAIN_ID = 4_441n
 const MAX_RESPONSE_BYTES = 100_000

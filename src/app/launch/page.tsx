@@ -22,7 +22,7 @@ export default function LaunchPage() {
   const iconLetter = wizState.symbol ? wizState.symbol.charAt(0) : '?'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0818', color: '#f0eef5' }}>
+    <main style={{ minHeight: '100vh', background: '#0a0818', color: '#f0eef5' }}>
       <ToolHero
         category={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Create / Token Factory' : 'Containment / Token Factory'}
         title="Lester"
@@ -87,6 +87,6 @@ export default function LaunchPage() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

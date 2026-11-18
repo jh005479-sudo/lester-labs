@@ -48,6 +48,9 @@ jobs:
           test "$(npm --version)" = "11.16.0"
           node scripts/security/verify-package-policy.mjs
 
+      - name: Verify release coverage for tracked pages and APIs
+        run: node --test src/lib/releaseRouteCoverage.test.mjs
+
       - name: Scan worktree and Git history for committed secrets
         run: node scripts/security/scan-secrets.mjs
 

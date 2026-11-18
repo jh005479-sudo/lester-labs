@@ -83,7 +83,7 @@ const relevantTopics = [
 const INITIAL_LOG_CHUNK = 250_000;
 const MINIMUM_LOG_CHUNK = 10_000;
 const LOG_QUERY_CONCURRENCY = 4;
-const DEFAULT_EXPLORER_API_URL = "https://liteforge.explorer.caldera.xyz/api";
+const DEFAULT_EXPLORER_API_URL = "https://explorer.testnet.liteforge.zeeve.net/api";
 const EXPLORER_PAGE_SIZE = 1_000;
 
 type TimelockRoleLogTuple = readonly [
@@ -101,7 +101,7 @@ type TimelockRoleLogTuple = readonly [
  * Complete role history through the pinned checkpoint. It was independently
  * reconciled against Blockscout and a full deployment-to-checkpoint scan from
  * https://rpc.lite-node.com. The checkpoint block hash was also matched
- * against the configured canonical Caldera RPC.
+ * against the configured canonical LitVM RPC.
  */
 export const PINNED_TIMELOCK_BASELINE_LOGS: readonly TimelockRoleLogTuple[] = [
   [

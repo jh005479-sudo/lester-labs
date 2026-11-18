@@ -77,6 +77,16 @@ function evaluate(intent, provenance) {
 }
 
 describe('explicit standard frontend write capabilities', () => {
+  it('blocks both deposits and token approvals for the unchecked locker generation', () => {
+    const configuration = { ...activeConfiguration, runtimeCodeHashes: {
+      ...hashes, liquidityLocker: '0xfdc7fd0b58f639d13cfcd85e2a9016a2868e34f7e0b838a7041da74655684f2e',
+    } }
+    for (const intent of [
+      { address: addresses.liquidityLocker, functionName: 'lockLiquidity', args: [addresses.selectedToken, 1n, now + 1n, addresses.account], value: 0n },
+      { address: addresses.selectedToken, functionName: 'approve', args: [addresses.liquidityLocker, 1n] },
+    ]) assert.throws(() => evaluateStandardFrontendWrite(intent, addresses.account, undefined, configuration), /locker generation are paused/i)
+  })
+
   it('accepts exact fixed-target capabilities and returns runtime attestations', () => {
     const tokenDecision = evaluate({
       address: addresses.tokenFactory,

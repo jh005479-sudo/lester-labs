@@ -18,8 +18,8 @@ publishing on-chain messages on LitVM testnet.
 |---|---|
 | Network | LitVM LiteForge |
 | Chain ID | `4441` (`0x1159`) |
-| RPC URL | `https://liteforge.rpc.caldera.xyz/http` |
-| Explorer | `https://liteforge.explorer.caldera.xyz` |
+| RPC URL | `https://rpc.testnet.liteforge.zeeve.net/` |
+| Explorer | `https://explorer.testnet.liteforge.zeeve.net` |
 | Native test token | `zkLTC` |
 
 ## Contract directory

@@ -34,6 +34,7 @@ import {
   compareFrontendVantageEvidence,
   isSafeFrontendSourcePath,
   verifyFrontendReleaseParity,
+  validateLiveJsonSchema,
 } from '../../scripts/security/verify-frontend-release-parity.mjs'
 
 const ROUTE_BODY = '<!doctype html><script src=/_next/static/chunks/app.js></script><img src=/robots.txt><a href="https://x.com/lesterlabshq">X</a>'
@@ -190,6 +191,32 @@ function jsonResponse(policy, value) {
     },
   })
 }
+
+function archiveFixture() {
+  return { logs: [], nextCursor: null, coverage: {
+    source: 'LiteForge explorer archive', contract: '0x' + '1'.repeat(40), checkedAt: '2026-08-10T00:00:00Z',
+    indexedThroughBlock: 0, verification: 'archive', complete: false,
+  } }
+}
+
+describe('live release API probes', () => {
+  it('rejects malformed archive pages and unexpected usage fields', () => {
+    const page = archiveFixture()
+    assert.doesNotThrow(() => validateLiveJsonSchema('activity-page-v1', page))
+    for (const invalid of [
+      { ...page, logs: [{}] },
+      { ...page, nextCursor: { block_number: -1 } },
+      { ...page, coverage: { ...page.coverage, complete: true } },
+    ]) assert.throws(() => validateLiveJsonSchema('activity-page-v1', invalid))
+    assert.throws(() => validateLiveJsonSchema('usage-availability-v1', { available: 'false' }))
+    assert.throws(() => validateLiveJsonSchema('usage-availability-v1', { available: true, secret: true }))
+  })
+
+  it('rejects an HTTP-success explorer response carrying an outage', () => {
+    assert.throws(() => validateLiveJsonSchema('explorer-summary-v1',
+      { latestBlock: 0, blocks: [], transactions: [], updatedAt: null, error: 'Feed unavailable' }))
+  })
+})
 
 function platformStatsFixture() {
   const metrics = ['tokensMinted', 'walletsAirdropped', 'presalesCreated', 'swapsCompleted', 'onChainMessages']
@@ -818,11 +845,10 @@ describe('frontend release artifact attestation', () => {
       assert.equal(candidate.runtime.npm, '11.16.0')
       assert.equal(candidate.routeSnapshots.length, policy.routes.length)
       assert.deepEqual(candidate.routeSnapshots[0].thirdPartyOrigins, [
-        'https://liteforge.explorer.caldera.xyz',
-        'https://liteforge.rpc.caldera.xyz',
+        'https://explorer.testnet.liteforge.zeeve.net',
         'https://raw.githubusercontent.com',
+        'https://rpc.testnet.liteforge.zeeve.net',
         'https://x.com',
-        'wss://liteforge.rpc.caldera.xyz',
       ])
       assert.deepEqual(candidate.routeSnapshots[0].referencedActiveResourcePaths, [
         '/_next/static/chunks/app.js',
@@ -906,8 +932,8 @@ describe('credential-free served frontend parity', () => {
       /unreviewed query string.*favicon\.ico\?unreviewed/i,
     )
     assert.deepEqual(
-      observeEmbeddedNetworkOrigins('`https://liteforge.rpc.caldera.xyz/http` https://${host}`'),
-      ['https://${host', 'https://liteforge.rpc.caldera.xyz'],
+      observeEmbeddedNetworkOrigins('`https://rpc.testnet.liteforge.zeeve.net/` https://${host}`'),
+      ['https://${host', 'https://rpc.testnet.liteforge.zeeve.net'],
     )
     assert.deepEqual(
       observeEmbeddedNetworkOrigins(
@@ -1062,9 +1088,11 @@ describe('credential-free served frontend parity', () => {
             headers: { location: `https://www.lester-labs.com${url.pathname}${url.search}` },
           })
         }
+        if (url.pathname === '/api/usage') return jsonResponse(policy, { available: false })
+        if (['/api/activity', '/api/market-history'].includes(url.pathname)) return jsonResponse(policy, archiveFixture())
         if (url.pathname === '/api/platform-stats') return jsonResponse(policy, platformStatsFixture())
         if (url.pathname === '/api/explorer/summary') {
-          return jsonResponse(policy, { latestBlock: 1, blocks: [], transactions: [], updatedAt: null })
+          return jsonResponse(policy, { latestBlock: 1, blocks: [{ number: 1, txCount: 0, sizeKB: 1, time: '1s ago', validator: 'Unknown' }], transactions: [], updatedAt: '2026-08-10T00:00:00Z' })
         }
         if (policy.routes.includes(url.pathname)) return routeResponse(policy)
         if (url.pathname === '/_next/static/chunks/app.js') return new Response(CHUNK_BODY)
@@ -1094,11 +1122,10 @@ describe('credential-free served frontend parity', () => {
         HTTP_USER_AGENT_PROFILES.map(({ userAgent }) => userAgent).sort(),
       )
       assert.deepEqual(result.capturedThirdPartyOrigins, [
-        'https://liteforge.explorer.caldera.xyz',
-        'https://liteforge.rpc.caldera.xyz',
+        'https://explorer.testnet.liteforge.zeeve.net',
         'https://raw.githubusercontent.com',
+        'https://rpc.testnet.liteforge.zeeve.net',
         'https://x.com',
-        'wss://liteforge.rpc.caldera.xyz',
       ])
       assert.ok(requested.length > 0)
 
@@ -1109,9 +1136,11 @@ describe('credential-free served frontend parity', () => {
         fetchImpl: async (url) => {
           stagedRequests.push(url.href)
           assert.equal(url.origin, 'https://reviewed-stage.vercel.app')
+          if (url.pathname === '/api/usage') return jsonResponse(policy, { available: false })
+          if (['/api/activity', '/api/market-history'].includes(url.pathname)) return jsonResponse(policy, archiveFixture())
           if (url.pathname === '/api/platform-stats') return jsonResponse(policy, platformStatsFixture())
           if (url.pathname === '/api/explorer/summary') {
-            return jsonResponse(policy, { latestBlock: 1, blocks: [], transactions: [], updatedAt: null })
+            return jsonResponse(policy, { latestBlock: 1, blocks: [{ number: 1, txCount: 0, sizeKB: 1, time: '1s ago', validator: 'Unknown' }], transactions: [], updatedAt: '2026-08-10T00:00:00Z' })
           }
           if (policy.routes.includes(url.pathname)) return routeResponse(policy)
           if (url.pathname === '/_next/static/chunks/app.js') return new Response(CHUNK_BODY)

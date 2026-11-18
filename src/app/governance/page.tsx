@@ -18,7 +18,7 @@ export default function GovernancePage() {
   const [activeTab, setActiveTab] = useState<Tab>('spaces')
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)' }}>
+    <main style={{ minHeight: '100vh', background: 'var(--background)' }}>
       <ToolHero
         category="Community Voting"
         title="Lester"
@@ -54,9 +54,9 @@ export default function GovernancePage() {
           proposals, queueing, execution, and governance-token delegation stay blocked until a distinct,
           independently reviewed token/Governor/timelock set and exact runtime hashes are source-pinned.
         </div>
-        <div className="tool-tab-bar">
+        <div className="tool-tab-bar" role="tablist" aria-label="Governance workspace">
           {TABS.map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tool-tab"
+            <button key={tab.id} type="button" role="tab" aria-selected={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className="tool-tab"
               style={{
                 background: activeTab === tab.id ? COLOR : 'transparent',
                 color: activeTab === tab.id ? '#fff' : 'rgba(240,238,245,0.45)',
@@ -69,6 +69,6 @@ export default function GovernancePage() {
         {activeTab === 'create' && <CreateProposalTab />}
         {activeTab === 'vote' && <VoteTab />}
       </div>
-    </div>
+    </main>
   )
 }

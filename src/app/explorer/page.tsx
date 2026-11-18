@@ -31,14 +31,15 @@ export default function ExplorerPage() {
         })
         const data = await res.json() as ExplorerSummary
         if (!active) return
-        if (data.error) {
-          setStageErrors((current) => ({ ...current, [stage]: data.error }))
+        if (!res.ok || data.error) {
+          setStageErrors((current) => ({ ...current, [stage]: data.error || 'Live feed unavailable.' }))
+          return
         } else {
           setStageErrors((current) => ({ ...current, [stage]: undefined }))
         }
         setSummary((current) => ({
           latestBlock: data.latestBlock || current.latestBlock,
-          blocks: data.blocks.length > 0 ? data.blocks : current.blocks,
+          blocks: stage === 'blocks' ? data.blocks : current.blocks,
           transactions: stage === 'transactions' ? data.transactions : current.transactions,
           updatedAt: data.updatedAt ?? current.updatedAt,
         }))
@@ -104,11 +105,13 @@ export default function ExplorerPage() {
     window.open(`${LITVM_EXPLORER_URL}/search?q=${encodeURIComponent(q)}`, '_blank', 'noopener,noreferrer')
   }
 
+  const blockStatus = stageErrors.blocks ? 'Unavailable' : loadingBlocks ? 'Syncing' : null
+  const txStatus = stageErrors.transactions ? 'Unavailable' : loadingTransactions ? 'Syncing' : null
   const stats = [
-    { label: 'Latest Block', value: summary.latestBlock ? `#${summary.latestBlock.toLocaleString()}` : 'Ready' },
-    { label: 'Block Feed', value: summary.blocks.length > 1 ? 'Recent' : loadingBlocks ? 'Syncing' : '—' },
-    { label: 'Recent Blocks', value: loadingBlocks && summary.blocks.length === 0 ? 'Syncing' : summary.blocks.length.toString() },
-    { label: 'Sampled Txs', value: loadingTransactions && summary.transactions.length === 0 ? 'Syncing' : summary.transactions.length.toString() },
+    { label: 'Latest Block', value: blockStatus ?? (summary.latestBlock ? `#${summary.latestBlock.toLocaleString()}` : 'Unavailable') },
+    { label: 'Block Feed', value: blockStatus ?? 'Recent' },
+    { label: 'Recent Blocks', value: blockStatus ?? summary.blocks.length.toString() },
+    { label: 'Sampled Txs', value: txStatus ?? summary.transactions.length.toString() },
     { label: 'Chain ID', value: '4441' },
     { label: 'Network', value: 'LitVM Testnet' },
   ]
@@ -212,7 +215,7 @@ export default function ExplorerPage() {
           <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <h2 className="text-lg font-semibold text-white">Latest Blocks</h2>
-              <span className="text-xs text-white/40">Auto-refreshing</span>
+              <span className="text-xs text-white/40">{stageErrors.blocks ? (summary.blocks.length ? 'Last known blocks · update unavailable' : 'Update unavailable') : 'Auto-refreshing'}</span>
             </div>
             <div className="divide-y divide-white/5">
               {summary.blocks.map((block) => (
@@ -263,7 +266,7 @@ export default function ExplorerPage() {
           <div className="analytics-card rounded-xl border border-white/10 bg-[var(--surface-1)] overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <h2 className="text-lg font-semibold text-white">Latest Transactions</h2>
-              <span className="text-xs text-white/40">Auto-refreshing</span>
+              <span className="text-xs text-white/40">{stageErrors.transactions ? (summary.transactions.length ? 'Last known transactions · update unavailable' : 'Update unavailable') : 'Auto-refreshing'}</span>
             </div>
             <div className="divide-y divide-white/5">
               {summary.transactions.map((tx, i) => (

@@ -45,7 +45,7 @@ function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
         <div style={{
           position: 'absolute', top: '14px', right: '14px',
           display: 'flex', alignItems: 'center', gap: '4px',
-          color: 'rgba(255,255,255,0.3)', fontSize: '10px',
+          color: 'var(--foreground-muted)', fontSize: '10px',
         }}>
           <Clock style={{ width: '10px', height: '10px' }} />
           {article.readTime}
@@ -68,7 +68,7 @@ function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
           {article.title}
         </h3>
         <p style={{
-          fontSize: '13px', color: 'rgba(255,255,255,0.45)',
+          fontSize: '13px', color: 'var(--foreground-muted)',
           lineHeight: 1.6, marginBottom: '14px',
           display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
@@ -81,11 +81,11 @@ function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
         }}>
           <span style={{
             fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em',
-            color: 'rgba(255,255,255,0.25)',
+            color: 'var(--foreground-muted)',
           }}>
             {article.category}
           </span>
-          <span style={{ color: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
+          <span style={{ color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
             Read <ArrowRight style={{ width: '12px', height: '12px' }} />
           </span>
         </div>
@@ -97,7 +97,7 @@ function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
 
 export default function TutorialsPage() {
   return (
-    <div className="min-h-screen bg-[var(--background)] text-white">
+    <main className="min-h-screen bg-[var(--background)] text-white">
       <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
 
         {/* Header */}
@@ -179,10 +179,10 @@ export default function TutorialsPage() {
           border: '1px solid rgba(99,102,241,0.15)',
           borderRadius: '16px', textAlign: 'center',
         }}>
-          <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '10px' }}>
             {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Verify chain, target, and deployment evidence first' : 'Verify the current status first'}
-          </h3>
-          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)', marginBottom: '24px' }}>
+          </h2>
+          <p style={{ fontSize: '14px', color: 'var(--foreground-muted)', marginBottom: '24px' }}>
             {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
               ? 'Candidate replacement targets are source-pinned. Public serving still requires the separate approved frontend manifest and apex/www byte-parity proof.'
               : 'Ordinary writes are disabled while the replacement deployment and served build are independently verified.'}
@@ -213,6 +213,6 @@ export default function TutorialsPage() {
         </div>
 
       </div>
-    </div>
+    </main>
   )
 }

@@ -276,7 +276,7 @@ function assertSourceEvidence(value, paths, manifest, cutover) {
   ], 'The two-RPC public-testnet live verification')
   if (
     liveReport.kind !== 'lester-labs-public-testnet-live-verification' || liveReport.schemaVersion !== 1 ||
-    liveReport.status !== 'VERIFIED_TWO_RPC' || liveReport.primaryRpcOrigin !== 'https://liteforge.rpc.caldera.xyz' ||
+    liveReport.status !== 'VERIFIED_TWO_RPC' || !['https://liteforge.rpc.caldera.xyz', 'https://rpc.testnet.liteforge.zeeve.net'].includes(liveReport.primaryRpcOrigin) ||
     new URL(liveReport.rpcUrl).origin !== 'https://rpc.lite-node.com' || liveReport.chainId !== '4441' ||
     liveReport.blockNumber !== cutover.throughBlock || liveReport.blockHash !== cutover.blockHash.toLowerCase() ||
     liveReport.deploymentManifestRawSha256 !== value.deploymentManifestRawSha256 ||

@@ -9,12 +9,11 @@ export const litvm = defineChain({
   nativeCurrency: { name: 'zkLTC', symbol: 'zkLTC', decimals: 18 },
   rpcUrls: {
     default: {
-      http: ['https://liteforge.rpc.caldera.xyz/http'],
-      webSocket: ['wss://liteforge.rpc.caldera.xyz/ws'],
+      http: ['https://rpc.testnet.liteforge.zeeve.net/'],
     },
   },
   blockExplorers: {
-    default: { name: 'LiteForge Explorer', url: 'https://liteforge.explorer.caldera.xyz' },
+    default: { name: 'LiteForge Explorer', url: 'https://explorer.testnet.liteforge.zeeve.net' },
   },
   testnet: true,
 })

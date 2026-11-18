@@ -6,7 +6,7 @@ import { ExternalLink, ChevronDown, Loader2 } from 'lucide-react'
 import { UNISWAP_V2_ROUTER_ADDRESS, isValidContractAddress } from '@/config/contracts'
 import { rpc } from '@/lib/rpcClient'
 
-const EXPLORER_BASE = 'https://liteforge.explorer.caldera.xyz'
+const EXPLORER_BASE = 'https://explorer.testnet.liteforge.zeeve.net'
 const PAGE_SIZE = 20
 
 // ── Types ──────────────────────────────────────────────────────────────────
