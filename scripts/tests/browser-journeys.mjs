@@ -20,6 +20,7 @@ let nextId = 0
 const requests = new Map()
 let sessionId
 let connectionError
+let serveZeroFactoryFee = false
 const failConnection = error => {
   connectionError = error
   for (const pending of requests.values()) { clearTimeout(pending.timeout); pending.reject(error) }
@@ -44,6 +45,26 @@ try {
       // Tests never contact RPCs, metrics providers, wallets, or other external services.
       const url = new URL(message.params.request.url)
       const local = url.origin === base.origin || ['data:', 'blob:'].includes(url.protocol)
+      if (serveZeroFactoryFee && url.origin === 'https://rpc.testnet.liteforge.zeeve.net') {
+        const request = message.params.request
+        const cors = [
+          { name: 'Access-Control-Allow-Origin', value: base.origin },
+          { name: 'Access-Control-Allow-Headers', value: 'content-type' },
+          { name: 'Access-Control-Allow-Methods', value: 'POST' },
+        ]
+        if (request.method === 'OPTIONS') {
+          await send('Fetch.fulfillRequest', { requestId: message.params.requestId, responseCode: 204, responseHeaders: cors }, message.sessionId)
+          return
+        }
+        const rpc = request.postData && JSON.parse(request.postData)
+        if (rpc?.method === 'eth_call' && rpc.params?.[0]?.data === '0xdce0b4e4') {
+          const result = { jsonrpc: '2.0', id: rpc.id, result: '0x' + '0'.repeat(64) }
+          await send('Fetch.fulfillRequest', { requestId: message.params.requestId, responseCode: 200,
+            responseHeaders: [...cors, { name: 'Content-Type', value: 'application/json' }],
+            body: Buffer.from(JSON.stringify(result)).toString('base64') }, message.sessionId)
+          return
+        }
+      }
       if (url.origin === base.origin && ['/api/platform-stats', '/api/explorer/summary'].includes(url.pathname)) {
         const stats = url.pathname === '/api/platform-stats'
         const payload = stats ? {
@@ -144,13 +165,22 @@ try {
   await waitFor('Array.from(document.querySelectorAll("button")).some(b=>b.textContent.includes("Next") && !b.disabled)')
   await send('Page.reload')
   await waitFor('document.querySelector("input[placeholder=\\"e.g. My Awesome Token\\"]")?.value === "Browser Journey Token"')
-  for (let step = 0; step < 2; step++) {
-    await evaluate('Array.from(document.querySelectorAll("main button")).find(button => button.textContent.includes("Next") && !button.disabled).click()')
-    await pause(100)
+  const openTokenReview = async () => {
+    for (let step = 0; step < 2; step++) {
+      await evaluate('Array.from(document.querySelectorAll("main button")).find(button => button.textContent.includes("Next") && !button.disabled).click()')
+      await pause(100)
+    }
   }
+  await openTokenReview()
   await waitFor('document.body.innerText.includes("The factory fee could not be verified.")')
   assert.equal(await evaluate('document.querySelector("main").innerText.includes("0.05 zkLTC")'), false)
-  console.log('PASS token draft reload and unavailable factory fee')
+  serveZeroFactoryFee = true
+  await navigate('/launch', 'Token Basics')
+  await waitFor('document.querySelector("input[type=number]")?.value === "1000000"')
+  await openTokenReview()
+  await waitFor('Array.from(document.querySelectorAll("main span")).some(el => el.textContent === "0 zkLTC")')
+  serveZeroFactoryFee = false
+  console.log('PASS token draft reload, unavailable fee and verified zero fee')
   await navigate('/explorer', 'Latest Block')
   await waitFor('document.querySelector("main").innerText.split("Unavailable").length >= 4')
   console.log('PASS failed explorer feeds mark all unknown counts unavailable')
@@ -190,9 +220,9 @@ try {
       await callFunction('function(scale) { document.documentElement.style.fontSize = scale + "%"; }', [scale])
       const layout = await evaluate(`(() => {
         const stats = document.querySelector('.scroll-hero-stats')
-        const next = document.querySelector('.scroll-hero-spacer')
+        const next = document.querySelector('.scroll-hero-spacer').nextElementSibling
         const cards = [...stats.querySelectorAll('small')].filter(el => el.textContent.includes('Snapshot'))
-        return { cards: cards.length, bottom: stats.getBoundingClientRect().bottom, next: next.getBoundingClientRect().bottom }
+        return { cards: cards.length, bottom: stats.getBoundingClientRect().bottom, next: next.getBoundingClientRect().top }
       })()`)
       assert.equal(layout.cards, 5)
       assert.ok(layout.bottom <= layout.next + 1, `Hero overlaps at ${width}px and ${scale}% font size`)
