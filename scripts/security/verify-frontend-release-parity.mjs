@@ -569,7 +569,10 @@ function validateExplorerSummarySchema(value) {
   if (value.updatedAt !== null && (typeof value.updatedAt !== "string" || Number.isNaN(Date.parse(value.updatedAt)))) {
     throw new Error("explorer-summary.updatedAt must be null or an ISO timestamp.");
   }
-  if (value.error !== undefined) assertBoundedText(value.error, "explorer-summary.error", 512);
+  if (value.error !== undefined || !value.latestBlock || !value.updatedAt ||
+      value.blocks[0]?.number !== value.latestBlock) {
+    throw new Error("The explorer must return a successful sample at the reported chain height.");
+  }
   return {
     schema: "explorer-summary-v1",
     maximumBlocks: 8,
@@ -578,7 +581,46 @@ function validateExplorerSummarySchema(value) {
   };
 }
 
-function validateLiveJsonSchema(schema, value) {
+function validateArchivePage(value) {
+  assertExactKeys(value, ["logs", "nextCursor", "coverage"], "Archive page");
+  const { coverage, logs, nextCursor } = value;
+  assertExactKeys(coverage, ["source", "contract", "checkedAt", "indexedThroughBlock", "verification", "complete"], "Archive coverage");
+  if (coverage.verification !== "archive" || coverage.complete !== false ||
+      coverage.source !== "LiteForge explorer archive" || !/^0x[0-9a-f]{40}$/iu.test(coverage.contract) ||
+      typeof coverage.checkedAt !== "string" || !Number.isFinite(Date.parse(coverage.checkedAt)) || !Array.isArray(logs) || logs.length > 100) {
+    throw new Error("Invalid archive coverage or log count.");
+  }
+  assertNonNegativeInteger(coverage.indexedThroughBlock, "Archive block height");
+  if (nextCursor !== null) {
+    if (!nextCursor || typeof nextCursor !== "object" || Array.isArray(nextCursor) ||
+        !Object.keys(nextCursor).length) throw new Error("Invalid archive cursor.");
+    for (const [key, index] of Object.entries(nextCursor)) {
+      if (!["block_number", "index", "items_count"].includes(key)) throw new Error("Unknown archive cursor field.");
+      assertNonNegativeInteger(index, "Archive cursor");
+    }
+  }
+  const hash = /^0x[0-9a-f]{64}$/iu;
+  for (const log of logs) {
+    assertExactKeys(log, ["address", "blockNumber", "blockHash", "transactionHash", "logIndex", "data", "topics"], "Archive log");
+    if (typeof log.address !== "string" || log.address.toLowerCase() !== coverage.contract.toLowerCase() ||
+        !hash.test(log.blockHash) || !hash.test(log.transactionHash) || !Array.isArray(log.topics) ||
+        !log.topics.length || log.topics.length > 4 || !log.topics.every(topic => hash.test(topic)) ||
+        typeof log.data !== "string" || log.data.length > 32770 || !/^0x(?:[0-9a-f]{2})*$/iu.test(log.data)) {
+      throw new Error("Invalid archive log.");
+    }
+    assertNonNegativeInteger(log.blockNumber, "Archive log block");
+    assertNonNegativeInteger(log.logIndex, "Archive log index");
+  }
+  return liveJsonSchemaSummary("activity-page-v1");
+}
+
+export function validateLiveJsonSchema(schema, value) {
+  if (schema === "activity-page-v1") return validateArchivePage(value);
+  if (schema === "usage-availability-v1") {
+    assertExactKeys(value, ["available"], "Usage availability");
+    if (typeof value.available !== "boolean") throw new Error("Invalid usage availability.");
+    return liveJsonSchemaSummary(schema);
+  }
   if (schema === "platform-stats-v1") return validatePlatformStatsSchema(value);
   if (schema === "explorer-summary-v1") return validateExplorerSummarySchema(value);
   throw new Error(`Unsupported live-JSON response schema ${schema}.`);
@@ -1185,6 +1227,8 @@ function validateFrontendAssetsEvidence(assets, expectedPublicArtifactsSha256, p
 }
 
 function liveJsonSchemaSummary(schema) {
+  if (schema === "activity-page-v1") return { schema, maximumLogs: 100, typedRecords: true };
+  if (schema === "usage-availability-v1") return { schema, booleanAvailability: true };
   if (schema === "platform-stats-v1") {
     return {
       schema: "platform-stats-v1",

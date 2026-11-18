@@ -2,15 +2,15 @@ import Link from 'next/link'
 import { createPublicClient, http, keccak256, formatUnits, erc20Abi } from 'viem'
 import { LockKeyhole, CheckCircle2, ArrowUpRight } from 'lucide-react'
 import { litvm } from '@/config/chains'
-import { LIQUIDITY_LOCKER_ADDRESS, LIQUIDITY_LOCKER_RUNTIME_CODE_HASH, LITVM_LEGACY_LIQUIDITY_LOCKERS } from '@/config/contracts'
+import { AUGUST_TESTNET_LOCKER, LOCKER_DEPOSITS_PAUSED, LIQUIDITY_LOCKER_ADDRESS, LIQUIDITY_LOCKER_RUNTIME_CODE_HASH, LITVM_LEGACY_LIQUIDITY_LOCKERS } from '@/config/contracts'
 import { LIQUIDITY_LOCKER_ABI } from '@/lib/contracts/liquidityLocker'
 import { lockVerificationLink, validAddress } from '@/lib/projectJourney'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Verify a liquidity lock | Lester Labs' }
 const targets = [
-  { address: LIQUIDITY_LOCKER_ADDRESS, runtimeCodeHash: LIQUIDITY_LOCKER_RUNTIME_CODE_HASH, label: 'Current locker' },
-  ...LITVM_LEGACY_LIQUIDITY_LOCKERS.map((target) => ({ ...target, label: 'Legacy locker' })),
+  { address: LIQUIDITY_LOCKER_ADDRESS, runtimeCodeHash: LIQUIDITY_LOCKER_RUNTIME_CODE_HASH, label: LOCKER_DEPOSITS_PAUSED ? AUGUST_TESTNET_LOCKER.label : 'Current public testnet locker' },
+  ...LITVM_LEGACY_LIQUIDITY_LOCKERS,
 ]
 const client = createPublicClient({ chain: litvm, transport: http(litvm.rpcUrls.default.http[0], { timeout: 6_000, retryCount: 0 }) })
 
@@ -53,10 +53,10 @@ export default async function VerifyLockPage({ searchParams }: { searchParams: P
     </form>
     {problem && <div className="workspace-notice" role="alert">{problem}</div>}
     {result && <section className="workspace-panel mt-6">
-      <div className="flex items-center gap-3"><CheckCircle2 size={24} className="text-emerald-300" /><div><p className="workspace-eyebrow">Lock #{id}</p><h2>{result.withdrawn ? 'Withdrawn' : result.unlock.getTime() <= result.timestamp * 1_000 ? 'Ready to withdraw' : 'Liquidity is locked'}</h2></div></div>
-      <dl className="workspace-facts"><div><dt>Amount</dt><dd>{result.amount}</dd></div><div><dt>Unlocks</dt><dd>{result.unlock.toLocaleString('en-GB', { timeZone: 'UTC' })} UTC</dd></div><div><dt>LP token</dt><dd><Link href={`/explorer/token/${result.token}`}>{result.token}</Link></dd></div><div><dt>Withdrawal wallet</dt><dd><Link href={`/portfolio?address=${result.withdrawer}`}>{result.withdrawer}</Link></dd></div></dl>
-      <p className="workspace-note">This confirms the recorded lock. It does not assess the token or project.</p>
-      <details className="workspace-details"><summary>Verification details</summary><p>LitVM testnet · Chain 4441 · Block {result.block}</p><p>Locker: {target?.address}</p><p>Contract code and lock state checked at the same block.</p></details>
+      <div className="flex items-center gap-3"><CheckCircle2 size={24} className="text-emerald-300" /><div><p className="workspace-eyebrow">Lock #{id}</p><h2>{result.withdrawn ? 'Withdrawn' : result.unlock.getTime() <= result.timestamp * 1_000 ? 'Unlock time reached' : 'Lock recorded'}</h2></div></div>
+      <dl className="workspace-facts"><div><dt>Locker generation</dt><dd>{target?.label}</dd></div><div><dt>Recorded amount</dt><dd>{result.amount}</dd></div><div><dt>Unlocks</dt><dd>{result.unlock.toLocaleString('en-GB', { timeZone: 'UTC' })} UTC</dd></div><div><dt>LP token</dt><dd><Link href={`/explorer/token/${result.token}`}>{result.token}</Link></dd></div><div><dt>Withdrawal wallet</dt><dd><Link href={`/portfolio?address=${result.withdrawer}`}>{result.withdrawer}</Link></dd></div></dl>
+      <p className="workspace-note">This certificate shows the amount recorded by the selected locker.{target?.runtimeCodeHash.toLowerCase() === AUGUST_TESTNET_LOCKER.runtimeCodeHash && ' This generation could receive fewer tokens than it recorded when the token charged a transfer fee.'}</p>
+      <details className="workspace-details"><summary>Verification details</summary><p>LitVM testnet · Chain 4441 · Block {result.block}</p><p>{target?.label} · {target?.address}</p><p>Contract code and lock state checked at the same block.</p></details>
       {!result.withdrawn && <Link className="workspace-button mt-4 mr-3" href={`/locker?tab=my-locks&contract=${contract}&id=${id}`}>Open withdrawal</Link>}
       <Link className="workspace-button secondary mt-4" href={`/explorer/address/${contract}`}>View contract <ArrowUpRight size={16} /></Link>
     </section>}

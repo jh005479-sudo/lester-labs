@@ -99,9 +99,9 @@ export async function GET(request: Request) {
       ...createEmptyExplorerSummary(),
       error: 'Live explorer feed temporarily unavailable.',
     }, {
-      status: 200,
+      status: 503,
       headers: {
-        'cache-control': 'public, s-maxage=2, stale-while-revalidate=10',
+        'cache-control': 'no-store', 'retry-after': '15',
       },
     })
   }

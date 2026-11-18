@@ -556,6 +556,7 @@ export function LockForm() {
 
           {duration === 'custom' && (
             <input
+              aria-label="Custom unlock date"
               type="date"
               min={tomorrowString()}
               value={customDate}

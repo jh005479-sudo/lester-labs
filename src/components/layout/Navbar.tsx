@@ -21,6 +21,8 @@ const MOBILE_MENU_HEIGHT = 'calc(100dvh - var(--mobile-header-stack))'
 export function Navbar() {
   const pathname = usePathname()
   const isHome = pathname === '/'
+  const mobileToggle = useRef<HTMLButtonElement>(null)
+  const mobileMenu = useRef<HTMLDivElement>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [appsOpen, setAppsOpen] = useState(false)
   const appsRef = useRef<HTMLDivElement>(null)
@@ -40,6 +42,7 @@ export function Navbar() {
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
+      if (mobileOpen) mobileToggle.current?.focus()
       setAppsOpen(false)
       setMobileOpen(false)
     }
@@ -52,7 +55,29 @@ export function Navbar() {
 
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    mobileToggle.current?.focus()
+    const trapTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const links = mobileMenu.current?.querySelectorAll<HTMLAnchorElement>('a[href]')
+      const last = links?.[links.length - 1]
+      const first = mobileToggle.current
+      if (!first || !last) return
+      const active = document.activeElement
+      if (event.shiftKey && active === first) {
+        event.preventDefault()
+        last.focus()
+      } else if ((!event.shiftKey && active === last) || (active !== first && !mobileMenu.current?.contains(active))) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    const desktop = window.matchMedia('(min-width: 80rem)')
+    const closeOnDesktop = () => { if (desktop.matches) setMobileOpen(false) }
+    document.addEventListener('keydown', trapTab)
+    desktop.addEventListener('change', closeOnDesktop)
     return () => {
+      document.removeEventListener('keydown', trapTab)
+      desktop.removeEventListener('change', closeOnDesktop)
       document.body.style.overflow = previousOverflow
     }
   }, [mobileOpen])
@@ -209,6 +234,7 @@ export function Navbar() {
             onClick={() => setMobileOpen((open) => !open)}
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileOpen}
+            ref={mobileToggle}
             aria-controls="mobile-navigation-menu"
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
@@ -219,6 +245,7 @@ export function Navbar() {
       {mobileOpen && (
         <div
           className="absolute left-0 right-0 flex flex-col gap-5 overflow-y-auto px-5 xl:hidden"
+          ref={mobileMenu}
           id="mobile-navigation-menu"
           style={{
             top: '100%',

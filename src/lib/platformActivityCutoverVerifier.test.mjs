@@ -195,7 +195,7 @@ describe('platform activity cutover second-RPC verification', () => {
       'https://independent-rpc.example/liteforge',
     )
     assert.throws(
-      () => requireCredentialFreeSecondRpcUrl('https://liteforge.rpc.caldera.xyz/alternate'),
+      () => requireCredentialFreeSecondRpcUrl('https://rpc.testnet.liteforge.zeeve.net/alternate'),
       /different RPC origin/i,
     )
     assert.throws(

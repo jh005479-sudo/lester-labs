@@ -12,8 +12,8 @@ const parameters = [
   ['Network', 'LitVM LiteForge'],
   ['Chain ID', '4441'],
   ['Gas symbol', 'zkLTC (testnet)'],
-  ['RPC', 'https://liteforge.rpc.caldera.xyz/http'],
-  ['Explorer', 'https://liteforge.explorer.caldera.xyz'],
+  ['RPC', 'https://rpc.testnet.liteforge.zeeve.net/'],
+  ['Explorer', 'https://explorer.testnet.liteforge.zeeve.net'],
 ] as const
 
 export default function LitvmTestnetPage() {
@@ -37,6 +37,7 @@ export default function LitvmTestnetPage() {
             </div>
           ))}
         </dl>
+        <p className="mt-4 text-sm text-white/70">If your wallet already has chain 4441, edit that network’s saved RPC and explorer URLs to match the table, then reconnect.</p>
         <div className="mt-8 rounded-2xl border border-amber-300/20 bg-amber-300/5 p-6 text-sm leading-6 text-amber-100/75">
           Use a disposable wallet. A legitimate faucet needs only a public address—not LTC, a seed phrase, or a private
           key. Find the current faucet through LitVM&apos;s official hub; availability and limits can change.

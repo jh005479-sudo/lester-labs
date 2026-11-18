@@ -70,7 +70,7 @@ export default defineConfig({
     litvm: {
       type: "http",
       chainType: "generic",
-      url: process.env.LITVM_RPC_URL || "https://liteforge.rpc.caldera.xyz/http",
+      url: process.env.LITVM_RPC_URL || "https://rpc.testnet.liteforge.zeeve.net/",
       chainId: 4441,
       accounts: configuredAccounts,
     },

@@ -223,7 +223,7 @@ async function main(): Promise<void> {
     throw new Error("Only a production-separated-authority manifest can produce a public frontend candidate");
   }
   const primaryRpcUrl = requireCredentialFreeHttpsRpcUrl(
-    process.env.LITVM_RPC_URL || "https://liteforge.rpc.caldera.xyz/http",
+    process.env.LITVM_RPC_URL || "https://rpc.testnet.liteforge.zeeve.net/",
     "The primary production verification RPC",
   );
   const manifestPath = requireAbsoluteExternalFile("REPLACEMENT_MANIFEST_PATH");

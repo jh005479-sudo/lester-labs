@@ -1,7 +1,7 @@
 /**
- * RPC Resilience Layer for Caldera/LitVM
+ * RPC transport for LitVM
  *
- * Solves: Caldera free-tier RPC rate limiting causing 429s and timeouts.
+ * Solves: RPC rate limiting causing 429s and timeouts.
  * Provides: request coalescing, rate limiting, exponential backoff, caching.
  */
 
@@ -14,7 +14,7 @@ import { litvm } from '@/config/chains'
 // override at build time; this value is sourced from the reviewed chain file.
 export const RPC_URL = litvm.rpcUrls.default.http[0]
 
-const MAX_RPS = 5                // Conservative: 5 requests/sec for free Caldera
+const MAX_RPS = 5                // Conservative: 5 requests/sec for the public RPC
 const BURST_CAPACITY = 10        // Allow short bursts up to 10
 const RETRY_ATTEMPTS = 3
 const BASE_DELAY_MS = 1000       // Start with 1s backoff

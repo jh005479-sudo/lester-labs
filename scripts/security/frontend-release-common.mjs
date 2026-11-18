@@ -175,7 +175,7 @@ export function validateFrontendReleasePolicy(value) {
   let previousProbePath = "";
   const coveredPageSourcePaths = new Set();
   const coveredProbePaths = new Set();
-  const liveJsonSchemas = new Set(["explorer-summary-v1", "platform-stats-v1"]);
+  const liveJsonSchemas = new Set(["explorer-summary-v1", "platform-stats-v1", "activity-page-v1", "usage-availability-v1"]);
   for (const entry of value.routeSourceCoverage) {
     assertExactKeys(
       entry,

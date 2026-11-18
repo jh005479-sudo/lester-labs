@@ -25,7 +25,21 @@ describe('shared UI regression contracts', () => {
 
     assert.match(css, /:focus-visible/)
     assert.match(css, /prefers-reduced-motion:\s*reduce/)
-    assert.match(css, /\.scroll-hero-spacer\s*\{[^}]*84svh/s)
+    assert.match(css, /\.scroll-hero-fixed\s*\{[^}]*position:\s*relative !important/s)
+    assert.match(css, /\.scroll-hero-stats > div > div\s*\{[^}]*display:\s*grid/s)
+  })
+
+  it('keeps page landmarks, heading hierarchy, and readable control sizes in the shared contract', async () => {
+    const css = await source('src/app/globals.css')
+    const swap = await source('src/app/swap/page.tsx')
+    const governance = await source('src/app/governance/page.tsx')
+    const nextConfig = await source('next.config.ts')
+
+    assert.match(css, /\.tool-tab,.launchpad-tab-btn\{[^}]*min-height:44px/)
+    assert.match(swap, /<main[\s>]/)
+    assert.doesNotMatch(swap, /<h1 className="text-2xl font-semibold text-white">/)
+    assert.match(governance, /role="tablist"/)
+    assert.match(nextConfig, /poweredByHeader:\s*false/)
   })
 
   it('keeps the retired security, activity-disclosure, and scroll copy off the homepage', async () => {
@@ -124,7 +138,7 @@ describe('shared UI regression contracts', () => {
     const releasePolicy = JSON.parse(await source('src/config/frontendReleasePolicy.json'))
     assert.match(
       releasePolicy.criticalResponseHeaders['Content-Security-Policy'],
-      /connect-src[^;]*https:\/\/liteforge\.explorer\.caldera\.xyz/,
+      /connect-src[^;]*https:\/\/explorer\.testnet\.liteforge\.zeeve\.net/,
     )
   })
 

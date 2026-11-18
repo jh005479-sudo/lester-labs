@@ -20,7 +20,7 @@ import {
   verifyImmutableTestnetAuthorityPrecompile,
 } from "../scripts/lib/post_compromise_replacement.js";
 
-const { ethers: hardhatEthers } = await network.create();
+const { ethers: hardhatEthers, networkHelpers } = await network.create();
 // hardhat-ethers v4 intentionally exposes dynamically keyed contract methods
 // through generic ethers contracts when TypeChain is not installed.
 const ethers = hardhatEthers as Omit<
@@ -36,6 +36,35 @@ const TOKEN_FEE = ethers.parseEther("0.05");
 const STANDARD_FEE = ethers.parseEther("0.03");
 
 describe("post-compromise replacement authority", function () {
+  it("returns exactly the escrowed tokens once to the designated withdrawal wallet at maturity", async function () {
+    const [treasury, depositor, beneficiary] = await ethers.getSigners();
+    const locker = await (await ethers.getContractFactory("LiquidityLocker", treasury)).deploy(
+      STANDARD_FEE, IMMUTABLE_TESTNET_AUTHORITY, treasury.address, true,
+    );
+    const amount = ethers.parseEther("100");
+    const token = await (await ethers.getContractFactory("LesterToken", depositor)).deploy(
+      "Locker rehearsal", "LOCK", amount, 18, false, false, false, depositor.address,
+    );
+    await Promise.all([locker.waitForDeployment(), token.waitForDeployment()]);
+    const escrow = await locker.getAddress();
+    const unlockTime = (await networkHelpers.time.latest()) + 3600;
+    await token.connect(depositor).approve(escrow, amount);
+    const treasuryBefore = await ethers.provider.getBalance(treasury.address);
+    await expect(locker.connect(depositor).lockLiquidity(
+      await token.getAddress(), amount, unlockTime, beneficiary.address, { value: STANDARD_FEE },
+    )).to.emit(locker, "LockCreated").withArgs(0n, await token.getAddress(), amount, unlockTime, beneficiary.address);
+    expect(await token.balanceOf(escrow)).to.equal(amount);
+    expect(await ethers.provider.getBalance(treasury.address)).to.equal(treasuryBefore + STANDARD_FEE);
+    await expect(locker.connect(beneficiary).withdraw(0n)).to.be.revertedWith("Still locked");
+    await networkHelpers.time.increaseTo(unlockTime);
+    await expect(locker.connect(depositor).withdraw(0n)).to.be.revertedWith("Not withdrawer");
+    await expect(locker.connect(beneficiary).withdraw(0n)).to.emit(locker, "LockWithdrawn").withArgs(0n);
+    expect(await token.balanceOf(escrow)).to.equal(0n);
+    expect(await token.balanceOf(beneficiary.address)).to.equal(amount);
+    expect((await locker.getLock(0n)).withdrawn).to.equal(true);
+    await expect(locker.connect(beneficiary).withdraw(0n)).to.be.revertedWith("Already withdrawn");
+  });
+
   it("pins the immutable testnet controller to working ECRECOVER precompile semantics", async function () {
     await verifyImmutableTestnetAuthorityPrecompile(ethers.provider);
   });

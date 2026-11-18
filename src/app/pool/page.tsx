@@ -151,7 +151,7 @@ function PoolCard({ pairAddress, token0Meta, token1Meta, token0Address, token1Ad
             Chart
           </Link>
           <a
-            href={`https://liteforge.explorer.caldera.xyz/address/${pairAddress}`}
+            href={`https://explorer.testnet.liteforge.zeeve.net/address/${pairAddress}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
@@ -236,7 +236,7 @@ function PositionCard({ position, onRemoveLiquidity }: {
             Remove Liquidity
           </button>
           <a
-            href={`https://liteforge.explorer.caldera.xyz/address/${position.pairAddress}`}
+            href={`https://explorer.testnet.liteforge.zeeve.net/address/${position.pairAddress}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/20 hover:text-white"
@@ -1121,7 +1121,7 @@ export default function PoolPage() {
   const isInitialLoading = pairAddressReads.isLoading || pairStateReads.isLoading
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main aria-label="Liquidity pool" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <ToolHero
         category="Dex"
         title="Liquidity"
@@ -1535,6 +1535,6 @@ export default function PoolPage() {
           </>
         )}
       </div>
-    </div>
+    </main>
   )
 }

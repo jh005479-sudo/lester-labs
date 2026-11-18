@@ -134,7 +134,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Enter the LitVM testnet details',
-            body: 'Cross-check these values against LitVM’s official testnet hub before adding them:\n\n• Network name: LitVM LiteForge\n• New RPC URL: https://liteforge.rpc.caldera.xyz/http\n• Chain ID: 4441\n• Currency symbol: zkLTC\n• Block explorer URL: https://liteforge.explorer.caldera.xyz\n\nA network-add prompt can be spoofed. Cancel if the wallet displays a different chain ID or endpoint.',
+            body: 'Cross-check these values against LitVM’s official testnet hub before adding them:\n\n• Network name: LitVM LiteForge\n• New RPC URL: https://rpc.testnet.liteforge.zeeve.net/\n• Chain ID: 4441\n• Currency symbol: zkLTC\n• Block explorer URL: https://explorer.testnet.liteforge.zeeve.net\n\nA network-add prompt can be spoofed. Cancel if the wallet displays a different chain ID or endpoint.',
           },
           {
             title: 'Click Save',
@@ -154,8 +154,8 @@ export const TUTORIALS: TutorialArticle[] = [
     "symbol": "zkLTC",
     "decimals": 18
   },
-  "rpcUrls": ["https://liteforge.rpc.caldera.xyz/http"],
-  "blockExplorerUrls": ["https://liteforge.explorer.caldera.xyz"]
+  "rpcUrls": ["https://rpc.testnet.liteforge.zeeve.net/"],
+  "blockExplorerUrls": ["https://explorer.testnet.liteforge.zeeve.net"]
 }`,
       },
       {
@@ -327,7 +327,7 @@ export const TUTORIALS: TutorialArticle[] = [
         steps: [
           {
             title: 'Verify the network independently',
-            body: 'Cross-check LiteForge chain ID 4441, RPC https://liteforge.rpc.caldera.xyz/http, native currency zkLTC, and explorer https://liteforge.explorer.caldera.xyz against LitVM’s official testnet hub before opening any wallet prompt.',
+            body: 'Cross-check LiteForge chain ID 4441, RPC https://rpc.testnet.liteforge.zeeve.net/, native currency zkLTC, and explorer https://explorer.testnet.liteforge.zeeve.net against LitVM’s official testnet hub before opening any wallet prompt.',
           },
           {
             title: 'Authenticate the exact legacy tuple',
@@ -366,8 +366,8 @@ export const TUTORIALS: TutorialArticle[] = [
     "symbol": "zkLTC",
     "decimals": 18
   },
-  "rpcUrls": ["https://liteforge.rpc.caldera.xyz/http"],
-  "blockExplorerUrls": ["https://liteforge.explorer.caldera.xyz"]
+  "rpcUrls": ["https://rpc.testnet.liteforge.zeeve.net/"],
+  "blockExplorerUrls": ["https://explorer.testnet.liteforge.zeeve.net"]
 }`,
       },
       {
@@ -705,7 +705,7 @@ export const TUTORIALS: TutorialArticle[] = [
           },
           {
             title: 'Enter the LitVM testnet configuration',
-            body: 'Cross-check the current values at LitVM’s official testnet hub:\n\nNetwork name: LitVM LiteForge\nNew RPC URL: https://liteforge.rpc.caldera.xyz/http\nChain ID: 4441\nCurrency symbol: zkLTC\nBlock explorer URL: https://liteforge.explorer.caldera.xyz\n\nCancel if the wallet prompt differs.',
+            body: 'Cross-check the current values at LitVM’s official testnet hub:\n\nNetwork name: LitVM LiteForge\nNew RPC URL: https://rpc.testnet.liteforge.zeeve.net/\nChain ID: 4441\nCurrency symbol: zkLTC\nBlock explorer URL: https://explorer.testnet.liteforge.zeeve.net\n\nCancel if the wallet prompt differs.',
           },
           {
             title: 'Save and switch',

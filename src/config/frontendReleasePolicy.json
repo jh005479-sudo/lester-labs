@@ -32,10 +32,15 @@
     "/litvm-swap",
     "/litvm-testnet",
     "/locker",
+    "/locker/verify",
     "/pool",
     "/portfolio",
+    "/projects",
+    "/projects/0xa5111cedc04554676dbcca39f2268070008c7a8a",
+    "/setup",
     "/sitemap.xml",
     "/swap",
+    "/transactions",
     "/tutorials",
     "/tutorials/what-is-litvm",
     "/vesting"
@@ -44,9 +49,12 @@
     { "sourcePath": "src/app/airdrop/page.tsx", "probePath": "/airdrop", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/analytics/page.tsx", "probePath": "/analytics", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/analytics/token/[address]/page.tsx", "probePath": "/analytics/token/0xa5111cedc04554676dbcca39f2268070008c7a8a", "verificationMode": "exact-build", "responseSchema": null },
+    { "sourcePath": "src/app/api/activity/route.ts", "probePath": "/api/activity?source=tokens", "verificationMode": "live-json", "responseSchema": "activity-page-v1" },
     { "sourcePath": "src/app/api/explorer/summary/route.ts", "probePath": "/api/explorer/summary?stage=blocks", "verificationMode": "live-json", "responseSchema": "explorer-summary-v1" },
     { "sourcePath": "src/app/api/explorer/summary/route.ts", "probePath": "/api/explorer/summary?stage=transactions", "verificationMode": "live-json", "responseSchema": "explorer-summary-v1" },
+    { "sourcePath": "src/app/api/market-history/route.ts", "probePath": "/api/market-history?pair=0x3148d3af219cff5fb677f10803c725522b949a99", "verificationMode": "live-json", "responseSchema": "activity-page-v1" },
     { "sourcePath": "src/app/api/platform-stats/route.ts", "probePath": "/api/platform-stats", "verificationMode": "live-json", "responseSchema": "platform-stats-v1" },
+    { "sourcePath": "src/app/api/usage/route.ts", "probePath": "/api/usage", "verificationMode": "live-json", "responseSchema": "usage-availability-v1" },
     { "sourcePath": "src/app/charts/page.tsx", "probePath": "/charts", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/docs/page.tsx", "probePath": "/docs", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/embed/stats/page.tsx", "probePath": "/embed/stats", "verificationMode": "exact-build", "responseSchema": null },
@@ -68,10 +76,15 @@
     { "sourcePath": "src/app/litvm-swap/page.tsx", "probePath": "/litvm-swap", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/litvm-testnet/page.tsx", "probePath": "/litvm-testnet", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/locker/page.tsx", "probePath": "/locker", "verificationMode": "exact-build", "responseSchema": null },
+    { "sourcePath": "src/app/locker/verify/page.tsx", "probePath": "/locker/verify", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/page.tsx", "probePath": "/", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/pool/page.tsx", "probePath": "/pool", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/portfolio/page.tsx", "probePath": "/portfolio", "verificationMode": "exact-build", "responseSchema": null },
+    { "sourcePath": "src/app/projects/[address]/page.tsx", "probePath": "/projects/0xa5111cedc04554676dbcca39f2268070008c7a8a", "verificationMode": "exact-build", "responseSchema": null },
+    { "sourcePath": "src/app/projects/page.tsx", "probePath": "/projects", "verificationMode": "exact-build", "responseSchema": null },
+    { "sourcePath": "src/app/setup/page.tsx", "probePath": "/setup", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/swap/page.tsx", "probePath": "/swap", "verificationMode": "exact-build", "responseSchema": null },
+    { "sourcePath": "src/app/transactions/page.tsx", "probePath": "/transactions", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/tutorials/[slug]/page.tsx", "probePath": "/tutorials/what-is-litvm", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/tutorials/page.tsx", "probePath": "/tutorials", "verificationMode": "exact-build", "responseSchema": null },
     { "sourcePath": "src/app/vesting/page.tsx", "probePath": "/vesting", "verificationMode": "exact-build", "responseSchema": null }
@@ -89,7 +102,7 @@
     "src/app/tutorials/layout.tsx"
   ],
   "criticalResponseHeaders": {
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://raw.githubusercontent.com; font-src 'self' data:; connect-src 'self' https://liteforge.rpc.caldera.xyz wss://liteforge.rpc.caldera.xyz https://liteforge.explorer.caldera.xyz; frame-src 'none'; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://raw.githubusercontent.com; font-src 'self' data:; connect-src 'self' https://rpc.testnet.liteforge.zeeve.net https://explorer.testnet.liteforge.zeeve.net; frame-src 'none'; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -101,15 +114,14 @@
   },
   "allowedThirdPartyOrigins": [
     "https://github.com",
-    "https://liteforge.explorer.caldera.xyz",
-    "https://liteforge.rpc.caldera.xyz",
+    "https://explorer.testnet.liteforge.zeeve.net",
+    "https://rpc.testnet.liteforge.zeeve.net",
     "https://raw.githubusercontent.com",
     "https://schema.org",
     "https://testnet.litvm.com",
     "https://twitter.com",
     "https://www.litvm.com",
-    "https://x.com",
-    "wss://liteforge.rpc.caldera.xyz"
+    "https://x.com"
   ],
   "allowedActiveResourceOrigins": [
     "https://raw.githubusercontent.com"
@@ -119,15 +131,14 @@
   ],
   "allowedArtifactEmbeddedOrigins": [
     "https://github.com",
-    "https://liteforge.explorer.caldera.xyz",
-    "https://liteforge.rpc.caldera.xyz",
+    "https://explorer.testnet.liteforge.zeeve.net",
+    "https://rpc.testnet.liteforge.zeeve.net",
     "https://raw.githubusercontent.com",
     "https://schema.org",
     "https://testnet.litvm.com",
     "https://twitter.com",
     "https://www.litvm.com",
-    "https://x.com",
-    "wss://liteforge.rpc.caldera.xyz"
+    "https://x.com"
   ],
   "maximumResponseBytes": 16777216
 }

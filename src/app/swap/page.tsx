@@ -2027,7 +2027,7 @@ function SwapPageInner() {
     wrappedInputAddress.toLowerCase() === wrappedOutputAddress.toLowerCase()
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main aria-label="Token swap" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <ToolHero
         category="Dex"
         title="Lester"
@@ -2128,9 +2128,9 @@ function SwapPageInner() {
               <div className="analytics-card rounded-[30px] border border-white/10 bg-white/[0.03] p-5 shadow-2xl shadow-black/30 sm:p-6">
                 <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h1 className="text-2xl font-semibold text-white">
+                    <h2 className="text-2xl font-semibold text-white">
                       {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Swap' : 'Read-only legacy quote'}
-                    </h1>
+                    </h2>
                     <p className="mt-1 text-sm text-white/45">
                       {PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled
                         ? 'A source-pinned replacement DEX quote on chain 4441. Reserve ratios are not oracle prices; verify the exact wallet prompt before submitting.'
@@ -2383,7 +2383,7 @@ function SwapPageInner() {
           />
         )
       })()}
-    </div>
+    </main>
   )
 }
 

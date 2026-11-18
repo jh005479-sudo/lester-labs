@@ -11,7 +11,7 @@ import {
   keccak256,
 } from 'viem'
 
-const PRIMARY_RPC_URL = 'https://liteforge.rpc.caldera.xyz/http'
+const PRIMARY_RPC_URL = 'https://rpc.testnet.liteforge.zeeve.net/'
 const EXPECTED_CHAIN_ID = 4_441n
 const EXPECTED_PROFILE = 'testnet-immutable-disposable'
 const FROZEN_CONTROLLER = '0x0000000000000000000000000000000000000001'

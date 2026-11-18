@@ -10,6 +10,8 @@ import {
   LITVM_CURRENT_CONTRACTS,
   LIQUIDITY_LOCKER_RUNTIME_CODE_HASH,
   LITVM_LEGACY_LIQUIDITY_LOCKERS,
+  AUGUST_TESTNET_LOCKER,
+  LOCKER_DEPOSITS_PAUSED,
   type LitvmContractAddress,
 } from '@/config/contracts'
 import { useSafeWriteContract } from '@/hooks/useSafeWriteContract'
@@ -29,7 +31,7 @@ interface LockerRecoveryTarget {
 const LOCKER_RECOVERY_TARGETS: readonly LockerRecoveryTarget[] = Object.freeze([
   {
     id: 'current',
-    label: 'Current source-pinned locker',
+    label: LOCKER_DEPOSITS_PAUSED ? AUGUST_TESTNET_LOCKER.label : 'Current source-pinned locker',
     address: LITVM_CURRENT_CONTRACTS.liquidityLocker,
     status: 'current',
     runtimeCodeHash: LIQUIDITY_LOCKER_RUNTIME_CODE_HASH,
@@ -237,6 +239,7 @@ export function MyLocks() {
             type="number"
             min="0"
             step="1"
+            aria-label="Lock ID"
             value={lockIdInput}
             onChange={(event) => { setLockIdInput(event.target.value); setLookupId(undefined) }}
             onKeyDown={(event) => { if (event.key === 'Enter') handleLookup() }}

@@ -75,7 +75,7 @@ functions use the corresponding `997/1000` calculation.
   "chainId": "0x1159",
   "chainName": "LitVM LiteForge",
   "nativeCurrency": { "name": "zkLTC", "symbol": "zkLTC", "decimals": 18 },
-  "rpcUrls": ["https://liteforge.rpc.caldera.xyz/http"],
-  "blockExplorerUrls": ["https://liteforge.explorer.caldera.xyz"]
+  "rpcUrls": ["https://rpc.testnet.liteforge.zeeve.net/"],
+  "blockExplorerUrls": ["https://explorer.testnet.liteforge.zeeve.net"]
 }
 ```

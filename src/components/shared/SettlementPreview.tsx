@@ -5,7 +5,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { ChevronDown, ChevronUp, ExternalLink, X } from 'lucide-react'
 
 const ACCENT = '#E44FB5'
-const EXPLORER_BASE = 'https://liteforge.explorer.caldera.xyz'
+const EXPLORER_BASE = 'https://explorer.testnet.liteforge.zeeve.net'
 
 interface SettlementPreviewProps {
   isOpen: boolean

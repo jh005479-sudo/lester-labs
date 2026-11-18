@@ -46,7 +46,7 @@ be at least 30 days.
 | `refund()` | Participant after cancellation or a refundable failed sale |
 | `cancel()` | Owner, or anyone after the end when the soft cap was not met |
 | `claimLP()` | Sale owner after the LP lock expires |
-| `sweepExcessETH()` | Sale owner after finalization |
+| `sweepExcessETH()` | Sale owner after finalization or a closed failed/cancelled sale; outstanding refunds remain reserved |
 | `sweepExcessTokens()` | Sale owner after finalization or failure |
 
 ## Sale view functions

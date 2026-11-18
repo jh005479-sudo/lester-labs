@@ -570,8 +570,9 @@ function CreatePresaleForm() {
         <div style={{ display: 'grid', gap: '20px' }}>
           {/* Token Address */}
           <div>
-            <label style={labelStyle}>Token Address</label>
+            <label htmlFor="presale-token-address" style={labelStyle}>Token Address</label>
             <input
+              id="presale-token-address"
               style={inputStyle}
               placeholder="0x..."
               value={form.tokenAddress}
@@ -596,8 +597,9 @@ function CreatePresaleForm() {
             }}
           >
             <div>
-              <label style={labelStyle}>Soft Cap (zkLTC)</label>
+              <label htmlFor="presale-soft-cap" style={labelStyle}>Soft Cap (zkLTC)</label>
               <input
+                id="presale-soft-cap"
                 style={inputStyle}
                 type="number"
                 placeholder="10"
@@ -607,8 +609,9 @@ function CreatePresaleForm() {
               {errors.softCap && <div style={errorStyle}>{errors.softCap}</div>}
             </div>
             <div>
-              <label style={labelStyle}>Hard Cap (zkLTC)</label>
+              <label htmlFor="presale-hard-cap" style={labelStyle}>Hard Cap (zkLTC)</label>
               <input
+                id="presale-hard-cap"
                 style={inputStyle}
                 type="number"
                 placeholder="50"
@@ -621,8 +624,9 @@ function CreatePresaleForm() {
 
           {/* Price */}
           <div>
-            <label style={labelStyle}>Tokens per zkLTC</label>
+            <label htmlFor="presale-token-price" style={labelStyle}>Tokens per zkLTC</label>
             <input
+              id="presale-token-price"
               style={inputStyle}
               type="number"
               placeholder="1000000"
@@ -655,8 +659,9 @@ function CreatePresaleForm() {
             }}
           >
             <div>
-              <label style={labelStyle}>Start Date</label>
+              <label htmlFor="presale-start-date" style={labelStyle}>Start Date</label>
               <input
+                id="presale-start-date"
                 style={inputStyle}
                 type="datetime-local"
                 value={form.startDate}
@@ -665,8 +670,9 @@ function CreatePresaleForm() {
               {errors.startDate && <div style={errorStyle}>{errors.startDate}</div>}
             </div>
             <div>
-              <label style={labelStyle}>End Date</label>
+              <label htmlFor="presale-end-date" style={labelStyle}>End Date</label>
               <input
+                id="presale-end-date"
                 style={inputStyle}
                 type="datetime-local"
                 value={form.endDate}
@@ -678,10 +684,11 @@ function CreatePresaleForm() {
 
           {/* Liquidity % */}
           <div>
-            <label style={labelStyle}>
+            <label htmlFor="presale-liquidity-allocation" style={labelStyle}>
               Liquidity Allocation — {form.liquidityPct}%
             </label>
             <input
+              id="presale-liquidity-allocation"
               style={{ ...inputStyle, padding: '6px 14px' }}
               type="range"
               min="50"
@@ -703,8 +710,9 @@ function CreatePresaleForm() {
 
           {/* LP Lock */}
           <div>
-            <label style={labelStyle}>LP Lock Duration</label>
+            <label htmlFor="presale-lock-duration" style={labelStyle}>LP Lock Duration</label>
             <select
+              id="presale-lock-duration"
               style={inputStyle}
               value={form.lpLockDays}
               onChange={set('lpLockDays')}
@@ -1365,7 +1373,7 @@ export default function LaunchpadPage() {
   )
 
   return (
-    <div
+    <main aria-label="Token launchpad"
       className="min-h-screen"
       style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >
@@ -1574,6 +1582,7 @@ export default function LaunchpadPage() {
               <div style={{ position: 'relative' }}>
                 <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.35)' }} />
                 <input
+                  aria-label="Search presales"
                   value={presaleSearch}
                   onChange={(event) => setPresaleSearch(event.target.value)}
                   placeholder="Search by token, project, presale, or token address"
@@ -1789,6 +1798,6 @@ export default function LaunchpadPage() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   )
 }

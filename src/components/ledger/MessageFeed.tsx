@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Radio, RefreshCcw, Signal } from 'lucide-react'
+import { Loader2, Radio, RefreshCcw } from 'lucide-react'
 import { MessageCard } from '@/components/ledger/MessageCard'
 import { type LedgerMessage } from '@/lib/contracts/ledger'
 
 interface MessageFeedProps {
-  connectionMode: 'connecting' | 'websocket' | 'polling'
+  connectionMode: 'connecting' | 'polling'
   error: string | null
   hasMore: boolean
   isLoadingInitial: boolean
@@ -104,19 +104,12 @@ export function MessageFeed({
           style={{
             borderColor: 'rgba(255,255,255,0.08)',
             background: 'rgba(255,255,255,0.03)',
-            color:
-              connectionMode === 'websocket'
-                ? '#bbf7d0'
-                : connectionMode === 'polling'
-                  ? '#fde68a'
-                  : '#dbe2ff',
+            color: connectionMode === 'polling' ? '#bbf7d0' : '#dbe2ff',
           }}
         >
-          {connectionMode === 'websocket' && <Signal size={13} />}
           {connectionMode === 'polling' && <RefreshCcw size={13} />}
           {connectionMode === 'connecting' && <Loader2 size={13} className="animate-spin" />}
-          {connectionMode === 'websocket' && 'WebSocket updates'}
-          {connectionMode === 'polling' && 'Polling fallback'}
+          {connectionMode === 'polling' && 'Refreshes every 30 seconds'}
           {connectionMode === 'connecting' && 'Connecting'}
         </div>
       </div>
@@ -131,19 +124,6 @@ export function MessageFeed({
           }}
         >
           {error}
-        </div>
-      )}
-
-      {connectionMode === 'polling' && !error && (
-        <div
-          className="mb-5 rounded-2xl border px-4 py-3 text-sm"
-          style={{
-            borderColor: 'rgba(251,191,36,0.2)',
-            background: 'rgba(251,191,36,0.08)',
-            color: '#fde68a',
-          }}
-        >
-          WebSocket updates are offline right now. The feed is refreshing from RPC every 30 seconds.
         </div>
       )}
 

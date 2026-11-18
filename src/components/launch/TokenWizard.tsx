@@ -218,7 +218,7 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
   const [currentTxHash, setCurrentTxHash] = useState<`0x${string}` | undefined>()
 
   // RP-003: Read creation fee from contract
-  const { data: creationFee, isLoading: isFeeLoading } = useReadContract({
+  const { data: creationFee, isSuccess: isFeeVerified } = useReadContract({
     address: TOKEN_FACTORY_ADDRESS,
     abi: TOKEN_FACTORY_ABI,
     functionName: 'creationFee',
@@ -246,9 +246,9 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
   const factoryControlApproved =
     isOwnerSuccess &&
     hasApprovedLesterControl({ owner: factoryOwner as string | undefined })
-  const feeReady = isContractConfigured && creationFee !== undefined && !isFeeLoading
+  const feeReady = isContractConfigured && creationFee !== undefined && isFeeVerified
   const paidActionReady = feeReady && factoryControlApproved
-  const feeDisplay = creationFee ? formatEther(creationFee) : '...'
+  const feeDisplay = feeReady ? formatEther(creationFee) : undefined
 
   const { data: receipt } = useWaitForTransactionReceipt({
     hash: currentTxHash,
@@ -329,7 +329,7 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
     if (!feeReady) return // RP-003: Block submit until fee loaded
     try {
       const freshOwner = await refetchFactoryOwner()
-      if (!hasApprovedLesterControl({ owner: freshOwner.data as string | undefined })) {
+      if (!freshOwner.isSuccess || !hasApprovedLesterControl({ owner: freshOwner.data as string | undefined })) {
         setModalOpen(true)
         setTxStatus('error')
         setTxMessage('Token deployment was blocked because a fresh on-chain read did not confirm the approved Token Factory owner.')
@@ -422,7 +422,7 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
             isWrongNetwork={isWrongNetwork}
             isSwitchingNetwork={isSwitchingChain}
             feeDisplay={feeDisplay}
-            feeReady={paidActionReady}
+            deploymentReady={paidActionReady}
           />
         )}
 
@@ -435,8 +435,9 @@ export function TokenWizard({ onStateChange }: TokenWizardProps) {
         {isContractConfigured && !factoryControlApproved && (
           <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
             {isOwnerLoading
-              ? 'Checking the configured Token Factory owner; new paid deployments remain unavailable…'
-              : `Paid token deployment is disabled because ${LESTER_TREASURY_STATUS}.`}
+              ? 'Checking the Token Factory owner…'
+              : !isOwnerSuccess ? 'The Token Factory owner could not be verified. Deployment is unavailable.'
+              : 'The verified factory owner does not meet the deployment policy.'}
           </div>
         )}
 

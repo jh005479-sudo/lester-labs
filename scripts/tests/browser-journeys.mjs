@@ -1,5 +1,6 @@
 /** Local-only browser regression tests. Uses an already installed Chromium; downloads nothing. */
 import assert from 'node:assert/strict'
+import { PLATFORM_ACTIVITY_BASELINE as baseline } from '../../src/config/platformActivitySnapshot.ts'
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -19,6 +20,7 @@ let nextId = 0
 const requests = new Map()
 let sessionId
 let connectionError
+let serveZeroFactoryFee = false
 const failConnection = error => {
   connectionError = error
   for (const pending of requests.values()) { clearTimeout(pending.timeout); pending.reject(error) }
@@ -43,6 +45,37 @@ try {
       // Tests never contact RPCs, metrics providers, wallets, or other external services.
       const url = new URL(message.params.request.url)
       const local = url.origin === base.origin || ['data:', 'blob:'].includes(url.protocol)
+      if (serveZeroFactoryFee && url.origin === 'https://rpc.testnet.liteforge.zeeve.net') {
+        const request = message.params.request
+        const cors = [
+          { name: 'Access-Control-Allow-Origin', value: base.origin },
+          { name: 'Access-Control-Allow-Headers', value: 'content-type' },
+          { name: 'Access-Control-Allow-Methods', value: 'POST' },
+        ]
+        if (request.method === 'OPTIONS') {
+          await send('Fetch.fulfillRequest', { requestId: message.params.requestId, responseCode: 204, responseHeaders: cors }, message.sessionId)
+          return
+        }
+        const rpc = request.postData && JSON.parse(request.postData)
+        if (rpc?.method === 'eth_call' && rpc.params?.[0]?.data === '0xdce0b4e4') {
+          const result = { jsonrpc: '2.0', id: rpc.id, result: '0x' + '0'.repeat(64) }
+          await send('Fetch.fulfillRequest', { requestId: message.params.requestId, responseCode: 200,
+            responseHeaders: [...cors, { name: 'Content-Type', value: 'application/json' }],
+            body: Buffer.from(JSON.stringify(result)).toString('base64') }, message.sessionId)
+          return
+        }
+      }
+      if (url.origin === base.origin && ['/api/platform-stats', '/api/explorer/summary'].includes(url.pathname)) {
+        const stats = url.pathname === '/api/platform-stats'
+        const payload = stats ? {
+          ...baseline.totals, baseline, fetchedAt: '2026-11-18T00:00:00Z',
+          breakdown: Object.fromEntries(Object.entries(baseline.totals).map(([key, count]) => [key, { baseline: count, postCutover: 0 }])),
+          coverage: Object.fromEntries(Object.keys(baseline.totals).map(key => [key, { status: 'fallback' }])),
+        } : { error: 'Live explorer feed temporarily unavailable.' }
+        await send('Fetch.fulfillRequest', { requestId: message.params.requestId, responseCode: stats ? 200 : 503,
+          responseHeaders: [{ name: 'Content-Type', value: 'application/json' }], body: Buffer.from(JSON.stringify(payload)).toString('base64') }, message.sessionId)
+        return
+      }
       if (url.origin === base.origin && ['/api/activity', '/api/market-history', '/api/usage'].includes(url.pathname)) {
         const usage = url.pathname === '/api/usage'
         await send('Fetch.fulfillRequest', { requestId: message.params.requestId, responseCode: usage ? 200 : 503, responseHeaders: [{name:'Content-Type',value:'application/json'}], body: Buffer.from(JSON.stringify(usage ? {available:false} : {error:'History unavailable'})).toString('base64') }, message.sessionId).catch(() => undefined)
@@ -132,7 +165,25 @@ try {
   await waitFor('Array.from(document.querySelectorAll("button")).some(b=>b.textContent.includes("Next") && !b.disabled)')
   await send('Page.reload')
   await waitFor('document.querySelector("input[placeholder=\\"e.g. My Awesome Token\\"]")?.value === "Browser Journey Token"')
-  console.log('PASS token validation and draft reload')
+  const openTokenReview = async () => {
+    for (let step = 0; step < 2; step++) {
+      await evaluate('Array.from(document.querySelectorAll("main button")).find(button => button.textContent.includes("Next") && !button.disabled).click()')
+      await pause(100)
+    }
+  }
+  await openTokenReview()
+  await waitFor('document.body.innerText.includes("The factory fee could not be verified.")')
+  assert.equal(await evaluate('document.querySelector("main").innerText.includes("0.05 zkLTC")'), false)
+  serveZeroFactoryFee = true
+  await navigate('/launch', 'Token Basics')
+  await waitFor('document.querySelector("input[type=number]")?.value === "1000000"')
+  await openTokenReview()
+  await waitFor('Array.from(document.querySelectorAll("main span")).some(el => el.textContent === "0 zkLTC")')
+  serveZeroFactoryFee = false
+  console.log('PASS token draft reload, unavailable fee and verified zero fee')
+  await navigate('/explorer', 'Latest Block')
+  await waitFor('document.querySelector("main").innerText.split("Unavailable").length >= 4')
+  console.log('PASS failed explorer feeds mark all unknown counts unavailable')
   const token = '0x1111111111111111111111111111111111111111'
   await navigate(`/vesting?token=${token}`, 'Plan your token releases')
   await waitForFunction('function(token) { return Array.from(document.querySelectorAll("input")).some(el => el.value === token) }', [token])
@@ -161,11 +212,76 @@ try {
   await waitFor('document.body.innerText.includes("We couldn’t load activity.")')
   assert.equal(await evaluate('document.body.innerText.includes("No entries on this page.")'),false)
   console.log('PASS unavailable history is not presented as empty activity')
-  await send('Emulation.setDeviceMetricsOverride', {width:390,height:844,deviceScaleFactor:1,mobile:true})
+  for (const width of [320, 768, 390]) {
+    await send('Emulation.setDeviceMetricsOverride', {width,height:844,deviceScaleFactor:1,mobile:true})
+    await navigate('/', 'LESTER LABS')
+    await waitFor('document.querySelector(".scroll-hero-stats")?.innerText.includes("Snapshot")')
+    let originalCounterSize
+    for (const scale of [100, 150]) {
+      await callFunction('function(scale) { document.documentElement.style.fontSize = scale + "%"; }', [scale])
+      const layout = await evaluate(`(() => {
+        const stats = document.querySelector('.scroll-hero-stats')
+        const next = document.querySelector('.scroll-hero-spacer').nextElementSibling
+        const cards = [...stats.querySelectorAll('small')].filter(el => el.textContent.includes('Snapshot'))
+        const fits = cards.every(label => {
+          const card = label.parentElement.getBoundingClientRect()
+          return [...label.parentElement.children].every(child => {
+            const box = child.getBoundingClientRect()
+            return box.left >= card.left - 1 && box.right <= card.right + 1
+          })
+        })
+        const size = parseFloat(getComputedStyle(cards[0].parentElement.firstElementChild).fontSize)
+        return { cards: cards.length, bottom: stats.getBoundingClientRect().bottom, next: next.getBoundingClientRect().top, fits, size }
+      })()`)
+      assert.equal(layout.cards, 5)
+      assert.ok(layout.fits, `Counter text escapes its card at ${width}px and ${scale}%`)
+      if (scale === 100) originalCounterSize = layout.size
+      else assert.ok(layout.size >= originalCounterSize * 1.49, 'Counter type must follow the requested font size')
+      assert.ok(layout.bottom <= layout.next + 1, `Hero overlaps at ${width}px and ${scale}% font size`)
+      await noOverflow()
+    }
+    await evaluate('document.documentElement.style.fontSize = ""')
+  }
+  console.log('PASS dated counters clear the next section at three mobile widths and enlarged text')
+  const pressKey = async (key, shift = false) => {
+    for (const type of ['rawKeyDown','keyUp']) await send('Input.dispatchKeyEvent', {
+      type, key, code: key, windowsVirtualKeyCode: key === 'Tab' ? 9 : 27, modifiers: shift ? 8 : 0,
+    })
+  }
+  await evaluate('document.querySelector("button[aria-controls=mobile-navigation-menu]").click()')
+  const toggleSelector = 'button[aria-controls=mobile-navigation-menu]'
+  await waitFor(`document.activeElement.matches('${toggleSelector}[aria-expanded=true]')`)
+  await pressKey('Tab', true)
+  assert.equal(await evaluate('document.activeElement === Array.from(document.querySelectorAll("#mobile-navigation-menu a[href]")).at(-1)'), true)
+  await pressKey('Tab')
+  assert.equal(await evaluate(`document.activeElement.matches('${toggleSelector}')`), true)
+  await pressKey('Tab')
+  assert.equal(await evaluate('document.activeElement === document.querySelector("#mobile-navigation-menu a[href]")'), true)
+  await pressKey('Escape')
+  await waitFor(`document.activeElement.matches('${toggleSelector}[aria-expanded=false]')`)
+  console.log('PASS mobile navigation wraps keyboard focus and returns focus on Escape')
   for (const [path,text] of [['/projects','Build your next project.'],['/setup','Ready for your first transaction?'],['/locker/verify','Check a liquidity lock'],['/vesting','Plan your token releases'],['/transactions','Transactions']]) {
     await navigate(path,text); await noOverflow()
   }
   console.log('PASS five mobile routes without horizontal overflow')
+  for (const [path,text] of [['/swap','Lester Swap'],['/pool','Liquidity Pool'],['/launch','Lester Minter'],['/launchpad','Lester Launch'],['/airdrop','Lester Dropper'],['/docs','Lester Labs Documentation'],['/tutorials','LitVM DeFi Tutorials'],['/governance','Lester Gov'],['/locker','New deposits are paused'],['/vesting','Plan your token releases'],['/portfolio','Your portfolio']]) {
+    await navigate(path,text)
+    await noOverflow()
+    const semantics = await evaluate(`(() => {
+      const visible = (element) => { const rect = element.getBoundingClientRect(); const style = getComputedStyle(element); return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none' }
+      const unnamed = Array.from(document.querySelectorAll('button,input,select,textarea')).filter((element) => {
+        if (!visible(element) || element.type === 'hidden') return false
+        return !(element.getAttribute('aria-label') || element.getAttribute('aria-labelledby') || element.labels?.length || element.textContent?.trim() || element.title)
+      }).length
+      const undersized = Array.from(document.querySelectorAll('button,input,select')).filter((element) => {
+        if (!visible(element) || ['checkbox','radio','range','hidden'].includes(element.type)) return false
+        return element.getBoundingClientRect().height < 43.5
+      }).length
+      return { mains: document.querySelectorAll('main').length, namedMain: Boolean(document.querySelector('main')?.getAttribute('aria-label')?.trim()), h1s: document.querySelectorAll('main h1').length, unnamed, undersized }
+    })()`)
+    assert.deepEqual(semantics, { mains: 1, namedMain: true, h1s: 1, unnamed: 0, undersized: 0 }, `${path} mobile semantics regressed`)
+  }
+  console.log('PASS tool routes with one main, one h1, named controls, and 44px mobile targets')
 } finally {
   for (const pending of requests.values()) { clearTimeout(pending.timeout); pending.reject(new Error('Browser closed')) }
   requests.clear()

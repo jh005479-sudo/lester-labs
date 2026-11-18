@@ -1,23 +1,35 @@
 {
   "schemaVersion": 2,
-  "sourceTreeSha256": "e81a5144c6630b319ee54156bc246ab04cb82b44a3b76d9e2efa6933cf84a64e",
+  "sourceTreeSha256": "5c4dc8206660e9d6ba7fb1357df23e9dc6d2f51fe2394ee60bbcfa604cc415f7",
   "observations": [
     {
       "path": "build/server/app/api/platform-stats/route.js",
       "origins": [
-        "https://4byte.sourcify.dev",
-        "https://abitype.dev${e",
-        "https://arweave.net",
-        "https://docs.soliditylang.org",
-        "https://ipfs.io",
-        "https://oxlib.sh",
         "https://rpc.lite-node.com"
+      ]
+    },
+    {
+      "path": "build/server/app/locker/page.js",
+      "origins": [
+        "https://www.lester-labs.com${(0,y.xv"
       ]
     },
     {
       "path": "build/server/app/page.js",
       "origins": [
         "https://rpc.lite-node.com"
+      ]
+    },
+    {
+      "path": "build/server/app/portfolio/page.js",
+      "origins": [
+        "https://www.lester-labs.com${a.href"
+      ]
+    },
+    {
+      "path": "build/server/app/projects/[address]/page.js",
+      "origins": [
+        "https://nextjs.org"
       ]
     },
     {
@@ -46,22 +58,30 @@
       ]
     },
     {
-      "path": "build/server/chunks/134.js",
+      "path": "build/server/chunks/1470.js",
       "origins": [
-        "https://4byte.sourcify.dev"
+        "https://bit.ly",
+        "https://redux-toolkit.js.org",
+        "https://redux.js.org"
       ]
     },
     {
-      "path": "build/server/chunks/1493.js",
+      "path": "build/server/chunks/1519.js",
       "origins": [
+        "https://4byte.sourcify.dev",
+        "https://abitype.dev${e",
         "https://arweave.net",
-        "https://ipfs.io"
+        "https://docs.soliditylang.org",
+        "https://ipfs.io",
+        "https://oxlib.sh",
+        "https://viem.sh",
+        "https://wagmi.sh"
       ]
     },
     {
       "path": "build/server/chunks/1797.js",
       "origins": [
-        "https://www.lester-labs.com${o}"
+        "https://www.lester-labs.com${q}"
       ]
     },
     {
@@ -81,34 +101,39 @@
       ]
     },
     {
-      "path": "build/server/chunks/3051.js",
-      "origins": [
-        "https://www.lester-labs.com${o}"
-      ]
-    },
-    {
-      "path": "build/server/chunks/3061.js",
-      "origins": [
-        "https://rpc.lite-node.com"
-      ]
-    },
-    {
-      "path": "build/server/chunks/3445.js",
+      "path": "build/server/chunks/2970.js",
       "origins": [
         "http://n",
         "https://nextjs.org"
       ]
     },
     {
-      "path": "build/server/chunks/3961.js",
+      "path": "build/server/chunks/3595.js",
       "origins": [
-        "https://rpc.lite-node.com"
+        "https://4byte.sourcify.dev",
+        "https://abitype.dev${e",
+        "https://arweave.net",
+        "https://docs.soliditylang.org",
+        "https://ipfs.io",
+        "https://oxlib.sh"
+      ]
+    },
+    {
+      "path": "build/server/chunks/3889.js",
+      "origins": [
+        "https://www.lester-labs.com${q}"
       ]
     },
     {
       "path": "build/server/chunks/5031.js",
       "origins": [
-        "https://www.lester-labs.com${o}"
+        "https://www.lester-labs.com${q}"
+      ]
+    },
+    {
+      "path": "build/server/chunks/7867.js",
+      "origins": [
+        "https://rpc.lite-node.com"
       ]
     },
     {
@@ -118,51 +143,39 @@
       ]
     },
     {
-      "path": "build/server/chunks/8676.js",
-      "origins": [
-        "https://4byte.sourcify.dev",
-        "https://abitype.dev${e",
-        "https://docs.soliditylang.org",
-        "https://oxlib.sh"
-      ]
-    },
-    {
-      "path": "build/server/chunks/9331.js",
-      "origins": [
-        "https://viem.sh",
-        "https://wagmi.sh"
-      ]
-    },
-    {
       "path": "build/server/chunks/979.js",
       "origins": [
         "https://viem.sh"
       ]
     },
     {
-      "path": "build/server/chunks/9885.js",
+      "path": "build/standalone/.next/server/app/api/platform-stats/route.js",
       "origins": [
-        "https://bit.ly",
-        "https://redux-toolkit.js.org",
-        "https://redux.js.org"
+        "https://rpc.lite-node.com"
       ]
     },
     {
-      "path": "build/standalone/.next/server/app/api/platform-stats/route.js",
+      "path": "build/standalone/.next/server/app/locker/page.js",
       "origins": [
-        "https://4byte.sourcify.dev",
-        "https://abitype.dev${e",
-        "https://arweave.net",
-        "https://docs.soliditylang.org",
-        "https://ipfs.io",
-        "https://oxlib.sh",
-        "https://rpc.lite-node.com"
+        "https://www.lester-labs.com${(0,y.xv"
       ]
     },
     {
       "path": "build/standalone/.next/server/app/page.js",
       "origins": [
         "https://rpc.lite-node.com"
+      ]
+    },
+    {
+      "path": "build/standalone/.next/server/app/portfolio/page.js",
+      "origins": [
+        "https://www.lester-labs.com${a.href"
+      ]
+    },
+    {
+      "path": "build/standalone/.next/server/app/projects/[address]/page.js",
+      "origins": [
+        "https://nextjs.org"
       ]
     },
     {
@@ -191,22 +204,30 @@
       ]
     },
     {
-      "path": "build/standalone/.next/server/chunks/134.js",
+      "path": "build/standalone/.next/server/chunks/1470.js",
       "origins": [
-        "https://4byte.sourcify.dev"
+        "https://bit.ly",
+        "https://redux-toolkit.js.org",
+        "https://redux.js.org"
       ]
     },
     {
-      "path": "build/standalone/.next/server/chunks/1493.js",
+      "path": "build/standalone/.next/server/chunks/1519.js",
       "origins": [
+        "https://4byte.sourcify.dev",
+        "https://abitype.dev${e",
         "https://arweave.net",
-        "https://ipfs.io"
+        "https://docs.soliditylang.org",
+        "https://ipfs.io",
+        "https://oxlib.sh",
+        "https://viem.sh",
+        "https://wagmi.sh"
       ]
     },
     {
       "path": "build/standalone/.next/server/chunks/1797.js",
       "origins": [
-        "https://www.lester-labs.com${o}"
+        "https://www.lester-labs.com${q}"
       ]
     },
     {
@@ -226,34 +247,39 @@
       ]
     },
     {
-      "path": "build/standalone/.next/server/chunks/3051.js",
-      "origins": [
-        "https://www.lester-labs.com${o}"
-      ]
-    },
-    {
-      "path": "build/standalone/.next/server/chunks/3061.js",
-      "origins": [
-        "https://rpc.lite-node.com"
-      ]
-    },
-    {
-      "path": "build/standalone/.next/server/chunks/3445.js",
+      "path": "build/standalone/.next/server/chunks/2970.js",
       "origins": [
         "http://n",
         "https://nextjs.org"
       ]
     },
     {
-      "path": "build/standalone/.next/server/chunks/3961.js",
+      "path": "build/standalone/.next/server/chunks/3595.js",
       "origins": [
-        "https://rpc.lite-node.com"
+        "https://4byte.sourcify.dev",
+        "https://abitype.dev${e",
+        "https://arweave.net",
+        "https://docs.soliditylang.org",
+        "https://ipfs.io",
+        "https://oxlib.sh"
+      ]
+    },
+    {
+      "path": "build/standalone/.next/server/chunks/3889.js",
+      "origins": [
+        "https://www.lester-labs.com${q}"
       ]
     },
     {
       "path": "build/standalone/.next/server/chunks/5031.js",
       "origins": [
-        "https://www.lester-labs.com${o}"
+        "https://www.lester-labs.com${q}"
+      ]
+    },
+    {
+      "path": "build/standalone/.next/server/chunks/7867.js",
+      "origins": [
+        "https://rpc.lite-node.com"
       ]
     },
     {
@@ -263,33 +289,9 @@
       ]
     },
     {
-      "path": "build/standalone/.next/server/chunks/8676.js",
-      "origins": [
-        "https://4byte.sourcify.dev",
-        "https://abitype.dev${e",
-        "https://docs.soliditylang.org",
-        "https://oxlib.sh"
-      ]
-    },
-    {
-      "path": "build/standalone/.next/server/chunks/9331.js",
-      "origins": [
-        "https://viem.sh",
-        "https://wagmi.sh"
-      ]
-    },
-    {
       "path": "build/standalone/.next/server/chunks/979.js",
       "origins": [
         "https://viem.sh"
-      ]
-    },
-    {
-      "path": "build/standalone/.next/server/chunks/9885.js",
-      "origins": [
-        "https://bit.ly",
-        "https://redux-toolkit.js.org",
-        "https://redux.js.org"
       ]
     },
     {
@@ -307,13 +309,6 @@
     },
     {
       "path": "build/standalone/node_modules/@img/sharp-linux-x64/package.json",
-      "origins": [
-        "https://opencollective.com",
-        "https://sharp.pixelplumbing.com"
-      ]
-    },
-    {
-      "path": "build/standalone/node_modules/@img/sharp-wasm32/package.json",
       "origins": [
         "https://opencollective.com",
         "https://sharp.pixelplumbing.com"
@@ -705,7 +700,7 @@
     {
       "path": "build/standalone/node_modules/next/dist/compiled/@mswjs/interceptors/ClientRequest/index.js",
       "origins": [
-        "http://${o.url"
+        "http://${c.url"
       ]
     },
     {
@@ -842,6 +837,12 @@
       ]
     },
     {
+      "path": "build/standalone/node_modules/next/dist/compiled/fast-jwt/index.js",
+      "origins": [
+        "https://feross.org"
+      ]
+    },
+    {
       "path": "build/standalone/node_modules/next/dist/compiled/fresh/package.json",
       "origins": [
         "http://tjholowaychuk.com"
@@ -869,16 +870,6 @@
       "path": "build/standalone/node_modules/next/dist/compiled/image-size/package.json",
       "origins": [
         "http://netroy.in"
-      ]
-    },
-    {
-      "path": "build/standalone/node_modules/next/dist/compiled/jsonwebtoken/index.js",
-      "origins": [
-        "http://underscorejs.org",
-        "https://feross.org",
-        "https://lodash.com",
-        "https://npms.io",
-        "https://openjsf.org"
       ]
     },
     {
@@ -1114,9 +1105,9 @@
       ]
     },
     {
-      "path": "build/standalone/node_modules/next/dist/lib/detached-promise.js",
+      "path": "build/standalone/node_modules/next/dist/lib/dist-dir.js",
       "origins": [
-        "https://tc39.es"
+        "https://nextjs.org"
       ]
     },
     {
@@ -1231,12 +1222,6 @@
       ]
     },
     {
-      "path": "build/standalone/node_modules/next/dist/next-devtools/server/get-next-error-feedback-middleware.js",
-      "origins": [
-        "http://n${req.url"
-      ]
-    },
-    {
       "path": "build/standalone/node_modules/next/dist/next-devtools/server/launch-editor.js",
       "origins": [
         "https://developer.apple.com"
@@ -1273,7 +1258,6 @@
     {
       "path": "build/standalone/node_modules/next/dist/server/app-render/app-render.js",
       "origins": [
-        "http://n",
         "https://nextjs.org"
       ]
     },
@@ -1411,13 +1395,19 @@
     {
       "path": "build/standalone/node_modules/next/dist/server/dynamic-rendering-utils.js",
       "origins": [
+        "https://developer.mozilla.org",
         "https://nextjs.org"
       ]
     },
     {
-      "path": "build/standalone/node_modules/next/dist/server/image-optimizer.js",
+      "path": "build/standalone/node_modules/next/dist/server/image-optimizer/extract-etag.js",
       "origins": [
-        "https://en.wikipedia.org",
+        "https://en.wikipedia.org"
+      ]
+    },
+    {
+      "path": "build/standalone/node_modules/next/dist/server/image-optimizer/transform.js",
+      "origins": [
         "https://sharp.pixelplumbing.com"
       ]
     },
@@ -1510,12 +1500,6 @@
       "path": "build/standalone/node_modules/next/dist/server/lib/utils.js",
       "origins": [
         "https://nodejs.org"
-      ]
-    },
-    {
-      "path": "build/standalone/node_modules/next/dist/server/mcp/get-mcp-middleware.js",
-      "origins": [
-        "http://n"
       ]
     },
     {
@@ -1638,6 +1622,12 @@
     },
     {
       "path": "build/standalone/node_modules/next/dist/shared/lib/errors/empty-generate-static-params-error.js",
+      "origins": [
+        "https://nextjs.org"
+      ]
+    },
+    {
+      "path": "build/standalone/node_modules/next/dist/shared/lib/errors/ensure-static-gsp-errors.js",
       "origins": [
         "https://nextjs.org"
       ]
@@ -1832,12 +1822,6 @@
       ]
     },
     {
-      "path": "build/standalone/node_modules/react/cjs/react.development.js",
-      "origins": [
-        "https://react.dev"
-      ]
-    },
-    {
       "path": "build/standalone/node_modules/react/package.json",
       "origins": [
         "https://react.dev"
@@ -2003,24 +1987,22 @@
       ]
     },
     {
-      "path": "build/static/chunks/1087-{content-hash}.js",
-      "origins": [
-        "https://arweave.net",
-        "https://ipfs.io"
-      ]
-    },
-    {
       "path": "build/static/chunks/1328-{content-hash}.js",
       "origins": [
         "https://radix-ui.com"
       ]
     },
     {
-      "path": "build/static/chunks/3087-{content-hash}.js",
+      "path": "build/static/chunks/2732-{content-hash}.js",
       "origins": [
-        "https://bit.ly",
-        "https://redux-toolkit.js.org",
-        "https://redux.js.org"
+        "https://wagmi.sh"
+      ]
+    },
+    {
+      "path": "build/static/chunks/2905-{content-hash}.js",
+      "origins": [
+        "https://arweave.net",
+        "https://ipfs.io"
       ]
     },
     {
@@ -2031,7 +2013,7 @@
       ]
     },
     {
-      "path": "build/static/chunks/4419-{content-hash}.js",
+      "path": "build/static/chunks/4442-{content-hash}.js",
       "origins": [
         "https://viem.sh"
       ]
@@ -2043,24 +2025,11 @@
       ]
     },
     {
-      "path": "build/static/chunks/5018-{content-hash}.js",
+      "path": "build/static/chunks/6111-{content-hash}.js",
       "origins": [
-        "https://4byte.sourcify.dev",
-        "https://abitype.dev${n",
-        "https://docs.soliditylang.org",
-        "https://oxlib.sh"
-      ]
-    },
-    {
-      "path": "build/static/chunks/8071-{content-hash}.js",
-      "origins": [
-        "https://4byte.sourcify.dev"
-      ]
-    },
-    {
-      "path": "build/static/chunks/824-{content-hash}.js",
-      "origins": [
-        "https://wagmi.sh"
+        "https://bit.ly",
+        "https://redux-toolkit.js.org",
+        "https://redux.js.org"
       ]
     },
     {
@@ -2070,15 +2039,48 @@
       ]
     },
     {
+      "path": "build/static/chunks/9107-{content-hash}.js",
+      "origins": [
+        "https://wagmi.sh"
+      ]
+    },
+    {
+      "path": "build/static/chunks/9126-{content-hash}.js",
+      "origins": [
+        "https://4byte.sourcify.dev",
+        "https://abitype.dev${n",
+        "https://docs.soliditylang.org",
+        "https://oxlib.sh"
+      ]
+    },
+    {
       "path": "build/static/chunks/9583-{content-hash}.js",
       "origins": [
         "https://links.ethers.org"
       ]
     },
     {
+      "path": "build/static/chunks/9655-{content-hash}.js",
+      "origins": [
+        "https://4byte.sourcify.dev"
+      ]
+    },
+    {
+      "path": "build/static/chunks/app/locker/page-{content-hash}.js",
+      "origins": [
+        "https://www.lester-labs.com${(0,l.xv"
+      ]
+    },
+    {
       "path": "build/static/chunks/app/page-{content-hash}.js",
       "origins": [
         "https://rpc.lite-node.com"
+      ]
+    },
+    {
+      "path": "build/static/chunks/app/portfolio/page-{content-hash}.js",
+      "origins": [
+        "https://www.lester-labs.com${e.href"
       ]
     },
     {
@@ -2105,7 +2107,7 @@
       ]
     },
     {
-      "path": "build/static/css/3993fc18738b5999.css",
+      "path": "build/static/css/46356c1eeab934d8.css",
       "origins": [
         "https://tailwindcss.com"
       ]

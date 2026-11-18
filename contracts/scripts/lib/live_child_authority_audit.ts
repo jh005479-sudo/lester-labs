@@ -7,7 +7,7 @@ import {
 } from "./live_treasury_audit.js";
 
 const DEFAULT_LITVM_RPC_URL =
-  "https://liteforge.rpc.caldera.xyz/http";
+  "https://rpc.testnet.liteforge.zeeve.net/";
 const RPC_BATCH_SIZE = 100;
 const RPC_BATCH_CONCURRENCY = 6;
 const DIRECT_RPC_CONCURRENCY = 10;

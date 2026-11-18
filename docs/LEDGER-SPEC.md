@@ -69,8 +69,7 @@ function post(bytes calldata message) external payable
 
 ### RPC endpoints (already configured in `src/lib/rpcClient.ts`)
 ```
-HTTP:  https://liteforge.rpc.caldera.xyz/http
-WebSocket: wss://liteforge.rpc.caldera.xyz/ws
+HTTP:  https://rpc.testnet.liteforge.zeeve.net/
 ```
 
 ### Chain info
@@ -204,8 +203,7 @@ recipient and no generic native-token sweep.
 │   ├── Post button → wallet → tx
 │   └── Status: idle / signing / pending / confirmed / error
 ├── MessageFeed (the real-time feed)
-│   ├── WebSocket subscription to new MessagePosted events
-│   ├── Polling fallback (every 30s) if WebSocket drops
+│   ├── HTTP polling for new MessagePosted events
 │   └── Paginated historical load (batch of 50, load more on scroll)
 └── Stats bar (total messages, total LTC burned, your posts)
 ```
@@ -219,7 +217,7 @@ recipient and no generic native-token sweep.
 | `MessageFeed` | Real-time + paginated feed | `src/components/ledger/MessageFeed.tsx` |
 | `MessageCard` | Single message display | `src/components/ledger/MessageCard.tsx` |
 | `LedgerStats` | Stats bar | `src/components/ledger/LedgerStats.tsx` |
-| `useLedgerFeed` | WebSocket + polling hook | `src/hooks/useLedgerFeed.ts` |
+| `useLedgerFeed` | HTTP polling hook | `src/hooks/useLedgerFeed.ts` |
 
 ### Layout guidance
 
@@ -235,7 +233,7 @@ recipient and no generic native-token sweep.
 **Message Feed:**
 - Newest-first, paginated (load 50 at a time, "Load more" at bottom)
 - Each card: truncated sender address (0x1234...abcd), relative timestamp ("2s ago"), message text, "View tx →" link
-- When WebSocket fires a new event: prepend to feed with a subtle highlight animation (border flash, then settle)
+- When polling returns a new event: prepend to feed with a subtle highlight animation (border flash, then settle)
 - Empty state: "Be the first to leave a mark on LitVM's history."
 
 **Real-time feed implementation:**
@@ -243,10 +241,8 @@ recipient and no generic native-token sweep.
 // useLedgerFeed hook pseudocode
 function useLedgerFeed(contractAddress: `0x${string}`) {
   // 1. Load historical messages via eth_getLogs (paginated, 50 at a time)
-  // 2. Subscribe to WebSocket: eth_subscribe('logs', { address: contractAddress, topics: [MessagePostedSig] })
-  // 3. On new event: decode, prepend to feed
-  // 4. On WebSocket disconnect: fall back to polling eth_getLogs every 30s
-  // 5. Handle reconnect gracefully
+  // 2. Poll for new logs every 30 seconds.
+  // 3. Deduplicate and prepend decoded messages.
 }
 ```
 
@@ -298,19 +294,8 @@ NEXT_PUBLIC_LEDGER_ADDRESS=<deployed contract address>
 
 ## 6. Real-Time Feed Monitoring
 
-### WebSocket setup
-```typescript
-const WS_URL = 'wss://liteforge.rpc.caldera.xyz/ws'
-const LEDGER_ADDRESS = process.env.NEXT_PUBLIC_LEDGER_ADDRESS
-const MESSAGE_POSTED_SIG = '0x...' // get from contract events once deployed
-```
-
-### Subscription logic
-1. On mount: connect WebSocket
-2. Send `eth_subscribe` for `logs` filtered by `address: LEDGER_ADDRESS` and `topics: [MESSAGE_POSTED_SIG]`
-3. On message: parse, decode hex to UTF-8 string, prepend to feed
-4. On disconnect: set 30s polling interval as fallback, reconnect WebSocket in background
-5. On reconnect: cancel polling, resume WebSocket
+### Feed transport
+Load the initial history over HTTP. Poll for new logs every 30 seconds, decode matching events and deduplicate by transaction and log index. Cancel the interval on unmount.
 
 ### Decoding messages from event data
 ```typescript
@@ -353,8 +338,8 @@ When the build is complete, run the following tests and fix any issues found:
 - Post with wallet connected but form empty — button should be disabled
 - Post with text exceeding 500 chars — character counter should turn red, button disabled
 - Message appears in feed after confirmation — within 5 seconds of tx confirm
-- Reload page — existing messages load from historical log, WebSocket reconnects
-- WebSocket disconnect — polling fallback activates without duplicating messages
+- Reload page — existing messages load from historical log, polling resumes
+- RPC interruption — polling resumes without duplicating messages
 - Rapid-fire posts (3 in a row) — messages appear in correct order, no duplicates
 - Long message (500 chars) — renders correctly without overflow or truncation
 - TX fails — error state shown, user can retry, no ghost message in feed
@@ -366,7 +351,7 @@ When the build is complete, run the following tests and fix any issues found:
 - Empty state — "Be the first to leave a mark..." message shown when no posts exist
 
 **Edge cases:**
-- Browser tab hidden for 10 minutes, WebSocket drops — reconnect works, no duplicate messages in feed, missed messages loaded via polling
+- Browser tab hidden for 10 minutes, polling interrupted — refresh resumes, no duplicate messages in feed, missed messages loaded via polling
 - User pastes a very long string (1000+ chars) — truncated at 500 chars in preview, submission blocked
 - RPC rate-limited — show user-friendly error, allow retry
 - Message contains only whitespace — should be rejected (empty after trim)
@@ -398,7 +383,7 @@ src/components/ledger/MessageComposer.tsx
 src/components/ledger/MessageFeed.tsx
 src/components/ledger/MessageCard.tsx
 src/components/ledger/LedgerStats.tsx
-src/hooks/useLedgerFeed.ts                  — WebSocket + polling hook
+src/hooks/useLedgerFeed.ts                  — HTTP polling hook
 src/lib/contracts/ledger.ts               — ABI + constants
 docs/LEDGER-SPEC.md                       — This document (save for future reference)
 ```
@@ -419,10 +404,10 @@ Before frontend work begins, deploy the contract:
 
 ```bash
 cd contracts
-forge create src/TheLedger.sol:TheLedger --constructor-args <TREASURY_ADDRESS> --rpc-url https://liteforge.rpc.caldera.xyz/http --private-key <DEPLOYER_KEY>
+forge create src/TheLedger.sol:TheLedger --constructor-args <TREASURY_ADDRESS> --rpc-url https://rpc.testnet.liteforge.zeeve.net/ --private-key <DEPLOYER_KEY>
 ```
 
-Verify on: https://liteforge.explorer.caldera.xyz/
+Verify on: https://explorer.testnet.liteforge.zeeve.net/
 
 Provide the deployed address to the frontend team before UI build starts.
 

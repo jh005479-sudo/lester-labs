@@ -1,6 +1,5 @@
 'use client'
 
-import { FeeDisplay } from '@/components/shared/FeeDisplay'
 import { ConnectWalletPrompt } from '@/components/shared/ConnectWalletPrompt'
 import { useAccount } from 'wagmi'
 import { CheckCircle2 } from 'lucide-react'
@@ -15,7 +14,7 @@ interface StepReviewProps {
   isWrongNetwork?: boolean
   isSwitchingNetwork?: boolean
   feeDisplay?: string // RP-003: Live fee from contract
-  feeReady?: boolean  // RP-003: Whether fee is loaded
+  deploymentReady: boolean
 }
 
 interface SummaryRowProps {
@@ -54,8 +53,8 @@ export function StepReview({
   isDeploying,
   isWrongNetwork = false,
   isSwitchingNetwork = false,
-  feeDisplay = '0.05',
-  feeReady = true,
+  feeDisplay,
+  deploymentReady,
 }: StepReviewProps) {
   const { isConnected } = useAccount()
 
@@ -66,9 +65,9 @@ export function StepReview({
       <div>
         <h2 className="text-xl font-semibold text-white">Review Configuration</h2>
         <p className="mt-1 text-sm text-white/50">
-          {feeReady
+          {deploymentReady
             ? 'Confirm the token configuration before using the independently reviewed replacement factory.'
-            : 'Configuration review is available, but deployment remains disabled during post-compromise containment.'}
+            : 'Review your settings while the factory checks are pending.'}
         </p>
       </div>
 
@@ -95,17 +94,17 @@ export function StepReview({
       {/* Fee display (RP-003: live fee from contract) */}
       <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-5 py-4">
         <span className="text-sm font-medium text-white">Configured Factory Fee</span>
-        <FeeDisplay feeLTC={parseFloat(feeDisplay) || 0.05} feeLabel="Total" />
+        <span>{feeDisplay === undefined ? 'Unavailable' : `${feeDisplay} zkLTC`}</span>
       </div>
 
-      {feeReady && isConnected && isWrongNetwork && (
+      {deploymentReady && isConnected && isWrongNetwork && (
         <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-100">
           Wallet is connected to the wrong network. Switch to LitVM Testnet before deploying this token.
         </div>
       )}
 
       {/* Deploy / connect (RP-003: disable until fee loaded) */}
-      {!feeReady ? (
+      {!deploymentReady ? (
         <button
           disabled
           className="w-full rounded-xl bg-[var(--accent)] px-6 py-3.5 text-base font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -117,7 +116,7 @@ export function StepReview({
       ) : (
         <button
           onClick={onDeploy}
-          disabled={!feeReady || (isWrongNetwork ? isSwitchingNetwork : isDeploying)}
+          disabled={!deploymentReady || (isWrongNetwork ? isSwitchingNetwork : isDeploying)}
           className="w-full rounded-xl bg-[var(--accent)] px-6 py-3.5 text-base font-semibold text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isWrongNetwork
@@ -131,9 +130,9 @@ export function StepReview({
       )}
 
       <p className="text-center text-xs text-white/30">
-        {feeReady
+        {deploymentReady
           ? `The source-pinned factory charges ${feeDisplay} zkLTC on a confirmed deployment.`
-          : 'No deployment or fee-bearing wallet request should be approved while containment is active.'}
+          : feeDisplay === undefined ? 'The factory fee could not be verified.' : 'Deployment requires a verified factory owner.'}
       </p>
     </div>
   )

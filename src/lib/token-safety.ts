@@ -1,6 +1,6 @@
 // Deliberately source-pinned rather than hosting-environment configurable. Keep
 // this exact reviewed endpoint aligned with src/config/chains.ts.
-export const TOKEN_SAFETY_LITVM_RPC_URL = 'https://liteforge.rpc.caldera.xyz/http' as const
+export const TOKEN_SAFETY_LITVM_RPC_URL = 'https://rpc.testnet.liteforge.zeeve.net/' as const
 
 export interface SafetyCheck {
   name: string
