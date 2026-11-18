@@ -503,7 +503,7 @@ export default function PortfolioPage() {
 
   if (!address) {
     return (
-      <main className="min-h-screen bg-[var(--background)] text-white">
+      <main aria-label="Portfolio" className="min-h-screen bg-[var(--background)] text-white">
         <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
           <header className="workspace-heading"><div><h1>Your portfolio</h1><p>Enter an address to explore, or connect your wallet.</p></div></header>{addressForm}<div className="flex min-h-[40vh] items-center justify-center">
             <ConnectWalletPrompt
@@ -526,7 +526,7 @@ export default function PortfolioPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-white">
+    <main aria-label="Portfolio" className="min-h-screen bg-[var(--background)] text-white">
       <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
         {/* Header */}
         <div className="mb-6 flex items-end justify-between">

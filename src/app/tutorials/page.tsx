@@ -97,7 +97,7 @@ function ArticleCard({ article }: { article: typeof TUTORIALS[0] }) {
 
 export default function TutorialsPage() {
   return (
-    <main className="min-h-screen bg-[var(--background)] text-white">
+    <main aria-label="LitVM tutorials" className="min-h-screen bg-[var(--background)] text-white">
       <div className="pt-[120px] max-w-7xl mx-auto px-4 pb-20">
 
         {/* Header */}

@@ -2027,7 +2027,7 @@ function SwapPageInner() {
     wrappedInputAddress.toLowerCase() === wrappedOutputAddress.toLowerCase()
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main aria-label="Token swap" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <ToolHero
         category="Dex"
         title="Lester"

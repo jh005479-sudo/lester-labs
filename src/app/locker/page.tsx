@@ -13,7 +13,7 @@ export default function LockerPage() {
   const creationAvailable = PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled && !LOCKER_DEPOSITS_PAUSED
   const [tab, setTab] = useState<'create' | 'my-locks'>(creationAvailable ? 'create' : 'my-locks')
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'my-locks') queueMicrotask(() => setTab('my-locks')) }, [])
-  return <main className="workspace-page narrow">
+  return <main aria-label="Liquidity locker" className="workspace-page narrow">
     <header className="workspace-heading"><div><p className="workspace-eyebrow">Liquidity locks · LitVM testnet</p><h1>Lock your liquidity</h1><p>Set an unlock date for LP tokens, or check an existing lock.</p></div></header>
     {!creationAvailable && <p className="workspace-notice">New deposits are paused until the replacement locker verifies the amount received. Existing locks can be checked and eligible withdrawals remain available.</p>}
     <div className="mb-6 flex flex-wrap gap-3" role="group" aria-label="Locker view">

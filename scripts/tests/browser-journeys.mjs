@@ -277,9 +277,9 @@ try {
         if (!visible(element) || ['checkbox','radio','range','hidden'].includes(element.type)) return false
         return element.getBoundingClientRect().height < 43.5
       }).length
-      return { mains: document.querySelectorAll('main').length, h1s: document.querySelectorAll('main h1').length, unnamed, undersized }
+      return { mains: document.querySelectorAll('main').length, namedMain: Boolean(document.querySelector('main')?.getAttribute('aria-label')?.trim()), h1s: document.querySelectorAll('main h1').length, unnamed, undersized }
     })()`)
-    assert.deepEqual(semantics, { mains: 1, h1s: 1, unnamed: 0, undersized: 0 }, `${path} mobile semantics regressed`)
+    assert.deepEqual(semantics, { mains: 1, namedMain: true, h1s: 1, unnamed: 0, undersized: 0 }, `${path} mobile semantics regressed`)
   }
   console.log('PASS tool routes with one main, one h1, named controls, and 44px mobile targets')
 } finally {

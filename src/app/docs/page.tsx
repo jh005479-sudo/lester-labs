@@ -51,7 +51,7 @@ export default function DocsPage() {
   }))
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main aria-label="Lester Labs documentation" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <DocsClient docs={docs} />
     </main>
   )

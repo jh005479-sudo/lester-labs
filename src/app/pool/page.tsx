@@ -1121,7 +1121,7 @@ export default function PoolPage() {
   const isInitialLoading = pairAddressReads.isLoading || pairStateReads.isLoading
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main aria-label="Liquidity pool" className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <ToolHero
         category="Dex"
         title="Liquidity"

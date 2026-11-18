@@ -11,7 +11,7 @@ export default function VestingPage() {
   const { isConnected } = useAccount()
   const [tab, setTab] = useState<'create' | 'my'>('create')
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'my') queueMicrotask(() => setTab('my')) }, [])
-  return <main className="workspace-page narrow">
+  return <main aria-label="Token vesting" className="workspace-page narrow">
     <header className="workspace-heading"><div><p className="workspace-eyebrow">Token vesting · LitVM testnet</p><h1>Plan your token releases</h1><p>Create a release schedule, or check tokens available to claim.</p></div></header>
     {!PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled && <p className="workspace-notice">New schedules are paused. You can still inspect eligible existing positions.</p>}
     <div className="mb-6 flex flex-wrap gap-3" role="group" aria-label="Vesting view">

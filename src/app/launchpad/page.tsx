@@ -1373,7 +1373,7 @@ export default function LaunchpadPage() {
   )
 
   return (
-    <main
+    <main aria-label="Token launchpad"
       className="min-h-screen"
       style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >

@@ -18,7 +18,7 @@ export default function GovernancePage() {
   const [activeTab, setActiveTab] = useState<Tab>('spaces')
 
   return (
-    <main style={{ minHeight: '100vh', background: 'var(--background)' }}>
+    <main aria-label="Governance" style={{ minHeight: '100vh', background: 'var(--background)' }}>
       <ToolHero
         category="Community Voting"
         title="Lester"

@@ -6,7 +6,7 @@ import { PUBLIC_RELEASE_STATUS } from '@/lib/publicReleaseStatus'
 
 export default function AirdropPage() {
   return (
-    <main style={{ minHeight: '100vh', background: 'var(--background)' }}>
+    <main aria-label="Token distribution" style={{ minHeight: '100vh', background: 'var(--background)' }}>
       <ToolHero
         category={PUBLIC_RELEASE_STATUS.ordinaryWritesEnabled ? 'Reviewed / Batch Distribution' : 'Containment / Batch Distribution'}
         title="Lester"
