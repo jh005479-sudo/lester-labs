@@ -38,7 +38,7 @@ export function TransactionMonitor() {
     const interval = window.setInterval(() => void reconcile(), 12_000)
     return () => { cancelled = true; window.clearInterval(interval) }
     // Reconcile the fixed pending set; receipt updates create a fresh effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, [pendingKey])
   return null
 }

@@ -168,7 +168,7 @@ export function LockForm() {
   // Populate withdrawer with wallet on connect
   useEffect(() => {
     if (connectedAddress && !withdrawer) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks-js/set-state-in-effect
       setWithdrawer(connectedAddress)
     }
   }, [connectedAddress, withdrawer])
@@ -241,7 +241,7 @@ export function LockForm() {
 
     if (approveStep === 'approve') {
       // Approval confirmed
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks-js/set-state-in-effect
       setModalOpen(false)
       setApproveConfirmed(true)
       setApproveStep('lock')

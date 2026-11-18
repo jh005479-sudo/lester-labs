@@ -490,7 +490,7 @@ export function useLedgerFeed({
     }
   // The transport lifecycle is keyed to the contract address and readiness gate.
   // Deliberately excluding the helper functions prevents reconnect loops on every render.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, [address, initializationReady])
 
   return {
