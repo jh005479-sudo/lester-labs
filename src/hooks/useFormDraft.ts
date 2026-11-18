@@ -14,7 +14,7 @@ export function useFormDraft<T extends object>(key: string, defaults: T) {
       setReady(true)
     })
     // The initial schema is fixed for the lifetime of this form.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, [key])
   useEffect(() => {
     if (!ready) return

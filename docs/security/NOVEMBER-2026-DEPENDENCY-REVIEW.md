@@ -1,5 +1,38 @@
 # November 2026 dependency review
 
+## Final tooling migration on PR 97
+
+Both unrestricted npm audits and both production-only audits returned zero findings on 18 November 2026. The previous application lock had 14 high entries attributed to picomatch. The previous contracts lock had seven attributed to Zod. The full audit, signature, lint, build and test gates and all GitHub Action pins are intact. [picomatch advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) · [Zod advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)
+
+### Why the consumers changed
+
+Oxlint 1.93.0 replaces eslint-config-next 16.4.6 and its glob-dependent TypeScript and import-resolution tooling. Current age-eligible Next and TypeScript ESLint packages still depend on fast-glob and tinyglobby respectively. Their upgrade would retain picomatch. The replacement has a native TypeScript parser, can load the existing React rule implementations and covers Next, import and accessibility checks. ESLint 9.39.4 supplies the plugins’ declared peer. The MIT-licensed Next 16.4.6 relative-navigation rule is retained in source because Oxlint lacks it. Its ESLint scope helper remains pinned. Seven existing hook directives now reference the plugin under its Oxlint name. A previously missed internal anchor now uses Next Link. [Oxlint release](https://github.com/oxc-project/oxc/tree/oxlint_v1.93.0) · [Upstream navigation rule](https://github.com/vercel/next.js/blob/v16.4.6/packages/eslint-plugin-next/src/rules/no-location-assign-relative-destination.ts)
+
+The contracts lock changes only Zod 3.25.76 to 4.6.7. Both Hardhat 3.11.1 and the eligible upgrade 3.21.2 declare Zod 3. The repository’s Hardhat config redirects the public validation helper for four pinned Hardhat packages. The adapter re-exports the upstream schemas and implements the two migrations for error paths and incompatible fields with Zod 4.6.7. It executes the patched v4 parser. The original registry files and Hardhat CLI remain byte-for-byte intact. The trusted build producer and verifier both bind the adapter as an input. Recheck the adapter, native plugin APIs and complete lint configuration on future upstream upgrades. [Zod migration guide](https://zod.dev/v4/changelog) · [Hardhat source](https://github.com/NomicFoundation/hardhat)
+
+### Exact direct dependency review
+
+All entries use signed tarballs from https://registry.npmjs.org, are MIT-licensed, and passed the seven-day hold. These are development-only dependencies. The closure column counts distinct locked dependencies, including optional platforms, excluding peers. Existing plugin closures overlap. Sizes are unpacked bytes. “Attested” denotes registry provenance in addition to the registry signature.
+
+| Package and version | Published UTC | Owner and source | Bytes | Direct / closure | Attested | Accepted purpose |
+| --- | --- | --- | ---: | ---: | --- | --- |
+| oxlint 1.93.0 | 2026-11-09 | [Oxc project](https://github.com/oxc-project/oxc), boshen | 2,436,426 | 0 + 19 platform / 19 | yes | Replace glob-dependent lint tooling |
+| eslint-plugin-react 7.37.5 | 2025-04-03 | [jsx-eslint](https://github.com/jsx-eslint/eslint-plugin-react), ljharb and yannickcr | 937,569 | 18 / 123 | no | Retain React deprecation and JSX usage rules |
+| eslint-plugin-react-hooks 7.1.1 | 2026-04-17 | [Meta React](https://github.com/facebook/react), react-bot | 4,095,735 | 5 / 43 | no | Retain the React Compiler and Hooks diagnostics |
+| @eslint-community/eslint-utils 4.9.1 | 2025-12-31 | [ESLint Community](https://github.com/eslint-community/eslint-utils) | 506,000 | 1 / 1 | yes | Resolve scopes and constant expressions in the retained Next rule |
+| @nomicfoundation/hardhat-zod-utils 3.0.5 | 2026-05-20 | [Nomic Foundation](https://github.com/NomicFoundation/hardhat), GitHub trusted publisher | 60,345 | 2 / 16 | yes | Reuse the pinned Hardhat schemas in the adapter |
+| zod 4.6.7 | 2026-10-12 | [Colin McDonnell](https://github.com/colinhacks/zod) | 6,148,944 | 0 / 0 | yes | Validate Hardhat settings and RPC values with the patched parser |
+
+Only Oxlint and its 19 exact native platform bindings introduce new package names. The application lock removes 101 entries and adds 20. The five other direct tools above were already present transitively across the two projects. The contracts lock adds zero package entries. All six direct tarballs and all 19 binding archives were inspected for identity, integrity, files and lifecycle scripts. Oxlint ships prebuilt native code for the selected platform. Its optional Vite and type-aware peers are absent. The other five entries are JavaScript. Zod declares a publish-only hook. The lockfiles flag install hooks only for contracts esbuild 0.28.1 and fsevents 2.3.3. None of these hooks ran. Published maintainer sets were consistent with the preceding stable releases. The two legacy React plugin releases have registry signatures without a provenance attestation. Their already locked bytes were retained.
+
+The tools read project sources and configuration while linting, building and testing. They execute with the Node process’s filesystem, environment and process privileges. Native binaries and JS lint plugins are trusted build inputs. They require no wallet credentials. The build verifier hashes the dependency tree. Replacing Hardhat would also change the contract runtime, compiler and attestation boundaries. The narrow adapter retains those parts of the release process.
+
+### Verification
+
+On Node 24.18.0 and npm 11.16.0, clean installs used credential-free homes and disabled lifecycle scripts. Locally, 478 application and 141 contracts package signatures verified, with 82 and 53 provenance attestations respectively. The lint migration retained every previously scanned source file, all 73 warning occurrences at the same paths and lines, and all previous configured rule severities. The production build, 282 application tests and 52 contract tests passed. Two forced compilations produced identical locker artifacts. Contract regressions exercise invalid network, compiler and Mocha configurations and both accepted and rejected RPC parameters.
+
+## Earlier dependency review, before the tooling migration
+
 Reviewed 18 November 2026 on Node 24.18.0 and npm 11.16.0. This candidate updates existing application and contract build dependencies. The runtime audits are clear. Full audit gates still block promotion.
 
 | Lockfile | Before, critical / high / moderate / low | After, critical / high / moderate / low | After, production only |

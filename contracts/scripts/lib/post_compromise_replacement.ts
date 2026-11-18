@@ -681,6 +681,7 @@ export function verifyReplacementBuildAttestation(
     "package-lock.json",
     ".npmrc",
     "hardhat.config.ts",
+    "tooling/hardhat-zod4.mjs",
     parsed.planPath,
     ...(parsed.deploymentProfile === PRODUCTION_SEPARATED_PROFILE
       ? [PRODUCTION_AUTHORITY_INVENTORY_RELATIVE_PATH]
