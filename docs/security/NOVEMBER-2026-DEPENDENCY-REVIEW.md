@@ -29,7 +29,7 @@ The tools read project sources and configuration while linting, building and tes
 
 ### Verification
 
-On Node 24.18.0 and npm 11.16.0, clean installs used credential-free homes and disabled lifecycle scripts. Locally, 478 application and 141 contracts package signatures verified, with 82 and 53 provenance attestations respectively. The lint migration retained every previously scanned source file, all 73 warning occurrences at the same paths and lines, and all previous configured rule severities. The production build, 282 application tests and 52 contract tests passed. Two forced compilations produced identical locker artifacts. Contract regressions exercise invalid network, compiler and Mocha configurations and both accepted and rejected RPC parameters.
+On Node 24.18.0 and npm 11.16.0, clean installs used credential-free homes and disabled lifecycle scripts. Locally, 478 application and 141 contracts package signatures verified, with 82 and 53 provenance attestations respectively. The lint migration retained every previously scanned source file, all 73 warning occurrences at the same paths and lines, and all previous configured rule severities. The production build, 283 application tests and 52 contract tests passed. A lint regression checks that a conditional Hook exits with an error and that accessibility, navigation and TypeScript warnings remain visible. Two forced compilations produced identical locker artifacts. Contract regressions exercise invalid network, compiler and Mocha configurations and both accepted and rejected RPC parameters.
 
 ## Earlier dependency review, before the tooling migration
 
