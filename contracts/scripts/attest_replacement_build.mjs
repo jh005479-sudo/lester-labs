@@ -36,6 +36,7 @@ const inputPaths = [
   "package-lock.json",
   ".npmrc",
   "hardhat.config.ts",
+  "tooling/hardhat-zod4.mjs",
   planRelativePath,
   ...(deploymentProfile === "production-separated-authority"
     ? ["deployment/production-authorities.json"]

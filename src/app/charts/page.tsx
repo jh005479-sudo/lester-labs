@@ -376,7 +376,7 @@ function ChartsContent() {
       cancelled = true
     }
   // selectedMarketKey includes the fields needed to refresh chart history.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks-js/exhaustive-deps
   }, [selectedMarketKey])
 
   const selectedBaseSupply = (selectedBaseSupplyRead.data ?? 0n) as bigint

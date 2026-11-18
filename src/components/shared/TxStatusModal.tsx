@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import * as Dialog from '@radix-ui/react-dialog'
 import { ArrowUpRight, Check, CheckCircle, Copy, ExternalLink, Loader2, X, XCircle } from 'lucide-react'
 
@@ -159,7 +160,7 @@ export function TxStatusModal({
                 {status === 'pending' ? 'Close' : 'Done'}
               </button>
             </div>
-            <a href="/transactions" className="text-sm text-violet-300 underline underline-offset-4">View transaction history</a>
+            <Link href="/transactions" className="text-sm text-violet-300 underline underline-offset-4">View transaction history</Link>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

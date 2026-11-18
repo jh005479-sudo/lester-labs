@@ -372,7 +372,7 @@ export function VestingForm() {
       // Approval confirmed — move to create.
       // Clear currentTxHash first so this effect doesn't re-fire with the
       // stale approval receipt when txPhase changes (which is a dep here).
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks-js/set-state-in-effect
       setCurrentTxHash(undefined)
       setModalOpen(false)
       setTxPhase('create')
